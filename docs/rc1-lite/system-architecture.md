@@ -174,8 +174,8 @@ flowchart LR
 | 項目 | 値 | 定義元 |
 |------|-----|--------|
 | 命令ポーリング | 3 秒 | `config.POLL_INTERVAL_SEC` |
-| heartbeat | 60 秒 | `config.HEARTBEAT_INTERVAL_SEC` |
-| offline 判定 | 90 秒 | `DEVICE_OFFLINE_THRESHOLD_SEC` |
+| heartbeat | 300 秒（5 分） | `config.HEARTBEAT_INTERVAL_SEC` |
+| offline 判定 | 900 秒（15 分） | `DEVICE_OFFLINE_THRESHOLD_SEC` |
 | PWA ポーリング | 5 秒 | `remote-test.js` |
 | eventHistory 上限 | 100 件 | サーバー |
 | notificationHistory 上限 | 50 件 | サーバー |

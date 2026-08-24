@@ -6,7 +6,7 @@ TiSLY Remote Test — 最小ファームウェア
 
 Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython v1.28.0
 
-PoE 起動 → Ethernet 初期化 → 3 秒ごとに命令取得・DI読取 / 60 秒ごとに heartbeat → CH1〜CH8 ON/OFF 実行
+PoE 起動 → Ethernet 初期化 → 3 秒ごとに命令取得・DI読取 / 300 秒ごとに heartbeat → CH1〜CH8 ON/OFF 実行
 
 """
 
@@ -975,7 +975,7 @@ async def async_main():
 
     poll_interval_sec = int(config.POLL_INTERVAL_SEC)
 
-    heartbeat_interval_sec = int(getattr(config, "HEARTBEAT_INTERVAL_SEC", 60))
+    heartbeat_interval_sec = int(getattr(config, "HEARTBEAT_INTERVAL_SEC", 300))
 
     if heartbeat_interval_sec < poll_interval_sec:
 

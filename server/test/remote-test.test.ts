@@ -12,6 +12,7 @@ import {
   detectChStateChanges,
   detectInputStateChanges,
   resetRemoteTestState,
+  DEVICE_OFFLINE_THRESHOLD_SEC,
 } from "../src/remote-test/remote-test-state.js";
 import { setSecurityDemoStatePathForTests } from "../src/remote-test/security-demo-state.js";
 import { resetSecurityDemoConfigCache } from "../src/remote-test/security-demo-config.js";
@@ -20,6 +21,10 @@ const TEST_TOKEN = "test-remote-token-abc123";
 const TEST_STATE_FILE = path.join(os.tmpdir(), `tisly-security-demo-test-${process.pid}.json`);
 
 describe("Remote Test PoC API", () => {
+  it("offline threshold matches 5-min heartbeat margin (15 min)", () => {
+    assert.equal(DEVICE_OFFLINE_THRESHOLD_SEC, 900);
+  });
+
   before(() => {
     process.env.REMOTE_TEST_TOKEN = TEST_TOKEN;
     setSecurityDemoStatePathForTests(TEST_STATE_FILE);

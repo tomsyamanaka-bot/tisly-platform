@@ -1,6 +1,6 @@
 /**
- * TiSLY 公式 PWA アイコン生成 — tisly-logo-source.png から各サイズを出力
- * 64 / 128 / 180 / 192 / 256 / 384 / 512 px + apple-touch-icon.png
+ * TiSLY 公式シールドロゴから PWA アイコン生成
+ * tisly-logo-source.png → 各サイズ + apple-touch-icon
  */
 import fs from "fs";
 import path from "path";

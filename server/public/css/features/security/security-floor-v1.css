@@ -396,12 +396,25 @@
 }
 
 .sf-crystal {
+  /* 旧五角形アイコン互換 · 公式ロゴへ移行 */
   flex: 0 0 auto;
   width: 28px;
   height: 28px;
   background: linear-gradient(135deg, #2563eb, #1e3a8a);
   clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
   box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
+}
+
+/* 公式シールドエンブレム（ヘッダー左） */
+.sf-brand-logo {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+  background: #0b1220;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
 }
 
 .sf-soc-meta {

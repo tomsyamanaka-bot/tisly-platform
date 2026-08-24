@@ -23,7 +23,8 @@ SECURITY_RULES_SYNC_EVERY = 10
 POLL_INTERVAL_SEC = 3
 
 # 生存確認（heartbeat）送信間隔（秒）
-HEARTBEAT_INTERVAL_SEC = 60
+# 過負荷防止のため 5 分周期
+HEARTBEAT_INTERVAL_SEC = 300
 heartbeat_interval_sec = HEARTBEAT_INTERVAL_SEC  # main.py 互換エイリアス
 
 # CH1 リレー出力 GPIO（RO1 — 実機確認済み）

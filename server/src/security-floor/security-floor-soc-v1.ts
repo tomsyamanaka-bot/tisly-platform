@@ -16,7 +16,9 @@ import {
 import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
 
 /** ハートビート受信後この秒数以内ならオンライン扱い */
-const DEVICE_ONLINE_WINDOW_MS = 90_000;
+/** 最終 heartbeat から 15 分以内ならオンライン
+ * （RP2350 は 5 分周期送信） */
+const DEVICE_ONLINE_WINDOW_MS = 900_000;
 
 export type SecurityAlarmStatusV1 =
   | "open"

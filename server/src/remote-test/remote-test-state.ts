@@ -92,8 +92,9 @@ export interface HeartbeatDebugSnapshot {
   lastHeartbeatAt: string | null;
 }
 
-/** RP2350 が応答しないと offline とみなす秒数（heartbeat 60 秒 + 余裕） */
-export const DEVICE_OFFLINE_THRESHOLD_SEC = 90;
+/** RP2350 が応答しないと offline とみなす秒数
+ * heartbeat 300 秒 + 余裕で 15 分 */
+export const DEVICE_OFFLINE_THRESHOLD_SEC = 900;
 
 function createDefaultChannelStates(): ChStates {
   const states: ChStates = {};

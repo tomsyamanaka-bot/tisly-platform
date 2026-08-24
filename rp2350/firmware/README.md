@@ -10,7 +10,7 @@
 | CH1 GPIO | 17（RO1 暫定） |
 | ファームウェア版 | **v1.1.0-poc-success** |
 | 命令取得（poll） | 3 秒 |
-| 生存確認（heartbeat） | 60 秒 |
+| 生存確認（heartbeat） | 300 秒（5 分） |
 
 ### 【実機確認済み】
 
@@ -23,7 +23,7 @@
 
 ## 実機反映前 — 最終確認（heartbeat / poll 分離）
 
-**対象変更:** `poll` 3 秒 / `heartbeat` 60 秒を分離（`config.py` · `main.py` · `remote_test_poll.py`）  
+**対象変更:** `poll` 3 秒 / `heartbeat` 300 秒を分離（`config.py` · `main.py` · `remote_test_poll.py`）  
 **今回の実機アップロード:** `config.py` と `main.py` のみ（`lib/` は変更なし）
 
 ### 実機アップロード用チェックリスト

@@ -1,21 +1,20 @@
-# PWA Icons — TiSLY 青ロゴ（Phase 2002）
+# PWA Icons — TiSLY 公式シールドエンブレム
 
-公式 PWA アイコン。`tisly-logo-source.png` から生成。
+公式シールドロゴ（`../tisly-shield-logo.png`）を
+`tisly-logo-source.png` に同期し、各サイズを生成。
 
 ## 生成
 
 ```bash
 node server/scripts/gen-pwa-icons.mjs
-node server/scripts/sync-manifest-icons.mjs
-node server/scripts/patch-manifest-icon-src.mjs
-node server/scripts/patch-pwa-icon-hrefs.mjs
-node server/scripts/patch-pwa-sw-icon-version.mjs
 ```
 
 ## ファイル
 
 | ファイル | サイズ | 用途 |
 |---------|--------|------|
+| `../tisly-shield-logo.png` | 原寸 | ブランド原画 |
+| `../tisly-shield-logo-128.png` | 128×128 | ヘッダー表示 |
 | `icon-64.png` | 64×64 | favicon |
 | `icon-128.png` | 128×128 | favicon / タブ |
 | `icon-180.png` | 180×180 | apple-touch-icon 参照用 |
@@ -29,4 +28,4 @@ node server/scripts/patch-pwa-sw-icon-version.mjs
 
 ## 反映
 
-manifest / HTML の icon URL に `?v=2003` を付与し、Service Worker キャッシュ名を更新して旧アイコンを無効化します。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。
+manifest / HTML の icon URL に `?v=2503` を付与し、Service Worker キャッシュ名を更新して旧アイコンを無効化します。iOS ホーム画面アイコンは再インストール（削除→追加）が必要な場合があります。

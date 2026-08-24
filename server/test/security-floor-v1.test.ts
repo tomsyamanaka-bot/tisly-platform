@@ -320,12 +320,21 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2502/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2502/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2502/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2502/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2502/);
-    assert.match(html, /security-floor-v1\.css\?v=2502/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2503/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2503/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2503/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2503/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2503/);
+    assert.match(html, /security-floor-v1\.css\?v=2503/);
+    assert.match(html, /sf-brand-logo/);
+    assert.match(html, /tisly-shield-logo-128\.png/);
+    assert.match(html, /icons\/icon-128\.png\?v=2503/);
+    assert.doesNotMatch(html, /sf-crystal/);
+    const socTs = fs.readFileSync(
+      path.resolve("src/security-floor/security-floor-soc-v1.ts"),
+      "utf8"
+    );
+    assert.match(socTs, /DEVICE_ONLINE_WINDOW_MS\s*=\s*900_000/);
     assert.doesNotMatch(html, /sf-live-feed|sf-cam-thumbs|sf-cam-expand|ライブカメラ/);
     assert.doesNotMatch(html, /勝手口カメラ 01/);
     assert.match(html, /sf-push-reregister/);
@@ -519,6 +528,9 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /sf-push-reregister/);
     assert.match(customerHtml, /sf-push-diag/);
     assert.match(customerHtml, /Push通知を再登録・購読/);
+    assert.match(customerHtml, /sf-brand-logo/);
+    assert.match(customerHtml, /tisly-shield-logo-128\.png/);
+    assert.doesNotMatch(customerHtml, /sf-crystal/);
     assert.match(customerHtml, /sf-iso3d-mount/);
     assert.match(customerHtml, /sf-iso3d-stack/);
     assert.match(customerHtml, /sf-iso3d-floor-switch/);
