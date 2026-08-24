@@ -35,8 +35,6 @@ const state = {
   floorId: "1f",
   site: null,
   dash: null,
-  cameraId: null,
-  showCameras: true,
   showSensors: true,
   showZones: true,
   showLabels: true,
@@ -45,6 +43,8 @@ const state = {
   logQ: "",
   logDate: "",
   pane: "map",
+  pollTimer: null,
+  alarmSig: "",
 };
 
 function $(id) {
@@ -132,48 +132,41 @@ function openAlarms(soc) {
   return (soc?.alarmLogs || []).filter((l) => l.status !== "done");
 }
 
-function setLiveScene(cameraId, soc) {
-  const feed = $("sf-live-feed");
-  const xl = $("sf-live-xl");
-  const cam = (soc?.cameras || []).find((c) => c.id === cameraId);
-  const scene = cam?.scene || "lobby";
-  if (feed) {
-    feed.className = `sf-live-feed scene-${scene}`;
-    feed.innerHTML =
-      `<span class="sf-live-badge">LIVE</span><div class="sf-scan"></div>`;
-  }
-  if (xl) {
-    xl.className = `sf-live-feed is-xl scene-${scene}`;
-  }
-  setText(
-    "sf-cam-title",
-    cam ? `ライブカメラ · ${cam.label}` : "ライブカメラ"
-  );
+function alarmSignature(site) {
+  const open = openAlarms(site?.soc);
+  return [
+    site?.hasAlert ? "1" : "0",
+    String(open.length),
+    open
+      .map((a) => `${a.id}:${a.at}:${a.status}:${a.kindLabel}`)
+      .join("|"),
+  ].join("::");
+}
+
+function applyStatusHero(site) {
+  const alerting = !!site?.hasAlert || openAlarms(site?.soc).length > 0;
+  $("sf-status-hero")?.classList.toggle("is-alert", alerting);
+  setText("sf-status-emoji", alerting ? "🚨" : "🟢");
+  setText("sf-status-label", alerting ? "発報中" : "正常です");
 }
 
 function renderKpi(site, dash) {
   const soc = site.soc || {};
-  const cams = (site.sensors || []).filter((s) => s.kind === "camera");
   const sens = (site.sensors || []).filter((s) => s.kind !== "camera");
   const okSens = sens.filter((s) => !s.alertVisible).length;
+  const open = openAlarms(soc);
   const html = [
     [
       "セキュリティ",
-      site.hasAlert ? "発報" : "正常",
-      `アラーム ${dash?.alertCount ?? 0}件`,
-      site.hasAlert ? "alert" : "ok",
-    ],
-    [
-      "カメラ",
-      `${cams.length} / ${cams.length} 台 オンライン`,
-      "LIVE",
-      "info",
+      open.length > 0 || site.hasAlert ? "発報中" : "正常",
+      `アラーム ${open.length}件`,
+      open.length > 0 || site.hasAlert ? "alert" : "ok",
     ],
     [
       "センサー",
       `${okSens} / ${sens.length} 正常`,
       "",
-      site.hasAlert ? "alert" : "ok",
+      open.length > 0 || site.hasAlert ? "alert" : "ok",
     ],
     [
       "スマート照明",
@@ -210,11 +203,11 @@ function renderAlarms(site) {
   setHtml(
     "sf-alarm-list",
     open
-      .slice(0, 6)
+      .slice(0, 8)
       .map(
-        (a) => `<li data-sensor="${a.sensorId}" data-cam="${a.cameraId || ""}">
-          <b>${a.location}</b>
-          <span>${a.kindLabel} · ${formatAlarmTime(a.at)}</span>
+        (a) => `<li data-sensor="${a.sensorId || ""}">
+          <b>🔴 【発報中】${a.kindLabel || a.deviceLabel || "センサー検知"}</b>
+          <span>（${formatAlarmTime(a.at)}）</span>
         </li>`
       )
       .join("") || "<li>発報はありません</li>"
@@ -231,6 +224,7 @@ function renderAlarms(site) {
          <div><dt>フロア</dt><dd>${socFloorLabel(top.floorId)}</dd></div>`
       : "<p>選択中の警報はありません</p>"
   );
+  applyStatusHero(site);
 }
 
 function logIconFor(entry) {
@@ -289,7 +283,7 @@ function renderLogs(site) {
       compact.innerHTML = recent
         .map((l) => {
           const alert =
-            l.status === "open" || /侵入|警報/.test(l.kindLabel || "");
+            l.status === "open" || /侵入|警報|センサー検知/.test(l.kindLabel || "");
           return `<article class="sf-log-row${alert ? " is-alert" : ""}">
             <span class="sf-log-ico" aria-hidden="true">${logIconFor(l)}</span>
             <div class="sf-log-main">
@@ -346,17 +340,25 @@ function renderLogs(site) {
   }
 }
 
-function renderThumbs(site) {
-  const wrap = $("sf-cam-thumbs");
-  if (!wrap || !site) return;
-  const cams = site.soc?.cameras || [];
-  wrap.innerHTML = cams
-    .map(
-      (c) => `<button type="button" class="sf-thumb scene-${c.scene}${
-        c.id === state.cameraId ? " is-on" : ""
-      }" data-cam="${c.id}">${c.label}</button>`
-    )
-    .join("");
+function refreshLiveAlarms(site, dash) {
+  if (!site) return;
+  state.site = site;
+  if (dash) state.dash = dash;
+  state.alarmSig = alarmSignature(site);
+  applyStatusHero(site);
+  setText("sf-sum-alert", String(dash?.alertCount ?? openAlarms(site.soc).length));
+  renderAlarms(site);
+  renderLogs(site);
+  renderKpi(site, state.dash);
+  try {
+    if (window.TislySecurityIso3d?.setAlert) {
+      window.TislySecurityIso3d.setAlert(
+        !!site.hasAlert || openAlarms(site.soc).length > 0
+      );
+    }
+  } catch (_e) {
+    /* ignore */
+  }
 }
 
 function renderSite(site, dash) {
@@ -364,11 +366,8 @@ function renderSite(site, dash) {
   try {
     state.site = site;
     state.dash = dash || state.dash || { alertCount: 0 };
-    setText("sf-status-emoji", site.hasAlert ? "🔴" : "🟢");
-    setText(
-      "sf-status-label",
-      site.hasAlert ? "発報があります" : "正常です"
-    );
+    state.alarmSig = alarmSignature(site);
+    applyStatusHero(site);
     setText(
       "sf-plan",
       `${site.planCode || "home_security_std"} / ${site.planStatus || "active"} / ${site.currency || "JPY"}`
@@ -387,7 +386,7 @@ function renderSite(site, dash) {
     const floors = site.floors || [];
     setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId, site));
     const mapOpts = {
-      showCameras: state.showCameras,
+      showCameras: false,
       showSensors: state.showSensors,
       showZones: state.showZones,
       showLabels: state.showLabels,
@@ -401,14 +400,9 @@ function renderSite(site, dash) {
       "sf-notes",
       (site.notes || []).map((n) => `<li>${n}</li>`).join("")
     );
-    if (!state.cameraId) {
-      state.cameraId = site.soc?.selectedCameraId || null;
-    }
-    setLiveScene(state.cameraId, site.soc);
     renderKpi(site, state.dash);
     renderAlarms(site);
     renderLogs(site);
-    renderThumbs(site);
     bindSecurityOrbit();
     applySecurityOrbit();
     setSecurityDrumFloor(state.floorId);
@@ -430,7 +424,8 @@ function bootFallback() {
   renderSite(bundle.site, bundle.dashboard);
 }
 
-async function loadOperator() {
+async function loadOperator(opts = {}) {
+  const soft = !!opts.soft;
   try {
     const data = await fetchJson(
       `/api/security-floor/v1/operator?siteId=${encodeURIComponent(state.siteId)}`
@@ -441,20 +436,36 @@ async function loadOperator() {
       displayName: s.displayName,
       countryCode: s.countryCode,
     }));
-    fillSiteSelect(sites.length ? sites : listFallbackSites());
-    setText("sf-sum-total", String(data.dashboard?.totalSites ?? sites.length));
+    if (!soft) {
+      fillSiteSelect(sites.length ? sites : listFallbackSites());
+      setText("sf-sum-total", String(data.dashboard?.totalSites ?? sites.length));
+    }
     setText("sf-sum-alert", String(data.dashboard?.alertCount ?? 0));
     if (data.site) {
-      renderSite(data.site, data.dashboard);
+      const nextSig = alarmSignature(data.site);
+      if (soft && state.site && nextSig === state.alarmSig) {
+        return;
+      }
+      if (soft && state.site) {
+        refreshLiveAlarms(data.site, data.dashboard);
+      } else {
+        renderSite(data.site, data.dashboard);
+      }
     }
   } catch (err) {
     if (!state.site) bootFallback();
-    setText(
-      "sf-online",
-      "● オフライン（モック）"
-    );
+    if (!soft) {
+      setText("sf-online", "● オフライン（モック）");
+    }
     console.warn("[security-floor] API fallback", err);
   }
+}
+
+function startAlarmPolling() {
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(() => {
+    loadOperator({ soft: true }).catch(() => {});
+  }, 2000);
 }
 
 async function setMode(mode) {
@@ -479,7 +490,6 @@ async function toggleLivingAlert() {
     });
     const site = data.operatorSite || applyLocalPrimaryAlert(state.site);
     if (site?.hasAlert) state.floorId = "1f";
-    state.cameraId = site.soc?.selectedCameraId || state.cameraId;
     renderSite(site, state.dash);
     if (data.push && data.push.success === false) {
       const msg =
@@ -502,9 +512,12 @@ async function ackAlarms() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ siteId: state.siteId }),
     });
-    renderSite(data.operatorSite || applyLocalAck(state.site), state.dash);
+    refreshLiveAlarms(
+      data.operatorSite || applyLocalAck(state.site),
+      data.dashboard || state.dash
+    );
   } catch {
-    renderSite(applyLocalAck(state.site), state.dash);
+    refreshLiveAlarms(applyLocalAck(state.site), state.dash);
   }
 }
 
@@ -554,12 +567,28 @@ function bind() {
   });
   $("sf-site-select")?.addEventListener("change", (e) => {
     state.siteId = e.target.value;
-    state.cameraId = null;
     bootFallback();
     loadOperator().catch(() => {});
     refreshSecurityRemoteConfigV1(state.siteId).catch(() => {});
   });
-  if (window.__TISLY_SF_CTRL_BOUND) return;
+
+  // light-v1 が先に CTRL_BOUND を立てても、警報ポーリングと ACK は必ず動かす
+  const bindAlarmControls = () => {
+    if (window.__TISLY_SF_ALARM_BOUND) return;
+    window.__TISLY_SF_ALARM_BOUND = true;
+    $("sf-demo-alert")?.addEventListener("click", () => {
+      toggleLivingAlert().catch(() => {});
+    });
+    $("sf-ack")?.addEventListener("click", () => {
+      ackAlarms().catch(() => {});
+    });
+  };
+  bindAlarmControls();
+
+  if (window.__TISLY_SF_CTRL_BOUND) {
+    startAlarmPolling();
+    return;
+  }
   $("sf-floor-tabs")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-floor]");
     if (!btn || btn.disabled) return;
@@ -570,12 +599,6 @@ function bind() {
     const btn = e.target.closest("[data-mode]");
     if (!btn) return;
     setMode(btn.getAttribute("data-mode")).catch(() => {});
-  });
-  $("sf-demo-alert")?.addEventListener("click", () => {
-    toggleLivingAlert().catch(() => {});
-  });
-  $("sf-ack")?.addEventListener("click", () => {
-    ackAlarms().catch(() => {});
   });
   $("sf-light-on")?.addEventListener("click", () => {
     setLights(true).catch(() => {});
@@ -589,7 +612,7 @@ function bind() {
     $("sf-log-dialog")?.showModal?.();
   });
   $("sf-opt-cam")?.addEventListener("change", (e) => {
-    state.showCameras = e.target.checked;
+    /* ライブカメラ未搭載のためマップ上カメラ表示のみ切替 */
     if (state.site) renderSite(state.site, state.dash);
   });
   $("sf-opt-sens")?.addEventListener("change", (e) => {
@@ -620,45 +643,6 @@ function bind() {
     state.logDate = e.target.value;
     if (state.site) renderLogs(state.site);
   });
-  $("sf-cam-thumbs")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-cam]");
-    if (!btn) return;
-    state.cameraId = btn.getAttribute("data-cam");
-    setLiveScene(state.cameraId, state.site?.soc);
-    renderThumbs(state.site);
-  });
-  $("sf-map-wrap")?.addEventListener("click", (e) => {
-    const pin = e.target.closest("[data-camera]");
-    if (!pin) return;
-    state.cameraId = pin.getAttribute("data-camera");
-    setLiveScene(state.cameraId, state.site?.soc);
-    renderThumbs(state.site);
-  });
-  window.addEventListener("tisly-security-camera-select", (e) => {
-    const camId = e.detail?.cameraId;
-    if (!camId) return;
-    state.cameraId = camId;
-    setLiveScene(state.cameraId, state.site?.soc);
-    renderThumbs(state.site);
-  });
-  $("sf-cam-next")?.addEventListener("click", () => {
-    const cams = state.site?.soc?.cameras || [];
-    if (!cams.length) return;
-    const i = cams.findIndex((c) => c.id === state.cameraId);
-    state.cameraId = cams[(i + 1) % cams.length].id;
-    setLiveScene(state.cameraId, state.site.soc);
-    renderThumbs(state.site);
-  });
-  $("sf-cam-expand")?.addEventListener("click", () => {
-    const note = $("sf-play-note");
-    if (note) note.hidden = true;
-    $("sf-live-dialog")?.showModal?.();
-  });
-  $("sf-cam-play")?.addEventListener("click", () => {
-    const note = $("sf-play-note");
-    if (note) note.hidden = false;
-    $("sf-live-dialog")?.showModal?.();
-  });
   document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.pane = btn.getAttribute("data-pane");
@@ -672,6 +656,7 @@ function bind() {
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
+  startAlarmPolling();
 }
 
 try {

@@ -28,8 +28,9 @@ const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
   floorId: "1f",
   dash: null,
-  cameraId: null,
   pane: "map",
+  pollTimer: null,
+  alarmSig: "",
 };
 
 function $(id) {
@@ -88,49 +89,62 @@ function fillSites(sites) {
   sel.value = state.siteId;
 }
 
-function setLiveScene(cameraId, soc) {
-  const feed = $("sf-live-feed");
-  const cam = (soc?.cameras || []).find((c) => c.id === cameraId);
-  const scene = cam?.scene || "lobby";
-  if (feed) {
-    feed.className = `sf-live-feed scene-${scene}`;
-  }
-  setText(
-    "sf-cam-title",
-    cam ? cam.customerLabel || cam.label : "カメラ"
-  );
+function openAlarms(soc) {
+  return (soc?.alarmLogs || []).filter((l) => l.status !== "done");
 }
 
-function renderDash(dash) {
+function alarmSignature(dash) {
+  const open = openAlarms(dash?.soc);
+  return [
+    dash?.status || "",
+    String(open.length),
+    open.map((a) => `${a.id}:${a.at}:${a.kindLabel}`).join("|"),
+  ].join("::");
+}
+
+function renderDash(dash, opts = {}) {
   if (!dash) return;
   try {
+    const soft = !!opts.soft;
+    const nextSig = alarmSignature(dash);
+    if (soft && state.dash && nextSig === state.alarmSig) {
+      return;
+    }
     state.dash = dash;
-    setText("sf-status-emoji", dash.statusEmoji || "🟢");
+    state.alarmSig = nextSig;
+    const open = openAlarms(dash.soc);
+    const alerting = open.length > 0 || dash.status === "alert";
+    setText("sf-status-emoji", alerting ? "🚨" : "🟢");
     setText(
       "sf-status-label",
-      dash.statusLabel || "正常に動いています"
+      alerting
+        ? "異常があります"
+        : dash.statusLabel || "正常に動いています"
     );
     setText("sf-guard-label", dash.guardModeLabel || "—");
-    const floors = dash.floors || [];
-    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId, site));
-    setHtml("sf-map-wrap", renderIsoStack(dash, state.floorId, {}));
-    setHtml("sf-modes", renderGuardModes(dash.guardMode));
-    setHtml(
-      "sf-notes",
-      (dash.notes || []).map((n) => `<li>${n}</li>`).join("")
-    );
-    const open = (dash.soc?.alarmLogs || []).filter(
-      (l) => l.status !== "done"
-    );
-    $("sf-alarm-panel")?.classList.toggle(
-      "is-live",
-      open.length > 0
-    );
+    if (!soft) {
+      const floors = dash.floors || [];
+      setHtml(
+        "sf-floor-tabs",
+        renderSocLayerButtons(floors, state.floorId, dash)
+      );
+      setHtml(
+        "sf-map-wrap",
+        renderIsoStack(dash, state.floorId, { showCameras: false })
+      );
+      setHtml("sf-modes", renderGuardModes(dash.guardMode));
+      setHtml(
+        "sf-notes",
+        (dash.notes || []).map((n) => `<li>${n}</li>`).join("")
+      );
+    }
+    $("sf-alarm-panel")?.classList.toggle("is-live", open.length > 0);
     setHtml(
       "sf-alarm-list",
       open
         .map(
-          (a) => `<li><b>${a.location}</b><span>${a.kindLabel} · ${formatAlarmTime(a.at)}</span></li>`
+          (a) =>
+            `<li><b>🔴 【発報中】${a.kindLabel || "センサー検知"}</b><span>（${formatAlarmTime(a.at)}）</span></li>`
         )
         .join("") || "<li>異常はありません</li>"
     );
@@ -140,7 +154,7 @@ function renderDash(dash) {
       "sf-log-compact",
       recent
         .map((l) => {
-          const ico = /侵入|警報|開放|人感/.test(l.kindLabel || "")
+          const ico = /侵入|警報|開放|人感|センサー検知/.test(l.kindLabel || "")
             ? "🚨"
             : /ライト|照明/.test(l.kindLabel || "")
               ? "💡"
@@ -166,26 +180,23 @@ function renderDash(dash) {
         })
         .join("")
     );
-    const cams = dash.soc?.cameras || [];
-    setHtml(
-      "sf-cam-thumbs",
-      cams
-        .map(
-          (c) => `<button type="button" class="sf-thumb scene-${c.scene}" data-cam="${c.id}">${c.customerLabel || c.label}</button>`
-        )
-        .join("")
-    );
-    if (!state.cameraId) {
-      state.cameraId = dash.soc?.selectedCameraId || null;
+    if (!soft) {
+      bindSecurityOrbit();
+      applySecurityOrbit();
+      setSecurityDrumFloor(state.floorId);
+      updateSecurityIso3d(dash, state.floorId, { showCameras: false }).catch(
+        (e) => {
+          console.warn("[security-customer] iso3d", e);
+        }
+      );
+      markSecurityUiReady();
+    } else {
+      try {
+        window.TislySecurityIso3d?.setAlert?.(alerting);
+      } catch (_e) {
+        /* ignore */
+      }
     }
-    setLiveScene(state.cameraId, dash.soc);
-    bindSecurityOrbit();
-    applySecurityOrbit();
-    setSecurityDrumFloor(state.floorId);
-    updateSecurityIso3d(dash, state.floorId, {}).catch((e) => {
-      console.warn("[security-customer] iso3d", e);
-    });
-    markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
     console.warn("[security-customer]", err);
@@ -206,16 +217,23 @@ async function loadSites() {
   }
 }
 
-async function loadDash() {
+async function loadDash(opts = {}) {
   try {
     const data = await fetchJson(
       `/api/security-floor/v1/customer?siteId=${encodeURIComponent(state.siteId)}`
     );
-    if (data.dashboard) renderDash(data.dashboard);
+    if (data.dashboard) renderDash(data.dashboard, opts);
   } catch (err) {
     if (!state.dash) bootFallback();
     console.warn("[security-customer] API fallback", err);
   }
+}
+
+function startAlarmPolling() {
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(() => {
+    loadDash({ soft: true }).catch(() => {});
+  }, 2000);
 }
 
 async function setMode(mode) {
@@ -231,6 +249,20 @@ async function setMode(mode) {
   }
 }
 
+async function toggleDemoAlert() {
+  try {
+    const data = await fetchJson("/api/security-floor/v1/test-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ siteId: state.siteId }),
+    });
+    if (data.dashboard) renderDash(data.dashboard);
+    else await loadDash();
+  } catch {
+    await loadDash();
+  }
+}
+
 function bind() {
   document.addEventListener("tisly-sf-floor", (e) => {
     const id = e.detail?.id;
@@ -238,10 +270,19 @@ function bind() {
   });
   $("sf-site-select")?.addEventListener("change", (e) => {
     state.siteId = e.target.value;
-    state.cameraId = null;
     bootFallback();
     loadDash().catch(() => {});
   });
+
+  if (!window.__TISLY_SF_ALARM_BOUND) {
+    window.__TISLY_SF_ALARM_BOUND = true;
+    $("sf-demo-alert")?.addEventListener("click", () => {
+      toggleDemoAlert().catch(() => {});
+    });
+  }
+
+  startAlarmPolling();
+
   if (window.__TISLY_SF_CTRL_BOUND) return;
   $("sf-floor-tabs")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-floor]");
@@ -253,37 +294,6 @@ function bind() {
     const btn = e.target.closest("[data-mode]");
     if (!btn) return;
     setMode(btn.getAttribute("data-mode")).catch(() => {});
-  });
-  $("sf-cam-thumbs")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-cam]");
-    if (!btn) return;
-    state.cameraId = btn.getAttribute("data-cam");
-    setLiveScene(state.cameraId, state.dash?.soc);
-  });
-  $("sf-map-wrap")?.addEventListener("click", (e) => {
-    const pin = e.target.closest("[data-camera]");
-    if (!pin) return;
-    state.cameraId = pin.getAttribute("data-camera");
-    setLiveScene(state.cameraId, state.dash?.soc);
-  });
-  window.addEventListener("tisly-security-camera-select", (e) => {
-    const camId = e.detail?.cameraId;
-    if (!camId) return;
-    state.cameraId = camId;
-    setLiveScene(state.cameraId, state.dash?.soc);
-  });
-  $("sf-cam-next")?.addEventListener("click", () => {
-    const cams = state.dash?.soc?.cameras || [];
-    if (!cams.length) return;
-    const i = cams.findIndex((c) => c.id === state.cameraId);
-    state.cameraId = cams[(i + 1) % cams.length].id;
-    setLiveScene(state.cameraId, state.dash?.soc);
-  });
-  $("sf-cam-expand")?.addEventListener("click", () => {
-    $("sf-live-dialog")?.showModal?.();
-  });
-  $("sf-cam-play")?.addEventListener("click", () => {
-    $("sf-live-dialog")?.showModal?.();
   });
   $("sf-log-open-detail")?.addEventListener("click", () => {
     $("sf-log-dialog")?.showModal?.();

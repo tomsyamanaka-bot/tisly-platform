@@ -1194,7 +1194,40 @@ function ensureItabashiLiveSecuritySiteV1(): void {
   SECURITY_FLOOR_SITES_V1.push(site);
 }
 
+/** 板橋自宅に RP2350 DI1/DI2 センサーを差分追記 */
+function enrichItabashiDiSensorsV1(): void {
+  const site = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === "SEC-JP-ITABASHI-LIVE"
+  );
+  if (!site) return;
+  appendIfMissing(site.sensors, {
+    id: "my-di1-park",
+    floorId: "outdoor",
+    roomId: "my-out-park",
+    kind: "mmwave",
+    label: "駐車場センサー (DI1)",
+    customerLabel: "駐車場センサー",
+    x: 24,
+    y: 40,
+    state: "normal",
+    deviceId: "RP2350-DI1",
+  });
+  appendIfMissing(site.sensors, {
+    id: "my-di2-garage",
+    floorId: "outdoor",
+    roomId: "my-out-park",
+    kind: "mmwave",
+    label: "ガレージセンサー (DI2)",
+    customerLabel: "ガレージセンサー",
+    x: 42,
+    y: 55,
+    state: "normal",
+    deviceId: "RP2350-DI2",
+  });
+}
+
 enrichExistingSitesForSocV1();
+enrichItabashiDiSensorsV1();
 
 type SocSensorListenerV1 = (
   site: SecuritySiteV1,

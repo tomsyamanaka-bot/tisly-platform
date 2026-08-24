@@ -23,6 +23,7 @@ import {
   type HomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import { recordHomeDiSecurityAlarmV1 } from "../security-floor/security-floor-soc-v1.js";
 
 const HOME_PUSH_USER_ID = "home-security";
 
@@ -422,14 +423,17 @@ async function handleDiRisingEdgeV1(
     }
   }
 
+  const resolvedPattern = di === 1 ? "pattern_a" : pattern;
+  const sensorMessage = patternLogMessage(resolvedPattern, di);
+
   recordSystemLogV1({
     siteId,
     category: "sensor_alert",
-    message: patternLogMessage(pattern, di),
+    message: sensorMessage,
     detail: {
       di,
       input: di,
-      pattern,
+      pattern: resolvedPattern,
       guardActive,
       guardMode: rules.guardMode,
     },
@@ -439,24 +443,38 @@ async function handleDiRisingEdgeV1(
   recordSystemLogV1({
     siteId,
     category: "light_event",
-    message: patternLightLogMessage(pattern, rules),
+    message: patternLightLogMessage(resolvedPattern, rules),
     detail: {
       di,
-      pattern,
+      pattern: resolvedPattern,
       di1LightMode: rules.di1LightMode,
       di2LightMode: rules.di2LightMode,
     },
     actor: "rp2350",
   });
 
+  // Security Floor 警報画面へ即時反映（ポーリングで UI 同期）
+  try {
+    recordHomeDiSecurityAlarmV1({
+      homeSiteId: siteId,
+      di,
+      pattern: resolvedPattern,
+    });
+  } catch (err) {
+    console.warn(
+      "[home-security] failed to mirror DI alarm to security-floor:",
+      err instanceof Error ? err.message : err
+    );
+  }
+
   const pushSent = await dispatchPatternPushV1({
     siteId,
-    pattern: di === 1 ? "pattern_a" : pattern,
+    pattern: resolvedPattern,
     guardActive,
     rules,
     di,
   });
-  return { pattern: di === 1 ? "pattern_a" : pattern, pushSent };
+  return { pattern: resolvedPattern, pushSent };
 }
 
 /** RP2350 heartbeat 等から DI 変化を処理 */

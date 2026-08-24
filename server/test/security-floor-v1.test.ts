@@ -16,7 +16,12 @@ import {
 import {
   buildSecurityFloorCustomerDashboardV1,
   buildSecurityFloorOperatorDashboardV1,
+  buildSecurityFloorOperatorSiteV1,
 } from "../src/security-floor/security-floor-dashboard-v1.js";
+import {
+  ackSecurityAlarmsV1,
+  recordHomeDiSecurityAlarmV1,
+} from "../src/security-floor/security-floor-soc-v1.js";
 import {
   TISLY_CUSTOMER_RESERVED_SEGMENTS,
   TISLY_CUSTOMER_ROUTES_V1,
@@ -313,12 +318,14 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2498/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2498/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2498/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2498/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2498/);
-    assert.match(html, /security-floor-v1\.css\?v=2498/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2499/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2499/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2499/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2499/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2499/);
+    assert.match(html, /security-floor-v1\.css\?v=2499/);
+    assert.doesNotMatch(html, /sf-live-feed|sf-cam-thumbs|sf-cam-expand|ライブカメラ/);
+    assert.doesNotMatch(html, /勝手口カメラ 01/);
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);
@@ -423,11 +430,11 @@ describe("security-floor-v1", () => {
     assert.match(lightJs, /pulse-alarm/);
     assert.match(lightJs, /alert-beacon/);
     assert.match(lightJs, /my-1f-katte/);
-    assert.match(lightJs, /sf-demo-alert/);
     assert.match(lightJs, /\\uFEFF/);
     assert.match(lightJs, /TislySecurityIso3d/);
     assert.match(lightJs, /setOrbitEnabled|onIso3d/);
     assert.match(lightJs, /touches\.length\s*===\s*2|cancelDrumForPinch/);
+    assert.doesNotMatch(lightJs, /sf-cam-thumbs|sf-live-feed|setLive\(/);
     assert.match(orbitJs, /rotateX/);
     assert.match(orbitJs, /drum-r/);
     assert.match(orbitJs, /__TISLY_SF_ORBIT_BOUND/);
@@ -449,6 +456,12 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /sf-log-compact|logIconFor/);
     assert.match(opJs, /sf-log-dialog|sf-log-open-detail/);
     assert.match(opJs, /\\uFEFF/);
+    assert.match(opJs, /startAlarmPolling|alarmSignature|refreshLiveAlarms/);
+    assert.match(opJs, /【発報中】/);
+    assert.match(opJs, /発報中/);
+    assert.match(opJs, /sf-demo-alert|toggleLivingAlert/);
+    assert.match(opJs, /sf-ack|ackAlarms/);
+    assert.doesNotMatch(opJs, /setLiveScene|renderThumbs|sf-cam-thumbs/);
     const fbJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -468,7 +481,7 @@ describe("security-floor-v1", () => {
       path.join(publicDir, "security-customer-v1.html"),
       "utf8"
     );
-    assert.match(customerHtml, /sf-cam-expand/);
+    assert.doesNotMatch(customerHtml, /sf-cam-expand|sf-live-feed|ライブカメラ|カメラを表示/);
     assert.match(customerHtml, /TiSLY Security/);
     assert.match(customerHtml, /href="\/customer"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
@@ -541,5 +554,54 @@ describe("security-floor-v1", () => {
       (r: { id: string }) => r.id === "my-1f-katte"
     );
     assert.equal(katteRoom.alertVisible, true);
+  });
+
+  it("mirrors HOME DI1/DI2 events into Security Floor open alarms", async () => {
+    const { resetHomeSecurityNotifyStateV1 } = await import(
+      "../src/home/home-security-notify-v1.js"
+    );
+    resetHomeSecurityNotifyStateV1("HOME-JP-ITABASHI-LIVE");
+    ackSecurityAlarmsV1("SEC-JP-ITABASHI-LIVE");
+
+    const di2 = recordHomeDiSecurityAlarmV1({
+      homeSiteId: "HOME-JP-ITABASHI-LIVE",
+      di: 2,
+      pattern: "pattern_c",
+    });
+    assert.match(di2.kindLabel, /ガレージセンサー検知/);
+    assert.equal(di2.status, "open");
+
+    const site = buildSecurityFloorOperatorSiteV1("SEC-JP-ITABASHI-LIVE");
+    assert.equal(site.hasAlert, true);
+    const open = (site.soc.alarmLogs || []).filter(
+      (l: { status: string }) => l.status !== "done"
+    );
+    assert.ok(open.length >= 1);
+    assert.match(open[0].kindLabel, /ガレージセンサー検知/);
+
+    const event = await request(app)
+      .post("/api/home/v1/security/event")
+      .send({ siteId: "HOME-JP-ITABASHI-LIVE", di: 1 });
+    assert.equal(event.status, 200);
+
+    const afterDi1 = buildSecurityFloorOperatorSiteV1("SEC-JP-ITABASHI-LIVE");
+    const openAfter = (afterDi1.soc.alarmLogs || []).filter(
+      (l: { status: string }) => l.status !== "done"
+    );
+    assert.ok(
+      openAfter.some((l: { kindLabel: string }) =>
+        /駐車場センサー検知/.test(l.kindLabel)
+      )
+    );
+
+    const ack = await request(app)
+      .post("/api/security-floor/v1/alarm-ack")
+      .send({ siteId: "SEC-JP-ITABASHI-LIVE" });
+    assert.equal(ack.status, 200);
+    assert.equal(ack.body.operatorSite.hasAlert, false);
+    const cleared = (ack.body.operatorSite.soc.alarmLogs || []).filter(
+      (l: { status: string }) => l.status !== "done"
+    );
+    assert.equal(cleared.length, 0);
   });
 });

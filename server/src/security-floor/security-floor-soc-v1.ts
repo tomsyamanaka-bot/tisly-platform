@@ -339,3 +339,136 @@ export function demoTogglePrimaryAlertV1(
   );
   return updated || site;
 }
+
+/** HOME サイト ID → Security Floor サイト ID */
+export function mapHomeSiteIdToSecurityFloorSiteIdV1(
+  homeSiteId: string
+): string {
+  const id = String(homeSiteId || "").trim();
+  if (!id) return "SEC-JP-ITABASHI-LIVE";
+  if (id.startsWith("SEC-")) return id;
+  if (id === "HOME-JP-ITABASHI-LIVE") return "SEC-JP-ITABASHI-LIVE";
+  if (id.startsWith("HOME-")) return `SEC-${id.slice("HOME-".length)}`;
+  return id;
+}
+
+function ensureDiSensorOnSiteV1(
+  site: SecuritySiteV1,
+  di: 1 | 2
+): SecuritySensorV1 {
+  const id = di === 1 ? "my-di1-park" : "my-di2-garage";
+  const existing = site.sensors.find((s) => s.id === id);
+  if (existing) return existing;
+  const sensor: SecuritySensorV1 = {
+    id,
+    floorId: "outdoor",
+    roomId: di === 1 ? "my-out-park" : "my-out-park",
+    kind: "mmwave",
+    label:
+      di === 1
+        ? "駐車場センサー (DI1)"
+        : "ガレージセンサー (DI2)",
+    customerLabel:
+      di === 1 ? "駐車場センサー" : "ガレージセンサー",
+    x: di === 1 ? 24 : 42,
+    y: di === 1 ? 40 : 55,
+    state: "normal",
+    deviceId: di === 1 ? "RP2350-DI1" : "RP2350-DI2",
+  };
+  // ガレージ部屋があれば DI2 を寄せる
+  if (di === 2) {
+    const garage = site.rooms.find(
+      (r) =>
+        /ガレージ|車庫|garage/i.test(r.label) ||
+        r.id.includes("garage")
+    );
+    if (garage) {
+      sensor.roomId = garage.id;
+      sensor.floorId = garage.floorId;
+    }
+  } else {
+    const park = site.rooms.find(
+      (r) =>
+        /駐車|駐車場|park/i.test(r.label) ||
+        r.id.includes("park")
+    );
+    if (park) {
+      sensor.roomId = park.id;
+      sensor.floorId = park.floorId;
+    }
+  }
+  site.sensors.push(sensor);
+  return sensor;
+}
+
+function diKindLabelV1(
+  di: 1 | 2,
+  pattern?: string
+): string {
+  if (di === 1) return "駐車場センサー検知";
+  if (pattern === "pattern_b") {
+    return "段階侵入・ガレージセンサー検知";
+  }
+  return "ガレージセンサー検知";
+}
+
+/**
+ * RP2350 DI1/DI2 検知を Security Floor のアラーム発報へ反映する。
+ * センサー state=alert + alarmLogs open を同期する。
+ */
+export function recordHomeDiSecurityAlarmV1(input: {
+  homeSiteId: string;
+  di: 1 | 2;
+  pattern?: string;
+  message?: string;
+}): SecurityAlarmLogV1 {
+  const siteId = mapHomeSiteIdToSecurityFloorSiteIdV1(
+    input.homeSiteId
+  );
+  const site = findSecuritySiteV1(siteId);
+  const sensor = ensureDiSensorOnSiteV1(site, input.di);
+  const kindLabel =
+    input.message?.replace(/^🚨?\s*/, "").trim() ||
+    diKindLabelV1(input.di, input.pattern);
+
+  sensor.state = "alert";
+  sensor.label =
+    input.di === 1
+      ? "駐車場センサー (DI1)"
+      : "ガレージセンサー (DI2)";
+
+  const openExisting = alarmLogs.find(
+    (l) =>
+      l.siteId === site.id &&
+      l.sensorId === sensor.id &&
+      l.status !== "done"
+  );
+  if (openExisting) {
+    openExisting.at = nowIso();
+    openExisting.kindLabel = kindLabel;
+    openExisting.deviceLabel = sensor.label;
+    openExisting.location = roomLabel(site, sensor.roomId);
+    openExisting.floorId = sensor.floorId;
+    return openExisting;
+  }
+
+  const log: SecurityAlarmLogV1 = {
+    id: `ALM-DI${input.di}-${Date.now()}-${logSeq++}`,
+    siteId: site.id,
+    at: nowIso(),
+    floorId: sensor.floorId,
+    location: roomLabel(site, sensor.roomId),
+    kind: "mmwave",
+    kindLabel,
+    deviceLabel: sensor.label,
+    sensorId: sensor.id,
+    cameraId: sensor.linkedCameraId || null,
+    status: "open",
+    handler: "",
+  };
+  alarmLogs.unshift(log);
+  if (alarmLogs.length > 80) {
+    alarmLogs.length = 80;
+  }
+  return log;
+}

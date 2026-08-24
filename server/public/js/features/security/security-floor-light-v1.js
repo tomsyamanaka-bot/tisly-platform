@@ -25,12 +25,6 @@
     mode: null,
   };
   var activePointers = new Set();
-  var cameraIndex = 0;
-  var cameras = [
-    { id: "my-cam-katte", label: "勝手口カメラ 01", scene: "backdoor" },
-    { id: "my-cam-living", label: "リビング洋カメラ", scene: "lobby" },
-    { id: "my-cam-park", label: "駐車カメラ", scene: "parking" },
-  ];
   var alerting = false;
 
   function $(id) {
@@ -113,37 +107,15 @@
     setFloor(next.getAttribute("data-layer"));
   }
 
-  function setLive(index) {
-    if (!cameras.length) return;
-    cameraIndex = ((index % cameras.length) + cameras.length) % cameras.length;
-    var cam = cameras[cameraIndex];
-    var feed = $("sf-live-feed");
-    var xl = $("sf-live-xl");
-    if (feed) {
-      feed.className = "sf-live-feed scene-" + cam.scene;
-      feed.innerHTML =
-        '<span class="sf-live-badge">LIVE</span><div class="sf-scan"></div>';
-    }
-    if (xl) xl.className = "sf-live-feed is-xl scene-" + cam.scene;
-    var title = $("sf-cam-title");
-    if (title) {
-      title.textContent = document.body.classList.contains("sf-customer")
-        ? cam.label.replace("01", "")
-        : "ライブカメラ · " + cam.label;
-    }
-    document.querySelectorAll(".sf-thumb").forEach(function (btn) {
-      btn.classList.toggle("is-on", btn.getAttribute("data-cam") === cam.id);
-    });
-  }
-
   function setAlertVisual(on) {
     alerting = !!on;
     var rooms = document.querySelectorAll(
-      '[data-room-id="my-1f-katte"], [data-room-id*="katte"]'
+      '[data-room-id="my-1f-katte"], [data-room-id*="katte"], [data-room-id="my-out-park"]'
     );
     var layer = document.querySelector('[data-layer="1f"]');
+    var outdoor = document.querySelector('[data-layer="outdoor"]');
     var pins = document.querySelectorAll(
-      '[data-sensor-id="my-door-katte"], [data-sensor-id="my-lock-katte"], [data-sensor-id="my-gas-katte"], [data-sensor-id="my-panel-50a"], [data-sensor-id="my-cam-katte"], [data-room-id="my-1f-katte"] ~ .sf-pin, [data-layer="1f"] [data-sensor-id*="katte"]'
+      '[data-sensor-id="my-door-katte"], [data-sensor-id="my-lock-katte"], [data-sensor-id="my-gas-katte"], [data-sensor-id="my-panel-50a"], [data-sensor-id="my-di1-park"], [data-sensor-id="my-di2-garage"], [data-room-id="my-1f-katte"] ~ .sf-pin, [data-layer="1f"] [data-sensor-id*="katte"], [data-layer="outdoor"] [data-sensor-id*="di"]'
     );
     var panel = $("sf-alarm-panel");
     rooms.forEach(function (room) {
@@ -155,39 +127,29 @@
       layer.classList.toggle("is-alert", alerting);
       layer.classList.toggle("alert-beacon", alerting);
     }
+    if (outdoor) {
+      outdoor.classList.toggle("is-alert", alerting);
+      outdoor.classList.toggle("alert-beacon", alerting);
+    }
     pins.forEach(function (pin) {
       pin.classList.toggle("is-alert", alerting);
       pin.classList.toggle("alert-beacon", alerting);
     });
     if (panel) panel.classList.toggle("is-live", alerting);
+    var hero = $("sf-status-hero");
+    if (hero) hero.classList.toggle("is-alert", alerting);
     var status = $("sf-status-label");
     var emoji = $("sf-status-emoji");
     if (status) {
       status.textContent = alerting
         ? document.body.classList.contains("sf-customer")
           ? "異常があります"
-          : "発報があります"
+          : "発報中"
         : document.body.classList.contains("sf-customer")
           ? "正常に動いています"
           : "正常です";
     }
-    if (emoji) emoji.textContent = alerting ? "🔴" : "🟢";
-    var count = $("sf-alarm-count");
-    if (count) count.textContent = alerting ? "1件発生中" : "0件発生中";
-    var bell = $("sf-bell-count");
-    if (bell) bell.textContent = alerting ? "1" : "0";
-    var list = $("sf-alarm-list");
-    if (list) {
-      list.innerHTML = alerting
-        ? "<li><b>1F 勝手口キッチン</b><span>開放検知 · 勝手口ドア</span></li>"
-        : "<li>発報はありません</li>";
-    }
-    var detail = $("sf-alarm-detail");
-    if (detail) {
-      detail.innerHTML = alerting
-        ? "<div><dt>場所</dt><dd>1F 勝手口キッチン</dd></div><div><dt>デバイス</dt><dd>勝手口ドアセンサー（20m）</dd></div><div><dt>種別</dt><dd>開放検知</dd></div><div><dt>ステータス</dt><dd><em class=\"st-open\">未対応</em></dd></div>"
-        : "<p>選択中の警報はありません</p>";
-    }
+    if (emoji) emoji.textContent = alerting ? "🚨" : "🟢";
     try {
       if (window.TislySecurityIso3d && window.TislySecurityIso3d.setAlert) {
         window.TislySecurityIso3d.setAlert(alerting);
@@ -412,49 +374,9 @@
         });
         return;
       }
-      var thumb = t.closest("#sf-cam-thumbs [data-cam]");
-      if (thumb) {
-        var id = thumb.getAttribute("data-cam");
-        var i = cameras.findIndex(function (c) {
-          return c.id === id;
-        });
-        setLive(i >= 0 ? i : cameraIndex);
-        return;
-      }
-      var pin = t.closest("#sf-map-wrap [data-camera]");
-      if (pin) {
-        var camId = pin.getAttribute("data-camera");
-        var pi = cameras.findIndex(function (c) {
-          return c.id === camId;
-        });
-        setLive(pi >= 0 ? pi : cameraIndex);
-        return;
-      }
     });
 
-    $("sf-demo-alert") &&
-      $("sf-demo-alert").addEventListener("click", function () {
-        setAlertVisual(!alerting);
-        if (alerting) setFloor("1f");
-        postJson("/api/security-floor/v1/test-notify", { siteId: siteId() }).then(
-          function (res) {
-            if (!res || !res.ok) return;
-            return res.json().then(function (data) {
-              if (data && data.push && data.push.success === false) {
-                window.alert(
-                  "通知テスト: " +
-                    (data.push.hint || data.push.error || "Push 送信失敗")
-                );
-              }
-            });
-          }
-        );
-      });
-    $("sf-ack") &&
-      $("sf-ack").addEventListener("click", function () {
-        setAlertVisual(false);
-        postJson("/api/security-floor/v1/alarm-ack", { siteId: siteId() });
-      });
+    // 通知テスト / アラーム対応完了は operator / customer モジュール側で同期処理
     $("sf-light-on") &&
       $("sf-light-on").addEventListener("click", function () {
         $("sf-map-wrap") && $("sf-map-wrap").classList.add("is-lights-on");
@@ -470,22 +392,6 @@
           siteId: siteId(),
           on: false,
         });
-      });
-    $("sf-cam-next") &&
-      $("sf-cam-next").addEventListener("click", function () {
-        setLive(cameraIndex + 1);
-      });
-    $("sf-cam-expand") &&
-      $("sf-cam-expand").addEventListener("click", function () {
-        var note = $("sf-play-note");
-        if (note) note.hidden = true;
-        $("sf-live-dialog") && $("sf-live-dialog").showModal && $("sf-live-dialog").showModal();
-      });
-    $("sf-cam-play") &&
-      $("sf-cam-play").addEventListener("click", function () {
-        var note = $("sf-play-note");
-        if (note) note.hidden = false;
-        $("sf-live-dialog") && $("sf-live-dialog").showModal && $("sf-live-dialog").showModal();
       });
     $("sf-export") && $("sf-export").addEventListener("click", exportCsv);
     document.querySelectorAll(".sf-mobile-tabs button").forEach(function (btn) {
@@ -514,7 +420,6 @@
   bindOrbit();
   bindControls();
   setFloor("1f");
-  setLive(0);
   $("sf-map-wrap") && $("sf-map-wrap").classList.add("is-lights-on");
   var status = $("sf-status-label");
   if (status && /読み込み中/.test(status.textContent || "")) {

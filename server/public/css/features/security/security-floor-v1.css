@@ -1690,6 +1690,14 @@
   margin-bottom: 8px;
 }
 
+.sf-status-hero.is-alert {
+  color: #dc2626;
+}
+
+.sf-status-hero.is-alert .sf-status-label {
+  font-weight: 700;
+}
+
 @media (max-width: 1100px) {
   .sf-kpi-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
