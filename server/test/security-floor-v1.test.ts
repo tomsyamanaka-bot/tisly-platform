@@ -313,12 +313,12 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2496/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2496/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2496/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2496/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2496/);
-    assert.match(html, /security-floor-v1\.css\?v=2496/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2497/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2497/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2497/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2497/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2497/);
+    assert.match(html, /security-floor-v1\.css\?v=2497/);
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
     assert.match(html, /sf-iso3d-stack/);
@@ -374,9 +374,13 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /setOrbitEnabled/);
     assert.match(iso3dJs, /shadeRoomMaterials/);
     assert.match(iso3dJs, /focusAnim/);
+    assert.match(iso3dJs, /reelAnim|startReelTransition|REEL_SLIDE/);
+    assert.match(iso3dJs, /layer\.visible\s*=/);
+    assert.match(iso3dJs, /SOLID_OPACITY|transparent:\s*false/);
     assert.match(iso3dJs, /labelRenderer\.domElement\.innerHTML\s*=\s*""/);
     assert.match(iso3dJs, /isCSS2DObject/);
     assert.match(iso3dJs, /children\.slice\(\)/);
+    assert.doesNotMatch(iso3dJs, /NON_FOCUS_OPACITY/);
     assert.doesNotMatch(iso3dJs, /buildDevicePinHtml/);
     assert.doesNotMatch(iso3dJs, /new CSS2DObject\(el\)/);
     const pinMeshJs = fs.readFileSync(
