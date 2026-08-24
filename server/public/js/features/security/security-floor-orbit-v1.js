@@ -1,29 +1,8 @@
 /**
- * 立体ドラム式フロア切替（rotateX + translateZ）
- * マップ上の縦スワイプ / ホイールで 2F → 1F → 外周 を回転
- * 3Dキャンバス上も縦優勢ジェスチャ・ホイールで階層フォーカス連動
- * 2本指ピンチはズームへ委譲（ドラムをキャンセル）
+ * フロア表示同期（ボタン切替専用）
+ * 縦スワイプ / ホイールによる階層切替は無効。
+ * 3D操作は OrbitControls（回転・ピンチ）へ委譲。
  */
-
-const DRUM_ORDER = ["2f", "1f", "outdoor"];
-
-const DRUM_SWIPE_DURING = 36;
-const DRUM_SWIPE_RELEASE = 30;
-const DRUM_MODE_LOCK = 10;
-
-const drum = {
-  dragging: false,
-  lastY: 0,
-  lastX: 0,
-  accY: 0,
-  accX: 0,
-  pointerId: null,
-  onIso3d: false,
-  mode: null, // 'floor' | 'orbit' | 'pinch' | null
-};
-
-/** 同時ポインタ数（ピンチ判定） */
-const activePointers = new Set();
 
 function layersOf(el) {
   return [...(el?.querySelectorAll(".sf-iso-layer") || [])];
@@ -33,23 +12,6 @@ function syncFloorTabs(id) {
   document.querySelectorAll("#sf-floor-tabs [data-floor]").forEach((btn) => {
     btn.classList.toggle("is-on", btn.getAttribute("data-floor") === id);
   });
-}
-
-function setOrbitRotate(on) {
-  try {
-    window.TislySecurityIso3d?.setOrbitEnabled?.(on);
-  } catch {
-    /* ignore */
-  }
-}
-
-/** 2本指ピンチ開始時: ドラムスワイプをキャンセルし OrbitControls へ委譲 */
-function cancelDrumForPinch() {
-  drum.mode = "pinch";
-  drum.accY = 0;
-  drum.accX = 0;
-  setOrbitRotate(true);
-  document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
 }
 
 export function applySecurityOrbit() {
@@ -78,6 +40,10 @@ export function applySecurityOrbit() {
   window.__TISLY_SF_FLOOR = layers[index]?.getAttribute("data-layer") || focus;
 }
 
+/**
+ * 枠外「1F」「外周」ボタンから階層を切替
+ * ジェスチャ経路は持たない
+ */
 export function setSecurityDrumFloor(id) {
   const el = document.getElementById("sf-iso-orbit");
   if (!el) return;
@@ -102,163 +68,12 @@ export function setSecurityDrumFloor(id) {
   );
 }
 
-function stepFloor(dir) {
-  const el = document.getElementById("sf-iso-orbit");
-  if (!el) return;
-  const layers = layersOf(el);
-  if (!layers.length) return;
-  const focus = el.getAttribute("data-focus") || "1f";
-  let index = layers.findIndex((l) => l.getAttribute("data-layer") === focus);
-  if (index < 0) {
-    index = DRUM_ORDER.indexOf(focus);
-  }
-  const next = layers[(index + dir + layers.length) % layers.length];
-  setSecurityDrumFloor(next.getAttribute("data-layer"));
-}
-
-function isIso3dPointerTarget(t) {
-  return !!(
-    t &&
-    t.closest &&
-    (t.closest("#sf-iso3d-mount") ||
-      t.closest(".sf-iso3d-canvas") ||
-      t.closest(".sf-iso3d-labels") ||
-      t.closest(".sf-iso3d-pin"))
-  );
-}
-
-function onPointerDown(e) {
-  const wrap = e.target.closest("#sf-map-wrap");
-  if (!wrap) return;
-  activePointers.add(e.pointerId);
-  /* 2本目以降 → ピンチ。ドラムをキャンセルしズームを OrbitControls へ */
-  if (activePointers.size >= 2 || drum.mode === "pinch") {
-    cancelDrumForPinch();
-    return;
-  }
-  drum.dragging = true;
-  drum.onIso3d = isIso3dPointerTarget(e.target);
-  drum.lastY = e.clientY;
-  drum.lastX = e.clientX;
-  drum.accY = 0;
-  drum.accX = 0;
-  drum.mode = null;
-  drum.pointerId = e.pointerId;
-  if (!drum.onIso3d) {
-    wrap.classList.add("is-dragging");
-    try {
-      wrap.setPointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function onPointerMove(e) {
-  if (!drum.dragging) return;
-  if (drum.mode === "pinch") return;
-  if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-  if (activePointers.size >= 2) {
-    cancelDrumForPinch();
-    return;
-  }
-  const dy = e.clientY - drum.lastY;
-  const dx = e.clientX - drum.lastX;
-  drum.lastY = e.clientY;
-  drum.lastX = e.clientX;
-  drum.accY += dy;
-  drum.accX += dx;
-
-  if (drum.onIso3d) {
-    if (!drum.mode) {
-      if (Math.abs(drum.accY) > DRUM_MODE_LOCK || Math.abs(drum.accX) > DRUM_MODE_LOCK) {
-        drum.mode =
-          Math.abs(drum.accY) > Math.abs(drum.accX) * 1.15 ? "floor" : "orbit";
-        if (drum.mode === "floor") {
-          setOrbitRotate(false);
-          document.getElementById("sf-map-wrap")?.classList.add("is-dragging");
-        }
-      }
-    }
-    if (drum.mode === "floor") {
-      if (e.cancelable) e.preventDefault();
-      if (drum.accY > DRUM_SWIPE_DURING) {
-        stepFloor(1);
-        drum.accY = 0;
-      } else if (drum.accY < -DRUM_SWIPE_DURING) {
-        stepFloor(-1);
-        drum.accY = 0;
-      }
-    }
-    return;
-  }
-
-  if (e.cancelable) e.preventDefault();
-}
-
-function onPointerUp(e) {
-  activePointers.delete(e.pointerId);
-  if (!drum.dragging && drum.mode !== "pinch") return;
-  if (drum.mode === "pinch") {
-    if (activePointers.size === 0) {
-      setOrbitRotate(true);
-      drum.dragging = false;
-      drum.pointerId = null;
-      drum.accY = 0;
-      drum.accX = 0;
-      drum.mode = null;
-      drum.onIso3d = false;
-      document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
-    }
-    return;
-  }
-  if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-  if (!drum.onIso3d || drum.mode === "floor") {
-    if (drum.accY > DRUM_SWIPE_RELEASE) stepFloor(1);
-    else if (drum.accY < -DRUM_SWIPE_RELEASE) stepFloor(-1);
-  }
-  setOrbitRotate(true);
-  drum.dragging = false;
-  drum.pointerId = null;
-  drum.accY = 0;
-  drum.accX = 0;
-  drum.mode = null;
-  drum.onIso3d = false;
-  document.getElementById("sf-map-wrap")?.classList.remove("is-dragging");
-}
-
-/** touchstart / touchmove: touches.length === 2 でドラムをキャンセル */
-function onTouchStart(e) {
-  if (e.touches.length === 2) cancelDrumForPinch();
-}
-
-function onTouchMove(e) {
-  if (e.touches.length === 2) cancelDrumForPinch();
-}
-
 let bound = false;
 
+/** ジェスチャ階層切替は登録しない（ボタン専用） */
 export function bindSecurityOrbit() {
   applySecurityOrbit();
   if (bound || window.__TISLY_SF_ORBIT_BOUND) return;
   bound = true;
   window.__TISLY_SF_ORBIT_BOUND = true;
-  const wrap = document.getElementById("sf-map-wrap");
-  wrap?.addEventListener("pointerdown", onPointerDown);
-  wrap?.addEventListener("pointermove", onPointerMove, { passive: false });
-  wrap?.addEventListener("pointerup", onPointerUp);
-  wrap?.addEventListener("pointercancel", onPointerUp);
-  wrap?.addEventListener("touchstart", onTouchStart, { passive: true });
-  wrap?.addEventListener("touchmove", onTouchMove, { passive: true });
-  wrap?.addEventListener(
-    "wheel",
-    (e) => {
-      /* capture で OrbitControls より先に止め、階層切替（ズームはピンチ） */
-      if (Math.abs(e.deltaY) < 8) return;
-      e.preventDefault();
-      e.stopPropagation();
-      stepFloor(e.deltaY > 0 ? 1 : -1);
-    },
-    { passive: false, capture: true }
-  );
 }

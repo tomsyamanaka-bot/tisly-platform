@@ -812,13 +812,14 @@ function ensureScene() {
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
   controls.minDistance = CAM_ZOOM_MIN;
   controls.maxDistance = CAM_ZOOM_MAX;
-  controls.enablePan = true;
-  /* ピンチ（2本指）で Dolly ズーム。マウスホイールは親の capture で階層ドラムへ */
+  /* 1本指=回転 · 2本指ピンチ=ズームのみ
+   * 階層切替は枠外ボタン専用 */
+  controls.enablePan = false;
   controls.enableZoom = true;
   controls.zoomSpeed = 1.05;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
-    TWO: THREE.TOUCH.DOLLY_PAN,
+    TWO: THREE.TOUCH.DOLLY,
   };
   cameraBootstrapped = false;
   cameraHome.saved = false;

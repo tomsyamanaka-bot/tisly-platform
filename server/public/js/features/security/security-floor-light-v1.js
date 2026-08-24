@@ -11,20 +11,8 @@
   window.__TISLY_SF_CTRL_BOUND = true;
   window.__TISLY_SF_FLOOR = "1f";
 
-  var DRUM_SWIPE_DURING = 36;
-  var DRUM_SWIPE_RELEASE = 30;
-  var DRUM_MODE_LOCK = 10;
-  var drum = {
-    dragging: false,
-    lastY: 0,
-    lastX: 0,
-    accY: 0,
-    accX: 0,
-    pointerId: null,
-    onIso3d: false,
-    mode: null,
-  };
-  var activePointers = new Set();
+  /* 階層切替は枠外ボタンのみ
+   * 縦スワイプ / ホイールは無効 */
   var alerting = false;
 
   function $(id) {
@@ -91,20 +79,6 @@
     } catch (_e) {
       /* ignore */
     }
-  }
-
-  function stepFloor(dir) {
-    var el = $("sf-iso-orbit");
-    var layers = layersOf(el);
-    if (!layers.length) return;
-    var focus = (el && el.getAttribute("data-focus")) || "1f";
-    var index = 0;
-    var i;
-    for (i = 0; i < layers.length; i++) {
-      if (layers[i].getAttribute("data-layer") === focus) index = i;
-    }
-    var next = layers[(index + dir + layers.length) % layers.length];
-    setFloor(next.getAttribute("data-layer"));
   }
 
   function setAlertVisual(on) {
@@ -195,161 +169,9 @@
     a.click();
   }
 
+  /* ジェスチャ階層切替なし · 表示同期のみ */
   function bindOrbit() {
     applyOrbit();
-    var wrap = $("sf-map-wrap");
-    if (!wrap) return;
-    function is3dTarget(t) {
-      return !!(
-        t &&
-        t.closest &&
-        (t.closest("#sf-iso3d-mount") ||
-          t.closest(".sf-iso3d-canvas") ||
-          t.closest(".sf-iso3d-labels") ||
-          t.closest(".sf-iso3d-pin"))
-      );
-    }
-    function setOrbitRotate(on) {
-      try {
-        if (window.TislySecurityIso3d && window.TislySecurityIso3d.setOrbitEnabled) {
-          window.TislySecurityIso3d.setOrbitEnabled(on);
-        }
-      } catch (_e) {
-        /* ignore */
-      }
-    }
-    function cancelDrumForPinch() {
-      drum.mode = "pinch";
-      drum.accY = 0;
-      drum.accX = 0;
-      setOrbitRotate(true);
-      wrap.classList.remove("is-dragging");
-    }
-    wrap.addEventListener("pointerdown", function (e) {
-      activePointers.add(e.pointerId);
-      if (activePointers.size >= 2 || drum.mode === "pinch") {
-        cancelDrumForPinch();
-        return;
-      }
-      drum.dragging = true;
-      drum.onIso3d = is3dTarget(e.target);
-      drum.lastY = e.clientY;
-      drum.lastX = e.clientX;
-      drum.accY = 0;
-      drum.accX = 0;
-      drum.mode = null;
-      drum.pointerId = e.pointerId;
-      if (!drum.onIso3d) {
-        wrap.classList.add("is-dragging");
-        try {
-          wrap.setPointerCapture(e.pointerId);
-        } catch (_err) {
-          /* ignore */
-        }
-      }
-    });
-    wrap.addEventListener(
-      "pointermove",
-      function (e) {
-        if (!drum.dragging) return;
-        if (drum.mode === "pinch") return;
-        if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-        if (activePointers.size >= 2) {
-          cancelDrumForPinch();
-          return;
-        }
-        var dy = e.clientY - drum.lastY;
-        var dx = e.clientX - drum.lastX;
-        drum.lastY = e.clientY;
-        drum.lastX = e.clientX;
-        drum.accY += dy;
-        drum.accX += dx;
-        if (drum.onIso3d) {
-          if (!drum.mode) {
-            if (Math.abs(drum.accY) > DRUM_MODE_LOCK || Math.abs(drum.accX) > DRUM_MODE_LOCK) {
-              drum.mode =
-                Math.abs(drum.accY) > Math.abs(drum.accX) * 1.15
-                  ? "floor"
-                  : "orbit";
-              if (drum.mode === "floor") {
-                setOrbitRotate(false);
-                wrap.classList.add("is-dragging");
-              }
-            }
-          }
-          if (drum.mode === "floor") {
-            if (e.cancelable) e.preventDefault();
-            if (drum.accY > DRUM_SWIPE_DURING) {
-              stepFloor(1);
-              drum.accY = 0;
-            } else if (drum.accY < -DRUM_SWIPE_DURING) {
-              stepFloor(-1);
-              drum.accY = 0;
-            }
-          }
-          return;
-        }
-        if (e.cancelable) e.preventDefault();
-      },
-      { passive: false }
-    );
-    function up(e) {
-      activePointers.delete(e.pointerId);
-      if (!drum.dragging && drum.mode !== "pinch") return;
-      if (drum.mode === "pinch") {
-        if (activePointers.size === 0) {
-          setOrbitRotate(true);
-          drum.dragging = false;
-          drum.pointerId = null;
-          drum.accY = 0;
-          drum.accX = 0;
-          drum.mode = null;
-          drum.onIso3d = false;
-          wrap.classList.remove("is-dragging");
-        }
-        return;
-      }
-      if (drum.pointerId != null && e.pointerId !== drum.pointerId) return;
-      if (!drum.onIso3d || drum.mode === "floor") {
-        if (drum.accY > DRUM_SWIPE_RELEASE) stepFloor(1);
-        else if (drum.accY < -DRUM_SWIPE_RELEASE) stepFloor(-1);
-      }
-      setOrbitRotate(true);
-      drum.dragging = false;
-      drum.pointerId = null;
-      drum.accY = 0;
-      drum.accX = 0;
-      drum.mode = null;
-      drum.onIso3d = false;
-      wrap.classList.remove("is-dragging");
-    }
-    wrap.addEventListener("pointerup", up);
-    wrap.addEventListener("pointercancel", up);
-    wrap.addEventListener(
-      "touchstart",
-      function (e) {
-        if (e.touches.length === 2) cancelDrumForPinch();
-      },
-      { passive: true }
-    );
-    wrap.addEventListener(
-      "touchmove",
-      function (e) {
-        if (e.touches.length === 2) cancelDrumForPinch();
-      },
-      { passive: true }
-    );
-    wrap.addEventListener(
-      "wheel",
-      function (e) {
-        /* capture で OrbitControls より先に止め、階層切替（ズームはピンチ） */
-        if (Math.abs(e.deltaY) < 8) return;
-        e.preventDefault();
-        e.stopPropagation();
-        stepFloor(e.deltaY > 0 ? 1 : -1);
-      },
-      { passive: false, capture: true }
-    );
   }
 
   function bindControls() {
