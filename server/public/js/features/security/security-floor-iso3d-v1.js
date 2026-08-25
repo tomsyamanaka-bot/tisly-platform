@@ -39,6 +39,10 @@ const CAM_ZOOM_MAX = 110;
 /** ダブルタップ判定（ms / px） */
 const DOUBLE_TAP_MS = 280;
 const DOUBLE_TAP_MAX_PX = 32;
+/** パン移動の世界座標限界（図面が消えない範囲） */
+const PAN_LIMIT = 14;
+/** カメラリセットの所要秒 */
+const CAM_RESET_DURATION = 0.42;
 /** 清潔感のあるライトスレート背景
  * お掃除ロボ風フロアマップ */
 const BG = 0xf1f5f9;
@@ -61,7 +65,7 @@ const CAM_ELEV_MIN = 45;
 const CAM_ELEV_MAX = 55;
 const CAM_ELEV_DEFAULT = 52;
 
-/** 2本指ピンチズーム状態 */
+/** 2本指ピンチズーム状態（互換保持・未使用） */
 const pinchZoom = {
   active: false,
   startDist: 0,
@@ -128,6 +132,15 @@ const cameraHome = {
   saved: false,
   pos: new THREE.Vector3(),
   target: new THREE.Vector3(),
+};
+/** 中央俯瞰へのスムーズリセット */
+const camResetAnim = {
+  active: false,
+  t: 0,
+  fromPos: new THREE.Vector3(),
+  fromTarget: new THREE.Vector3(),
+  toPos: new THREE.Vector3(),
+  toTarget: new THREE.Vector3(),
 };
 /** ダブルタップ検出用 */
 let lastTapAt = 0;
@@ -586,21 +599,25 @@ function configureCameraForFocus(
   const horiz = dist * Math.cos(elev);
   const camY = dist * Math.sin(elev) + focusY * 0.38;
   const desiredTargetY = focusY + 1.05;
+  const k = Math.SQRT1_2;
+  const homePos = new THREE.Vector3(horiz * k, camY, horiz * k);
+  const homeTarget = new THREE.Vector3(0, desiredTargetY, 0);
   controls.minPolarAngle = Math.PI / 2 - (CAM_ELEV_MAX * Math.PI) / 180;
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
   controls.minDistance = CAM_ZOOM_MIN;
   controls.maxDistance = CAM_ZOOM_MAX;
+  cameraHome.pos.copy(homePos);
+  cameraHome.target.copy(homeTarget);
+  cameraHome.saved = true;
   if (boot) {
-    const k = Math.SQRT1_2;
-    camera.position.set(horiz * k, camY, horiz * k);
-    controls.target.set(0, desiredTargetY, 0);
+    camera.position.copy(homePos);
+    controls.target.copy(homeTarget);
     cameraBootstrapped = true;
     focusAnim.active = false;
-    saveCameraHome();
+    camResetAnim.active = false;
   } else {
-    focusAnim.targetY = desiredTargetY;
-    focusAnim.camBaseY = camY;
-    focusAnim.active = true;
+    /* フロア切替時は中央俯瞰へアニメリセット */
+    beginCameraReset(homePos, homeTarget);
   }
   controls.update();
 }
@@ -612,15 +629,71 @@ function saveCameraHome() {
   cameraHome.saved = true;
 }
 
+function easeCamReset(t) {
+  const x = Math.min(1, Math.max(0, t));
+  return 1 - Math.pow(1 - x, 3);
+}
+
+/** 視点・ズームを中央初期位置へスムーズ復帰 */
+function beginCameraReset(toPos, toTarget) {
+  if (!camera || !controls) return;
+  focusAnim.active = false;
+  pinchZoom.active = false;
+  camResetAnim.fromPos.copy(camera.position);
+  camResetAnim.fromTarget.copy(controls.target);
+  camResetAnim.toPos.copy(toPos);
+  camResetAnim.toTarget.copy(toTarget);
+  camResetAnim.t = 0;
+  camResetAnim.active = true;
+}
+
+function tickCamReset(dt) {
+  if (!camResetAnim.active || !camera || !controls) return;
+  camResetAnim.t += dt / CAM_RESET_DURATION;
+  const k = easeCamReset(camResetAnim.t);
+  camera.position.lerpVectors(
+    camResetAnim.fromPos,
+    camResetAnim.toPos,
+    k
+  );
+  controls.target.lerpVectors(
+    camResetAnim.fromTarget,
+    camResetAnim.toTarget,
+    k
+  );
+  if (camResetAnim.t >= 1) {
+    camera.position.copy(camResetAnim.toPos);
+    controls.target.copy(camResetAnim.toTarget);
+    camResetAnim.active = false;
+  }
+}
+
+/**
+ * パンしすぎて図面が消えないよう
+ * ターゲット XZ を限界内にクランプ
+ */
+function clampPanTarget() {
+  if (!camera || !controls || !cameraHome.saved) return;
+  if (camResetAnim.active) return;
+  const hx = cameraHome.target.x;
+  const hz = cameraHome.target.z;
+  const tx = controls.target.x;
+  const tz = controls.target.z;
+  const nx = Math.max(hx - PAN_LIMIT, Math.min(hx + PAN_LIMIT, tx));
+  const nz = Math.max(hz - PAN_LIMIT, Math.min(hz + PAN_LIMIT, tz));
+  if (nx === tx && nz === tz) return;
+  const ox = tx - nx;
+  const oz = tz - nz;
+  controls.target.x = nx;
+  controls.target.z = nz;
+  camera.position.x -= ox;
+  camera.position.z -= oz;
+}
+
 /** ダブルタップで初期倍率・位置へリセット */
 function resetCameraHome() {
   if (!camera || !controls || !cameraHome.saved) return;
-  focusAnim.active = false;
-  camera.position.copy(cameraHome.pos);
-  controls.target.copy(cameraHome.target);
-  controls.minDistance = CAM_ZOOM_MIN;
-  controls.maxDistance = CAM_ZOOM_MAX;
-  controls.update();
+  beginCameraReset(cameraHome.pos, cameraHome.target);
 }
 
 function onCanvasPointerUp(ev) {
@@ -1014,7 +1087,7 @@ function ensureScene() {
   labelRenderer.domElement.className = "sf-iso3d-labels";
   mountEl.appendChild(labelRenderer.domElement);
 
-  /* マウント全体で回転・ホイール・ピンチを受付 */
+  /* マウント全体で回転・パン・ズームを受付 */
   controls = new OrbitControls(camera, mountEl);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
@@ -1024,18 +1097,20 @@ function ensureScene() {
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
   controls.minDistance = CAM_ZOOM_MIN;
   controls.maxDistance = CAM_ZOOM_MAX;
-  /* 1本指=回転 · ホイール=ズーム
-   * 2本指ピンチは bindPinchZoom が担当 */
-  controls.enablePan = false;
+  /* 1本指=回転 · 2本指=ピンチズーム+パン
+   * PCは右/中クリックでパン */
+  controls.enablePan = true;
+  controls.screenSpacePanning = true;
+  controls.panSpeed = 1.05;
   controls.enableZoom = true;
   controls.zoomSpeed = 1.25;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
-    TWO: THREE.TOUCH.DOLLY,
+    TWO: THREE.TOUCH.DOLLY_PAN,
   };
-  bindPinchZoom(mountEl);
   cameraBootstrapped = false;
   cameraHome.saved = false;
+  camResetAnim.active = false;
   lastTapAt = 0;
 
   /* ソフトスタジオ照明（家電アプリ風の落ち影） */
@@ -1119,8 +1194,11 @@ function animate() {
   /* ドラムリール切替 */
   tickReel(dt);
 
+  /* 中央俯瞰へのカメラリセット */
+  tickCamReset(dt);
+
   /* 階層フォーカス時の視点を滑らかに追従 */
-  if (focusAnim.active && camera && controls) {
+  if (focusAnim.active && camera && controls && !camResetAnim.active) {
     const k = Math.min(1, dt * 5.5);
     controls.target.y += (focusAnim.targetY - controls.target.y) * k;
     const desiredCamY = focusAnim.camBaseY;
@@ -1153,6 +1231,8 @@ function animate() {
     layerAnim.active = moving;
   }
 
+  /* パン限界で図面の画面外消失を防止 */
+  clampPanTarget();
   if (controls) controls.update();
   alertPulse = (alertPulse + dt * 2.6) % (Math.PI * 2);
   const pulse = 0.55 + Math.sin(alertPulse) * 0.45;
@@ -1748,6 +1828,8 @@ export function setSecurityIso3dFloor(floorId) {
     syncHud(floorId);
     syncOrbitDataFocus(floorId);
     syncFloorTabs(floorId);
+    /* 同階再タップでも中央俯瞰へ復帰 */
+    resetCameraHome();
     return;
   }
   state.floorId = floorId;
@@ -1829,8 +1911,8 @@ export function setSecurityIso3dAlert(on, roomIds, sensorIds) {
 export function setSecurityIso3dOrbitEnabled(on) {
   if (!controls) return;
   controls.enableRotate = !!on;
-  /* パンは常時オフ · ズームは常時オン */
-  controls.enablePan = false;
+  /* パン・ズームは常時有効（回転のみ切替） */
+  controls.enablePan = true;
   controls.enableZoom = true;
 }
 
