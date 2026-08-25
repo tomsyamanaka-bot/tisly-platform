@@ -24,7 +24,9 @@ const NOTIFY_ID_TO_FIELD = {
 
 const state = {
   homeSiteId: DEFAULT_HOME_SITE,
-  guardMode: "night_only",
+  guardMode: "scheduled",
+  scheduleStart: "18:00",
+  scheduleEnd: "06:00",
   paused: false,
   notifyModes: {
     notifyDi1Mode: "silent",
@@ -249,18 +251,69 @@ function syncLightingDurationSliders(sec) {
   setText("sf-di2solo-duration-val", val);
 }
 
+function normalizeGuardModeUi(mode) {
+  if (mode === "always" || mode === "off") return mode;
+  if (mode === "scheduled" || mode === "night_only") return "scheduled";
+  if (mode === "paused") return "off";
+  return "scheduled";
+}
+
+function normalizeTimeHm(value, fallback) {
+  const raw = String(value || "").trim();
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(raw);
+  if (!m) return fallback;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+function syncSchedulePanelVisibility(mode) {
+  const panel = $("sf-schedule-panel");
+  if (!panel) return;
+  const show = normalizeGuardModeUi(mode) === "scheduled";
+  panel.hidden = !show;
+}
+
+function readScheduleTimes() {
+  return {
+    scheduleStart: normalizeTimeHm(
+      $("sf-schedule-start")?.value,
+      state.scheduleStart || "18:00"
+    ),
+    scheduleEnd: normalizeTimeHm(
+      $("sf-schedule-end")?.value,
+      state.scheduleEnd || "06:00"
+    ),
+  };
+}
+
+function writeScheduleTimes(start, end) {
+  const s = normalizeTimeHm(start, "18:00");
+  const e = normalizeTimeHm(end, "06:00");
+  state.scheduleStart = s;
+  state.scheduleEnd = e;
+  const startEl = $("sf-schedule-start");
+  const endEl = $("sf-schedule-end");
+  if (startEl) startEl.value = s;
+  if (endEl) endEl.value = e;
+}
+
 function renderRules(rules, notifyPolicy) {
   if (!rules) return;
-  state.guardMode = rules.guardMode || "night_only";
+  state.guardMode = normalizeGuardModeUi(rules.guardMode || "scheduled");
   state.paused = Boolean(
     rules.securityPausedUntil &&
       Date.parse(rules.securityPausedUntil) > Date.now()
   );
+  writeScheduleTimes(
+    rules.scheduleStart || "18:00",
+    rules.scheduleEnd || "06:00"
+  );
 
-  if (state.paused) {
-    setSegValue("sf-guard-seg", "paused");
+  if (state.paused || state.guardMode === "off") {
+    setSegValue("sf-guard-seg", "off");
+    syncSchedulePanelVisibility("off");
   } else {
     setSegValue("sf-guard-seg", state.guardMode);
+    syncSchedulePanelVisibility(state.guardMode);
   }
 
   const lightingSec =
@@ -299,7 +352,8 @@ async function fetchRules(homeSiteId) {
 }
 
 function collectPayload(homeSiteId) {
-  const guardSeg = readSegValue("sf-guard-seg");
+  const guardSeg = normalizeGuardModeUi(readSegValue("sf-guard-seg"));
+  const times = readScheduleTimes();
   const notifyDi1Mode = normalizeNotifyMode(state.notifyModes.notifyDi1Mode);
   const notifyStagedMode = normalizeNotifyMode(
     state.notifyModes.notifyStagedMode
@@ -325,16 +379,11 @@ function collectPayload(homeSiteId) {
     notifyDi2Mode,
     notifyDi1SilentLogOnly: notifyDi1Mode !== "critical",
     notifyDi2InstantPush: notifyDi2Mode === "critical",
+    scheduleStart: times.scheduleStart,
+    scheduleEnd: times.scheduleEnd,
+    guardMode: guardSeg || "scheduled",
+    securityPausedUntil: null,
   };
-
-  if (guardSeg === "paused") {
-    const until = new Date(Date.now() + 60 * 60_000).toISOString();
-    payload.securityPausedUntil = until;
-    payload.guardMode = state.guardMode || "night_only";
-  } else {
-    payload.guardMode = guardSeg || "night_only";
-    payload.securityPausedUntil = null;
-  }
   return payload;
 }
 
@@ -358,30 +407,51 @@ async function applyToDevice(homeSiteId) {
 /** 警戒モード切替 — タップ直後にサーバー保存・実機同期 */
 async function applyGuardModeImmediate(value) {
   const homeSiteId = state.homeSiteId;
+  const mode = normalizeGuardModeUi(value);
+  const times = readScheduleTimes();
   const payload = {
     siteId: homeSiteId,
     actor: "security-v1",
+    guardMode: mode,
+    securityPausedUntil: null,
+    scheduleStart: times.scheduleStart,
+    scheduleEnd: times.scheduleEnd,
   };
-  if (value === "paused") {
-    payload.securityPausedUntil = new Date(Date.now() + 60 * 60_000).toISOString();
-    payload.guardMode = state.guardMode || "night_only";
-    state.paused = true;
-    setSegValue("sf-guard-seg", "paused");
-  } else {
-    payload.guardMode = value;
-    payload.securityPausedUntil = null;
-    state.guardMode = value;
-    state.paused = false;
-    setSegValue("sf-guard-seg", value);
-  }
+  state.guardMode = mode;
+  state.paused = mode === "off";
+  setSegValue("sf-guard-seg", mode);
+  syncSchedulePanelVisibility(mode);
   const data = await postSecurityConfig(homeSiteId, payload);
   const label =
-    value === "paused"
+    mode === "off"
       ? "警戒一時解除"
-      : value === "always"
+      : mode === "always"
         ? "24時間警戒"
-        : "夜間のみ";
+        : "時間指定警戒";
   showToast(`${label} を反映しました`);
+  return data;
+}
+
+/** 時間指定の変更を即時保存 */
+async function applyScheduleTimesImmediate() {
+  const times = readScheduleTimes();
+  writeScheduleTimes(times.scheduleStart, times.scheduleEnd);
+  const payload = {
+    siteId: state.homeSiteId,
+    actor: "security-v1",
+    guardMode: "scheduled",
+    securityPausedUntil: null,
+    scheduleStart: times.scheduleStart,
+    scheduleEnd: times.scheduleEnd,
+  };
+  state.guardMode = "scheduled";
+  state.paused = false;
+  setSegValue("sf-guard-seg", "scheduled");
+  syncSchedulePanelVisibility("scheduled");
+  const data = await postSecurityConfig(state.homeSiteId, payload);
+  showToast(
+    `時間指定 ${times.scheduleStart}〜${times.scheduleEnd} を保存しました`
+  );
   return data;
 }
 
@@ -462,6 +532,20 @@ function bindRemoteConfigUi() {
       ).catch(() => {});
     });
   });
+
+  let scheduleDebounce = null;
+  const onScheduleChange = () => {
+    clearTimeout(scheduleDebounce);
+    scheduleDebounce = setTimeout(() => {
+      applyScheduleTimesImmediate().catch((err) => {
+        showToast(err.message || "時間指定の保存に失敗しました");
+      });
+    }, 400);
+  };
+  $("sf-schedule-start")?.addEventListener("change", onScheduleChange);
+  $("sf-schedule-end")?.addEventListener("change", onScheduleChange);
+  syncSchedulePanelVisibility(readSegValue("sf-guard-seg") || "scheduled");
+
   bindSegGroup("sf-di1-24v-seg");
   bindSegGroup("sf-di2-24v-seg");
   bindSegGroup("sf-di2-100v-seg");

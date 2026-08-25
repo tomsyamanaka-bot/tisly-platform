@@ -152,10 +152,12 @@ describe("home-security-notify-v1", () => {
     assert.equal(second.pushSent, false);
   });
 
-  it("night_only daytime still sends push when armed", async () => {
+  it("scheduled daytime suppresses emergency push (silent log only)", async () => {
     resetHomeSecurityNotifyStateV1(SITE);
     updateHomeSecurityRulesV1(SITE, {
-      guardMode: "night_only",
+      guardMode: "scheduled",
+      scheduleStart: "19:00",
+      scheduleEnd: "06:00",
       securityPausedUntil: null,
       notifyDi1SilentLogOnly: false,
       notifyDi1Mode: "critical",
@@ -169,6 +171,23 @@ describe("home-security-notify-v1", () => {
     assert.equal(isHomeGuardActiveV1(rules, noon), false);
     const result = await processHomeSecurityEventV1({ siteId: SITE, di: 1 });
     assert.equal(result.pattern, "pattern_a");
-    assert.equal(result.pushSent, true);
+    assert.equal(result.pushSent, false);
+  });
+
+  it("scheduled nighttime window is active at JST 21:00", async () => {
+    resetHomeSecurityNotifyStateV1(SITE);
+    updateHomeSecurityRulesV1(SITE, {
+      guardMode: "night_only",
+      scheduleStart: "18:00",
+      scheduleEnd: "06:00",
+      securityPausedUntil: null,
+      notifyDi1Mode: "critical",
+    });
+    const { isHomeGuardActiveV1 } = await import(
+      "../src/home/home-security-rules-v1.js"
+    );
+    const rules = getHomeSecurityRulesV1(SITE);
+    const night = new Date("2026-08-24T12:00:00.000Z"); // JST 21:00
+    assert.equal(isHomeGuardActiveV1(rules, night), true);
   });
 });

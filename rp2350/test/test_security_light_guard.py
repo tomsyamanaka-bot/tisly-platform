@@ -60,6 +60,44 @@ def test_night_only_night_active():
         assert ctrl._is_guard_active_now() is True
 
 
+def test_scheduled_custom_window():
+    # JST 20:00 = UTC 11:00 — 19:00〜06:00 内
+    utc = 11 * 3600
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = _ctrl(
+            {
+                "version": 5,
+                "guardMode": "scheduled",
+                "scheduleStart": "19:00",
+                "scheduleEnd": "06:00",
+            }
+        )
+        assert ctrl._is_guard_active_now() is True
+    # JST 12:00 = UTC 03:00 — 窓外
+    utc_day = 3 * 3600
+    with patch("security_light.time.time", return_value=utc_day):
+        ctrl2 = _ctrl(
+            {
+                "version": 6,
+                "guardMode": "scheduled",
+                "scheduleStart": "19:00",
+                "scheduleEnd": "06:00",
+            }
+        )
+        assert ctrl2._is_guard_active_now() is False
+
+
+def test_version_bump_applies_mode_change():
+    ctrl = _ctrl({"version": 10, "guardMode": "always"})
+    assert ctrl._guard_mode == "always"
+    ok = ctrl.apply_rules({"version": 11, "guardMode": "off"})
+    assert ok is True
+    assert ctrl._guard_mode == "off"
+    skipped = ctrl.apply_rules({"version": 11, "guardMode": "always"})
+    assert skipped is False
+    assert ctrl._guard_mode == "off"
+
+
 def test_di1_daytime_logs_without_lights():
     import security_light as sl
 
@@ -117,6 +155,8 @@ if __name__ == "__main__":
     test_paused_overrides_always()
     test_night_only_daytime_inactive()
     test_night_only_night_active()
+    test_scheduled_custom_window()
+    test_version_bump_applies_mode_change()
     test_di1_daytime_logs_without_lights()
     test_di1_skips_lights_when_paused()
     test_lighting_duration_sec_applied()

@@ -24,14 +24,41 @@ _DEFAULT_STROBE_ON_MS = 250
 _DEFAULT_STROBE_OFF_MS = 250
 # DI 確定時間（継続 ON で 1 回トリガー）
 _DEFAULT_DI_CONFIRM_MS = 250
-# 夜間のみ（JST 18:00〜06:00 — VPS isHomeGuardActiveV1 と同期）
-_NIGHT_START_HOUR_JST = 18
-_NIGHT_END_HOUR_JST = 6
+# 時間指定の既定（JST 18:00〜06:00）
+_DEFAULT_SCHEDULE_START = "18:00"
+_DEFAULT_SCHEDULE_END = "06:00"
 
 CH_24V = 2
 CH_100V = 3
 DI_OUTER = 1
 DI_INNER = 2
+
+
+def _parse_hm(value, fallback):
+    """HH:MM を (hour, minute) に変換。"""
+    raw = str(value or "").strip()
+    parts = raw.split(":")
+    if len(parts) != 2:
+        raw = fallback
+        parts = raw.split(":")
+    try:
+        h = int(parts[0])
+        m = int(parts[1])
+    except Exception:
+        h, m = 18, 0
+        fb = fallback.split(":")
+        try:
+            h = int(fb[0])
+            m = int(fb[1])
+        except Exception:
+            pass
+    if h < 0 or h > 23 or m < 0 or m > 59:
+        return 18, 0
+    return h, m
+
+
+def _hm_to_minutes(h, m):
+    return h * 60 + m
 
 
 class SecurityLightController:
@@ -46,6 +73,8 @@ class SecurityLightController:
         self._manual_task = None
         self._rules_version = 0
         self._guard_mode = "night_only"
+        self._schedule_start = _DEFAULT_SCHEDULE_START
+        self._schedule_end = _DEFAULT_SCHEDULE_END
         self._guard_active = True
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
@@ -78,8 +107,14 @@ class SecurityLightController:
             return False
         self._rules_version = ver if ver > 0 else self._rules_version + 1
         mode = str(rules.get("guardMode", "night_only"))
-        if mode in ("always", "night_only", "off"):
+        if mode in ("always", "night_only", "scheduled", "off"):
             self._guard_mode = mode
+        self._schedule_start = str(
+            rules.get("scheduleStart", _DEFAULT_SCHEDULE_START)
+        )
+        self._schedule_end = str(
+            rules.get("scheduleEnd", _DEFAULT_SCHEDULE_END)
+        )
         self._guard_active = bool(rules.get("guardActive", True))
         self._security_paused = bool(rules.get("securityPaused", False))
         self._di1_duration_ms = int(
@@ -140,9 +175,11 @@ class SecurityLightController:
         if 200 <= confirm <= 300:
             self._di_confirm_ms = confirm
         self.log(
-            "rules synced v{} mode={} active={} paused={} di1={}s confirm={}ms".format(
+            "rules synced v{} mode={} window={}~{} active={} paused={} di1={}s confirm={}ms".format(
                 self._rules_version,
                 self._guard_mode,
+                self._schedule_start,
+                self._schedule_end,
                 self._is_guard_active_now(),
                 self._security_paused,
                 self._di1_duration_ms // 1000,
@@ -154,29 +191,39 @@ class SecurityLightController:
     def log(self, msg):
         print("[tisly security]", msg)
 
-    def _jst_hour(self):
-        """RTC を UTC 想定し JST 時（0-23）を返す。"""
+    def _jst_minutes(self):
+        """RTC を UTC 想定し JST の分（0-1439）を返す。"""
         utc_sec = int(time.time())
-        return ((utc_sec + 9 * 3600) // 3600) % 24
+        jst_sec = utc_sec + 9 * 3600
+        return (jst_sec // 60) % (24 * 60)
 
-    def _is_night_jst(self):
-        hour = self._jst_hour()
-        return hour >= _NIGHT_START_HOUR_JST or hour < _NIGHT_END_HOUR_JST
+    def _is_in_schedule_window(self):
+        """開始〜終了の時間窓（日跨ぎ対応）。"""
+        sh, sm = _parse_hm(self._schedule_start, _DEFAULT_SCHEDULE_START)
+        eh, em = _parse_hm(self._schedule_end, _DEFAULT_SCHEDULE_END)
+        now = self._jst_minutes()
+        start = _hm_to_minutes(sh, sm)
+        end = _hm_to_minutes(eh, em)
+        if start == end:
+            return True
+        if start < end:
+            return now >= start and now < end
+        return now >= start or now < end
 
     def _is_guard_active_now(self):
-        """DISARMED / NIGHT_ONLY / ALWAYS を実機で評価。"""
+        """ALWAYS / SCHEDULED / DISARMED を実機で評価。"""
         if self._security_paused:
             return False
         if self._guard_mode == "off":
             return False
         if self._guard_mode == "always":
             return True
-        if self._guard_mode == "night_only":
-            return self._is_night_jst()
+        if self._guard_mode in ("night_only", "scheduled"):
+            return self._is_in_schedule_window()
         return self._guard_active
 
     def _is_armed_now(self):
-        """OFF/一時停止以外なら監視・通知は継続。"""
+        """OFF/一時停止以外なら監視・ログは継続。"""
         if self._security_paused:
             return False
         if self._guard_mode == "off":
@@ -184,14 +231,14 @@ class SecurityLightController:
         return True
 
     def _can_run_lights(self):
-        """夜間のみ DO リレー点灯を許可。"""
+        """時間指定窓内のみ DO リレー点灯を許可。"""
         if not self._is_guard_active_now():
             if self._security_paused:
                 self.log("security paused — lights off")
             elif self._guard_mode == "off":
                 self.log("guard off (DISARMED) — lights off")
-            elif self._guard_mode == "night_only":
-                self.log("daytime (NIGHT_ONLY) — lights off")
+            elif self._guard_mode in ("night_only", "scheduled"):
+                self.log("outside schedule (SCHEDULED) — lights off")
             else:
                 self.log("guard inactive — lights off")
             return False

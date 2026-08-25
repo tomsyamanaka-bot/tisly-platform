@@ -1113,6 +1113,26 @@ describe("tisly-home-v1", () => {
     assert.equal(fwRes.body.rules.di2Light100vMode, "blink");
   });
 
+  it("POST /api/home/v1/security/config applies scheduled window", async () => {
+    const postRes = await request(app)
+      .post("/api/home/v1/security/config")
+      .send({
+        siteId: ITABASHI_SITE,
+        guardMode: "scheduled",
+        scheduleStart: "19:00",
+        scheduleEnd: "06:00",
+        securityPausedUntil: null,
+        actor: "security-v1-test",
+      })
+      .expect(200);
+    assert.equal(postRes.body.ok, true);
+    assert.equal(postRes.body.rules.guardMode, "scheduled");
+    assert.equal(postRes.body.rules.scheduleStart, "19:00");
+    assert.equal(postRes.body.rules.scheduleEnd, "06:00");
+    assert.equal(postRes.body.firmware.scheduleStart, "19:00");
+    assert.ok(postRes.body.firmware.version > 1);
+  });
+
   it("POST /api/home/v1/security/config applies remote rules", async () => {
     const postRes = await request(app)
       .post("/api/home/v1/security/config")

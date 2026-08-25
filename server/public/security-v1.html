@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TiSLY Security" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2503" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2503" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2504" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2504" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2503" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2504" />
   <script type="importmap">
   {
     "imports": {
@@ -27,7 +27,7 @@
     <div class="sf-soc-brand">
       <img
         class="sf-brand-logo"
-        src="/tisly-shield-logo-128.png?v=2503"
+        src="/tisly-shield-logo-128.png?v=2504"
         width="40"
         height="40"
         alt="TiSLY"
@@ -245,8 +245,31 @@
           <p class="sf-remote-label">警戒モード</p>
           <div class="sf-seg-group" id="sf-guard-seg" role="group" aria-label="警戒モード">
             <button type="button" class="sf-seg-btn" data-value="always">🛡️ 24時間警戒</button>
-            <button type="button" class="sf-seg-btn is-on" data-value="night_only">🌙 夜間のみ</button>
-            <button type="button" class="sf-seg-btn" data-value="paused">⏸️ 警戒一時解除</button>
+            <button type="button" class="sf-seg-btn is-on" data-value="scheduled">⏰ 時間指定警戒</button>
+            <button type="button" class="sf-seg-btn" data-value="off">⏸️ 警戒一時解除</button>
+          </div>
+          <div class="sf-schedule-panel" id="sf-schedule-panel">
+            <label class="sf-schedule-field" for="sf-schedule-start">
+              <span>開始時刻</span>
+              <input
+                type="time"
+                id="sf-schedule-start"
+                class="sf-time-input"
+                value="18:00"
+                aria-label="時間指定の開始時刻"
+              />
+            </label>
+            <label class="sf-schedule-field" for="sf-schedule-end">
+              <span>終了時刻</span>
+              <input
+                type="time"
+                id="sf-schedule-end"
+                class="sf-time-input"
+                value="06:00"
+                aria-label="時間指定の終了時刻"
+              />
+            </label>
+            <p class="sf-remote-hint">日跨ぎ可（例: 19:00〜06:00）· 変更は即時保存</p>
           </div>
         </div>
 
@@ -485,12 +508,12 @@
     </div>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2503"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2503"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2503"></script>
-  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2503"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2503"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2503"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2503"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2504"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2504"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2504"></script>
+  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2504"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2504"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2504"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2504"></script>
 </body>
 </html>

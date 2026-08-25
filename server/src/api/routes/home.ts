@@ -513,6 +513,9 @@ function applyHomeSecurityRulesPatchV1(
 ) {
   const rules = updateHomeSecurityRulesV1(siteId, {
     guardMode: body?.guardMode as HomeGuardModeV1 | undefined,
+    scheduleStart: body?.scheduleStart as string | undefined,
+    scheduleEnd: body?.scheduleEnd as string | undefined,
+    lightingDurationSec: body?.lightingDurationSec as number | undefined,
     di1DurationSec: body?.di1DurationSec as number | undefined,
     di1LightMode: body?.di1LightMode as HomeDi1LightModeV1 | undefined,
     perimeterTimeoutSec: body?.perimeterTimeoutSec as number | undefined,
@@ -543,7 +546,11 @@ function applyHomeSecurityRulesPatchV1(
     siteId,
     category: "manual_control",
     message: "防犯ルール設定を更新",
-    detail: { guardMode: rules.guardMode },
+    detail: {
+      guardMode: rules.guardMode,
+      scheduleStart: rules.scheduleStart,
+      scheduleEnd: rules.scheduleEnd,
+    },
     actor,
   });
   return rules;

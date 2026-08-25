@@ -1954,6 +1954,53 @@
   color: #fff;
 }
 
+/* 警戒モードはネイビー強調（視認性優先） */
+#sf-guard-seg .sf-seg-btn.is-on {
+  background: var(--sf-navy);
+  border-color: var(--sf-navy);
+  color: #fff;
+}
+
+.sf-schedule-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(30, 58, 138, 0.22);
+  background: #f8fafc;
+}
+
+.sf-schedule-panel[hidden] {
+  display: none !important;
+}
+
+.sf-schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sf-navy);
+}
+
+.sf-time-input {
+  min-height: var(--sf-tap);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--sf-navy);
+  background: #fff;
+  color: var(--sf-ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.sf-schedule-panel .sf-remote-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .sf-remote-apply {
   width: 100%;
   min-height: calc(var(--sf-tap) + 4px);

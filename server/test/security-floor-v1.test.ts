@@ -320,15 +320,23 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2503/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2503/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2503/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2503/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2503/);
-    assert.match(html, /security-floor-v1\.css\?v=2503/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2504/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2504/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2504/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2504/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2504/);
+    assert.match(html, /security-floor-v1\.css\?v=2504/);
     assert.match(html, /sf-brand-logo/);
     assert.match(html, /tisly-shield-logo-128\.png/);
-    assert.match(html, /icons\/icon-128\.png\?v=2503/);
+    assert.match(html, /icons\/icon-128\.png\?v=2504/);
+    assert.match(html, /時間指定警戒/);
+    assert.match(html, /sf-schedule-panel/);
+    assert.match(html, /sf-schedule-start/);
+    assert.match(html, /data-value="scheduled"/);
+    assert.match(html, /data-value="off"/);
+    assert.doesNotMatch(html, /夜間のみ/);
+    assert.doesNotMatch(html, /data-value="paused"/);
+    assert.doesNotMatch(html, /data-value="night_only"/);
     assert.doesNotMatch(html, /sf-crystal/);
     const socTs = fs.readFileSync(
       path.resolve("src/security-floor/security-floor-soc-v1.ts"),
@@ -575,7 +583,12 @@ describe("security-floor-v1", () => {
     assert.match(remoteJs, /SEC-JP-ITABASHI-LIVE/);
     assert.match(remoteJs, /HOME-JP-ITABASHI-LIVE/);
     assert.match(remoteJs, /applyGuardModeImmediate/);
+    assert.match(remoteJs, /applyScheduleTimesImmediate/);
+    assert.match(remoteJs, /scheduleStart/);
+    assert.match(remoteJs, /scheduleEnd/);
     assert.match(remoteJs, /securityPausedUntil/);
+    assert.match(remoteJs, /時間指定警戒/);
+    assert.doesNotMatch(remoteJs, /夜間のみ/);
 
     const itabashi = buildSecurityFloorOperatorSiteV1("SEC-JP-ITABASHI-LIVE");
     assert.ok(itabashi.soc);

@@ -9,8 +9,13 @@
 import { getDatabase } from "../db/database.js";
 import { findHomeSiteV1 } from "./home-sites-v1.js";
 
-/** 警戒モード（PWA 表示用） */
-export type HomeGuardModeV1 = "always" | "night_only" | "off";
+/** 警戒モード（PWA 表示用）
+ * night_only は scheduled の互換エイリアス */
+export type HomeGuardModeV1 =
+  | "always"
+  | "night_only"
+  | "scheduled"
+  | "off";
 
 /** DI1 外周検知時の点灯モード */
 export type HomeDi1LightModeV1 =
@@ -44,11 +49,19 @@ export type HomeNotifyModeV1 = "critical" | "silent" | "off";
 export const HOME_GUARD_NIGHT_START_HOUR_JST_V1 = 18;
 /** JST 夜間終了（06:00） */
 export const HOME_GUARD_NIGHT_END_HOUR_JST_V1 = 6;
+/** 時間指定の既定開始（HH:MM） */
+export const HOME_GUARD_SCHEDULE_START_DEFAULT_V1 = "18:00";
+/** 時間指定の既定終了（HH:MM） */
+export const HOME_GUARD_SCHEDULE_END_DEFAULT_V1 = "06:00";
 
 export interface HomeSecurityRulesV1 {
   siteId: string;
-  /** 24時間常時 / 夜間のみ / 警戒OFF */
+  /** 24時間常時 / 時間指定 / 警戒OFF */
   guardMode: HomeGuardModeV1;
+  /** 時間指定の開始（JST HH:MM） */
+  scheduleStart: string;
+  /** 時間指定の終了（JST HH:MM・日跨ぎ可） */
+  scheduleEnd: string;
   /** 夜間ライト点灯維持時間（秒）5〜180 — 実機 lighting_duration_sec */
   lightingDurationSec: number;
   /** DI1 点灯時間（秒）5〜180 */
@@ -85,6 +98,8 @@ export interface HomeSecurityRulesV1 {
 
 export interface HomeSecurityRulesPatchV1 {
   guardMode?: HomeGuardModeV1;
+  scheduleStart?: string;
+  scheduleEnd?: string;
   lightingDurationSec?: number;
   di1DurationSec?: number;
   di1LightMode?: HomeDi1LightModeV1;
@@ -108,6 +123,10 @@ export interface HomeSecurityFirmwareRulesV1 {
   version: number;
   siteId: string;
   guardMode: HomeGuardModeV1;
+  /** 時間指定開始（JST HH:MM） */
+  scheduleStart: string;
+  /** 時間指定終了（JST HH:MM） */
+  scheduleEnd: string;
   guardActive: boolean;
   securityPaused: boolean;
   di1DurationMs: number;
@@ -125,7 +144,65 @@ export interface HomeSecurityFirmwareRulesV1 {
   lighting_duration_sec: number;
 }
 
-const GUARD_MODES: HomeGuardModeV1[] = ["always", "night_only", "off"];
+const GUARD_MODES: HomeGuardModeV1[] = [
+  "always",
+  "night_only",
+  "scheduled",
+  "off",
+];
+
+/** 時間指定系モードか（互換 night_only 含む） */
+export function isHomeScheduledGuardModeV1(
+  mode: HomeGuardModeV1 | string
+): boolean {
+  return mode === "scheduled" || mode === "night_only";
+}
+
+/** HH:MM を正規化（不正値は fallback） */
+export function parseHomeScheduleHmV1(
+  value: unknown,
+  fallback: string
+): string {
+  const raw = String(value ?? "").trim();
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(raw);
+  if (!m) return fallback;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+function hmToMinutesV1(hm: string): number {
+  const [h, m] = hm.split(":").map((n) => Number(n));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
+  return h * 60 + m;
+}
+
+/** JST 現在が開始〜終了の窓内か（日跨ぎ対応） */
+export function isHomeScheduleWindowActiveV1(
+  startHm: string,
+  endHm: string,
+  at: Date = new Date()
+): boolean {
+  const start = parseHomeScheduleHmV1(
+    startHm,
+    HOME_GUARD_SCHEDULE_START_DEFAULT_V1
+  );
+  const end = parseHomeScheduleHmV1(
+    endHm,
+    HOME_GUARD_SCHEDULE_END_DEFAULT_V1
+  );
+  const jstHm = at.toLocaleString("en-GB", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const now = hmToMinutesV1(jstHm.replace(".", ":"));
+  const s = hmToMinutesV1(start);
+  const e = hmToMinutesV1(end);
+  if (s === e) return true;
+  if (s < e) return now >= s && now < e;
+  /* 日跨ぎ（例: 19:00〜06:00） */
+  return now >= s || now < e;
+}
 const DI1_MODES: HomeDi1LightModeV1[] = [
   "steady",
   "blink",
@@ -170,6 +247,8 @@ function parseNotifyMode(
 
 const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   guardMode: "night_only",
+  scheduleStart: HOME_GUARD_SCHEDULE_START_DEFAULT_V1,
+  scheduleEnd: HOME_GUARD_SCHEDULE_END_DEFAULT_V1,
   lightingDurationSec: 45,
   di1DurationSec: 45,
   di1LightMode: "steady",
@@ -314,6 +393,14 @@ function parseRulesJson(
   return {
     siteId,
     guardMode,
+    scheduleStart: parseHomeScheduleHmV1(
+      parsed.scheduleStart,
+      HOME_GUARD_SCHEDULE_START_DEFAULT_V1
+    ),
+    scheduleEnd: parseHomeScheduleHmV1(
+      parsed.scheduleEnd,
+      HOME_GUARD_SCHEDULE_END_DEFAULT_V1
+    ),
     lightingDurationSec,
     di1DurationSec: clampSec(
       parsed.di1DurationSec ?? lightingDurationSec,
@@ -509,6 +596,17 @@ export function updateHomeSecurityRulesV1(
   const rules: HomeSecurityRulesV1 = {
     siteId: sid,
     guardMode,
+    scheduleStart:
+      patch.scheduleStart !== undefined
+        ? parseHomeScheduleHmV1(
+            patch.scheduleStart,
+            current.scheduleStart
+          )
+        : current.scheduleStart,
+    scheduleEnd:
+      patch.scheduleEnd !== undefined
+        ? parseHomeScheduleHmV1(patch.scheduleEnd, current.scheduleEnd)
+        : current.scheduleEnd,
     lightingDurationSec,
     di1DurationSec,
     di1LightMode,
@@ -545,9 +643,10 @@ export function updateHomeSecurityRulesV1(
 /** 警戒モードの日本語ラベル */
 export function homeGuardModeLabelJaV1(mode: HomeGuardModeV1): string {
   const map: Record<HomeGuardModeV1, string> = {
-    always: "24時間常時警戒",
-    night_only: "夜間のみ",
-    off: "警戒OFF",
+    always: "24時間警戒",
+    night_only: "時間指定警戒",
+    scheduled: "時間指定警戒",
+    off: "警戒一時解除",
   };
   return map[mode] ?? mode;
 }
@@ -562,24 +661,21 @@ export function isHomeSecurityArmedV1(
   return true;
 }
 
-/** 現在時刻で防犯ライト（DO）連動が有効か（JST 18:00〜06:00） */
+/** 現在時刻で防犯ライト・緊急Pushが有効か */
 export function isHomeGuardActiveV1(
   rules: HomeSecurityRulesV1,
   at: Date = new Date()
 ): boolean {
   if (!isHomeSecurityArmedV1(rules, at)) return false;
   if (rules.guardMode === "always") return true;
-  const jstHour = Number(
-    at.toLocaleString("en-US", {
-      hour: "numeric",
-      hour12: false,
-      timeZone: "Asia/Tokyo",
-    })
-  );
-  return (
-    jstHour >= HOME_GUARD_NIGHT_START_HOUR_JST_V1 ||
-    jstHour < HOME_GUARD_NIGHT_END_HOUR_JST_V1
-  );
+  if (isHomeScheduledGuardModeV1(rules.guardMode)) {
+    return isHomeScheduleWindowActiveV1(
+      rules.scheduleStart,
+      rules.scheduleEnd,
+      at
+    );
+  }
+  return false;
 }
 
 /** 防犯ライト一時停止中か */
@@ -599,10 +695,17 @@ export function buildHomeSecurityFirmwareRulesV1(
 ): HomeSecurityFirmwareRulesV1 {
   const rules = getHomeSecurityRulesV1(siteId);
   const guardActive = isHomeGuardActiveV1(rules);
+  /* updatedAt 由来の単調 version（切替反映バグ対策） */
+  const version = Math.max(
+    1,
+    Date.parse(rules.updatedAt) || Date.now()
+  );
   return {
-    version: 1,
+    version,
     siteId: rules.siteId,
     guardMode: rules.guardMode,
+    scheduleStart: rules.scheduleStart,
+    scheduleEnd: rules.scheduleEnd,
     guardActive,
     securityPaused: isHomeSecurityPausedV1(rules),
     di1DurationMs: rules.di1DurationSec * 1000,

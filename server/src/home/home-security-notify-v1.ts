@@ -276,7 +276,7 @@ function patternLightLogMessage(
   lightsActive: boolean
 ): string {
   if (!lightsActive) {
-    return "防犯ライト点灯スキップ（日中 · 通知/ログのみ）";
+    return "防犯ライト点灯スキップ（時間外 · 通知/ログのみ）";
   }
   if (pattern === "pattern_a") {
     return `防犯ライト点灯（DI1 · ${rules.di1DurationSec}秒）`;
@@ -305,6 +305,17 @@ async function dispatchPatternPushV1(input: {
     return false;
   }
 
+  /* 時間指定警戒: 窓外は緊急Push抑止（サイレントログのみ） */
+  if (
+    !lightsActive &&
+    (rules.guardMode === "scheduled" || rules.guardMode === "night_only")
+  ) {
+    console.log(
+      `[home-security] outside schedule — silent log only pattern=${pattern} site=${siteId}`
+    );
+    return false;
+  }
+
   if (isDiPushInCooldown(siteId, di)) {
     console.log(
       `[home-security] DI${di} Push suppressed (cooldown ${HOME_SECURITY_PUSH_COOLDOWN_MS}ms) pattern=${pattern} site=${siteId}`
@@ -323,7 +334,7 @@ async function dispatchPatternPushV1(input: {
     const title = "🚨【緊急警報】駐車場センサーを検知";
     const body = lightsActive
       ? "駐車場センサー (DI1) が反応しました。外側100V・投光器ライトを点灯中。"
-      : "駐車場センサー (DI1) が反応しました（日中 · ライトは点灯しません）。";
+      : "駐車場センサー (DI1) が反応しました（時間外 · ライトは点灯しません）。";
     const result = await sendHomeSecurityPush({
       title,
       body,
@@ -357,7 +368,7 @@ async function dispatchPatternPushV1(input: {
     const title = "🚨【緊急警報】ガレージセンサーを検知";
     const body = lightsActive
       ? "ガレージセンサー (DI2) が反応しました。防犯ライト威嚇中。"
-      : "ガレージセンサー (DI2) が反応しました（日中 · ライトは点灯しません）。";
+      : "ガレージセンサー (DI2) が反応しました（時間外 · ライトは点灯しません）。";
     const result = await sendHomeSecurityPush({
       title,
       body,
@@ -392,7 +403,7 @@ async function dispatchPatternPushV1(input: {
     ? "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
       "外側100V点滅＋100V投光器ライト威嚇中。"
     : "駐車場センサーに続きガレージセンサー (DI2) が反応しました！" +
-      "（日中 · ライトは点灯しません）";
+      "（時間外 · ライトは点灯しません）";
   const result = await sendHomeSecurityPush({
     title,
     body,
