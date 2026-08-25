@@ -39,20 +39,21 @@ const CAM_ZOOM_MAX = 92;
 /** ダブルタップ判定（ms / px） */
 const DOUBLE_TAP_MS = 280;
 const DOUBLE_TAP_MAX_PX = 32;
-/** 清潔感のあるライトスレート背景 */
+/** 清潔感のあるライトスレート背景
+ * お掃除ロボ風フロアマップ */
 const BG = 0xf1f5f9;
 const GRID_MAJOR = 0xcbd5e1;
 const GRID_LINE = 0xe2e8f0;
 /** 部屋・スラブ境界のシャープなアウトライン */
-const EDGE_SLATE = 0x475569;
-const EDGE_ASH = 0x334155;
-const ROOM_FILL = 0xe2e8f0;
-const ROOM_FILL_OUTDOOR = 0xd4e5d0;
+const EDGE_SLATE = 0x64748b;
+const EDGE_ASH = 0x475569;
+const ROOM_FILL = 0x9aa3ad;
+const ROOM_FILL_OUTDOOR = 0xb8d0a8;
 const SLAB_TINT = 0xf8fafc;
 /** 白いウォールリブ（天面／側面） */
 const WALL_TOP = 0xffffff;
-const WALL_SIDE = 0xe8eef5;
-const WALL_THICK = 0.14;
+const WALL_SIDE = 0xeef2f7;
+const WALL_THICK = 0.18;
 /** 床・壁のソリッド不透明度（半透明ゴースト廃止） */
 const SOLID_OPACITY = 1;
 /** アイソメ俯瞰の仰角帯（水平面から） */
@@ -717,9 +718,9 @@ function makeCyberGridTexture() {
   g.addColorStop(1, "#F1F5F9");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 512, 512);
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.12)";
   ctx.lineWidth = 1;
-  const step = 48;
+  const step = 64;
   for (let i = 0; i <= 512; i += step) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
@@ -732,14 +733,14 @@ function makeCyberGridTexture() {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1.6, 1.6);
+  tex.repeat.set(1.4, 1.4);
   tex.anisotropy = 4;
   return tex;
 }
 
 /**
- * 床面テクスチャ（木目・タイル・畳・芝）
- * @param {"wood"|"tile"|"tatami"|"grass"} pattern
+ * 床面テクスチャ（ヘリンボーン・タイル・畳・芝）
+ * @param {"wood"|"herringbone"|"tile"|"tatami"|"grass"} pattern
  * @param {number} baseHex
  */
 function makeFloorTexture(pattern, baseHex) {
@@ -750,8 +751,29 @@ function makeFloorTexture(pattern, baseHex) {
   const hex = `#${baseHex.toString(16).padStart(6, "0")}`;
   ctx.fillStyle = hex;
   ctx.fillRect(0, 0, 256, 256);
-  if (pattern === "wood") {
-    ctx.strokeStyle = "rgba(15, 23, 42, 0.08)";
+  if (pattern === "herringbone") {
+    /* リビング向けヘリンボーン調 */
+    const step = 22;
+    for (let y = -step; y < 256 + step; y += step) {
+      for (let x = -step; x < 256 + step; x += step) {
+        const odd = ((x / step) | 0) % 2 === 0;
+        ctx.strokeStyle = odd
+          ? "rgba(15, 23, 42, 0.16)"
+          : "rgba(255, 255, 255, 0.12)";
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        if (odd) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + step, y + step);
+        } else {
+          ctx.moveTo(x + step, y);
+          ctx.lineTo(x, y + step);
+        }
+        ctx.stroke();
+      }
+    }
+  } else if (pattern === "wood") {
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.1)";
     ctx.lineWidth = 1.2;
     for (let y = 8; y < 256; y += 18) {
       ctx.beginPath();
@@ -759,7 +781,7 @@ function makeFloorTexture(pattern, baseHex) {
       ctx.lineTo(256, y);
       ctx.stroke();
     }
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
     for (let x = 0; x < 256; x += 64) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -767,9 +789,9 @@ function makeFloorTexture(pattern, baseHex) {
       ctx.stroke();
     }
   } else if (pattern === "tile") {
-    ctx.strokeStyle = "rgba(15, 23, 42, 0.12)";
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.14)";
     ctx.lineWidth = 1;
-    for (let i = 0; i <= 256; i += 32) {
+    for (let i = 0; i <= 256; i += 28) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
       ctx.lineTo(i, 256);
@@ -780,18 +802,18 @@ function makeFloorTexture(pattern, baseHex) {
       ctx.stroke();
     }
   } else if (pattern === "tatami") {
-    ctx.strokeStyle = "rgba(60, 80, 40, 0.14)";
+    ctx.strokeStyle = "rgba(60, 80, 40, 0.18)";
     ctx.lineWidth = 1;
-    for (let y = 0; y < 256; y += 6) {
+    for (let y = 0; y < 256; y += 5) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(256, y);
       ctx.stroke();
     }
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
     ctx.strokeRect(8, 8, 240, 240);
   } else {
-    ctx.fillStyle = "rgba(34, 120, 60, 0.08)";
+    ctx.fillStyle = "rgba(34, 120, 60, 0.1)";
     for (let i = 0; i < 120; i++) {
       const x = (i * 47) % 256;
       const y = (i * 91) % 256;
@@ -802,37 +824,40 @@ function makeFloorTexture(pattern, baseHex) {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2.2, 2.2);
+  tex.repeat.set(2.4, 2.4);
   tex.anisotropy = 4;
   return tex;
 }
 
-/** 部屋ラベルからモダン床色を決定 */
+/**
+ * 部屋ラベルから床色を決定
+ * お掃除ロボ風のツートン塗り分け
+ */
 function roomStyleFromLabel(label, floorId) {
   const t = String(label || "");
   if (floorId === "outdoor" || /駐車|庭|外周|敷地/.test(t)) {
-    return { fill: 0xd4e5d0, pattern: "grass", icon: "🌳" };
+    return { fill: 0xa8c49a, pattern: "grass", icon: "🌳" };
   }
-  if (/リビング|居間/.test(t)) {
-    return { fill: 0xb7c7b4, pattern: "wood", icon: "🛋️" };
+  if (/リビング|居間|ダイニング/.test(t)) {
+    return { fill: 0x4f5e38, pattern: "herringbone", icon: "🛋️" };
   }
   if (/和/.test(t)) {
-    return { fill: 0xc4c9a4, pattern: "tatami", icon: "🪷" };
+    return { fill: 0xa8b56e, pattern: "tatami", icon: "🪷" };
   }
   if (/風呂|バス|浴室/.test(t)) {
-    return { fill: 0xb5d2e6, pattern: "tile", icon: "🛁" };
+    return { fill: 0x9ec0d4, pattern: "tile", icon: "🛁" };
   }
   if (/トイレ|WC|洗面/.test(t)) {
-    return { fill: 0xc2dbe6, pattern: "tile", icon: "🚽" };
+    return { fill: 0xb0cfe0, pattern: "tile", icon: "🚽" };
   }
   if (/台所|キッチン|勝手/.test(t)) {
-    return { fill: 0xe6d8c4, pattern: "tile", icon: "🔥" };
+    return { fill: 0xc4b29a, pattern: "tile", icon: "🔥" };
   }
   if (/洋|寝室/.test(t)) {
-    return { fill: 0xd6d3cf, pattern: "wood", icon: "🛏️" };
+    return { fill: 0x6e5d4f, pattern: "wood", icon: "🛏️" };
   }
   if (/廊下|ホール|土間|押入/.test(t)) {
-    return { fill: 0xddd9d4, pattern: "wood", icon: "🚪" };
+    return { fill: 0x8b929c, pattern: "wood", icon: "🚪" };
   }
   return {
     fill: floorId === "outdoor" ? ROOM_FILL_OUTDOOR : ROOM_FILL,
@@ -1321,8 +1346,9 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
 
   const rooms = roomsForFloor(floorId);
   let firstAlertRoom = null;
-  const floorY = 0.18;
-  const ribH = Math.max(wallH * 0.36, 0.85);
+  const floorY = 0.16;
+  /* 白い立体壁を十分高く · 床色を際立たせる */
+  const ribH = Math.max(wallH * 0.48, 1.15);
 
   for (const r of rooms) {
     if (!state.showZones) continue;
@@ -1340,10 +1366,10 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     const mats = shadeRoomMaterials(mat);
     /* 床面のみ薄く · 壁は別リブで押し出し */
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(ww * 0.98, 0.1, dd * 0.98),
+      new THREE.BoxGeometry(ww * 0.97, 0.08, dd * 0.97),
       mats
     );
-    mesh.position.set(cx, floorY + 0.05, cz);
+    mesh.position.set(cx, floorY + 0.04, cz);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData = {
@@ -1362,7 +1388,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
       new THREE.LineBasicMaterial({
         color: tier === "none" ? EDGE_SLATE : edgeColor,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.28,
       })
     );
     edge.position.copy(mesh.position);
@@ -1372,6 +1398,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     if (alerting && !firstAlertRoom) firstAlertRoom = { r, mesh };
 
     if (state.showLabels && r.label) {
+      /* 白カプセル・低め配置で床を隠さない */
       const labelEl = document.createElement("div");
       labelEl.className =
         "sf-iso3d-room-label" + (alerting ? " is-alert" : "");
@@ -1388,7 +1415,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
         labelEl.style.visibility = "hidden";
       }
       const labelObj = new CSS2DObject(labelEl);
-      labelObj.position.set(cx, floorY + ribH * 0.72, cz);
+      labelObj.position.set(cx, floorY + 0.26, cz);
       layer.add(labelObj);
     }
   }
@@ -1448,12 +1475,12 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
       label: s.label || s.customerLabel || s.id,
       alerting,
       linkedCameraId: s.linkedCameraId || (isCam ? s.id : null),
-      scale: 1.05,
+      scale: 0.82,
       vivid: true,
       capsule: true,
     });
     const pos = pinWorldFromSensor(s, wallH);
-    pin.position.set(pos.x, Math.max(pos.y, floorY + 0.35), pos.z);
+    pin.position.set(pos.x, Math.max(pos.y, floorY + 0.28), pos.z);
     layer.add(pin);
     sensorPins.set(s.id, pin);
   }
