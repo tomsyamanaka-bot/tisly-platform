@@ -32,10 +32,10 @@ const REEL_SLIDE = 10.5;
 const REEL_DURATION = 0.4;
 const CAM_FOV = 46;
 const CAM_DIST_MIN = 32;
-/** ピン詳細寄りの最短距離（ピンチズーム） */
-const CAM_ZOOM_MIN = 7;
-/** 間取り全体俯瞰の最長距離（ピンチズーム） */
-const CAM_ZOOM_MAX = 92;
+/** ピン詳細寄りの最短距離（ピンチ／ホイール） */
+const CAM_ZOOM_MIN = 5;
+/** 間取り全体俯瞰の最長距離（ピンチ／ホイール） */
+const CAM_ZOOM_MAX = 110;
 /** ダブルタップ判定（ms / px） */
 const DOUBLE_TAP_MS = 280;
 const DOUBLE_TAP_MAX_PX = 32;
@@ -60,6 +60,13 @@ const SOLID_OPACITY = 1;
 const CAM_ELEV_MIN = 45;
 const CAM_ELEV_MAX = 55;
 const CAM_ELEV_DEFAULT = 52;
+
+/** 2本指ピンチズーム状態 */
+const pinchZoom = {
+  active: false,
+  startDist: 0,
+  startCamDist: 0,
+};
 
 /** @type {import('three').Scene | null} */
 let scene = null;
@@ -621,6 +628,79 @@ function onCanvasPointerUp(ev) {
   pickDevicePin(ev);
 }
 
+/** 2点間距離（ピンチ基準） */
+function pinchTouchDistance(t0, t1) {
+  const dx = t0.clientX - t1.clientX;
+  const dy = t0.clientY - t1.clientY;
+  return Math.hypot(dx, dy);
+}
+
+/** カメラ距離を min/max 内へ適用 */
+function applyCameraDollyDistance(dist) {
+  if (!camera || !controls) return;
+  const next = Math.min(
+    CAM_ZOOM_MAX,
+    Math.max(CAM_ZOOM_MIN, dist)
+  );
+  const dir = new THREE.Vector3()
+    .subVectors(camera.position, controls.target)
+    .normalize();
+  if (dir.lengthSq() < 1e-8) return;
+  camera.position
+    .copy(controls.target)
+    .addScaledVector(dir, next);
+  controls.update();
+}
+
+/**
+ * マウント上の2本指ピンチで距離ズーム
+ * OrbitControls より capture で先に処理
+ */
+function bindPinchZoom(el) {
+  if (!el || el.__tislyPinchZoomBound) return;
+  el.__tislyPinchZoomBound = true;
+
+  el.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 2 || !camera || !controls) return;
+      pinchZoom.active = true;
+      pinchZoom.startDist = pinchTouchDistance(
+        e.touches[0],
+        e.touches[1]
+      );
+      pinchZoom.startCamDist = camera.position.distanceTo(
+        controls.target
+      );
+    },
+    { passive: true }
+  );
+
+  el.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!pinchZoom.active || e.touches.length !== 2) return;
+      if (!camera || !controls) return;
+      if (e.cancelable) e.preventDefault();
+      e.stopImmediatePropagation();
+      const d = pinchTouchDistance(e.touches[0], e.touches[1]);
+      if (pinchZoom.startDist < 10) return;
+      /* ピンチアウト=接近（拡大） */
+      const ratio = pinchZoom.startDist / Math.max(10, d);
+      applyCameraDollyDistance(pinchZoom.startCamDist * ratio);
+    },
+    { passive: false, capture: true }
+  );
+
+  const endPinch = (e) => {
+    if (!e.touches || e.touches.length < 2) {
+      pinchZoom.active = false;
+    }
+  };
+  el.addEventListener("touchend", endPinch, { passive: true });
+  el.addEventListener("touchcancel", endPinch, { passive: true });
+}
+
 function maybeHandleDoubleTap(ev) {
   if (ev.pointerType === "mouse" && ev.button !== 0) return false;
   const now = performance.now();
@@ -879,6 +959,11 @@ function ensureScene() {
 
   if (renderer) {
     try {
+      controls?.dispose?.();
+    } catch {
+      /* ignore */
+    }
+    try {
       renderer.dispose();
     } catch {
       /* ignore */
@@ -929,7 +1014,8 @@ function ensureScene() {
   labelRenderer.domElement.className = "sf-iso3d-labels";
   mountEl.appendChild(labelRenderer.domElement);
 
-  controls = new OrbitControls(camera, renderer.domElement);
+  /* マウント全体で回転・ホイール・ピンチを受付 */
+  controls = new OrbitControls(camera, mountEl);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.target.set(0, 2.0, 0);
@@ -938,15 +1024,16 @@ function ensureScene() {
   controls.maxPolarAngle = Math.PI / 2 - (CAM_ELEV_MIN * Math.PI) / 180;
   controls.minDistance = CAM_ZOOM_MIN;
   controls.maxDistance = CAM_ZOOM_MAX;
-  /* 1本指=回転 · 2本指ピンチ=ズームのみ
-   * 階層切替は枠外ボタン専用 */
+  /* 1本指=回転 · ホイール=ズーム
+   * 2本指ピンチは bindPinchZoom が担当 */
   controls.enablePan = false;
   controls.enableZoom = true;
-  controls.zoomSpeed = 1.05;
+  controls.zoomSpeed = 1.25;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
     TWO: THREE.TOUCH.DOLLY,
   };
+  bindPinchZoom(mountEl);
   cameraBootstrapped = false;
   cameraHome.saved = false;
   lastTapAt = 0;
@@ -1742,8 +1829,8 @@ export function setSecurityIso3dAlert(on, roomIds, sensorIds) {
 export function setSecurityIso3dOrbitEnabled(on) {
   if (!controls) return;
   controls.enableRotate = !!on;
-  controls.enablePan = !!on;
-  /* ピンチズームはフロア切替中も常時有効 */
+  /* パンは常時オフ · ズームは常時オン */
+  controls.enablePan = false;
   controls.enableZoom = true;
 }
 
