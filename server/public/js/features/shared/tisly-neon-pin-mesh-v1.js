@@ -152,14 +152,15 @@ function roundRectStroke(ctx, x, y, w, h, r) {
 }
 
 /**
- * Canvas テクスチャ（白フチ + デバイス色ネオングロー + 大型 SVG アイコン）
+ * Canvas テクスチャ（白カプセルバッジ + デバイス色アイコン）
  * @param {typeof import('three')} THREE
- * @param {{ kind: string, alerting?: boolean, selected?: boolean }} opts
+ * @param {{ kind: string, alerting?: boolean, selected?: boolean, capsule?: boolean }} opts
  */
 export function makeNeonPinTexture(THREE, opts) {
   const style = neonPinStyle(opts.kind);
   const alerting = !!opts.alerting;
   const selected = !!opts.selected;
+  const capsule = opts.capsule !== false;
   const size = 160;
   const c = document.createElement("canvas");
   c.width = size;
@@ -169,63 +170,74 @@ export function makeNeonPinTexture(THREE, opts) {
   ctx.clearRect(0, 0, size, size);
 
   const cx = 80;
-  const cy = 64;
-  const r = 46;
+  const cy = 70;
   const theme = alerting ? 0xef4444 : style.hex;
   const rgb = hexToRgb(theme);
 
-  /* デバイス色ネオングロー（外周光彩）＋ドロップシャドウ風 */
-  const glow = ctx.createRadialGradient(cx, cy + 6, 4, cx, cy + 10, 82);
-  glow.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.95)`);
-  glow.addColorStop(0.4, `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`);
-  glow.addColorStop(0.72, `rgba(15,23,42,0.18)`);
-  glow.addColorStop(1, `rgba(15,23,42,0)`);
+  /* ソフトドロップシャドウ */
+  const glow = ctx.createRadialGradient(cx, cy + 18, 2, cx, cy + 22, 70);
+  glow.addColorStop(0, "rgba(15,23,42,0.22)");
+  glow.addColorStop(1, "rgba(15,23,42,0)");
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(cx, cy + 8, 80, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy + 28, 52, 22, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  /* 白フチリング（屋外・暗所でも輪郭を確保） */
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 7, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.98)";
-  ctx.fill();
-  ctx.lineWidth = 3.5;
-  ctx.strokeStyle = alerting ? "#fecaca" : `rgba(${rgb.r},${rgb.g},${rgb.b},0.98)`;
-  ctx.stroke();
+  if (capsule) {
+    /* 白カプセル型フロートバッジ */
+    const bw = 108;
+    const bh = 52;
+    const x = cx - bw / 2;
+    const y = cy - bh / 2;
+    const rr = bh / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + bw - rr, y);
+    ctx.quadraticCurveTo(x + bw, y, x + bw, y + rr);
+    ctx.lineTo(x + bw, y + bh - rr);
+    ctx.quadraticCurveTo(x + bw, y + bh, x + bw - rr, y + bh);
+    ctx.lineTo(x + rr, y + bh);
+    ctx.quadraticCurveTo(x, y + bh, x, y + bh - rr);
+    ctx.lineTo(x, y + rr);
+    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+    ctx.fillStyle = alerting ? "#fef2f2" : "#ffffff";
+    ctx.fill();
+    ctx.lineWidth = selected ? 3.5 : 2.2;
+    ctx.strokeStyle = alerting
+      ? "#ef4444"
+      : selected
+        ? "#1e3a8a"
+        : "rgba(148,163,184,0.85)";
+    ctx.stroke();
 
-  const body = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-  if (alerting) {
-    body.addColorStop(0, "#fecaca");
-    body.addColorStop(1, "#ef4444");
+    /* 左端の色ドット（デバイス種別アクセント） */
+    ctx.beginPath();
+    ctx.arc(x + 22, cy, 11, 0, Math.PI * 2);
+    ctx.fillStyle = alerting ? "#ef4444" : hexCss(theme);
+    ctx.fill();
+    drawDeviceIconSvgV1(ctx, opts.kind, x + 22, cy, 0.95, "#ffffff");
+    drawDeviceIconSvgV1(ctx, opts.kind, cx + 14, cy, 1.55, alerting ? "#b91c1c" : "#0f172a");
   } else {
-    body.addColorStop(0, "#ffffff");
-    body.addColorStop(0.55, hexCss(theme));
-    body.addColorStop(1, hexCss(theme));
+    const r = 46;
+    const glow2 = ctx.createRadialGradient(cx, cy + 6, 4, cx, cy + 10, 82);
+    glow2.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.95)`);
+    glow2.addColorStop(0.4, `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`);
+    glow2.addColorStop(1, `rgba(15,23,42,0)`);
+    ctx.fillStyle = glow2;
+    ctx.beginPath();
+    ctx.arc(cx, cy + 8, 80, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 7, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.98)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = alerting ? "#ef4444" : hexCss(theme);
+    ctx.fill();
+    drawDeviceIconSvgV1(ctx, opts.kind, cx, cy + 1, 2.15, "#ffffff");
   }
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-  ctx.lineWidth = selected ? 7 : 5;
-  ctx.strokeStyle = alerting ? "#f87171" : selected ? "#1e3a8a" : hexCss(theme);
-  ctx.stroke();
-
-  /* デバイス種別 SVG（大型・太線） */
-  const iconColor = alerting ? "#ffffff" : "#0f172a";
-  drawDeviceIconSvgV1(ctx, opts.kind, cx, cy + 1, 2.15, iconColor);
-
-  /* 尖端 */
-  ctx.beginPath();
-  ctx.moveTo(cx - 16, cy + r - 2);
-  ctx.lineTo(cx + 16, cy + r - 2);
-  ctx.lineTo(cx, cy + r + 28);
-  ctx.closePath();
-  ctx.fillStyle = alerting ? "#ef4444" : hexCss(theme);
-  ctx.fill();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "#ffffff";
-  ctx.stroke();
 
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
@@ -237,9 +249,9 @@ export function makeNeonPinTexture(THREE, opts) {
   return tex;
 }
 
-/** スプライト基準サイズ（旧 1.15×1.35 の約 1.65 倍） */
-const PIN_SPRITE_W = 1.9;
-const PIN_SPRITE_H = 2.25;
+/** スプライト基準サイズ（白カプセル横長） */
+const PIN_SPRITE_W = 2.15;
+const PIN_SPRITE_H = 1.55;
 
 /**
  * 3D ネオングループを生成
@@ -252,6 +264,7 @@ const PIN_SPRITE_H = 2.25;
  *   selected?: boolean,
  *   linkedCameraId?: string,
  *   scale?: number,
+ *   capsule?: boolean,
  * }} opts
  */
 export function createNeonPinMesh3d(THREE, opts) {
@@ -265,6 +278,7 @@ export function createNeonPinMesh3d(THREE, opts) {
     kind,
     alerting: opts.alerting,
     selected: opts.selected,
+    capsule: opts.capsule !== false,
   });
   const mat = new THREE.SpriteMaterial({
     map: tex,
@@ -275,24 +289,24 @@ export function createNeonPinMesh3d(THREE, opts) {
   });
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(PIN_SPRITE_W * scale, PIN_SPRITE_H * scale, 1);
-  sprite.position.y = 0.72 * scale;
-  sprite.center.set(0.5, 0.15);
+  sprite.position.y = 0.55 * scale;
+  sprite.center.set(0.5, 0.35);
   group.add(sprite);
 
   const stemMat = new THREE.MeshStandardMaterial({
-    color: opts.alerting ? 0xef4444 : style.hex,
-    emissive: opts.alerting ? 0xef4444 : style.hex,
-    emissiveIntensity: opts.alerting ? 0.85 : 0.35,
-    metalness: 0.2,
-    roughness: 0.35,
+    color: opts.alerting ? 0xef4444 : 0x94a3b8,
+    emissive: opts.alerting ? 0xef4444 : 0x1e3a8a,
+    emissiveIntensity: opts.alerting ? 0.55 : 0.08,
+    metalness: 0.12,
+    roughness: 0.55,
     transparent: true,
-    opacity: 0.98,
+    opacity: 0.9,
   });
   const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055 * scale, 0.085 * scale, 0.7 * scale, 12),
+    new THREE.CylinderGeometry(0.04 * scale, 0.06 * scale, 0.48 * scale, 12),
     stemMat
   );
-  stem.position.y = 0.35 * scale;
+  stem.position.y = 0.24 * scale;
   stem.castShadow = true;
   stem.receiveShadow = true;
   group.add(stem);
@@ -300,12 +314,12 @@ export function createNeonPinMesh3d(THREE, opts) {
   const ringMat = new THREE.MeshBasicMaterial({
     color: opts.alerting ? 0xef4444 : style.hex,
     transparent: true,
-    opacity: opts.alerting ? 0.55 : 0.38,
+    opacity: opts.alerting ? 0.4 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.32 * scale, 0.55 * scale, 36),
+    new THREE.RingGeometry(0.28 * scale, 0.46 * scale, 36),
     ringMat
   );
   ring.rotation.x = -Math.PI / 2;
@@ -316,11 +330,11 @@ export function createNeonPinMesh3d(THREE, opts) {
   const shadowMat = new THREE.MeshBasicMaterial({
     color: 0x0f172a,
     transparent: true,
-    opacity: 0.18,
+    opacity: 0.14,
     depthWrite: false,
   });
   const shadowDisk = new THREE.Mesh(
-    new THREE.CircleGeometry(0.42 * scale, 24),
+    new THREE.CircleGeometry(0.4 * scale, 24),
     shadowMat
   );
   shadowDisk.rotation.x = -Math.PI / 2;

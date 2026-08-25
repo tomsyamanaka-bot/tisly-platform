@@ -320,15 +320,15 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2504/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2504/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2504/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2504/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2504/);
-    assert.match(html, /security-floor-v1\.css\?v=2504/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=2505/);
+    assert.match(html, /security-floor-push-v1\.js\?v=2505/);
+    assert.match(html, /security-floor-light-v1\.js\?v=2505/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=2505/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=2505/);
+    assert.match(html, /security-floor-v1\.css\?v=2505/);
     assert.match(html, /sf-brand-logo/);
     assert.match(html, /tisly-shield-logo-128\.png/);
-    assert.match(html, /icons\/icon-128\.png\?v=2504/);
+    assert.match(html, /icons\/icon-128\.png\?v=2505/);
     assert.match(html, /時間指定警戒/);
     assert.match(html, /sf-schedule-panel/);
     assert.match(html, /sf-schedule-start/);
@@ -407,8 +407,11 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /stackExpand|STACK_GAP/);
     assert.match(iso3dJs, /perimeter|critical/);
     assert.match(iso3dJs, /発報地点/);
-    assert.match(iso3dJs, /0xf8fafc|f8fafc/);
+    assert.match(iso3dJs, /0xf8fafc|f8fafc|0xf1f5f9|f1f5f9/);
     assert.match(iso3dJs, /0x475569|475569|0x334155|334155/);
+    assert.match(iso3dJs, /roomStyleFromLabel|addRoomWallRibs|makeFloorTexture/);
+    assert.match(iso3dJs, /ウォールリブ|白カプセル|お掃除ロボ/);
+    assert.match(iso3dJs, /sf-iso3d-room-ico/);
     assert.match(iso3dJs, /CAM_ELEV|cameraElevationDeg/);
     assert.match(iso3dJs, /setOrbitEnabled/);
     assert.match(iso3dJs, /enableZoom\s*=\s*true/);
@@ -448,6 +451,7 @@ describe("security-floor-v1", () => {
     assert.match(pinMeshJs, /0xeab308/);
     assert.match(pinMeshJs, /castShadow/);
     assert.match(pinMeshJs, /shadowDisk|CircleGeometry/);
+    assert.match(pinMeshJs, /白カプセル|capsule/);
     assert.doesNotMatch(pinMeshJs, /emoji:\s*"/);
     const orbitJs = fs.readFileSync(
       path.join(

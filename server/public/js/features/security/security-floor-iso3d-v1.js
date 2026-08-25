@@ -1,7 +1,7 @@
 /**
- * TiSLY Security — クリーン＆テック ライト 3D
- * アイソメトリック俯瞰 · 単一フロア完全切替（ドラムリール）· DI発報発光
- * ホワイト基調＋シャープなスレート輪郭 · 非選択階は visible=false
+ * TiSLY Security — お掃除ロボ風 3D フロアマップ
+ * 白壁リブ · 部屋色塗り分け · 白カプセルバッジ
+ * 単一フロア完全切替 · DI発報発光
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -39,15 +39,20 @@ const CAM_ZOOM_MAX = 92;
 /** ダブルタップ判定（ms / px） */
 const DOUBLE_TAP_MS = 280;
 const DOUBLE_TAP_MAX_PX = 32;
-const BG = 0xf8fafc;
-const GRID_MAJOR = 0x94a3b8;
-const GRID_LINE = 0xcbd5e1;
+/** 清潔感のあるライトスレート背景 */
+const BG = 0xf1f5f9;
+const GRID_MAJOR = 0xcbd5e1;
+const GRID_LINE = 0xe2e8f0;
 /** 部屋・スラブ境界のシャープなアウトライン */
 const EDGE_SLATE = 0x475569;
 const EDGE_ASH = 0x334155;
-const ROOM_FILL = 0xffffff;
-const ROOM_FILL_OUTDOOR = 0xf1f5f9;
+const ROOM_FILL = 0xe2e8f0;
+const ROOM_FILL_OUTDOOR = 0xd4e5d0;
 const SLAB_TINT = 0xf8fafc;
+/** 白いウォールリブ（天面／側面） */
+const WALL_TOP = 0xffffff;
+const WALL_SIDE = 0xe8eef5;
+const WALL_THICK = 0.14;
 /** 床・壁のソリッド不透明度（半透明ゴースト廃止） */
 const SOLID_OPACITY = 1;
 /** アイソメ俯瞰の仰角帯（水平面から） */
@@ -702,28 +707,20 @@ function inferAlertTier() {
 }
 
 function makeCyberGridTexture() {
+  /* ソフトなスラブ下地（強グリッド廃止） */
   const c = document.createElement("canvas");
   c.width = 512;
   c.height = 512;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#F1F5F9";
+  const g = ctx.createLinearGradient(0, 0, 512, 512);
+  g.addColorStop(0, "#F8FAFC");
+  g.addColorStop(1, "#F1F5F9");
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, 512, 512);
-  ctx.strokeStyle = "rgba(100, 116, 139, 0.42)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
   ctx.lineWidth = 1;
-  const step = 32;
+  const step = 48;
   for (let i = 0; i <= 512; i += step) {
-    ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i, 512);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, i);
-    ctx.lineTo(512, i);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(51, 65, 85, 0.55)";
-  ctx.lineWidth = 1.75;
-  for (let i = 0; i <= 512; i += step * 4) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
     ctx.lineTo(i, 512);
@@ -735,9 +732,113 @@ function makeCyberGridTexture() {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
+  tex.repeat.set(1.6, 1.6);
   tex.anisotropy = 4;
   return tex;
+}
+
+/**
+ * 床面テクスチャ（木目・タイル・畳・芝）
+ * @param {"wood"|"tile"|"tatami"|"grass"} pattern
+ * @param {number} baseHex
+ */
+function makeFloorTexture(pattern, baseHex) {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  const hex = `#${baseHex.toString(16).padStart(6, "0")}`;
+  ctx.fillStyle = hex;
+  ctx.fillRect(0, 0, 256, 256);
+  if (pattern === "wood") {
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.08)";
+    ctx.lineWidth = 1.2;
+    for (let y = 8; y < 256; y += 18) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + (y % 36 === 8 ? 2 : 0));
+      ctx.lineTo(256, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+    for (let x = 0; x < 256; x += 64) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 256);
+      ctx.stroke();
+    }
+  } else if (pattern === "tile") {
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.12)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 256; i += 32) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, 256);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(256, i);
+      ctx.stroke();
+    }
+  } else if (pattern === "tatami") {
+    ctx.strokeStyle = "rgba(60, 80, 40, 0.14)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < 256; y += 6) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(256, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.strokeRect(8, 8, 240, 240);
+  } else {
+    ctx.fillStyle = "rgba(34, 120, 60, 0.08)";
+    for (let i = 0; i < 120; i++) {
+      const x = (i * 47) % 256;
+      const y = (i * 91) % 256;
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2.2, 2.2);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/** 部屋ラベルからモダン床色を決定 */
+function roomStyleFromLabel(label, floorId) {
+  const t = String(label || "");
+  if (floorId === "outdoor" || /駐車|庭|外周|敷地/.test(t)) {
+    return { fill: 0xd4e5d0, pattern: "grass", icon: "🌳" };
+  }
+  if (/リビング|居間/.test(t)) {
+    return { fill: 0xb7c7b4, pattern: "wood", icon: "🛋️" };
+  }
+  if (/和/.test(t)) {
+    return { fill: 0xc4c9a4, pattern: "tatami", icon: "🪷" };
+  }
+  if (/風呂|バス|浴室/.test(t)) {
+    return { fill: 0xb5d2e6, pattern: "tile", icon: "🛁" };
+  }
+  if (/トイレ|WC|洗面/.test(t)) {
+    return { fill: 0xc2dbe6, pattern: "tile", icon: "🚽" };
+  }
+  if (/台所|キッチン|勝手/.test(t)) {
+    return { fill: 0xe6d8c4, pattern: "tile", icon: "🔥" };
+  }
+  if (/洋|寝室/.test(t)) {
+    return { fill: 0xd6d3cf, pattern: "wood", icon: "🛏️" };
+  }
+  if (/廊下|ホール|土間|押入/.test(t)) {
+    return { fill: 0xddd9d4, pattern: "wood", icon: "🚪" };
+  }
+  return {
+    fill: floorId === "outdoor" ? ROOM_FILL_OUTDOOR : ROOM_FILL,
+    pattern: "wood",
+    icon: "🏠",
+  };
 }
 
 function ensureScene() {
@@ -825,11 +926,11 @@ function ensureScene() {
   cameraHome.saved = false;
   lastTapAt = 0;
 
-  /* 明るいスタジオ照明（上面ハイライト＋側面陰影） */
-  scene.add(new THREE.AmbientLight(0xffffff, 0.62));
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.48));
-  const key = new THREE.DirectionalLight(0xffffff, 1.15);
-  key.position.set(14, 26, 8);
+  /* ソフトスタジオ照明（家電アプリ風の落ち影） */
+  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.95);
+  key.position.set(12, 28, 10);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.camera.near = 2;
@@ -838,13 +939,14 @@ function ensureScene() {
   key.shadow.camera.right = 22;
   key.shadow.camera.top = 22;
   key.shadow.camera.bottom = -22;
-  key.shadow.bias = -0.0002;
+  key.shadow.radius = 3.5;
+  key.shadow.bias = -0.00015;
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0x94a3b8, 0.38);
-  fill.position.set(-16, 10, -12);
+  const fill = new THREE.DirectionalLight(0xb8c4d4, 0.42);
+  fill.position.set(-14, 12, -10);
   scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xe2e8f0, 0.28);
-  rim.position.set(4, 8, -18);
+  const rim = new THREE.DirectionalLight(0xf1f5f9, 0.32);
+  rim.position.set(2, 10, -16);
   scene.add(rim);
 
   spotLight = new THREE.SpotLight(0xffffff, 0.55, 55, Math.PI / 5, 0.45, 1);
@@ -1005,8 +1107,9 @@ function pinWorldFromSensor(s, wallH) {
   return deviceToWorldPosV1(s, wallH);
 }
 
-function roomMaterials(alerting, floorId) {
+function roomMaterials(alerting, floorId, label = "") {
   const isOutdoor = floorId === "outdoor";
+  const style = roomStyleFromLabel(label, floorId);
   const tier = alerting
     ? isOutdoor || state.alertTier === "perimeter"
       ? "perimeter"
@@ -1016,12 +1119,13 @@ function roomMaterials(alerting, floorId) {
   if (tier === "critical") {
     return {
       tier,
+      style,
       mat: new THREE.MeshStandardMaterial({
         color: 0xfef2f2,
         emissive: 0xef4444,
-        emissiveIntensity: 0.35,
-        metalness: 0.08,
-        roughness: 0.55,
+        emissiveIntensity: 0.28,
+        metalness: 0.06,
+        roughness: 0.62,
         transparent: false,
         opacity: SOLID_OPACITY,
       }),
@@ -1031,31 +1135,31 @@ function roomMaterials(alerting, floorId) {
   if (tier === "perimeter") {
     return {
       tier,
+      style,
       mat: new THREE.MeshStandardMaterial({
         color: 0xfff7ed,
         emissive: 0xf59e0b,
-        emissiveIntensity: 0.28,
-        metalness: 0.06,
-        roughness: 0.58,
+        emissiveIntensity: 0.22,
+        metalness: 0.05,
+        roughness: 0.64,
         transparent: false,
         opacity: SOLID_OPACITY,
       }),
       edge: 0xf97316,
     };
   }
-  const fill = isOutdoor ? ROOM_FILL_OUTDOOR : ROOM_FILL;
   return {
     tier: "none",
+    style,
     mat: new THREE.MeshStandardMaterial({
-      color: fill,
-      emissive: 0xe2e8f0,
-      emissiveIntensity: 0.02,
-      metalness: 0.04,
-      roughness: 0.72,
+      map: makeFloorTexture(style.pattern, style.fill),
+      color: 0xffffff,
+      metalness: 0.03,
+      roughness: 0.86,
       transparent: false,
       opacity: SOLID_OPACITY,
     }),
-    edge: EDGE_ASH,
+    edge: EDGE_SLATE,
   };
 }
 
@@ -1067,6 +1171,7 @@ function shadeRoomMaterials(baseMat) {
   const top = baseMat;
   const mkSide = (mul, roughness) => {
     const m = baseMat.clone();
+    if (baseMat.map) m.map = baseMat.map;
     const c = baseMat.color.clone().multiplyScalar(mul);
     m.color.copy(c);
     m.roughness = roughness;
@@ -1081,8 +1186,56 @@ function shadeRoomMaterials(baseMat) {
   return [side, side2, top, bottom, side3, side4];
 }
 
+/** 白いウォールリブ用（天面白・側面ソフト陰影） */
+function shadeWallMaterials() {
+  const top = new THREE.MeshStandardMaterial({
+    color: WALL_TOP,
+    metalness: 0.02,
+    roughness: 0.48,
+    transparent: false,
+    opacity: SOLID_OPACITY,
+  });
+  const side = new THREE.MeshStandardMaterial({
+    color: WALL_SIDE,
+    metalness: 0.04,
+    roughness: 0.72,
+    transparent: false,
+    opacity: SOLID_OPACITY,
+  });
+  const bottom = side.clone();
+  bottom.color = new THREE.Color(0xd8dee8);
+  return [side, side.clone(), top, bottom, side.clone(), side.clone()];
+}
+
 /**
- * 部屋ブロック＋外壁フレーム（厚み付き）を1フロア分追加
+ * 部屋四辺に白い立体壁（ウォールリブ）を追加
+ */
+function addRoomWallRibs(layer, cx, cz, ww, dd, floorY, ribH) {
+  const t = WALL_THICK;
+  const halfW = ww / 2;
+  const halfD = dd / 2;
+  const y = floorY + ribH / 2;
+  const segs = [
+    { x: cx, z: cz - halfD, w: ww + t, d: t },
+    { x: cx, z: cz + halfD, w: ww + t, d: t },
+    { x: cx - halfW, z: cz, w: t, d: dd + t },
+    { x: cx + halfW, z: cz, w: t, d: dd + t },
+  ];
+  for (const s of segs) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(s.w, ribH, s.d),
+      shadeWallMaterials()
+    );
+    mesh.position.set(s.x, y, s.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = { kind: "wallRib" };
+    layer.add(mesh);
+  }
+}
+
+/**
+ * 部屋ブロック＋外壁フレーム（ウォールリブ）を1フロア分追加
  */
 function addFloorLayer(floorId, yBase, wallH, isFocus) {
   const layer = new THREE.Group();
@@ -1094,38 +1247,38 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
   const slabMat = new THREE.MeshStandardMaterial({
     map: makeCyberGridTexture(),
     color: SLAB_TINT,
-    metalness: 0.08,
-    roughness: 0.85,
+    metalness: 0.05,
+    roughness: 0.9,
     emissive: 0xffffff,
-    emissiveIntensity: 0.04,
+    emissiveIntensity: 0.02,
     transparent: false,
     opacity: SOLID_OPACITY,
   });
   const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(slabSize, 0.18, slabSize),
+    new THREE.BoxGeometry(slabSize, 0.16, slabSize),
     slabMat
   );
-  slab.position.y = 0.09;
+  slab.position.y = 0.08;
   slab.receiveShadow = true;
   slab.castShadow = true;
   slab.userData = { kind: "slab", floorId, baseOpacity: SOLID_OPACITY };
   layer.add(slab);
 
-  /* スラブ外周のダークアウトライン（マス目との境界を明確化） */
+  /* スラブ外周のソフトアウトライン */
   const slabEdge = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(slabSize, 0.18, slabSize)),
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(slabSize, 0.16, slabSize)),
     new THREE.LineBasicMaterial({
-      color: EDGE_ASH,
-      transparent: false,
-      opacity: SOLID_OPACITY,
+      color: EDGE_SLATE,
+      transparent: true,
+      opacity: 0.45,
     })
   );
-  slabEdge.position.y = 0.09;
+  slabEdge.position.y = 0.08;
   layer.add(slabEdge);
 
-  /* フロア外枠ワイヤー（アッシュネイビー輪郭） */
+  /* 外壁フレーム（全体輪郭の薄いガイド） */
   const shellGeo = new THREE.EdgesGeometry(
-    new THREE.BoxGeometry(slabSize + 0.15, wallH * 0.62, slabSize + 0.15)
+    new THREE.BoxGeometry(slabSize + 0.12, wallH * 0.38, slabSize + 0.12)
   );
   const shellColor =
     state.alertTier === "critical" && isFocus
@@ -1137,11 +1290,11 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     shellGeo,
     new THREE.LineBasicMaterial({
       color: shellColor,
-      transparent: false,
-      opacity: SOLID_OPACITY,
+      transparent: true,
+      opacity: 0.35,
     })
   );
-  shell.position.y = wallH * 0.28;
+  shell.position.y = wallH * 0.18;
   layer.add(shell);
   floorShells.push(shell);
 
@@ -1168,27 +1321,29 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
 
   const rooms = roomsForFloor(floorId);
   let firstAlertRoom = null;
+  const floorY = 0.18;
+  const ribH = Math.max(wallH * 0.36, 0.85);
 
   for (const r of rooms) {
     if (!state.showZones) continue;
     const alerting = !!r.alertVisible;
     const ww = Math.max(r.w * 0.2, 0.5);
     const dd = Math.max(r.h * 0.2, 0.5);
-    const { mat, edge: edgeColor, tier } = roomMaterials(
+    const cx = pctToWorldV1(r.x + r.w / 2);
+    const cz = pctToWorldV1(r.y + r.h / 2);
+    const { mat, edge: edgeColor, tier, style } = roomMaterials(
       alerting,
-      floorId
+      floorId,
+      r.label
     );
     mat.userData = { alerting };
     const mats = shadeRoomMaterials(mat);
+    /* 床面のみ薄く · 壁は別リブで押し出し */
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(ww, wallH * 0.58, dd),
+      new THREE.BoxGeometry(ww * 0.98, 0.1, dd * 0.98),
       mats
     );
-    mesh.position.set(
-      pctToWorldV1(r.x + r.w / 2),
-      wallH * 0.29 + 0.18,
-      pctToWorldV1(r.y + r.h / 2)
-    );
+    mesh.position.set(cx, floorY + 0.05, cz);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData = {
@@ -1200,14 +1355,14 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     };
     layer.add(mesh);
 
-    /* 外壁フレーム風エッジ（シャープなダークスレート #334155） */
+    addRoomWallRibs(layer, cx, cz, ww, dd, floorY, ribH);
+
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
       new THREE.LineBasicMaterial({
-        color: tier === "none" ? EDGE_ASH : edgeColor,
-        transparent: false,
-        opacity: SOLID_OPACITY,
-        linewidth: 2,
+        color: tier === "none" ? EDGE_SLATE : edgeColor,
+        transparent: true,
+        opacity: 0.4,
       })
     );
     edge.position.copy(mesh.position);
@@ -1220,17 +1375,20 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
       const labelEl = document.createElement("div");
       labelEl.className =
         "sf-iso3d-room-label" + (alerting ? " is-alert" : "");
-      labelEl.textContent = r.label;
+      const ico = document.createElement("span");
+      ico.className = "sf-iso3d-room-ico";
+      ico.setAttribute("aria-hidden", "true");
+      ico.textContent = style?.icon || "🏠";
+      const txt = document.createElement("span");
+      txt.className = "sf-iso3d-room-txt";
+      txt.textContent = r.label;
+      labelEl.append(ico, txt);
       if (!isFocus) {
         labelEl.style.display = "none";
         labelEl.style.visibility = "hidden";
       }
       const labelObj = new CSS2DObject(labelEl);
-      labelObj.position.set(
-        mesh.position.x,
-        mesh.position.y + wallH * 0.22,
-        mesh.position.z
-      );
+      labelObj.position.set(cx, floorY + ribH * 0.72, cz);
       layer.add(labelObj);
     }
   }
@@ -1253,7 +1411,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     const tipObj = new CSS2DObject(tip);
     tipObj.position.set(
       firstAlertRoom.mesh.position.x,
-      firstAlertRoom.mesh.position.y + wallH * 0.55,
+      firstAlertRoom.mesh.position.y + ribH * 0.9,
       firstAlertRoom.mesh.position.z
     );
     layer.add(tipObj);
@@ -1269,7 +1427,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     const alertPin = new THREE.Mesh(pinGeo, pinMat);
     alertPin.position.set(
       firstAlertRoom.mesh.position.x,
-      firstAlertRoom.mesh.position.y + wallH * 0.42,
+      firstAlertRoom.mesh.position.y + ribH * 0.7,
       firstAlertRoom.mesh.position.z
     );
     alertPin.rotation.x = Math.PI;
@@ -1290,11 +1448,12 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
       label: s.label || s.customerLabel || s.id,
       alerting,
       linkedCameraId: s.linkedCameraId || (isCam ? s.id : null),
-      scale: 1.12,
+      scale: 1.05,
       vivid: true,
+      capsule: true,
     });
     const pos = pinWorldFromSensor(s, wallH);
-    pin.position.set(pos.x, pos.y, pos.z);
+    pin.position.set(pos.x, Math.max(pos.y, floorY + 0.35), pos.z);
     layer.add(pin);
     sensorPins.set(s.id, pin);
   }
