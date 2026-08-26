@@ -72,6 +72,12 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /防虫クリアイエロー塗装ハック/);
     assert.match(mockSrc, /ガスメーターパルス/);
     assert.match(mockSrc, /格安SIM/);
+    assert.match(mockSrc, /ソフトウェアディレイ設計基準/);
+    assert.match(mockSrc, /デバウンス黄金比/);
+    assert.match(mockSrc, /アイソメトリック間取り図/);
+    assert.match(mockSrc, /ハートビート5分周期化/);
+    assert.match(mockSrc, /立体シールドエンブレム/);
+    assert.match(mockSrc, /MOCK_OPS_INSIGHT_ITEMS/);
   });
 
   it("nav script requires login before loading bundle", () => {

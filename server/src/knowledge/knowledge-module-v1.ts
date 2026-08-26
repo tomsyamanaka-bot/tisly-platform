@@ -21,6 +21,10 @@ import {
   SECURITY_FLOOR_MODULE_SEED_IDS,
   getSecurityFloorModuleSeedItemsV1,
 } from "./knowledge-security-floor-seed-v1.js";
+import {
+  OPS_INSIGHT_MODULE_SEED_IDS,
+  getOpsInsightModuleSeedItemsV1,
+} from "./knowledge-ops-insight-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -371,6 +375,49 @@ function mergeSecurityFloorSeed(
   return { items: next, changed };
 }
 
+/**
+ * TiSLY 運用知見ナレッジ 5 件を末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeOpsInsightSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(OPS_INSIGHT_MODULE_SEED_IDS);
+  const seeds = getOpsInsightModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -408,12 +455,14 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedPh = mergeEcoWaterPhSeed(mergedFab.items);
   const mergedField = mergeEcoWaterFieldSeed(mergedPh.items);
   const mergedSec = mergeSecurityFloorSeed(mergedField.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedSec.items);
+  const mergedOps = mergeOpsInsightSeed(mergedSec.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedOps.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
     mergedField.changed ||
     mergedSec.changed ||
+    mergedOps.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

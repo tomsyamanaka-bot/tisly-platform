@@ -43,6 +43,10 @@ const {
   SECURITY_FLOOR_MODULE_SEED_IDS,
   seedSecurityFloorKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-security-floor-seed-v1.js");
+const {
+  OPS_INSIGHT_MODULE_SEED_IDS,
+  seedOpsInsightKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-ops-insight-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -370,6 +374,77 @@ describe("knowledge-module-v1 store", () => {
     const sim = getKnowledgeCardV1("SEC-SIM-WATCH-001");
     assert.ok(sim);
     assert.match(sim!.title, /格安SIM/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends ops insight seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of OPS_INSIGHT_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const delay = listed.find(
+      (x) => x.id === "kn-seed-sensor-delay-design-001"
+    );
+    assert.ok(delay);
+    assert.match(delay!.title, /ソフトウェアディレイ/);
+    assert.ok(delay!.tags.includes("#Sensor"));
+    assert.ok(delay!.tags.includes("#RP2350"));
+    assert.match(String(delay!.summary ?? ""), /時定数/);
+    assert.match(String(delay!.body ?? ""), /移動平均/);
+
+    const debounce = listed.find(
+      (x) => x.id === "kn-seed-radar-debounce-100ms-001"
+    );
+    assert.ok(debounce);
+    assert.match(debounce!.title, /デバウンス黄金比/);
+    assert.ok(debounce!.tags.includes("#LD2410"));
+    assert.match(String(debounce!.body ?? ""), /100ms〜150ms/);
+
+    const iso = listed.find(
+      (x) => x.id === "kn-seed-ui-isometric-3d-001"
+    );
+    assert.ok(iso);
+    assert.match(iso!.title, /アイソメトリック/);
+    assert.ok(iso!.tags.includes("#ThreeJS"));
+    assert.match(String(iso!.body ?? ""), /OrbitControls/);
+
+    const hb = listed.find(
+      (x) => x.id === "kn-seed-rp2350-heartbeat-sched-001"
+    );
+    assert.ok(hb);
+    assert.match(hb!.title, /ハートビート/);
+    assert.ok(hb!.tags.includes("#Heartbeat"));
+    assert.match(String(hb!.body ?? ""), /日跨ぎ/);
+
+    const brand = listed.find(
+      (x) => x.id === "kn-seed-brand-shield-emblem-001"
+    );
+    assert.ok(brand);
+    assert.match(brand!.title, /シールドエンブレム/);
+    assert.ok(brand!.tags.includes("#TiSLY"));
+    assert.match(String(brand!.body ?? ""), /32〜40px/);
+  });
+
+  it("seedOpsInsightKnowledgeCardsV1 upserts searchable cards", () => {
+    seedOpsInsightKnowledgeCardsV1();
+    const delay = getKnowledgeCardV1("OPS-SENSOR-DELAY-001");
+    assert.ok(delay);
+    assert.match(delay!.title, /応答速度/);
+    const debounce = getKnowledgeCardV1("OPS-RADAR-DEBOUNCE-001");
+    assert.ok(debounce);
+    assert.match(debounce!.title, /草木誤検知/);
+    const iso = getKnowledgeCardV1("OPS-UI-ISOMETRIC-3D-001");
+    assert.ok(iso);
+    assert.match(iso!.title, /お掃除ロボット風/);
+    const hb = getKnowledgeCardV1("OPS-RP2350-HEARTBEAT-001");
+    assert.ok(hb);
+    assert.match(hb!.title, /タイムスケジュール/);
+    const brand = getKnowledgeCardV1("OPS-BRAND-SHIELD-001");
+    assert.ok(brand);
+    assert.match(brand!.title, /立体シールド/);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
