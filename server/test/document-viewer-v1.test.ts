@@ -84,6 +84,8 @@ describe("Document Viewer UX v1 API", () => {
     assert.match(res.text, /id="btn-regenerate"[^>]*>PDF再作成/);
     assert.match(res.text, /doc-preview-mode/);
     assert.match(res.text, /doc-pdf-chrome-actions/);
+    assert.match(res.text, /receipt-mode-bar/);
+    assert.match(res.text, /領収書として表示/);
     assert.doesNotMatch(res.text, /navigator\.share\(\{\s*title,\s*url/);
   });
 

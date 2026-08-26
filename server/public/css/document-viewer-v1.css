@@ -691,6 +691,7 @@
   .doc-fixed-total,
   .doc-lightbox,
   .doc-pdf-chrome,
+  .receipt-mode-bar,
   #toast {
     display: none !important;
   }
@@ -707,4 +708,68 @@
   .doc-desktop {
     display: none !important;
   }
+}
+
+/* 領収書モード切替バー（白×ネイビー） */
+.receipt-mode-bar {
+  position: sticky;
+  top: var(--doc-pdf-chrome-h, 52px);
+  z-index: 40;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.receipt-mode-bar.hidden {
+  display: none !important;
+}
+.receipt-mode-toggle {
+  appearance: none;
+  border: 2px solid #1e3a8a;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-weight: 700;
+  font-size: 0.92rem;
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+.receipt-mode-toggle[aria-pressed="true"] {
+  background: #1e3a8a;
+  color: #ffffff;
+}
+.receipt-mode-fields {
+  display: grid;
+  gap: 0.45rem;
+}
+.receipt-mode-fields.hidden {
+  display: none !important;
+}
+.receipt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+.receipt-field input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.95rem;
+  min-height: 42px;
+  background: #fff;
+  color: #0f172a;
+}
+.receipt-apply-btn {
+  min-height: 44px;
+  font-weight: 700;
+}
+.doc-preview-mode .doc-viewer-main {
+  padding-top: 0.5rem;
 }

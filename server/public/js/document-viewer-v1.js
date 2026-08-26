@@ -25,6 +25,9 @@ let cachedPdfBlob = null;
 let mobileMode = false;
 /** @type {'preview' | 'pdf'} */
 let viewMode = "preview";
+/** 見積プレビュー上の領収書モード */
+let receiptMode = false;
+const DEFAULT_RECEIPT_PROVISO = "但 TVアンテナ・防犯カメラ工事代金として";
 
 function toast(msg, { durationMs = 2200 } = {}) {
   const el = $("toast");
@@ -54,7 +57,8 @@ function parseParams() {
   const kind = q.get("kind") || "estimate";
   const projectId = q.get("projectId") || "";
   const returnUrl = q.get("return") || q.get("returnUrl") || "";
-  return { kind, projectId, returnUrl };
+  const receipt = q.get("receipt") === "1" || q.get("mode") === "receipt";
+  return { kind, projectId, returnUrl, receipt };
 }
 
 function resolveDocumentReturn(returnUrl, projectId) {
@@ -101,16 +105,38 @@ function pdfAuthHeaders() {
 }
 
 function getRegenerateUrl() {
+  if (receiptMode && payload?.kind === "estimate" && payload?.projectId) {
+    return `/api/estimate/v1/projects/${encodeURIComponent(payload.projectId)}/receipt/pdf/regenerate`;
+  }
   return payload?.regenerateUrl || null;
 }
 
+function buildReceiptPdfUrl() {
+  if (!payload?.projectId) return null;
+  const params = new URLSearchParams({ includePhotos: "false" });
+  const date = $("receipt-date-input")?.value?.trim();
+  const proviso = ($("receipt-proviso-input")?.value || DEFAULT_RECEIPT_PROVISO).trim();
+  if (date) params.set("receiptDate", date);
+  if (proviso) params.set("proviso", proviso);
+  return `/api/estimate/v1/projects/${encodeURIComponent(payload.projectId)}/receipt/pdf?${params}`;
+}
+
+function resolveActivePdfUrl() {
+  if (receiptMode && payload?.kind === "estimate") {
+    return buildReceiptPdfUrl();
+  }
+  return payload?.pdfUrl || null;
+}
+
 async function fetchDocumentPdfBlob({ forceRefresh = false } = {}) {
-  if (!payload?.pdfUrl) throw new Error("PDF URLがありません");
+  const pdfUrl = resolveActivePdfUrl();
+  if (!pdfUrl) throw new Error("PDF URLがありません");
   if (!forceRefresh && cachedPdfBlob && isValidPdfBlob(cachedPdfBlob)) return cachedPdfBlob;
+  // 領収書はクエリ付き GET で都度生成
   const blob = await fetchPdfBlobWithRegenerate({
-    fetchUrl: buildPdfTabUrl(payload.pdfUrl),
+    fetchUrl: buildPdfTabUrl(pdfUrl),
     headers: pdfAuthHeaders(),
-    regenerateUrl: getRegenerateUrl(),
+    regenerateUrl: receiptMode ? null : getRegenerateUrl(),
     getRegenerateHeaders: pdfAuthHeaders,
   });
   cachedPdfBlob = blob;
@@ -124,12 +150,13 @@ function setPdfFrameBlob(blob) {
 }
 
 async function loadPdfFrame() {
-  if (!payload?.pdfUrl) throw new Error("PDF URLがありません");
-  const blob = await fetchDocumentPdfBlob();
+  const pdfUrl = resolveActivePdfUrl();
+  if (!pdfUrl) throw new Error("PDF URLがありません");
+  const blob = await fetchDocumentPdfBlob({ forceRefresh: receiptMode });
   setPdfFrameBlob(blob);
 }
 
-function renderEstimateMobile(est) {
+function renderEstimateMobile(est, { asReceipt = false } = {}) {
   const itemsHtml = est.items
     .map(
       (item) => `<article class="doc-line-card">
@@ -151,15 +178,33 @@ function renderEstimateMobile(est) {
   $("doc-fixed-total").classList.remove("hidden");
   $("doc-fixed-total").innerHTML = `<span>税込合計</span><span class="amount">${yen(est.total)}</span>`;
 
+  const heroLabel = asReceipt ? "領収金額（税込）" : "御見積金額（税込）";
+  const docNoLabel = asReceipt ? "領収番号" : "見積番号";
+  const dateLabel = asReceipt ? "領収日" : "発行日";
+  const dateValue = asReceipt
+    ? $("receipt-date-input")?.value || est.issueDate
+    : est.issueDate;
+  const proviso = asReceipt
+    ? ($("receipt-proviso-input")?.value || DEFAULT_RECEIPT_PROVISO).trim()
+    : "";
+  const intro = asReceipt
+    ? "上記の通り、正に領収いたしました。"
+    : "下記の通り、お見積り申し上げます。";
+  const stampNote = asReceipt
+    ? `<div class="doc-meta-card"><p class="muted">※電子発行につき印紙不要</p></div>`
+    : "";
+
   return `
     <div class="doc-hero-card">
-      <p class="doc-hero-label">御見積金額（税込）</p>
+      <p class="doc-hero-label">${heroLabel}</p>
       <p class="doc-hero-amount">${yen(est.total)}</p>
+      ${proviso ? `<p class="muted" style="margin:0.35rem 0 0;font-weight:700;">${escapeHtml(proviso)}</p>` : ""}
     </div>
     <div class="doc-meta-card">
       <p><strong>${escapeHtml(est.addressee)}</strong> 様</p>
       <p>${escapeHtml(est.subject)}</p>
-      <p class="muted">見積番号 ${escapeHtml(est.docNo)} · ${escapeHtml(est.issueDate)}</p>
+      <p class="muted">${intro}</p>
+      <p class="muted">${docNoLabel} ${escapeHtml(est.docNo)} · ${dateLabel} ${escapeHtml(dateValue)}</p>
       ${est.staffName ? `<p class="muted">担当 ${escapeHtml(est.staffName)}</p>` : ""}
     </div>
     ${itemsHtml}
@@ -170,6 +215,7 @@ function renderEstimateMobile(est) {
       <div class="doc-totals-row"><span>消費税（10%）</span><span>${yen(est.tax)}</span></div>
       <div class="doc-totals-row"><span><strong>税込合計</strong></span><span><strong>${yen(est.total)}</strong></span></div>
     </div>
+    ${stampNote}
     ${est.notes ? `<div class="doc-meta-card"><p class="muted">備考</p><p>${escapeHtml(est.notes)}</p></div>` : ""}`;
 }
 
@@ -283,7 +329,7 @@ function renderMobileView(data) {
   let html = "";
   switch (data.kind) {
     case "estimate":
-      html = renderEstimateMobile(data.estimate);
+      html = renderEstimateMobile(data.estimate, { asReceipt: receiptMode });
       break;
     case "invoice":
       html = renderInvoiceMobile(data.invoice);
@@ -435,22 +481,91 @@ function updateRegenerateButton(_data) {
 }
 
 function updateHeader(data) {
-  $("header-kind").textContent = data.label;
+  const label =
+    receiptMode && data.kind === "estimate" ? "領収書" : data.label;
+  $("header-kind").textContent = label;
   $("header-title").textContent = data.projectTitle;
-  document.title = `TiSLY — ${data.label}`;
+  document.title = `TiSLY — ${label}`;
   updateRegenerateButton(data);
 }
 
 function getShareFileName() {
+  if (receiptMode && payload?.kind === "estimate") {
+    const base = payload?.shareFileName || "見積書.pdf";
+    return String(base).replace(/^見積書/, "領収書").replace(/estimate/i, "receipt");
+  }
   return payload?.shareFileName || `${payload?.kind || "document"}.pdf`;
 }
 
+function toDateInputValue(displayDate) {
+  const raw = String(displayDate || "").trim();
+  const m = raw.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) {
+    return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  }
+  const d = new Date();
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+function setupReceiptModeBar(data, startInReceipt) {
+  const bar = $("receipt-mode-bar");
+  const toggle = $("btn-receipt-mode");
+  const fields = $("receipt-mode-fields");
+  if (!bar || !toggle || !fields) return;
+  if (data.kind !== "estimate") {
+    bar.classList.add("hidden");
+    receiptMode = false;
+    return;
+  }
+  bar.classList.remove("hidden");
+  const dateInput = $("receipt-date-input");
+  const provisoInput = $("receipt-proviso-input");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = toDateInputValue(data.estimate?.issueDate);
+  }
+  if (provisoInput && !provisoInput.value) {
+    provisoInput.value = DEFAULT_RECEIPT_PROVISO;
+  }
+
+  const applyReceiptUi = () => {
+    toggle.setAttribute("aria-pressed", receiptMode ? "true" : "false");
+    toggle.textContent = receiptMode
+      ? "見積書に戻す"
+      : "領収書として表示 / 出力";
+    fields.classList.toggle("hidden", !receiptMode);
+    updateHeader(data);
+    renderMobileView(data);
+    cachedPdfBlob = null;
+    if (viewMode === "pdf") {
+      loadPdfFrame().catch((e) => toast(e.message || "PDF更新に失敗しました"));
+    }
+  };
+
+  receiptMode = Boolean(startInReceipt);
+  applyReceiptUi();
+
+  toggle.onclick = () => {
+    receiptMode = !receiptMode;
+    applyReceiptUi();
+  };
+  $("btn-receipt-apply")?.addEventListener("click", () => {
+    if (!receiptMode) return;
+    cachedPdfBlob = null;
+    applyReceiptUi();
+    toast("領収書内容を反映しました");
+  });
+}
+
 function prefetchPdfOnTouch() {
-  if (!payload?.pdfUrl) return;
+  const pdfUrl = resolveActivePdfUrl();
+  if (!pdfUrl) return;
   prefetchPdfForShare({
-    fetchUrl: buildPdfTabUrl(payload.pdfUrl),
+    fetchUrl: buildPdfTabUrl(pdfUrl),
     getHeaders: pdfAuthHeaders,
-    regenerateUrl: getRegenerateUrl(),
+    regenerateUrl: receiptMode ? null : getRegenerateUrl(),
   })
     .then((blob) => {
       cachedPdfBlob = blob;
@@ -459,7 +574,8 @@ function prefetchPdfOnTouch() {
 }
 
 async function resolvePdfBlob({ forceRefresh = false } = {}) {
-  if (!payload?.pdfUrl) throw new Error("PDFがありません");
+  const pdfUrl = resolveActivePdfUrl();
+  if (!pdfUrl) throw new Error("PDFがありません");
   if (!forceRefresh && cachedPdfBlob && isValidPdfBlob(cachedPdfBlob)) return cachedPdfBlob;
   const blob = await fetchDocumentPdfBlob({ forceRefresh });
   cachedPdfBlob = blob;
@@ -467,12 +583,12 @@ async function resolvePdfBlob({ forceRefresh = false } = {}) {
 }
 
 async function handlePdfOpen() {
-  if (!payload?.pdfUrl) {
+  if (!resolveActivePdfUrl()) {
     toast("PDFがありません");
     return;
   }
   try {
-    await resolvePdfBlob();
+    await resolvePdfBlob({ forceRefresh: receiptMode });
     await showPdfViewMode();
   } catch (e) {
     toast(e.message || "PDFの取得に失敗しました");
@@ -480,13 +596,13 @@ async function handlePdfOpen() {
 }
 
 async function handleSaveFile() {
-  if (!payload?.pdfUrl) {
+  if (!resolveActivePdfUrl()) {
     toast("PDFがありません");
     return;
   }
   const fileName = getShareFileName();
   try {
-    const blob = await resolvePdfBlob();
+    const blob = await resolvePdfBlob({ forceRefresh: receiptMode });
     triggerDownload(blob, fileName);
     toast("PDFをファイルに保存しました");
   } catch (e) {
@@ -497,7 +613,8 @@ async function handleSaveFile() {
 async function logPdfShare() {
   if (!payload?.projectId) return;
   const fileName = getShareFileName();
-  const documentKind = payload.kind || "unknown";
+  const documentKind =
+    receiptMode && payload.kind === "estimate" ? "receipt" : payload.kind || "unknown";
   try {
     await fetch(`${API}/projects/${encodeURIComponent(payload.projectId)}/pdf-share-log`, {
       method: "POST",
@@ -513,7 +630,7 @@ async function logPdfShare() {
 }
 
 async function handleShare() {
-  if (!payload?.pdfUrl) {
+  if (!resolveActivePdfUrl()) {
     toast("PDFがありません");
     return;
   }
@@ -521,7 +638,7 @@ async function handleShare() {
   try {
     clearPdfFrame();
     clearBlobUrlsFromPage();
-    const pdfBlob = await resolvePdfBlob();
+    const pdfBlob = await resolvePdfBlob({ forceRefresh: receiptMode });
     await sharePdfBlobAsFile(pdfBlob, fileName, toast);
     await logPdfShare();
   } catch (e) {
@@ -531,12 +648,12 @@ async function handleShare() {
 }
 
 async function handlePrint() {
-  if (!payload?.pdfUrl) {
+  if (!resolveActivePdfUrl()) {
     toast("PDFがありません");
     return;
   }
   try {
-    const blob = await fetchDocumentPdfBlob();
+    const blob = await fetchDocumentPdfBlob({ forceRefresh: receiptMode });
     if (mobileMode) {
       openPdfBlob(blob);
       return;
@@ -568,7 +685,7 @@ function handleBack(returnUrl) {
 async function init() {
   initNavigationStack();
   await requireCustomerLogin(customerCodeFromPath());
-  const { kind, projectId, returnUrl } = parseParams();
+  const { kind, projectId, returnUrl, receipt } = parseParams();
 
   bindPopstateBackGuard(() => handleBack(returnUrl));
 
@@ -610,13 +727,14 @@ async function init() {
 
   try {
     payload = await fetchPayload(projectId, kind);
+    setupReceiptModeBar(payload, receipt);
     updateHeader(payload);
     renderMobileView(payload);
     $("doc-loading").classList.add("hidden");
     showPreviewMode();
     applyLayoutMode();
     prefetchPdfOnTouch();
-    fetchDocumentPdfBlob().catch(() => {});
+    fetchDocumentPdfBlob({ forceRefresh: receiptMode }).catch(() => {});
   } catch (e) {
     $("doc-loading").classList.add("hidden");
     $("doc-error").classList.remove("hidden");

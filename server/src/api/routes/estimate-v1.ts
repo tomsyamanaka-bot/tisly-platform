@@ -40,8 +40,10 @@ import { businessUploadsDir } from "../../business/business-store.js";
 import {
   generateEstimatePdf,
   generateInvoicePdf,
+  generateReceiptPdf,
   getEstimatePdfOrPlaceholder,
   getInvoicePdfOrPlaceholder,
+  getReceiptPdfOrPlaceholder,
 } from "../../business/services/pdfService.js";
 import { getBusinessProject, getEstimate, getInvoice, getCompletionReport, setEstimatePdfPath, setInvoicePdfPath } from "../../business/business-store.js";
 import { regenerateProjectPdfV1, resolveProjectPdfFile, buildProjectPdfFileNameForProject } from "../../projects/project-pdf-store.js";
@@ -134,6 +136,16 @@ function parseRegenerate(query: Record<string, unknown>): boolean {
 function parseFormatHtml(query: Record<string, unknown>): boolean {
   const raw = query.format ?? query.preview;
   return raw === "html";
+}
+
+/** 領収書クエリ（領収日・但し書き） */
+function parseReceiptQuery(query: Record<string, unknown>): {
+  receiptDate: string | null;
+  proviso: string | null;
+} {
+  const receiptDate = String(query.receiptDate ?? query.date ?? "").trim() || null;
+  const proviso = String(query.proviso ?? query.provisoText ?? "").trim() || null;
+  return { receiptDate, proviso };
 }
 
 estimateV1Router.get("/price-rules", ...estimateV1Auth, (req: AuthedRequest, res) => {
@@ -662,6 +674,94 @@ estimateV1Router.post("/projects/:id/pdf/regenerate", ...estimateV1Auth, async (
     res.status(500).json({ error: e instanceof Error ? e.message : "regenerate failed" });
   }
 });
+
+/** 見積データを流用した領収書 PDF */
+estimateV1Router.get("/projects/:id/receipt/pdf", ...estimateV1Auth, async (req: AuthedRequest, res) => {
+  if (!assertEstimateV1Role(req, res)) return;
+  const projectId = String(req.params.id);
+  const project = getBusinessProject(projectId);
+  if (!project?.estimateId) {
+    res.status(404).json({ error: "No estimate" });
+    return;
+  }
+  const estimate = getEstimate(project.estimateId);
+  if (!estimate) {
+    res.status(404).json({ error: "No estimate" });
+    return;
+  }
+  const { receiptDate, proviso } = parseReceiptQuery(req.query as Record<string, unknown>);
+  const pdfCtx = {
+    ...(getEstimatePdfContextV1(projectId) ?? {}),
+    receiptDate,
+    proviso,
+  };
+  if (parseFormatHtml(req.query as Record<string, unknown>)) {
+    const { contentType, path: filePath } = getReceiptPdfOrPlaceholder(
+      getBusinessProject(projectId)!,
+      getEstimate(project.estimateId)!,
+      pdfCtx,
+      { receiptDate, proviso }
+    );
+    res.type(contentType).sendFile(filePath);
+    return;
+  }
+  try {
+    const freshProject = getBusinessProject(projectId)!;
+    const freshEstimate = getEstimate(freshProject.estimateId!)!;
+    const pdfPath = await generateReceiptPdf(freshProject, freshEstimate, pdfCtx);
+    const local = path.join(process.cwd(), pdfPath.replace(/^\//, ""));
+    if (!isValidPdfFile(local)) {
+      logPdfApiError("receipt", projectId, 500, PDF_GENERATION_FAILED_MSG);
+      res.status(500).json({ error: PDF_GENERATION_FAILED_MSG });
+      return;
+    }
+    const fileName = path.basename(local);
+    sendPdfFile(res, local, fileName, {
+      documentType: "receipt",
+      projectId,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : PDF_GENERATION_FAILED_MSG;
+    logPdfApiError("receipt", projectId, 500, msg);
+    res.status(500).json({ error: msg });
+  }
+});
+
+estimateV1Router.post(
+  "/projects/:id/receipt/pdf/regenerate",
+  ...estimateV1Auth,
+  async (req: AuthedRequest, res) => {
+    if (!assertEstimateV1Role(req, res)) return;
+    const project = getBusinessProject(String(req.params.id));
+    if (!project?.estimateId) {
+      res.status(404).json({ error: "No estimate" });
+      return;
+    }
+    try {
+      const body = (req.body ?? {}) as {
+        receiptDate?: string;
+        proviso?: string;
+      };
+      const freshProject = getBusinessProject(project.id)!;
+      const estimate = getEstimate(freshProject.estimateId!);
+      if (!estimate) {
+        res.status(404).json({ error: "No estimate" });
+        return;
+      }
+      const pdfCtx = {
+        ...(getEstimatePdfContextV1(freshProject.id) ?? {}),
+        receiptDate: body.receiptDate ?? null,
+        proviso: body.proviso ?? null,
+      };
+      const pdfPath = await generateReceiptPdf(freshProject, estimate, pdfCtx);
+      res.json({ pdfPath });
+    } catch (e) {
+      res.status(500).json({
+        error: e instanceof Error ? e.message : "regenerate failed",
+      });
+    }
+  }
+);
 
 estimateV1Router.post("/projects/:id/invoice", ...estimateV1Auth, async (req: AuthedRequest, res) => {
   if (!assertEstimateV1Role(req, res)) return;

@@ -33,6 +33,12 @@ function sanitizeEstimateHeader(header: ReturnType<typeof mergeEstimateHeader>) 
   };
 }
 
+/** 見積 / 領収書モード（既存見積を流用） */
+export type EstimateDocumentMode = "estimate" | "receipt";
+
+export const DEFAULT_RECEIPT_PROVISO =
+  "但 TVアンテナ・防犯カメラ工事代金として";
+
 export interface EstimateHtmlOptions {
   siteName?: string | null;
   workLocation?: string | null;
@@ -40,6 +46,12 @@ export interface EstimateHtmlOptions {
   notes?: string | null;
   header?: TomsEstimateHeader | null;
   priceRuleName?: string | null;
+  /** 見積（既定）または領収書 */
+  mode?: EstimateDocumentMode;
+  /** 領収日（未指定時は発行日） */
+  receiptDate?: string | null;
+  /** 但し書き */
+  proviso?: string | null;
 }
 
 function buildEstimateContext(
@@ -61,24 +73,44 @@ function buildEstimateContext(
   const notes = sanitizePdfNotesText(
     buildCustomerFacingPdfNotes(opts?.notes ?? project.surveyMemo ?? "")
   );
+  const mode: EstimateDocumentMode =
+    opts?.mode === "receipt" ? "receipt" : "estimate";
+  const isReceipt = mode === "receipt";
+
   const validUntil = computeTomsEstimateValidUntil(header.issueDate, header.validUntil);
-  const footerExtras = validUntil && validUntil !== "—"
-    ? `<div class="toms-v2-footer-extras">有効期限：${escapeHtml(validUntil)}</div>`
-    : "";
+  // 見積: 有効期限 / 領収書: 印紙不要注記
+  const footerExtras = isReceipt
+    ? `<div class="toms-v2-stamp-note">※電子発行につき印紙不要</div>`
+    : validUntil && validUntil !== "—"
+      ? `<div class="toms-v2-footer-extras">有効期限：${escapeHtml(validUntil)}</div>`
+      : "";
+
+  const receiptDateRaw = String(opts?.receiptDate ?? "").trim();
+  const issueDate = isReceipt
+    ? resolveTomsIssueDateDisplay(receiptDateRaw || header.issueDate)
+    : resolveTomsIssueDateDisplay(header.issueDate);
+
+  const provisoRaw = String(opts?.proviso ?? "").trim();
+  const provisoText = isReceipt
+    ? provisoRaw || DEFAULT_RECEIPT_PROVISO
+    : undefined;
 
   return {
-    kind: "estimate",
-    docTitle: "お見積書",
-    introText: "下記の通り、お見積り申し上げます。",
+    kind: isReceipt ? "receipt" : "estimate",
+    docTitle: isReceipt ? "領収書" : "お見積書",
+    introText: isReceipt
+      ? "上記の通り、正に領収いたしました。"
+      : "下記の通り、お見積り申し上げます。",
     addressee: header.addressee,
     subject: header.subject,
     workLocation: header.workLocation,
     projectNo: resolvePdfProjectNo(project.projectNo, header.estimateNo),
-    issueDateLabel: "発行日",
-    issueDate: resolveTomsIssueDateDisplay(header.issueDate),
-    docNoLabel: "見積番号",
+    issueDateLabel: isReceipt ? "領収日" : "発行日",
+    issueDate,
+    docNoLabel: isReceipt ? "領収番号" : "見積番号",
     docNo: header.estimateNo,
-    includeRegistrationNo: false,
+    // 領収書はインボイス登録番号を表示
+    includeRegistrationNo: isReceipt,
     staffName: header.staffName,
     total: estimate.total,
     lines,
@@ -92,6 +124,7 @@ function buildEstimateContext(
     },
     notes,
     footerExtras,
+    provisoText,
   };
 }
 
@@ -101,7 +134,8 @@ export function renderEstimateHtml(
   opts?: EstimateHtmlOptions
 ): string {
   const ctx = buildEstimateContext(project, estimate, opts);
-  return wrapTomsV2Html(`お見積書 ${ctx.docNo}`, renderTomsV2DocumentBody(ctx));
+  const titlePrefix = ctx.kind === "receipt" ? "領収書" : "お見積書";
+  return wrapTomsV2Html(`${titlePrefix} ${ctx.docNo}`, renderTomsV2DocumentBody(ctx));
 }
 
 /** @deprecated use renderEstimateHtml — v2 統合後の互換エイリアス */

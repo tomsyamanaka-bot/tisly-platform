@@ -33,7 +33,8 @@ export const TOMS_V2_GRAY = PDF_TOMS_V2_GRAY;
 export const TOMS_V2_ROW_BLUE = PDF_TOMS_V2_ROW_BLUE;
 export const TOMS_V2_LINE_ROW_HEIGHT_MM = PDF_TOMS_V2_LINE_ROW_HEIGHT_MM;
 
-export type TomsV2DocKind = "estimate" | "invoice";
+/** estimate / invoice に加え領収書モードを追記 */
+export type TomsV2DocKind = "estimate" | "invoice" | "receipt";
 
 export interface TomsV2LineItem {
   lineNo?: number;
@@ -73,6 +74,8 @@ export interface TomsV2PageContext {
   bankInfo?: string;
   extraMetaRows?: Array<{ label: string; value: string }>;
   footerExtras?: string;
+  /** 領収書の但し書き（例: 但 …として） */
+  provisoText?: string;
 }
 
 function chunkLines(lines: TomsV2LineItem[], firstMax: number, contMax: number): TomsV2LineItem[][] {
@@ -112,9 +115,9 @@ function renderCompanyBlock(staffName: string, bankInfo?: string): string {
   });
 }
 
-/** 社印は請求書のみ（見積書では DOM を出さない） */
+/** 社印は請求書・領収書（見積書では DOM を出さない） */
 function renderSeal(kind: TomsV2DocKind): string {
-  if (kind !== "invoice") return "";
+  if (kind !== "invoice" && kind !== "receipt") return "";
   return renderPdfSealImg();
 }
 
@@ -154,14 +157,18 @@ function renderHeaderRight(ctx: TomsV2PageContext): string {
 </div>`;
 }
 
-function renderAmountRow(total: number): string {
+function renderAmountRow(total: number, provisoText?: string): string {
+  const proviso = provisoText?.trim()
+    ? `<div class="toms-v2-proviso">${escapeHtml(provisoText.trim())}</div>`
+    : "";
   return `<div class="toms-v2-amount-wrap">
   <div class="toms-v2-amount-row">
   <span class="toms-v2-amount-label">金額</span>
   <span class="toms-v2-amount-value">${formatPdfYenAmountV1(total)}</span>
   <span class="toms-v2-amount-tax">（税込）</span>
   </div>
-</div>`;
+</div>
+${proviso}`;
 }
 
 function renderLineItemsTable(lines: TomsV2LineItem[], fillerCount: number): string {
@@ -225,7 +232,8 @@ function renderLastPageFooter(
   const lastChunk = linePages[linePages.length - 1] ?? [];
   const fillerCount = Math.max(0, TOMS_V2_FIRST_PAGE_ROWS - lastChunk.length);
   void fillerCount;
-  const showTax = ctx.kind === "invoice";
+  // 請求書・領収書は税率内訳を左下に表示
+  const showTax = ctx.kind === "invoice" || ctx.kind === "receipt";
   return `<div class="toms-v2-bottom">
   <div class="toms-v2-bottom-left">${showTax ? renderTaxBreakdown(ctx.totals.subtotal, ctx.totals.tax) : ""}${ctx.footerExtras ?? ""}</div>
   <div class="toms-v2-bottom-right">${renderTotalsGrid(ctx.totals)}</div>
@@ -244,7 +252,7 @@ function renderSinglePage(ctx: TomsV2PageContext): string {
   let body = `<div class="toms-v2-page">
 <div class="toms-v2-frame">
 <div class="toms-v2-header">${renderHeaderLeft(ctx)}${renderHeaderRight(ctx)}</div>
-${renderAmountRow(ctx.total)}
+${renderAmountRow(ctx.total, ctx.provisoText)}
 ${renderLineItemsTable(firstChunk, isSingle ? fillerFirst : 0)}`;
 
   if (isSingle) {
@@ -569,6 +577,23 @@ body {
 .toms-v2-cover-header .toms-v2-amount-wrap { margin-bottom: 0; }
 .toms-v2-cover-header .toms-v2-amount-row { margin-bottom: 0; }
 .toms-v2-footer-extras { font-size: 7pt; margin-top: 0.5mm; line-height: 1.25; }
+.toms-v2-proviso {
+  text-align: center;
+  font-size: 8pt;
+  font-weight: 700;
+  margin: 0.4mm 0 0.8mm;
+  letter-spacing: 0.02em;
+}
+.toms-v2-stamp-note {
+  display: inline-block;
+  border: 1px solid #000;
+  padding: 1mm 1.6mm;
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 0.8mm;
+  background: #fff;
+}
 @media print {
   body { padding: 0; margin: 0; }
   .toms-v2-page {

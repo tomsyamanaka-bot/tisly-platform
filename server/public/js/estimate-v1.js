@@ -2558,17 +2558,18 @@ const DOC_VIEWER_KINDS = {
   completion: "completion-report",
 };
 
-function buildDocumentViewerUrl(kind) {
+function buildDocumentViewerUrl(kind, { receipt = false } = {}) {
   const viewerKind = DOC_VIEWER_KINDS[kind] || kind;
   const params = new URLSearchParams({
     projectId: currentProjectId,
     kind: viewerKind,
     return: `${window.location.pathname}${window.location.search}`,
   });
+  if (receipt) params.set("receipt", "1");
   return `/document-viewer-v1.html?${params}`;
 }
 
-async function openDocumentViewer(kind) {
+async function openDocumentViewer(kind, { receipt = false } = {}) {
   if (!currentProjectId) return;
   if (kind === "invoice" && !hasInvoice) {
     toast("先に請求書を作成してください");
@@ -2580,7 +2581,7 @@ async function openDocumentViewer(kind) {
       await saveItems().catch(() => ({}));
       clearPrefetchPdfCache();
     }
-    navigateTo(buildDocumentViewerUrl(kind));
+    navigateTo(buildDocumentViewerUrl(kind, { receipt }));
   } catch (e) {
     toastError(e, e.status);
   }
@@ -3833,6 +3834,9 @@ async function init() {
   });
 
   $("btn-pdf-estimate").addEventListener("click", () => openDocumentViewer("estimate"));
+  $("btn-pdf-receipt")?.addEventListener("click", () =>
+    openDocumentViewer("estimate", { receipt: true })
+  );
   $("btn-pdf-invoice").addEventListener("click", () => openDocumentViewer("invoice"));
   $("btn-pdf-specification").addEventListener("click", () => openDocumentViewer("specification"));
   $("btn-pdf-completion").addEventListener("click", () => openDocumentViewer("completion"));

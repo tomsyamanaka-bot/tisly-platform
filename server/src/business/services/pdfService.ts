@@ -19,6 +19,10 @@ import { renderInvoiceHtml } from "../pdf/invoice-template.js";
 import { renderWithPdfFallback } from "../pdf/render.js";
 import { assertValidPdfBuffer } from "../pdf/pdf-validation.js";
 import type { TomsEstimateHeader } from "../toms-document-format.js";
+import {
+  formatCustomerNameForPdfFile,
+  sanitizePdfFileNameSegment,
+} from "../../projects/project-pdf-store.js";
 
 /** @see PDF_STORAGE_PROVIDER — 現状 local 固定、将来 qnap 切替 */
 export function getPdfStorageProvider(): PdfStorageProvider {
@@ -130,6 +134,46 @@ export async function generateEstimatePdf(
   return pdfPath;
 }
 
+export interface ReceiptPdfRenderContext extends EstimatePdfRenderContext {
+  receiptDate?: string | null;
+  proviso?: string | null;
+}
+
+/** 見積データを流用した領収書 PDF（別ファイル名で保存） */
+export async function generateReceiptPdf(
+  project: BusinessProject,
+  estimate: Estimate,
+  ctx?: ReceiptPdfRenderContext
+): Promise<string> {
+  const freshProject = getBusinessProject(project.id) ?? project;
+  const freshEstimate = getEstimate(estimate.id) ?? estimate;
+  const html = renderEstimateHtml(freshProject, freshEstimate, {
+    siteName: ctx?.siteName,
+    workLocation: ctx?.workLocation,
+    staffName: ctx?.staffName,
+    notes: ctx?.notes,
+    header: ctx?.header ?? freshEstimate.header,
+    priceRuleName: resolveEstimatePriceRule(freshEstimate, freshProject.customerId).ruleName,
+    mode: "receipt",
+    receiptDate: ctx?.receiptDate,
+    proviso: ctx?.proviso,
+  });
+  const customer = formatCustomerNameForPdfFile(freshProject.customerName);
+  const subject = sanitizePdfFileNameSegment(
+    freshEstimate.header?.subject || freshEstimate.title || freshProject.title || "案件"
+  );
+  const fileName = `領収書_${customer}_${subject}.pdf`;
+  const htmlPath = writeHtml(
+    freshProject.id,
+    "pdf-html",
+    `receipt-${freshEstimate.estimateNo}.html`,
+    html
+  );
+  void htmlPath;
+  const { pdfBuf } = await renderWithPdfFallback(html, `領収書 ${freshEstimate.estimateNo}`);
+  return writePdf(freshProject.id, "pdfs", fileName, pdfBuf);
+}
+
 export interface InvoicePdfRenderContext {
   estimateRefNo?: string;
   notes?: string | null;
@@ -215,6 +259,31 @@ export function getEstimatePdfOrPlaceholder(
   const tmp = businessUploadsDir(freshProject.id, "pdf-html");
   // 毎回上書きし、古い HTML キャッシュを残さない
   const p = path.join(tmp, "estimate-live.html");
+  fs.writeFileSync(p, html, "utf8");
+  return { contentType: "text/html; charset=UTF-8", path: p, stored: false };
+}
+
+export function getReceiptPdfOrPlaceholder(
+  project: BusinessProject,
+  estimate: Estimate,
+  ctx?: ReceiptPdfRenderContext,
+  opts?: PdfServeOptions & { receiptDate?: string | null; proviso?: string | null }
+): { contentType: string; path: string; stored: boolean } {
+  const freshProject = getBusinessProject(project.id) ?? project;
+  const freshEstimate = getEstimate(estimate.id) ?? estimate;
+  const html = renderEstimateHtml(freshProject, freshEstimate, {
+    siteName: ctx?.siteName,
+    workLocation: ctx?.workLocation ?? freshProject.address,
+    staffName: ctx?.staffName,
+    notes: ctx?.notes,
+    header: ctx?.header ?? freshEstimate.header,
+    priceRuleName: resolveEstimatePriceRule(freshEstimate, freshProject.customerId).ruleName,
+    mode: "receipt",
+    receiptDate: opts?.receiptDate ?? ctx?.receiptDate,
+    proviso: opts?.proviso ?? ctx?.proviso,
+  });
+  const tmp = businessUploadsDir(freshProject.id, "pdf-html");
+  const p = path.join(tmp, "receipt-live.html");
   fs.writeFileSync(p, html, "utf8");
   return { contentType: "text/html; charset=UTF-8", path: p, stored: false };
 }

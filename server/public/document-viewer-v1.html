@@ -17,6 +17,24 @@
       <button type="button" class="doc-pdf-chrome-btn doc-pdf-action-btn" id="btn-save" title="ファイルに保存">保存</button>
     </div>
   </div>
+  <!-- 見積プレビュー時のみ: 領収書モード切替（既存UIは維持） -->
+  <div id="receipt-mode-bar" class="receipt-mode-bar hidden" aria-label="領収書モード">
+    <button type="button" class="receipt-mode-toggle" id="btn-receipt-mode" aria-pressed="false">
+      領収書として表示 / 出力
+    </button>
+    <div id="receipt-mode-fields" class="receipt-mode-fields hidden">
+      <label class="receipt-field">
+        <span>領収日</span>
+        <input type="date" id="receipt-date-input" />
+      </label>
+      <label class="receipt-field receipt-field-proviso">
+        <span>但し書き</span>
+        <input type="text" id="receipt-proviso-input" maxlength="80"
+          value="但 TVアンテナ・防犯カメラ工事代金として" />
+      </label>
+      <button type="button" class="btn-sub blue receipt-apply-btn" id="btn-receipt-apply">反映</button>
+    </div>
+  </div>
   <header class="doc-viewer-header" id="doc-header">
     <div class="doc-header-center">
       <p class="doc-header-kind" id="header-kind">書類</p>
@@ -48,6 +66,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/document-viewer-v1.js?v=doc-viewer-phase18"></script>
+  <script type="module" src="/js/document-viewer-v1.js?v=doc-viewer-receipt-v1"></script>
 </body>
 </html>
