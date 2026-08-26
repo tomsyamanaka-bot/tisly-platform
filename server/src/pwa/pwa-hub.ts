@@ -183,6 +183,17 @@ const PRACTICAL_PWA_DEFS: Array<
     readyRoles: string[];
   }
 > = [
+  // 通話後クイック音声要約（上部クイックアクション追記）
+  {
+    id: "voice_hub_v1",
+    label: "通話音声・クイック入力",
+    subtitle: "録音テキストから予定・材料を一発登録",
+    icon: "🎙️",
+    features: ["貼付/音声入力", "AI要約", "カレンダー登録", "材料チェック"],
+    href: "/voice-hub-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: ["surveyor", "manager", "owner", "admin", "super_admin"],
+  },
   {
     id: "documents_v1",
     label: "Document Center",

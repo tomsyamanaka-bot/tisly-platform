@@ -13,6 +13,7 @@ export interface PwaRouteEntryV1 {
 
 export const PWA_ROUTE_CATALOG_V1: PwaRouteEntryV1[] = [
   { path: "/app", label: "App Hub", group: "core", kind: "page" },
+  { path: "/voice-hub-v1", label: "通話音声・クイック入力", group: "practical", kind: "page" },
   { path: "/schedule-v1", label: "日程調整", group: "practical", kind: "page" },
   { path: "/schedule-v1/day", label: "日程詳細", group: "practical", kind: "page" },
   { path: "/survey-v1", label: "現調 v1", group: "practical", kind: "page", legacy: ["/survey"] },

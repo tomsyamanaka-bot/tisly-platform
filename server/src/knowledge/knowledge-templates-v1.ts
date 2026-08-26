@@ -16,6 +16,7 @@ import { seedEcoWaterFieldKnowledgeCardsV1 } from "./knowledge-eco-water-field-s
 import { seedSecurityFloorKnowledgeCardsV1 } from "./knowledge-security-floor-seed-v1.js";
 import { seedOpsInsightKnowledgeCardsV1 } from "./knowledge-ops-insight-seed-v1.js";
 import { seedSecurityStreamKnowledgeCardsV1 } from "./knowledge-security-stream-seed-v1.js";
+import { seedVoiceCallKnowledgeCardsV1 } from "./knowledge-voice-call-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -148,6 +149,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   securityFloorCreated: number;
   opsInsightCreated: number;
   securityStreamCreated: number;
+  voiceCallCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -157,6 +159,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const securityFloor = seedSecurityFloorKnowledgeCardsV1();
   const opsInsight = seedOpsInsightKnowledgeCardsV1();
   const securityStream = seedSecurityStreamKnowledgeCardsV1();
+  const voiceCall = seedVoiceCallKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -166,5 +169,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     securityFloorCreated: securityFloor.length,
     opsInsightCreated: opsInsight.length,
     securityStreamCreated: securityStream.length,
+    voiceCallCreated: voiceCall.length,
   };
 }

@@ -116,6 +116,7 @@ import { documentsV1Router } from "./api/routes/documents-v1.js";
 import { projectAutomationV1Router } from "./api/routes/project-automation-v1.js";
 import { masterV1Router } from "./api/routes/master-v1.js";
 import { knowledgeV1Router } from "./api/routes/knowledge-v1.js";
+import { voiceCallSummaryV1Router } from "./api/routes/voice-call-summary-v1.js";
 import { tislyMonitoringV1Router } from "./api/routes/tisly-monitoring-v1.js";
 import { printModelsV1Router } from "./api/routes/print-models-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
@@ -180,6 +181,7 @@ export function createApp(): express.Application {
   app.use("/api/search/v1", searchV1Router);
   app.use("/api/materials/v1", materialsV1Router);
   app.use("/api/field-check/v1", fieldCheckV1Router);
+  app.use("/api/voice-call/v1", voiceCallSummaryV1Router);
   app.use("/api/purchase/v1", purchaseV1Router);
   app.use("/api/work-session/v1", workSessionV1Router);
   app.use("/api/field-checklist/v1", fieldChecklistV1Router);
@@ -600,6 +602,9 @@ export function createApp(): express.Application {
   });
   app.get("/voice-nav-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "voice-nav-v1.html"));
+  });
+  app.get("/voice-hub-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "voice-hub-v1.html"));
   });
   app.get("/estimate-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "estimate-v1.html"));

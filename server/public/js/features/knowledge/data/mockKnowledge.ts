@@ -743,3 +743,52 @@ export const MOCK_SECURITY_STREAM_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 現場DX・音声AIナレッジ（末尾追記） */
+export const VOICE_CALL_KNOWLEDGE_TITLES = [
+  "【現場DX・音声AI】通話録音テキストからのGoogleカレンダー自動同期＆材料自動抽出アーキテクチャ",
+] as const;
+
+const VOICE_CALL_CREATED_AT = "2026-08-26T21:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に音声AI 1 件を保持。
+ */
+export const MOCK_VOICE_CALL_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-voice-call-calendar-dx-001",
+    title:
+      "【現場DX・音声AI】通話録音テキストからのGoogleカレンダー自動同期＆材料自動抽出アーキテクチャ",
+    summary: [
+      "市販イヤホン（骨伝導等）での通話テキストをPWAへ受け渡すワークフロー。",
+      "Geminiによる日程・現場名・材料リストの自動構造化とJSON抽出。",
+      "通話後ワンタップでGoogleカレンダーとTiSLY材料チェックへ同時登録する省力化。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: ["#VoiceAI", "#Gemini", "#Calendar", "#FieldDX", "#PWA"],
+    pdf_url: null,
+    createdAt: VOICE_CALL_CREATED_AT,
+    body: [
+      "【ワークフロー】",
+      "市販イヤホン（骨伝導等）や通話録音アプリで",
+      "得たテキストを、PWA「通話音声・クイック入力」",
+      "へワンタップ貼付する。Web Speech API による",
+      "その場の文字起こしも併用できる。",
+      "",
+      "【LLM プロンプト設計】",
+      "Gemini に JSON のみを返させる。抽出項目は",
+      "予定（件名・開始・終了・場所）、材料",
+      "（品名・数量・単位・発注フラグ）、案件メモ",
+      "（3行要約・要望・決定事項）。キー未設定時は",
+      "ルールベース抽出にフォールバックする。",
+      "",
+      "【データフロー】",
+      "抽出プレビュー確認後、ワンタップで",
+      "Google Calendar API（mock/real）へ予定登録し、",
+      "同時に材料チェックへ部材を追記、案件メモへ",
+      "要約を保存する。tenant_id / JP|AU / JPY|AUD",
+      "を意識した拡張ポイントをログに残す。",
+    ].join("\n"),
+  },
+];

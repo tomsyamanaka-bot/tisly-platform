@@ -84,6 +84,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /プライバシー保護型安否確認/);
     assert.match(mockSrc, /自動検針＆24時間見守り/);
     assert.match(mockSrc, /MOCK_SECURITY_STREAM_ITEMS/);
+    assert.match(mockSrc, /Googleカレンダー自動同期/);
+    assert.match(mockSrc, /MOCK_VOICE_CALL_ITEMS/);
+    assert.match(mockSrc, /#VoiceAI/);
   });
 
   it("nav script requires login before loading bundle", () => {

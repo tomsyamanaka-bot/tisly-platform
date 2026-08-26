@@ -577,7 +577,13 @@ function renderPracticalApps(apps) {
         .map((f) => `<li>${f}</li>`)
         .join("");
       const featured =
-        a.id === "survey_v1" ? " featured" : a.id === "estimate_v1" ? " featured estimate" : "";
+        a.id === "voice_hub_v1"
+          ? " featured"
+          : a.id === "survey_v1"
+            ? " featured"
+            : a.id === "estimate_v1"
+              ? " featured estimate"
+              : "";
       if (isReady) {
         return `<a class="practical-card${featured}" href="${a.url}" style="--card-accent:${a.themeColor}">
           <div class="practical-card-head">

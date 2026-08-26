@@ -51,6 +51,10 @@ const {
   SECURITY_STREAM_MODULE_SEED_IDS,
   seedSecurityStreamKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-security-stream-seed-v1.js");
+const {
+  VOICE_CALL_MODULE_SEED_IDS,
+  seedVoiceCallKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-voice-call-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -512,6 +516,33 @@ describe("knowledge-module-v1 store", () => {
     const gas = getKnowledgeCardV1("GAS-PULSE-SUBSC-001");
     assert.ok(gas);
     assert.match(gas!.title, /24時間見守り/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends voice call seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of VOICE_CALL_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const voice = listed.find(
+      (x) => x.id === "kn-seed-voice-call-calendar-dx-001"
+    );
+    assert.ok(voice);
+    assert.match(voice!.title, /Googleカレンダー自動同期/);
+    assert.ok(voice!.tags.includes("#VoiceAI"));
+    assert.ok(voice!.tags.includes("#Gemini"));
+    assert.match(String(voice!.body ?? ""), /Web Speech API/);
+  });
+
+  it("seedVoiceCallKnowledgeCardsV1 upserts searchable cards", () => {
+    seedVoiceCallKnowledgeCardsV1();
+    const voice = getKnowledgeCardV1("VOICE-CALL-CALENDAR-DX-001");
+    assert.ok(voice);
+    assert.match(voice!.title, /材料自動抽出/);
+    assert.ok(voice!.tags.includes("#FieldDX"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

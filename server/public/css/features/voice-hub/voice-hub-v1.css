@@ -1,0 +1,257 @@
+/* 通話音声クイック入力 — 白×ネイビー */
+
+.vh-body {
+  margin: 0;
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #0f172a;
+  font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+
+.vh-header {
+  padding: 16px 16px 8px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.vh-back {
+  display: inline-block;
+  color: #1e3a8a;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.vh-brand-name {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.vh-title {
+  margin: 4px 0 0;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.vh-sub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #475569;
+}
+
+.vh-main {
+  padding: 14px 14px 40px;
+  max-width: 640px;
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.vh-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid #1e3a8a;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.vh-card-label {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.vh-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  margin: 10px 0 6px;
+}
+
+.vh-textarea,
+.vh-select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #fff;
+}
+
+.vh-textarea {
+  resize: vertical;
+  min-height: 140px;
+}
+
+.vh-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.vh-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 14px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vh-btn-lg {
+  min-height: 56px;
+}
+
+.vh-btn-navy {
+  background: #e8eef8;
+  border-color: #1e3a8a;
+  color: #1e3a8a;
+}
+
+.vh-btn-navy.is-listening {
+  background: #1e3a8a;
+  color: #fff;
+}
+
+.vh-btn-hero {
+  width: 100%;
+  margin-top: 14px;
+  min-height: 58px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e293b 100%);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.vh-btn-commit {
+  min-height: 72px;
+  font-size: 18px;
+}
+
+.vh-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.vh-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.vh-locale-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.vh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.vh-preview-block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.vh-preview-block h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.vh-dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.vh-dl div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.vh-dl dt {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.vh-dl dd {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.vh-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.vh-result {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e3a8a;
+  min-height: 1.2em;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.vh-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(120%);
+  background: #0f172a;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0;
+  transition: 0.2s ease;
+  z-index: 50;
+  max-width: 90vw;
+}
+
+.vh-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 420px) {
+  .vh-btn-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="通話クイック入力" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <title>通話音声・クイック入力 — TiSLY</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
+  <link rel="stylesheet" href="/css/features/voice-hub/voice-hub-v1.css" />
+</head>
+<body class="vh-body tisly-friendly">
+  <header class="vh-header">
+    <a class="vh-back" href="/app">← 戻る</a>
+    <div class="vh-brand">
+      <p class="vh-brand-name">TiSLY Voice Hub</p>
+      <h1 class="vh-title">通話音声・クイック入力</h1>
+      <p class="vh-sub">録音テキストを貼って、予定と材料を一発登録</p>
+    </div>
+  </header>
+
+  <main class="vh-main">
+    <section class="vh-card" aria-label="通話テキスト入力">
+      <p class="vh-card-label">1. 通話テキストを入れる</p>
+      <div class="vh-btn-row">
+        <button type="button" id="vh-paste" class="vh-btn vh-btn-lg">
+          📋 クリップボードから貼付
+        </button>
+        <button type="button" id="vh-mic" class="vh-btn vh-btn-lg vh-btn-navy">
+          🎙 音声で文字起こし
+        </button>
+      </div>
+      <p id="vh-mic-status" class="vh-hint" aria-live="polite">マイク待機中</p>
+      <label class="vh-label" for="vh-transcript">通話テキスト</label>
+      <textarea
+        id="vh-transcript"
+        class="vh-textarea"
+        rows="8"
+        placeholder="例: 明日10時に板橋の現場で現調。センサー3個とVVF2.0を発注。お客様は玄関カメラ希望。"
+      ></textarea>
+      <button type="button" id="vh-extract" class="vh-btn vh-btn-hero">
+        AI要約・構造化抽出
+      </button>
+    </section>
+
+    <section class="vh-card" aria-label="案件と地域">
+      <p class="vh-card-label">2. 登録先（任意）</p>
+      <label class="vh-label" for="vh-project">材料チェック案件</label>
+      <select id="vh-project" class="vh-select" aria-label="案件選択">
+        <option value="">自動（新規 or 先頭案件）</option>
+      </select>
+      <div class="vh-locale-row">
+        <label class="vh-chip">
+          <input type="radio" name="vh-locale" value="JP" checked />
+          JP / JPY
+        </label>
+        <label class="vh-chip">
+          <input type="radio" name="vh-locale" value="AU" />
+          AU / AUD
+        </label>
+      </div>
+    </section>
+
+    <section id="vh-preview" class="vh-card vh-preview hidden" aria-label="抽出プレビュー">
+      <p class="vh-card-label">3. 抽出結果プレビュー</p>
+      <p id="vh-provider" class="vh-hint"></p>
+      <div class="vh-preview-block">
+        <h2>📅 予定</h2>
+        <dl id="vh-schedule" class="vh-dl"></dl>
+      </div>
+      <div class="vh-preview-block">
+        <h2>📦 タスク・材料</h2>
+        <ul id="vh-materials" class="vh-list"></ul>
+      </div>
+      <div class="vh-preview-block">
+        <h2>📝 案件メモ</h2>
+        <ul id="vh-memo" class="vh-list"></ul>
+      </div>
+      <button type="button" id="vh-commit" class="vh-btn vh-btn-hero vh-btn-commit">
+        📅 カレンダー＆案件メモに確定登録
+      </button>
+      <p id="vh-commit-result" class="vh-result" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <div id="vh-toast" class="vh-toast" role="status"></div>
+  <script type="module" src="/js/features/voice-hub/voice-hub-v1.js?v=voice-hub-v1"></script>
+</body>
+</html>

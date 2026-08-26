@@ -103,6 +103,10 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const ecoWater = apps.find((a: { id: string }) => a.id === "eco_water_v1");
     assert.equal(ecoWater?.status, "ready");
     assert.equal(ecoWater?.url, "/eco-water-v1");
+    const voiceHub = apps.find((a: { id: string }) => a.id === "voice_hub_v1");
+    assert.equal(voiceHub?.status, "ready");
+    assert.equal(voiceHub?.url, "/voice-hub-v1");
+    assert.match(String(voiceHub?.label ?? ""), /通話音声/);
   });
 
   it("installer hub shows install only", async () => {

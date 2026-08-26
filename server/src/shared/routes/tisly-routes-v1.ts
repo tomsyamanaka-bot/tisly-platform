@@ -16,6 +16,7 @@ export interface TislyRouteEntryV1 {
 /** 社内 PWA — 正式 URL */
 export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
   { path: "/app", label: "App Hub", zone: "internal" },
+  { path: "/voice-hub-v1", label: "通話音声・クイック入力", zone: "internal" },
   { path: "/schedule-v1", label: "日程調整", zone: "internal", bottomNav: true },
   { path: "/survey-v1", label: "現調", zone: "internal", bottomNav: true },
   { path: "/survey-drawing-v1", label: "現調図面", zone: "internal" },
