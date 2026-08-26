@@ -1108,6 +1108,7 @@ describe("tisly-home-v1", () => {
     assert.equal(fwRes.body.ok, true);
     assert.equal(fwRes.body.rules.di1DurationMs, 60_000);
     assert.equal(fwRes.body.rules.lighting_duration_sec, 60);
+    assert.equal(fwRes.body.rules.diConfirmMs, 50);
     assert.equal(fwRes.body.rules.di1LightMode, "blink");
     assert.equal(fwRes.body.rules.perimeterFlagMs, 90_000);
     assert.equal(fwRes.body.rules.di2Light100vMode, "blink");

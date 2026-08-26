@@ -7,7 +7,8 @@ DO CH2=外側100V (GPIO18) / DO CH3=100V投光器 (GPIO19)
 サーバーから動的同期したルールで動作。
 DI1/DI2 検知時は DO2+DO3 を設定時間点灯し、タイマー後に消灯する。
 
-検知確定: 200〜300ms 継続 ON で 1 回だけ確定（チャタリング／歩行ノイズ抑制）。
+検知確定: 50ms 継続 ON で 1 回だけ確定
+（早歩き・短いパルスでも取りこぼし防止）。
 """
 
 import time
@@ -22,8 +23,8 @@ _DEFAULT_DURATION_MS = 45_000
 _DEFAULT_PERIMETER_MS = 120_000
 _DEFAULT_STROBE_ON_MS = 250
 _DEFAULT_STROBE_OFF_MS = 250
-# DI 確定時間（継続 ON で 1 回トリガー）
-_DEFAULT_DI_CONFIRM_MS = 250
+# DI 確定時間（短パルス検知・チャタ抑制）
+_DEFAULT_DI_CONFIRM_MS = 50
 # 時間指定の既定（JST 18:00〜06:00）
 _DEFAULT_SCHEDULE_START = "18:00"
 _DEFAULT_SCHEDULE_END = "06:00"
@@ -172,7 +173,8 @@ class SecurityLightController:
         confirm = int(
             rules.get("diConfirmMs", self._di_confirm_ms)
         )
-        if 200 <= confirm <= 300:
+        # 50〜300ms を許可（早歩き検知は 50ms）
+        if 50 <= confirm <= 300:
             self._di_confirm_ms = confirm
         self.log(
             "rules synced v{} mode={} window={}~{} active={} paused={} di1={}s confirm={}ms".format(

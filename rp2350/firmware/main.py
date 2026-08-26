@@ -514,7 +514,7 @@ def set_ch_output(channel, on):
 
 def handle_security_di_edges(edges):
 
-    """DI1/DI2 立上り — security_light 側で 250ms 継続 ON 確定。"""
+    """DI1/DI2 立上り — security_light 側で 50ms 継続 ON 確定。"""
 
     global _security
 
@@ -964,7 +964,7 @@ async def async_main():
 
     _security.set_di_reader(_read_di_for_confirm)
 
-    log("security light control enabled (DI1/DI2 confirm 250ms)")
+    log("security light control enabled (DI1/DI2 confirm 50ms)")
 
     rules_sync_every = int(
         getattr(config, "SECURITY_RULES_SYNC_EVERY", 10)

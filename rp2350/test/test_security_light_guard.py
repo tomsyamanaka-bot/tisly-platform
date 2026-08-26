@@ -149,6 +149,38 @@ def test_lighting_duration_sec_applied():
     assert ctrl._di2_duration_ms == 90_000
 
 
+def test_default_di_confirm_ms_is_50():
+    """既定の継続 ON 確定は 50ms（早歩き対応）。"""
+    ctrl = SecurityLightController(lambda ch, on: None)
+    assert ctrl._di_confirm_ms == 50
+
+
+def test_apply_rules_accepts_50ms_confirm():
+    """ルール同期で 50ms 確定を受け入れる。"""
+    ctrl = _ctrl(
+        {
+            "version": 20,
+            "guardMode": "always",
+            "diConfirmMs": 50,
+        }
+    )
+    assert ctrl._di_confirm_ms == 50
+
+
+def test_apply_rules_rejects_too_short_confirm():
+    """49ms 未満は採用せず既定を維持。"""
+    ctrl = SecurityLightController(lambda ch, on: None)
+    assert ctrl._di_confirm_ms == 50
+    ctrl.apply_rules(
+        {
+            "version": 21,
+            "guardMode": "always",
+            "diConfirmMs": 10,
+        }
+    )
+    assert ctrl._di_confirm_ms == 50
+
+
 if __name__ == "__main__":
     test_always_guard_active()
     test_off_guard_inactive()
@@ -160,4 +192,7 @@ if __name__ == "__main__":
     test_di1_daytime_logs_without_lights()
     test_di1_skips_lights_when_paused()
     test_lighting_duration_sec_applied()
+    test_default_di_confirm_ms_is_50()
+    test_apply_rules_accepts_50ms_confirm()
+    test_apply_rules_rejects_too_short_confirm()
     print("ok")

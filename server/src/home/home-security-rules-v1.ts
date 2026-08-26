@@ -140,6 +140,8 @@ export interface HomeSecurityFirmwareRulesV1 {
   perimeterFlagMs: number;
   strobeOnMs: number;
   strobeOffMs: number;
+  /** DI 継続 ON 確定時間（ms）— 早歩き検知は 50ms */
+  diConfirmMs: number;
   /** 夜間ライト点灯維持（秒）— RP2350 実機キー */
   lighting_duration_sec: number;
 }
@@ -719,6 +721,8 @@ export function buildHomeSecurityFirmwareRulesV1(
     perimeterFlagMs: rules.perimeterTimeoutSec * 1000,
     strobeOnMs: 250,
     strobeOffMs: 250,
+    /* 短パルスでも確実に発火（早歩き対策） */
+    diConfirmMs: 50,
     lighting_duration_sec: rules.lightingDurationSec,
   };
 }
