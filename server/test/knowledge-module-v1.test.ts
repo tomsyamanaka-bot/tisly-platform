@@ -78,6 +78,12 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /ハートビート5分周期化/);
     assert.match(mockSrc, /立体シールドエンブレム/);
     assert.match(mockSrc, /MOCK_OPS_INSIGHT_ITEMS/);
+    assert.match(mockSrc, /ストリーミング比較設計/);
+    assert.match(mockSrc, /サブストリーム統合/);
+    assert.match(mockSrc, /PoEハブ給電ハック/);
+    assert.match(mockSrc, /プライバシー保護型安否確認/);
+    assert.match(mockSrc, /自動検針＆24時間見守り/);
+    assert.match(mockSrc, /MOCK_SECURITY_STREAM_ITEMS/);
   });
 
   it("nav script requires login before loading bundle", () => {

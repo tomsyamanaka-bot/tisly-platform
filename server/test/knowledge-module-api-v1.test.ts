@@ -47,6 +47,10 @@ const {
   OPS_INSIGHT_MODULE_SEED_IDS,
   seedOpsInsightKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-ops-insight-seed-v1.js");
+const {
+  SECURITY_STREAM_MODULE_SEED_IDS,
+  seedSecurityStreamKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-security-stream-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -445,6 +449,69 @@ describe("knowledge-module-v1 store", () => {
     const brand = getKnowledgeCardV1("OPS-BRAND-SHIELD-001");
     assert.ok(brand);
     assert.match(brand!.title, /立体シールド/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends security stream seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of SECURITY_STREAM_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const webrtc = listed.find(
+      (x) => x.id === "kn-seed-cam-webrtc-hybrid-001"
+    );
+    assert.ok(webrtc);
+    assert.match(webrtc!.title, /WebRTC/);
+    assert.ok(webrtc!.tags.includes("#Streaming"));
+    assert.match(String(webrtc!.body ?? ""), /ハイブリッド/);
+
+    const nvr = listed.find((x) => x.id === "kn-seed-nvr-hview-rtsp-001");
+    assert.ok(nvr);
+    assert.match(nvr!.title, /H\.View/);
+    assert.ok(nvr!.tags.includes("#RTSP"));
+    assert.match(String(nvr!.summary ?? ""), /unicast\/c1\/s1\/live/);
+
+    const poe = listed.find((x) => x.id === "kn-seed-poe-200v-hub-001");
+    assert.ok(poe);
+    assert.match(poe!.title, /PoEハブ/);
+    assert.ok(poe!.tags.includes("#200V"));
+    assert.match(String(poe!.body ?? ""), /TL-SG1005P/);
+
+    const care = listed.find(
+      (x) => x.id === "kn-seed-radar-care-privacy-001"
+    );
+    assert.ok(care);
+    assert.match(care!.title, /プライバシー保護/);
+    assert.ok(care!.tags.includes("#Care"));
+    assert.match(String(care!.body ?? ""), /LD2450/);
+
+    const gas = listed.find((x) => x.id === "kn-seed-gas-pulse-subsc-001");
+    assert.ok(gas);
+    assert.match(gas!.title, /自動検針/);
+    assert.ok(gas!.tags.includes("#Subsc"));
+    assert.match(String(gas!.body ?? ""), /格安 SIM/);
+  });
+
+  it("seedSecurityStreamKnowledgeCardsV1 upserts searchable cards", () => {
+    seedSecurityStreamKnowledgeCardsV1();
+    const webrtc = getKnowledgeCardV1("CAM-WEBRTC-HYBRID-001");
+    assert.ok(webrtc);
+    assert.match(webrtc!.title, /ストリーミング比較/);
+    const nvr = getKnowledgeCardV1("NVR-HVIEW-RTSP-001");
+    assert.ok(nvr);
+    assert.match(nvr!.title, /サブストリーム統合/);
+    const poe = getKnowledgeCardV1("POE-200V-HUB-001");
+    assert.ok(poe);
+    assert.match(poe!.title, /単相200V/);
+    const care = getKnowledgeCardV1("RADAR-CARE-PRIVACY-001");
+    assert.ok(care);
+    assert.match(care!.title, /安否確認/);
+    const gas = getKnowledgeCardV1("GAS-PULSE-SUBSC-001");
+    assert.ok(gas);
+    assert.match(gas!.title, /24時間見守り/);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

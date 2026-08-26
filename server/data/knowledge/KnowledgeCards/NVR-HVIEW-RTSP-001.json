@@ -1,0 +1,18 @@
+{
+  "id": "NVR-HVIEW-RTSP-001",
+  "title": "【防犯・NVR】H.View製NVRおよびマルチメーカーIPカメラのRTSP/サブストリーム統合",
+  "category": "防犯カメラ",
+  "tags": [
+    "#Security",
+    "#Camera",
+    "#NVR",
+    "#RTSP",
+    "#HView"
+  ],
+  "summary": "H.ViewやReolink等のNVRからRTSPサブストリーム（例: /unicast/c1/s1/live）を抽出し、PWA上で軽量・低遅延に同時マルチカメラ表示を行う手法。\n\n【RTSP サブストリーム抽出】\nH.View / Reolink 等の NVR ではメインは高解像、\nサブは軽量（例: /unicast/c1/s1/live）。\nPWA 同時マルチ表示はサブストリームを基本にし、\n帯域と端末負荷を抑える。\n\n【統合手順】\n1. NVR 管理画面で各チャネルの RTSP URL を控える。\n2. 認証（user/pass）とポートを物件カードへ保存。\n3. 変換ゲートウェイへ登録し PWA タイルへ割当。\n4. メインは録画・ズーム、サブは一覧ライブ。\n\n【現場注意】\nメーカー差でパスが異なる。実機で再生確認し、\n失敗時は ONVIF で再取得する。LAN 内完結を優先し、\n外部公開は VPN または中継に限定する。",
+  "body": "【RTSP サブストリーム抽出】\nH.View / Reolink 等の NVR ではメインは高解像、\nサブは軽量（例: /unicast/c1/s1/live）。\nPWA 同時マルチ表示はサブストリームを基本にし、\n帯域と端末負荷を抑える。\n\n【統合手順】\n1. NVR 管理画面で各チャネルの RTSP URL を控える。\n2. 認証（user/pass）とポートを物件カードへ保存。\n3. 変換ゲートウェイへ登録し PWA タイルへ割当。\n4. メインは録画・ズーム、サブは一覧ライブ。\n\n【現場注意】\nメーカー差でパスが異なる。実機で再生確認し、\n失敗時は ONVIF で再取得する。LAN 内完結を優先し、\n外部公開は VPN または中継に限定する。",
+  "files": [],
+  "updatedAt": "2026-08-26",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending"
+}
