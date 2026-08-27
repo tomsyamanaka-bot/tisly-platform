@@ -1108,6 +1108,8 @@ describe("tisly-home-v1", () => {
     assert.equal(fwRes.body.ok, true);
     assert.equal(fwRes.body.rules.di1DurationMs, 60_000);
     assert.equal(fwRes.body.rules.lighting_duration_sec, 60);
+    assert.equal(fwRes.body.rules.light_start, fwRes.body.rules.scheduleStart);
+    assert.equal(fwRes.body.rules.light_end, fwRes.body.rules.scheduleEnd);
     assert.equal(fwRes.body.rules.diConfirmMs, 50);
     assert.equal(fwRes.body.rules.di1LightMode, "blink");
     assert.equal(fwRes.body.rules.perimeterFlagMs, 90_000);
@@ -1184,18 +1186,22 @@ describe("tisly-home-v1", () => {
     assert.equal(event.body.pushSent, false);
   });
 
-  it("POST /api/home/v1/security/config sets always guard active", async () => {
+  it("POST /api/home/v1/security/config sets always armed (lights follow schedule)", async () => {
     const alwaysRes = await request(app)
       .post("/api/home/v1/security/config")
       .send({
         siteId: ITABASHI_SITE,
         guardMode: "always",
+        scheduleStart: "18:00",
+        scheduleEnd: "06:00",
         securityPausedUntil: null,
         actor: "security-v1-test",
       })
       .expect(200);
     assert.equal(alwaysRes.body.firmware.guardMode, "always");
-    assert.equal(alwaysRes.body.firmware.guardActive, true);
+    assert.equal(typeof alwaysRes.body.firmware.guardActive, "boolean");
+    assert.equal(alwaysRes.body.firmware.light_start, "18:00");
+    assert.equal(alwaysRes.body.firmware.light_end, "06:00");
     assert.equal(alwaysRes.body.firmware.securityPaused, false);
   });
 

@@ -76,6 +76,8 @@ class SecurityLightController:
         self._guard_mode = "night_only"
         self._schedule_start = _DEFAULT_SCHEDULE_START
         self._schedule_end = _DEFAULT_SCHEDULE_END
+        self._light_start = _DEFAULT_SCHEDULE_START
+        self._light_end = _DEFAULT_SCHEDULE_END
         self._guard_active = True
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
@@ -115,6 +117,18 @@ class SecurityLightController:
         )
         self._schedule_end = str(
             rules.get("scheduleEnd", _DEFAULT_SCHEDULE_END)
+        )
+        self._light_start = str(
+            rules.get(
+                "light_start",
+                rules.get("lightStart", self._schedule_start),
+            )
+        )
+        self._light_end = str(
+            rules.get(
+                "light_end",
+                rules.get("lightEnd", self._schedule_end),
+            )
         )
         self._guard_active = bool(rules.get("guardActive", True))
         self._security_paused = bool(rules.get("securityPaused", False))
@@ -177,12 +191,12 @@ class SecurityLightController:
         if 50 <= confirm <= 300:
             self._di_confirm_ms = confirm
         self.log(
-            "rules synced v{} mode={} window={}~{} active={} paused={} di1={}s confirm={}ms".format(
+            "rules synced v{} mode={} light={}~{} active={} paused={} di1={}s confirm={}ms".format(
                 self._rules_version,
                 self._guard_mode,
-                self._schedule_start,
-                self._schedule_end,
-                self._is_guard_active_now(),
+                self._light_start,
+                self._light_end,
+                self._can_run_lights(),
                 self._security_paused,
                 self._di1_duration_ms // 1000,
                 self._di_confirm_ms,
@@ -199,10 +213,10 @@ class SecurityLightController:
         jst_sec = utc_sec + 9 * 3600
         return (jst_sec // 60) % (24 * 60)
 
-    def _is_in_schedule_window(self):
-        """開始〜終了の時間窓（日跨ぎ対応）。"""
-        sh, sm = _parse_hm(self._schedule_start, _DEFAULT_SCHEDULE_START)
-        eh, em = _parse_hm(self._schedule_end, _DEFAULT_SCHEDULE_END)
+    def _is_in_light_schedule(self):
+        """防犯ライト点灯時間帯（日跨ぎ対応）。"""
+        sh, sm = _parse_hm(self._light_start, _DEFAULT_SCHEDULE_START)
+        eh, em = _parse_hm(self._light_end, _DEFAULT_SCHEDULE_END)
         now = self._jst_minutes()
         start = _hm_to_minutes(sh, sm)
         end = _hm_to_minutes(eh, em)
@@ -212,20 +226,16 @@ class SecurityLightController:
             return now >= start and now < end
         return now >= start or now < end
 
+    def _is_in_schedule_window(self):
+        """互換: 旧 scheduleStart/End 参照。"""
+        return self._is_in_light_schedule()
+
     def _is_guard_active_now(self):
-        """ALWAYS / SCHEDULED / DISARMED を実機で評価。"""
-        if self._security_paused:
-            return False
-        if self._guard_mode == "off":
-            return False
-        if self._guard_mode == "always":
-            return True
-        if self._guard_mode in ("night_only", "scheduled"):
-            return self._is_in_schedule_window()
-        return self._guard_active
+        """互換: 防犯ライト点灯可否（時間帯のみ）。"""
+        return self._can_run_lights()
 
     def _is_armed_now(self):
-        """OFF/一時停止以外なら監視・ログは継続。"""
+        """OFF/一時停止以外なら監視・通知は 24 時間継続。"""
         if self._security_paused:
             return False
         if self._guard_mode == "off":
@@ -233,16 +243,20 @@ class SecurityLightController:
         return True
 
     def _can_run_lights(self):
-        """時間指定窓内のみ DO リレー点灯を許可。"""
-        if not self._is_guard_active_now():
-            if self._security_paused:
-                self.log("security paused — lights off")
-            elif self._guard_mode == "off":
-                self.log("guard off (DISARMED) — lights off")
-            elif self._guard_mode in ("night_only", "scheduled"):
-                self.log("outside schedule (SCHEDULED) — lights off")
-            else:
-                self.log("guard inactive — lights off")
+        """防犯ライト（DO リレー）点灯可否 — 時間帯のみ。"""
+        if self._security_paused:
+            self.log("security paused - lights off")
+            return False
+        if self._guard_mode == "off":
+            self.log("guard off (DISARMED) - lights off")
+            return False
+        if not self._is_in_light_schedule():
+            self.log(
+                "outside light schedule ({}~{}) - lights off".format(
+                    self._light_start,
+                    self._light_end,
+                )
+            )
             return False
         return True
 
@@ -280,7 +294,7 @@ class SecurityLightController:
             except Exception:
                 state = "off"
         if state != "on":
-            self.log("DI{} chatter — confirm aborted".format(di))
+            self.log("DI{} chatter - confirm aborted".format(di))
             return
         if self._di_confirmed.get(di):
             return
@@ -328,7 +342,7 @@ class SecurityLightController:
     def _on_di1_detected(self):
         self.log("DI1 detected -> Pattern A")
         if not self._is_armed_now():
-            self.log("disarmed — DI1 ignored")
+            self.log("disarmed - DI1 ignored")
             return
         self._set_perimeter_flag()
         self._notify_vps("security event DI1 pattern_a", "A")
@@ -338,7 +352,7 @@ class SecurityLightController:
 
     def _on_di2_detected(self):
         if not self._is_armed_now():
-            self.log("disarmed — DI2 ignored")
+            self.log("disarmed - DI2 ignored")
             return
         if self._perimeter_active():
             self.log("DI2 within perimeter -> Pattern B")

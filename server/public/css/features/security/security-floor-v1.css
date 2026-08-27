@@ -2008,6 +2008,17 @@
   display: none !important;
 }
 
+.sf-light-schedule-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sf-light-schedule-panel[hidden] {
+  display: none !important;
+}
+
 .sf-schedule-field {
   display: flex;
   flex-direction: column;

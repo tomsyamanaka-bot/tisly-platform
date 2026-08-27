@@ -58,9 +58,9 @@ export interface HomeSecurityRulesV1 {
   siteId: string;
   /** 24時間常時 / 時間指定 / 警戒OFF */
   guardMode: HomeGuardModeV1;
-  /** 時間指定の開始（JST HH:MM） */
+  /** 時間指定の開始（JST HH:MM）— 防犯ライト点灯時間帯 */
   scheduleStart: string;
-  /** 時間指定の終了（JST HH:MM・日跨ぎ可） */
+  /** 時間指定の終了（JST HH:MM・日跨ぎ可）— 防犯ライト点灯時間帯 */
   scheduleEnd: string;
   /** 夜間ライト点灯維持時間（秒）5〜180 — 実機 lighting_duration_sec */
   lightingDurationSec: number;
@@ -123,10 +123,14 @@ export interface HomeSecurityFirmwareRulesV1 {
   version: number;
   siteId: string;
   guardMode: HomeGuardModeV1;
-  /** 時間指定開始（JST HH:MM） */
+  /** 時間指定開始（JST HH:MM）— 防犯ライト点灯時間帯 */
   scheduleStart: string;
   /** 時間指定終了（JST HH:MM） */
   scheduleEnd: string;
+  /** RP2350 実機キー（light_start エイリアス） */
+  light_start: string;
+  /** RP2350 実機キー（light_end エイリアス） */
+  light_end: string;
   guardActive: boolean;
   securityPaused: boolean;
   di1DurationMs: number;
@@ -248,7 +252,7 @@ function parseNotifyMode(
 }
 
 const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
-  guardMode: "night_only",
+  guardMode: "always",
   scheduleStart: HOME_GUARD_SCHEDULE_START_DEFAULT_V1,
   scheduleEnd: HOME_GUARD_SCHEDULE_END_DEFAULT_V1,
   lightingDurationSec: 45,
@@ -663,21 +667,17 @@ export function isHomeSecurityArmedV1(
   return true;
 }
 
-/** 現在時刻で防犯ライト・緊急Pushが有効か */
+/** 現在時刻で防犯ライト・DO リレー点灯が有効か（時間帯のみ） */
 export function isHomeGuardActiveV1(
   rules: HomeSecurityRulesV1,
   at: Date = new Date()
 ): boolean {
   if (!isHomeSecurityArmedV1(rules, at)) return false;
-  if (rules.guardMode === "always") return true;
-  if (isHomeScheduledGuardModeV1(rules.guardMode)) {
-    return isHomeScheduleWindowActiveV1(
-      rules.scheduleStart,
-      rules.scheduleEnd,
-      at
-    );
-  }
-  return false;
+  return isHomeScheduleWindowActiveV1(
+    rules.scheduleStart,
+    rules.scheduleEnd,
+    at
+  );
 }
 
 /** 防犯ライト一時停止中か */
@@ -708,6 +708,8 @@ export function buildHomeSecurityFirmwareRulesV1(
     guardMode: rules.guardMode,
     scheduleStart: rules.scheduleStart,
     scheduleEnd: rules.scheduleEnd,
+    light_start: rules.scheduleStart,
+    light_end: rules.scheduleEnd,
     guardActive,
     securityPaused: isHomeSecurityPausedV1(rules),
     di1DurationMs: rules.di1DurationSec * 1000,

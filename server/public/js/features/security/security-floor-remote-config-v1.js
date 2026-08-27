@@ -24,7 +24,7 @@ const NOTIFY_ID_TO_FIELD = {
 
 const state = {
   homeSiteId: DEFAULT_HOME_SITE,
-  guardMode: "scheduled",
+  guardMode: "always",
   scheduleStart: "18:00",
   scheduleEnd: "06:00",
   paused: false,
@@ -252,10 +252,9 @@ function syncLightingDurationSliders(sec) {
 }
 
 function normalizeGuardModeUi(mode) {
-  if (mode === "always" || mode === "off") return mode;
-  if (mode === "scheduled" || mode === "night_only") return "scheduled";
-  if (mode === "paused") return "off";
-  return "scheduled";
+  if (mode === "off") return "off";
+  /* scheduled / night_only は 24h 警戒へ正規化 */
+  return "always";
 }
 
 function normalizeTimeHm(value, fallback) {
@@ -265,11 +264,10 @@ function normalizeTimeHm(value, fallback) {
   return `${m[1].padStart(2, "0")}:${m[2]}`;
 }
 
-function syncSchedulePanelVisibility(mode) {
-  const panel = $("sf-schedule-panel");
+function syncSchedulePanelVisibility(_mode) {
+  const panel = $("sf-light-schedule-panel");
   if (!panel) return;
-  const show = normalizeGuardModeUi(mode) === "scheduled";
-  panel.hidden = !show;
+  panel.hidden = false;
 }
 
 function readScheduleTimes() {
@@ -298,7 +296,7 @@ function writeScheduleTimes(start, end) {
 
 function renderRules(rules, notifyPolicy) {
   if (!rules) return;
-  state.guardMode = normalizeGuardModeUi(rules.guardMode || "scheduled");
+  state.guardMode = normalizeGuardModeUi(rules.guardMode || "always");
   state.paused = Boolean(
     rules.securityPausedUntil &&
       Date.parse(rules.securityPausedUntil) > Date.now()
@@ -310,11 +308,10 @@ function renderRules(rules, notifyPolicy) {
 
   if (state.paused || state.guardMode === "off") {
     setSegValue("sf-guard-seg", "off");
-    syncSchedulePanelVisibility("off");
   } else {
-    setSegValue("sf-guard-seg", state.guardMode);
-    syncSchedulePanelVisibility(state.guardMode);
+    setSegValue("sf-guard-seg", "always");
   }
+  syncSchedulePanelVisibility();
 
   const lightingSec =
     rules.lightingDurationSec ?? rules.di1DurationSec ?? 45;
@@ -381,7 +378,7 @@ function collectPayload(homeSiteId) {
     notifyDi2InstantPush: notifyDi2Mode === "critical",
     scheduleStart: times.scheduleStart,
     scheduleEnd: times.scheduleEnd,
-    guardMode: guardSeg || "scheduled",
+    guardMode: guardSeg === "off" ? "off" : "always",
     securityPausedUntil: null,
   };
   return payload;
@@ -425,32 +422,27 @@ async function applyGuardModeImmediate(value) {
   const label =
     mode === "off"
       ? "警戒一時解除"
-      : mode === "always"
-        ? "24時間警戒"
-        : "時間指定警戒";
+      : "24時間警戒";
   showToast(`${label} を反映しました`);
   return data;
 }
 
-/** 時間指定の変更を即時保存 */
+/** ライト点灯時間帯の変更を即時保存 */
 async function applyScheduleTimesImmediate() {
   const times = readScheduleTimes();
   writeScheduleTimes(times.scheduleStart, times.scheduleEnd);
+  const guardSeg = normalizeGuardModeUi(readSegValue("sf-guard-seg"));
   const payload = {
     siteId: state.homeSiteId,
     actor: "security-v1",
-    guardMode: "scheduled",
+    guardMode: guardSeg === "off" ? "off" : "always",
     securityPausedUntil: null,
     scheduleStart: times.scheduleStart,
     scheduleEnd: times.scheduleEnd,
   };
-  state.guardMode = "scheduled";
-  state.paused = false;
-  setSegValue("sf-guard-seg", "scheduled");
-  syncSchedulePanelVisibility("scheduled");
   const data = await postSecurityConfig(state.homeSiteId, payload);
   showToast(
-    `時間指定 ${times.scheduleStart}〜${times.scheduleEnd} を保存しました`
+    `ライト点灯時間帯 ${times.scheduleStart}〜${times.scheduleEnd} を保存しました`
   );
   return data;
 }
@@ -544,7 +536,7 @@ function bindRemoteConfigUi() {
   };
   $("sf-schedule-start")?.addEventListener("change", onScheduleChange);
   $("sf-schedule-end")?.addEventListener("change", onScheduleChange);
-  syncSchedulePanelVisibility(readSegValue("sf-guard-seg") || "scheduled");
+  syncSchedulePanelVisibility();
 
   bindSegGroup("sf-di1-24v-seg");
   bindSegGroup("sf-di2-24v-seg");

@@ -225,30 +225,8 @@
         <p class="sf-remote-target" id="sf-remote-target">実機: HOME-JP-ITABASHI-LIVE</p>
 
         <div class="sf-remote-block sf-remote-block--highlight">
-          <label class="sf-remote-label" for="sf-lighting-duration">
-            💡 夜間ライト点灯維持時間 <strong id="sf-lighting-duration-val">45</strong>秒
-          </label>
-          <input
-            type="range"
-            id="sf-lighting-duration"
-            class="sf-range"
-            min="5"
-            max="180"
-            step="1"
-            value="45"
-            aria-label="夜間ライト点灯維持時間"
-          />
-          <p class="sf-remote-hint">5〜180秒 · 変更後は自動で実機へ反映（3秒）</p>
-        </div>
-
-        <div class="sf-remote-block">
-          <p class="sf-remote-label">警戒モード</p>
-          <div class="sf-seg-group" id="sf-guard-seg" role="group" aria-label="警戒モード">
-            <button type="button" class="sf-seg-btn" data-value="always">🛡️ 24時間警戒</button>
-            <button type="button" class="sf-seg-btn is-on" data-value="scheduled">⏰ 時間指定警戒</button>
-            <button type="button" class="sf-seg-btn" data-value="off">⏸️ 警戒一時解除</button>
-          </div>
-          <div class="sf-schedule-panel" id="sf-schedule-panel">
+          <p class="sf-remote-label">💡 防犯ライト点灯時間帯</p>
+          <div class="sf-schedule-panel sf-light-schedule-panel" id="sf-light-schedule-panel">
             <label class="sf-schedule-field" for="sf-schedule-start">
               <span>開始時刻</span>
               <input
@@ -256,7 +234,7 @@
                 id="sf-schedule-start"
                 class="sf-time-input"
                 value="18:00"
-                aria-label="時間指定の開始時刻"
+                aria-label="防犯ライト点灯開始時刻"
               />
             </label>
             <label class="sf-schedule-field" for="sf-schedule-end">
@@ -266,11 +244,37 @@
                 id="sf-schedule-end"
                 class="sf-time-input"
                 value="06:00"
-                aria-label="時間指定の終了時刻"
+                aria-label="防犯ライト点灯終了時刻"
               />
             </label>
-            <p class="sf-remote-hint">日跨ぎ可（例: 19:00〜06:00）· 変更は即時保存</p>
           </div>
+          <label class="sf-remote-label" for="sf-lighting-duration">
+            点灯維持時間 <strong id="sf-lighting-duration-val">45</strong>秒
+          </label>
+          <input
+            type="range"
+            id="sf-lighting-duration"
+            class="sf-range"
+            min="5"
+            max="180"
+            step="1"
+            value="45"
+            aria-label="防犯ライト点灯維持時間"
+          />
+          <p class="sf-remote-hint">
+            通知は24時間常時 · ライトは上記時間帯のみ点灯 · 変更は自動保存
+          </p>
+        </div>
+
+        <div class="sf-remote-block">
+          <p class="sf-remote-label">警戒モード</p>
+          <div class="sf-seg-group" id="sf-guard-seg" role="group" aria-label="警戒モード">
+            <button type="button" class="sf-seg-btn is-on" data-value="always">🛡️ 24時間警戒</button>
+            <button type="button" class="sf-seg-btn" data-value="off">⏸️ 警戒一時解除</button>
+          </div>
+          <p class="sf-remote-hint">
+            24時間警戒中はセンサー検知を常時通知 · 一時解除中は通知・ライトとも停止
+          </p>
         </div>
 
         <details class="sf-remote-details" open>

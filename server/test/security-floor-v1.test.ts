@@ -335,11 +335,12 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-brand-logo/);
     assert.match(html, /tisly-shield-logo-128\.png/);
     assert.match(html, /icons\/icon-128\.png\?v=2508/);
-    assert.match(html, /時間指定警戒/);
-    assert.match(html, /sf-schedule-panel/);
+    assert.match(html, /防犯ライト点灯時間帯/);
+    assert.match(html, /sf-light-schedule-panel/);
     assert.match(html, /sf-schedule-start/);
-    assert.match(html, /data-value="scheduled"/);
+    assert.match(html, /data-value="always"/);
     assert.match(html, /data-value="off"/);
+    assert.doesNotMatch(html, /data-value="scheduled"/);
     assert.doesNotMatch(html, /夜間のみ/);
     assert.doesNotMatch(html, /data-value="paused"/);
     assert.doesNotMatch(html, /data-value="night_only"/);
@@ -605,7 +606,9 @@ describe("security-floor-v1", () => {
     assert.match(remoteJs, /scheduleStart/);
     assert.match(remoteJs, /scheduleEnd/);
     assert.match(remoteJs, /securityPausedUntil/);
-    assert.match(remoteJs, /時間指定警戒/);
+    assert.match(remoteJs, /ライト点灯時間帯/);
+    assert.match(remoteJs, /sf-light-schedule-panel/);
+    assert.doesNotMatch(remoteJs, /時間指定警戒/);
     assert.doesNotMatch(remoteJs, /夜間のみ/);
 
     const itabashi = buildSecurityFloorOperatorSiteV1("SEC-JP-ITABASHI-LIVE");

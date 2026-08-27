@@ -18,9 +18,22 @@ def _ctrl(rules):
     return ctrl
 
 
-def test_always_guard_active():
-    ctrl = _ctrl({"version": 1, "guardMode": "always", "guardActive": True})
-    assert ctrl._is_guard_active_now() is True
+def test_always_guard_active_at_night():
+    # JST 21:00 = UTC 12:00 — ライト時間帯内
+    utc = 12 * 3600
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = _ctrl({"version": 1, "guardMode": "always", "guardActive": True})
+        assert ctrl._is_guard_active_now() is True
+
+
+def test_always_daytime_lights_off():
+    # JST 12:00 = UTC 03:00 — ライト時間帯外
+    utc = 3 * 3600
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = _ctrl({"version": 1, "guardMode": "always", "guardActive": True})
+        assert ctrl._is_armed_now() is True
+        assert ctrl._can_run_lights() is False
+        assert ctrl._is_guard_active_now() is False
 
 
 def test_off_guard_inactive():
@@ -137,6 +150,21 @@ def test_di1_skips_lights_when_paused():
     assert lights == []
 
 
+def test_light_start_end_alias():
+    utc = 12 * 3600
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = _ctrl(
+            {
+                "version": 7,
+                "guardMode": "always",
+                "light_start": "19:00",
+                "light_end": "06:00",
+            }
+        )
+        assert ctrl._light_start == "19:00"
+        assert ctrl._is_in_light_schedule() is True
+
+
 def test_lighting_duration_sec_applied():
     ctrl = _ctrl(
         {
@@ -182,7 +210,8 @@ def test_apply_rules_rejects_too_short_confirm():
 
 
 if __name__ == "__main__":
-    test_always_guard_active()
+    test_always_guard_active_at_night()
+    test_always_daytime_lights_off()
     test_off_guard_inactive()
     test_paused_overrides_always()
     test_night_only_daytime_inactive()
