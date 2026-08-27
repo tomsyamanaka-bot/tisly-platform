@@ -19,7 +19,8 @@ export type SecuritySensorKindV1 =
   | "gas"
   | "panel"
   | "camera"
-  | "window";
+  | "window"
+  | "light";
 export type SecuritySensorStateV1 = "normal" | "alert";
 export type SecurityPlanStatusV1 =
   | "active"
@@ -827,6 +828,7 @@ export function sensorKindIconV1(
   if (kind === "gas") return "🔥";
   if (kind === "camera") return "📷";
   if (kind === "window") return "🪟";
+  if (kind === "light") return "💡";
   return "⚡";
 }
 
@@ -1226,8 +1228,117 @@ function enrichItabashiDiSensorsV1(): void {
   });
 }
 
+/**
+ * 航空写真風外周（進入路・植栽・母屋）と
+ * DI1/DI2/DO2 ピンを末尾追記する。
+ */
+function enrichAerialPerimeterSitesV1(): void {
+  const roomDefs = [
+    {
+      id: "my-out-approach",
+      floorId: "outdoor" as const,
+      label: "北側進入路",
+      x: 28,
+      y: 2,
+      w: 44,
+      h: 16,
+    },
+    {
+      id: "my-out-hedge",
+      floorId: "outdoor" as const,
+      label: "西側植栽帯",
+      x: 2,
+      y: 16,
+      w: 18,
+      h: 70,
+    },
+    {
+      id: "my-out-house",
+      floorId: "outdoor" as const,
+      label: "母屋",
+      x: 30,
+      y: 56,
+      w: 40,
+      h: 30,
+    },
+  ];
+  const sensorDefsMoriya = [
+    {
+      id: "my-di1-park",
+      floorId: "outdoor" as const,
+      roomId: "my-out-approach",
+      kind: "mmwave" as const,
+      label: "進入路センサー (DI1)",
+      customerLabel: "進入路センサー",
+      x: 50,
+      y: 10,
+      state: "normal" as const,
+      deviceId: "RP2350-DI1",
+    },
+    {
+      id: "my-di2-garage",
+      floorId: "outdoor" as const,
+      roomId: "my-out-park",
+      kind: "mmwave" as const,
+      label: "駐車場センサー (DI2)",
+      customerLabel: "駐車場センサー",
+      x: 48,
+      y: 36,
+      state: "normal" as const,
+      deviceId: "RP2350-DI2",
+    },
+    {
+      id: "my-do2-light",
+      floorId: "outdoor" as const,
+      roomId: "my-out-house",
+      kind: "light" as const,
+      label: "防犯ライト (DO2)",
+      customerLabel: "母屋北面のライト",
+      x: 50,
+      y: 56,
+      state: "normal" as const,
+      deviceId: "RP2350-DO2",
+    },
+  ];
+  const sensorDefsItabashiDo2 = [
+    {
+      id: "my-do2-light",
+      floorId: "outdoor" as const,
+      roomId: "my-out-house",
+      kind: "light" as const,
+      label: "防犯ライト (DO2)",
+      customerLabel: "母屋北面のライト",
+      x: 50,
+      y: 56,
+      state: "normal" as const,
+      deviceId: "RP2350-DO2",
+    },
+  ];
+
+  for (const siteId of [
+    "SEC-JP-MORIYA-001",
+    "SEC-JP-ITABASHI-LIVE",
+  ] as const) {
+    const site = SECURITY_FLOOR_SITES_V1.find(
+      (s) => s.id === siteId
+    );
+    if (!site) continue;
+    for (const room of roomDefs) {
+      appendIfMissing(site.rooms, room);
+    }
+    const sensors =
+      siteId === "SEC-JP-MORIYA-001"
+        ? sensorDefsMoriya
+        : sensorDefsItabashiDo2;
+    for (const sensor of sensors) {
+      appendIfMissing(site.sensors, sensor);
+    }
+  }
+}
+
 enrichExistingSitesForSocV1();
 enrichItabashiDiSensorsV1();
+enrichAerialPerimeterSitesV1();
 
 type SocSensorListenerV1 = (
   site: SecuritySiteV1,

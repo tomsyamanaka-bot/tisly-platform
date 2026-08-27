@@ -381,16 +381,16 @@ function ensureDiSensorOnSiteV1(
   const sensor: SecuritySensorV1 = {
     id,
     floorId: "outdoor",
-    roomId: di === 1 ? "my-out-park" : "my-out-park",
+    roomId: di === 1 ? "my-out-approach" : "my-out-park",
     kind: "mmwave",
     label:
       di === 1
-        ? "駐車場センサー (DI1)"
-        : "ガレージセンサー (DI2)",
+        ? "進入路センサー (DI1)"
+        : "駐車場センサー (DI2)",
     customerLabel:
-      di === 1 ? "駐車場センサー" : "ガレージセンサー",
-    x: di === 1 ? 24 : 42,
-    y: di === 1 ? 40 : 55,
+      di === 1 ? "進入路センサー" : "駐車場センサー",
+    x: di === 1 ? 50 : 48,
+    y: di === 1 ? 10 : 36,
     state: "normal",
     deviceId: di === 1 ? "RP2350-DI1" : "RP2350-DI2",
   };
@@ -404,16 +404,36 @@ function ensureDiSensorOnSiteV1(
     if (garage) {
       sensor.roomId = garage.id;
       sensor.floorId = garage.floorId;
+    } else {
+      const park = site.rooms.find(
+        (r) =>
+          /駐車|駐車場|park/i.test(r.label) ||
+          r.id.includes("park")
+      );
+      if (park) {
+        sensor.roomId = park.id;
+        sensor.floorId = park.floorId;
+      }
     }
   } else {
-    const park = site.rooms.find(
+    const approach = site.rooms.find(
       (r) =>
-        /駐車|駐車場|park/i.test(r.label) ||
-        r.id.includes("park")
+        /進入|アプローチ|approach/i.test(r.label) ||
+        r.id.includes("approach")
     );
-    if (park) {
-      sensor.roomId = park.id;
-      sensor.floorId = park.floorId;
+    if (approach) {
+      sensor.roomId = approach.id;
+      sensor.floorId = approach.floorId;
+    } else {
+      const park = site.rooms.find(
+        (r) =>
+          /駐車|駐車場|park/i.test(r.label) ||
+          r.id.includes("park")
+      );
+      if (park) {
+        sensor.roomId = park.id;
+        sensor.floorId = park.floorId;
+      }
     }
   }
   site.sensors.push(sensor);

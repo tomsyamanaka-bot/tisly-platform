@@ -892,8 +892,9 @@ function makeCyberGridTexture() {
 }
 
 /**
- * 床面テクスチャ（ヘリンボーン・タイル・畳・芝）
- * @param {"wood"|"herringbone"|"tile"|"tatami"|"grass"} pattern
+ * 床面テクスチャ（ヘリンボーン・タイル・畳・芝・
+ * アスファルト・砕石）
+ * @param {"wood"|"herringbone"|"tile"|"tatami"|"grass"|"asphalt"|"gravel"} pattern
  * @param {number} baseHex
  */
 function makeFloorTexture(pattern, baseHex) {
@@ -965,6 +966,33 @@ function makeFloorTexture(pattern, baseHex) {
     }
     ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
     ctx.strokeRect(8, 8, 240, 240);
+  } else if (pattern === "asphalt") {
+    /* 北側進入路のアスファルト調 */
+    ctx.fillStyle = "rgba(15, 23, 42, 0.18)";
+    for (let i = 0; i < 180; i++) {
+      const x = (i * 53) % 256;
+      const y = (i * 97) % 256;
+      ctx.fillRect(x, y, 2, 2);
+    }
+    ctx.strokeStyle = "rgba(250, 204, 21, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([14, 12]);
+    ctx.beginPath();
+    ctx.moveTo(128, 8);
+    ctx.lineTo(128, 248);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (pattern === "gravel") {
+    /* 砕石調駐車場 */
+    for (let i = 0; i < 420; i++) {
+      const x = (i * 37) % 256;
+      const y = (i * 89) % 256;
+      ctx.fillStyle =
+        i % 3 === 0
+          ? "rgba(255, 255, 255, 0.22)"
+          : "rgba(71, 85, 105, 0.2)";
+      ctx.fillRect(x, y, 1.8, 1.8);
+    }
   } else {
     ctx.fillStyle = "rgba(34, 120, 60, 0.1)";
     for (let i = 0; i < 120; i++) {
@@ -988,7 +1016,19 @@ function makeFloorTexture(pattern, baseHex) {
  */
 function roomStyleFromLabel(label, floorId) {
   const t = String(label || "");
-  if (floorId === "outdoor" || /駐車|庭|外周|敷地/.test(t)) {
+  if (/進入|アプローチ/.test(t)) {
+    return { fill: 0x4b5563, pattern: "asphalt", icon: "🛣️" };
+  }
+  if (/植栽|生垣|hedge/i.test(t)) {
+    return { fill: 0x556b2f, pattern: "grass", icon: "🌳" };
+  }
+  if (/母屋|主屋/.test(t)) {
+    return { fill: 0xf8fafc, pattern: "wood", icon: "🏠" };
+  }
+  if (/駐車/.test(t)) {
+    return { fill: 0xc4c8ce, pattern: "gravel", icon: "🅿️" };
+  }
+  if (floorId === "outdoor" || /庭|外周|敷地/.test(t)) {
     return { fill: 0xa8c49a, pattern: "grass", icon: "🌳" };
   }
   if (/リビング|居間|ダイニング/.test(t)) {
@@ -1427,6 +1467,232 @@ function addRoomWallRibs(layer, cx, cz, ww, dd, floorY, ribH) {
 }
 
 /**
+ * 航空写真風の縦長外周敷地ブロック
+ * （進入路・植栽・駐車場・母屋）
+ */
+function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
+  const siteRooms = roomsForFloor("outdoor");
+  const alertById = new Map(
+    siteRooms.map((r) => [r.id, !!r.alertVisible])
+  );
+
+  /** @type {Array<{
+   *  id: string, label: string, x: number, y: number,
+   *  w: number, h: number, fill: number,
+   *  pattern: string, icon: string, boxH: number,
+   *  roof?: boolean, hedge?: boolean
+   * }>} */
+  const zones = [
+    {
+      id: "my-out-approach",
+      label: "進入路",
+      x: 28,
+      y: 2,
+      w: 44,
+      h: 16,
+      fill: 0x4b5563,
+      pattern: "asphalt",
+      icon: "🛣️",
+      boxH: 0.1,
+    },
+    {
+      id: "my-out-hedge",
+      label: "植栽帯",
+      x: 2,
+      y: 16,
+      w: 18,
+      h: 70,
+      fill: 0x556b2f,
+      pattern: "grass",
+      icon: "🌳",
+      boxH: 0.55,
+      hedge: true,
+    },
+    {
+      id: "my-out-park",
+      label: "駐車場",
+      x: 22,
+      y: 18,
+      w: 56,
+      h: 36,
+      fill: 0xc4c8ce,
+      pattern: "gravel",
+      icon: "🅿️",
+      boxH: 0.1,
+    },
+    {
+      id: "my-out-house",
+      label: "母屋",
+      x: 30,
+      y: 56,
+      w: 40,
+      h: 30,
+      fill: 0xf8fafc,
+      pattern: "wood",
+      icon: "🏠",
+      boxH: 1.35,
+      roof: true,
+    },
+    {
+      id: "my-out-garden",
+      label: "庭",
+      x: 80,
+      y: 18,
+      w: 16,
+      h: 68,
+      fill: 0xa8c49a,
+      pattern: "grass",
+      icon: "🌿",
+      boxH: 0.12,
+    },
+  ];
+
+  let firstAlertRoom = null;
+
+  for (const z of zones) {
+    const alerting = !!alertById.get(z.id);
+    const ww = Math.max(z.w * 0.2, 0.5);
+    const dd = Math.max(z.h * 0.2, 0.5);
+    const cx = pctToWorldV1(z.x + z.w / 2);
+    const cz = pctToWorldV1(z.y + z.h / 2);
+    const { mat, edge: edgeColor, tier } = roomMaterials(
+      alerting,
+      "outdoor",
+      z.label
+    );
+    if (!alerting) {
+      mat.map = makeFloorTexture(z.pattern, z.fill);
+      mat.color.setHex(0xffffff);
+      mat.needsUpdate = true;
+    }
+    mat.userData = { alerting };
+    const mats = shadeRoomMaterials(mat);
+    const bodyH = z.roof ? 0.1 : z.boxH;
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(ww * 0.97, bodyH, dd * 0.97),
+      mats
+    );
+    mesh.position.set(cx, floorY + bodyH / 2, cz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = {
+      roomId: z.id,
+      kind: "room",
+      alerting,
+      floorId: "outdoor",
+      baseOpacity: SOLID_OPACITY,
+      aerialZone: true,
+    };
+    layer.add(mesh);
+
+    /* 母屋：白い外壁＋オレンジ屋根 */
+    if (z.roof) {
+      const wallH = Math.max(z.boxH * 0.85, 1.05);
+      const wall = new THREE.Mesh(
+        new THREE.BoxGeometry(ww * 0.9, wallH, dd * 0.9),
+        shadeWallMaterials()
+      );
+      wall.position.set(cx, floorY + wallH / 2, cz);
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      wall.userData = { kind: "houseWall", roomId: z.id };
+      layer.add(wall);
+
+      const roofMat = new THREE.MeshStandardMaterial({
+        color: alerting ? 0xef4444 : 0xea580c,
+        emissive: alerting ? 0xef4444 : 0xc2410c,
+        emissiveIntensity: alerting ? 0.35 : 0.08,
+        metalness: 0.12,
+        roughness: 0.55,
+      });
+      const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(ww * 1.02, 0.22, dd * 1.02),
+        roofMat
+      );
+      roof.position.set(cx, floorY + wallH + 0.12, cz);
+      roof.castShadow = true;
+      roof.userData = { kind: "houseRoof", roomId: z.id };
+      layer.add(roof);
+      addRoomWallRibs(layer, cx, cz, ww * 0.92, dd * 0.92, floorY, wallH);
+    } else if (z.hedge) {
+      /* 生垣ボリュームを追加で立ち上げ */
+      const hedgeMat = new THREE.MeshStandardMaterial({
+        color: alerting ? 0xfef2f2 : 0x3f6212,
+        emissive: alerting ? 0xef4444 : 0x365314,
+        emissiveIntensity: alerting ? 0.3 : 0.05,
+        roughness: 0.92,
+        metalness: 0.02,
+      });
+      for (let i = 0; i < 5; i++) {
+        const tz = cz - dd * 0.35 + (i / 4) * dd * 0.7;
+        const bush = new THREE.Mesh(
+          new THREE.BoxGeometry(ww * 0.72, 0.7, dd * 0.12),
+          hedgeMat.clone()
+        );
+        bush.position.set(cx, floorY + 0.45, tz);
+        bush.castShadow = true;
+        bush.userData = { kind: "hedgeBush", roomId: z.id };
+        layer.add(bush);
+      }
+    } else {
+      addRoomWallRibs(layer, cx, cz, ww, dd, floorY, Math.min(ribH, 0.85));
+    }
+
+    const edge = new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry),
+      new THREE.LineBasicMaterial({
+        color: tier === "none" ? EDGE_SLATE : edgeColor,
+        transparent: true,
+        opacity: 0.28,
+      })
+    );
+    edge.position.copy(mesh.position);
+    layer.add(edge);
+    roomMeshes.set(`outdoor:${z.id}`, {
+      mesh,
+      mat,
+      mats,
+      edge,
+      tier,
+    });
+
+    if (alerting && !firstAlertRoom) {
+      firstAlertRoom = { r: { id: z.id, label: z.label }, mesh };
+    }
+
+    if (state.showLabels && (z.label === "駐車場" || z.label === "母屋")) {
+      const labelEl = document.createElement("div");
+      labelEl.className =
+        "sf-iso3d-room-label" + (alerting ? " is-alert" : "");
+      const ico = document.createElement("span");
+      ico.className = "sf-iso3d-room-ico";
+      ico.setAttribute("aria-hidden", "true");
+      ico.textContent = z.icon;
+      const txt = document.createElement("span");
+      txt.className = "sf-iso3d-room-txt";
+      txt.textContent = z.label;
+      labelEl.append(ico, txt);
+      if (!isFocus) {
+        labelEl.style.display = "none";
+        labelEl.style.visibility = "hidden";
+      }
+      const labelObj = new CSS2DObject(labelEl);
+      const ly =
+        z.roof ? floorY + z.boxH + 0.55 : floorY + 0.28;
+      labelObj.position.set(cx, ly, cz);
+      layer.add(labelObj);
+    }
+  }
+
+  /* 敷地外周の白い境界塀 */
+  const siteW = 19.2;
+  const siteD = 23.6;
+  addRoomWallRibs(layer, 0, 0, siteW, siteD, floorY, 0.95);
+
+  return firstAlertRoom;
+}
+
+/**
  * 部屋ブロック＋外壁フレーム（ウォールリブ）を1フロア分追加
  */
 function addFloorLayer(floorId, yBase, wallH, isFocus) {
@@ -1435,10 +1701,14 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
   layer.userData = { floorId, kind: "floorLayer" };
   layer.visible = !!isFocus;
 
-  const slabSize = floorId === "outdoor" ? 24 : 21.5;
+  const isOutdoor = floorId === "outdoor";
+  const slabW = isOutdoor ? 20 : 21.5;
+  const slabD = isOutdoor ? 24.5 : 21.5;
   const slabMat = new THREE.MeshStandardMaterial({
-    map: makeCyberGridTexture(),
-    color: SLAB_TINT,
+    map: isOutdoor
+      ? makeFloorTexture("grass", 0xd6c7a8)
+      : makeCyberGridTexture(),
+    color: isOutdoor ? 0xffffff : SLAB_TINT,
     metalness: 0.05,
     roughness: 0.9,
     emissive: 0xffffff,
@@ -1447,7 +1717,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     opacity: SOLID_OPACITY,
   });
   const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(slabSize, 0.16, slabSize),
+    new THREE.BoxGeometry(slabW, 0.16, slabD),
     slabMat
   );
   slab.position.y = 0.08;
@@ -1458,7 +1728,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
 
   /* スラブ外周のソフトアウトライン */
   const slabEdge = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(slabSize, 0.16, slabSize)),
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(slabW, 0.16, slabD)),
     new THREE.LineBasicMaterial({
       color: EDGE_SLATE,
       transparent: true,
@@ -1470,7 +1740,7 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
 
   /* 外壁フレーム（全体輪郭の薄いガイド） */
   const shellGeo = new THREE.EdgesGeometry(
-    new THREE.BoxGeometry(slabSize + 0.12, wallH * 0.38, slabSize + 0.12)
+    new THREE.BoxGeometry(slabW + 0.12, wallH * 0.38, slabD + 0.12)
   );
   const shellColor =
     state.alertTier === "critical" && isFocus
@@ -1511,79 +1781,89 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
     perimeterGlowMeshes.push(ring);
   }
 
-  const rooms = roomsForFloor(floorId);
-  let firstAlertRoom = null;
   const floorY = 0.16;
   /* 白い立体壁を十分高く · 床色を際立たせる */
   const ribH = Math.max(wallH * 0.48, 1.15);
+  let firstAlertRoom = null;
 
-  for (const r of rooms) {
-    if (!state.showZones) continue;
-    const alerting = !!r.alertVisible;
-    const ww = Math.max(r.w * 0.2, 0.5);
-    const dd = Math.max(r.h * 0.2, 0.5);
-    const cx = pctToWorldV1(r.x + r.w / 2);
-    const cz = pctToWorldV1(r.y + r.h / 2);
-    const { mat, edge: edgeColor, tier, style } = roomMaterials(
-      alerting,
-      floorId,
-      r.label
+  if (isOutdoor) {
+    /* 航空写真ベースの縦長敷地を描画 */
+    firstAlertRoom = addAerialPerimeterSite(
+      layer,
+      floorY,
+      ribH,
+      isFocus
     );
-    mat.userData = { alerting };
-    const mats = shadeRoomMaterials(mat);
-    /* 床面のみ薄く · 壁は別リブで押し出し */
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(ww * 0.97, 0.08, dd * 0.97),
-      mats
-    );
-    mesh.position.set(cx, floorY + 0.04, cz);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.userData = {
-      roomId: r.id,
-      kind: "room",
-      alerting,
-      floorId,
-      baseOpacity: SOLID_OPACITY,
-    };
-    layer.add(mesh);
+  } else {
+    const rooms = roomsForFloor(floorId);
+    for (const r of rooms) {
+      if (!state.showZones) continue;
+      const alerting = !!r.alertVisible;
+      const ww = Math.max(r.w * 0.2, 0.5);
+      const dd = Math.max(r.h * 0.2, 0.5);
+      const cx = pctToWorldV1(r.x + r.w / 2);
+      const cz = pctToWorldV1(r.y + r.h / 2);
+      const { mat, edge: edgeColor, tier, style } = roomMaterials(
+        alerting,
+        floorId,
+        r.label
+      );
+      mat.userData = { alerting };
+      const mats = shadeRoomMaterials(mat);
+      /* 床面のみ薄く · 壁は別リブで押し出し */
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(ww * 0.97, 0.08, dd * 0.97),
+        mats
+      );
+      mesh.position.set(cx, floorY + 0.04, cz);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData = {
+        roomId: r.id,
+        kind: "room",
+        alerting,
+        floorId,
+        baseOpacity: SOLID_OPACITY,
+      };
+      layer.add(mesh);
 
-    addRoomWallRibs(layer, cx, cz, ww, dd, floorY, ribH);
+      addRoomWallRibs(layer, cx, cz, ww, dd, floorY, ribH);
 
-    const edge = new THREE.LineSegments(
-      new THREE.EdgesGeometry(mesh.geometry),
-      new THREE.LineBasicMaterial({
-        color: tier === "none" ? EDGE_SLATE : edgeColor,
-        transparent: true,
-        opacity: 0.28,
-      })
-    );
-    edge.position.copy(mesh.position);
-    layer.add(edge);
-    roomMeshes.set(`${floorId}:${r.id}`, { mesh, mat, mats, edge, tier });
+      const edge = new THREE.LineSegments(
+        new THREE.EdgesGeometry(mesh.geometry),
+        new THREE.LineBasicMaterial({
+          color: tier === "none" ? EDGE_SLATE : edgeColor,
+          transparent: true,
+          opacity: 0.28,
+        })
+      );
+      edge.position.copy(mesh.position);
+      layer.add(edge);
+      roomMeshes.set(`${floorId}:${r.id}`, { mesh, mat, mats, edge, tier });
 
-    if (alerting && !firstAlertRoom) firstAlertRoom = { r, mesh };
+      if (alerting && !firstAlertRoom) firstAlertRoom = { r, mesh };
 
-    if (state.showLabels && r.label) {
-      /* 白カプセル・低め配置で床を隠さない */
-      const labelEl = document.createElement("div");
-      labelEl.className =
-        "sf-iso3d-room-label" + (alerting ? " is-alert" : "");
-      const ico = document.createElement("span");
-      ico.className = "sf-iso3d-room-ico";
-      ico.setAttribute("aria-hidden", "true");
-      ico.textContent = style?.icon || "🏠";
-      const txt = document.createElement("span");
-      txt.className = "sf-iso3d-room-txt";
-      txt.textContent = r.label;
-      labelEl.append(ico, txt);
-      if (!isFocus) {
-        labelEl.style.display = "none";
-        labelEl.style.visibility = "hidden";
+      if (state.showLabels && r.label) {
+        /* 白カプセル・低め配置で床を隠さない */
+        const labelEl = document.createElement("div");
+        labelEl.className =
+          "sf-iso3d-room-label" + (alerting ? " is-alert" : "");
+        const ico = document.createElement("span");
+        ico.className = "sf-iso3d-room-ico";
+        ico.setAttribute("aria-hidden", "true");
+        ico.textContent = style?.icon || "🏠";
+        const txt = document.createElement("span");
+        txt.className = "sf-iso3d-room-txt";
+        txt.textContent = r.label;
+        labelEl.append(ico, txt);
+        if (!isFocus) {
+          labelEl.style.display = "none";
+          labelEl.style.visibility = "hidden";
+        }
+        const labelObj = new CSS2DObject(labelEl);
+        labelObj.position.set(cx, floorY + 0.26, cz);
+        layer.add(labelObj);
       }
-      const labelObj = new CSS2DObject(labelEl);
-      labelObj.position.set(cx, floorY + 0.26, cz);
-      layer.add(labelObj);
     }
   }
 

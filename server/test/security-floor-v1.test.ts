@@ -437,6 +437,10 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /zoomSpeed\s*=\s*1\.25/);
     assert.doesNotMatch(iso3dJs, /enablePan\s*=\s*false/);
     assert.match(iso3dJs, /resetCameraHome|DOUBLE_TAP/);
+    assert.match(iso3dJs, /addAerialPerimeterSite|航空写真/);
+    assert.match(iso3dJs, /asphalt|gravel|母屋|進入路|植栽/);
+    assert.match(iso3dJs, /0xea580c|オレンジ屋根|houseRoof/);
+    assert.match(iso3dJs, /my-out-approach|my-out-house|my-out-hedge/);
     assert.match(iso3dJs, /shadeRoomMaterials/);
     assert.match(iso3dJs, /focusAnim/);
     assert.match(iso3dJs, /reelAnim|startReelTransition|REEL_SLIDE/);
@@ -540,6 +544,9 @@ describe("security-floor-v1", () => {
     assert.match(fbJs, /平屋デモ宅/);
     assert.match(fbJs, /つくばモデルハウス/);
     assert.match(fbJs, /板橋自宅/);
+    assert.match(fbJs, /my-out-approach|北側進入路/);
+    assert.match(fbJs, /my-out-house|母屋/);
+    assert.match(fbJs, /my-di1-park|my-di2-garage|my-do2-light/);
     assert.doesNotMatch(fbJs, /屋根\/太陽光/);
     assert.doesNotMatch(fbJs, /美園の家/);
     const customerHtml = fs.readFileSync(
@@ -629,6 +636,25 @@ describe("security-floor-v1", () => {
     assert.ok(dash.floors.some((f) => f.id === "outdoor"));
     assert.ok(dash.floors.some((f) => f.id === "1f"));
     assert.ok(dash.floors.some((f) => f.id === "2f"));
+
+    const moriyaDash = buildSecurityFloorCustomerDashboardV1(
+      "SEC-JP-MORIYA-001"
+    );
+    assert.ok(
+      moriyaDash.rooms.some((r) => r.id === "my-out-approach")
+    );
+    assert.ok(
+      moriyaDash.rooms.some((r) => r.id === "my-out-house")
+    );
+    assert.ok(
+      moriyaDash.sensors.some((s) => s.id === "my-di1-park")
+    );
+    assert.ok(
+      moriyaDash.sensors.some((s) => s.id === "my-di2-garage")
+    );
+    assert.ok(
+      moriyaDash.sensors.some((s) => s.id === "my-do2-light")
+    );
 
     const notifyMoriya = await request(app)
       .post("/api/security-floor/v1/test-notify")

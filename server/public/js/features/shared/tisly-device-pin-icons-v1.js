@@ -11,7 +11,7 @@
 export function normalizeDeviceKind(kind) {
   const k = String(kind || "").toLowerCase();
   if (k === "entrance" || k === "backdoor") return "door";
-  if (k === "gas" || k === "window") return k;
+  if (k === "gas" || k === "window" || k === "light") return k;
   if (["camera", "door", "lock", "panel", "mmwave"].includes(k)) return k;
   return k || "door";
 }
@@ -60,6 +60,12 @@ export function devicePinSvgInner(kind) {
     return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
       <rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.4"/>
       <path d="M12 5v14M4 12h16" stroke="currentColor" stroke-width="2.2"/>
+    </svg>`;
+  }
+  if (k === "light") {
+    return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 18h6M10 21h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M8 10a4 4 0 1 1 8 0c0 1.6-.8 2.6-1.6 3.4-.5.5-.9 1.1-.9 1.8H10.5c0-.7-.4-1.3-.9-1.8C8.8 12.6 8 11.6 8 10z" fill="none" stroke="currentColor" stroke-width="2.2"/>
     </svg>`;
   }
   return `<svg class="tisly-pin-svg" viewBox="0 0 24 24" aria-hidden="true">

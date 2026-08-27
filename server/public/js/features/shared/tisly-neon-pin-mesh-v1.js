@@ -127,6 +127,16 @@ export function drawDeviceIconSvgV1(ctx, kind, cx, cy, scale, color) {
     ctx.moveTo(3.5, 12);
     ctx.lineTo(20.5, 12);
     ctx.stroke();
+  } else if (k === "light") {
+    /* 防犯ライト（電球シルエット） */
+    ctx.beginPath();
+    ctx.arc(12, 9.5, 5.2, Math.PI * 0.15, Math.PI * 0.85, true);
+    ctx.stroke();
+    roundRectStroke(ctx, 9.2, 14.2, 5.6, 4.2, 1.2);
+    ctx.beginPath();
+    ctx.moveTo(10, 18.5);
+    ctx.lineTo(14, 18.5);
+    ctx.stroke();
   } else {
     ctx.beginPath();
     ctx.arc(12, 12, 5.5, 0, Math.PI * 2);
