@@ -68,14 +68,25 @@ async function fetchJson(url, opts) {
 function fillSites(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
+  const allow = new Set(["SEC-JP-ITABASHI-LIVE"]);
   const raw = sites?.length ? sites : listFallbackSites();
-  const list = [...raw].sort((a, b) => {
-    const aid = a.siteId || a.id;
-    const bid = b.siteId || b.id;
-    if (aid === "SEC-JP-ITABASHI-LIVE") return -1;
-    if (bid === "SEC-JP-ITABASHI-LIVE") return 1;
-    return 0;
-  });
+  const list = [...raw]
+    .filter((s) => allow.has(s.siteId || s.id))
+    .sort((a, b) => {
+      const aid = a.siteId || a.id;
+      const bid = b.siteId || b.id;
+      if (aid === "SEC-JP-ITABASHI-LIVE") return -1;
+      if (bid === "SEC-JP-ITABASHI-LIVE") return 1;
+      return 0;
+    });
+  if (!list.length) {
+    list.push({
+      id: "SEC-JP-ITABASHI-LIVE",
+      siteId: "SEC-JP-ITABASHI-LIVE",
+      displayName: "板橋自宅",
+      countryCode: "JP",
+    });
+  }
   sel.innerHTML = list
     .map((s) => {
       const id = s.siteId || s.id;
@@ -86,7 +97,16 @@ function fillSites(sites) {
       return `<option value="${id}">${label}</option>`;
     })
     .join("");
+  state.siteId = "SEC-JP-ITABASHI-LIVE";
   sel.value = state.siteId;
+  sel.disabled = list.length <= 1;
+}
+
+function syncCustomerHeaderTitle() {
+  const title = "板橋自宅 (HOME-JP-ITABASHI-LIVE)";
+  const el = $("sf-title");
+  if (el) el.textContent = title;
+  document.title = `TiSLY · ${title}`;
 }
 
 function openAlarms(soc) {
@@ -112,6 +132,7 @@ function renderDash(dash, opts = {}) {
     }
     state.dash = dash;
     state.alarmSig = nextSig;
+    syncCustomerHeaderTitle();
     const open = openAlarms(dash.soc);
     const alerting = open.length > 0 || dash.status === "alert";
     setText("sf-status-emoji", alerting ? "🚨" : "🟢");
@@ -269,7 +290,12 @@ function bind() {
     if (id) state.floorId = id;
   });
   $("sf-site-select")?.addEventListener("change", (e) => {
-    state.siteId = e.target.value;
+    const next = e.target.value;
+    state.siteId =
+      next === "SEC-JP-ITABASHI-LIVE"
+        ? next
+        : "SEC-JP-ITABASHI-LIVE";
+    e.target.value = state.siteId;
     bootFallback();
     loadDash().catch(() => {});
   });

@@ -52,7 +52,29 @@ describe("security-floor-v1", () => {
     assert.ok(itabashi);
     assert.equal(itabashi.displayName, "板橋自宅");
     assert.equal(itabashi.addressLabel, "東京都板橋区");
+    assert.equal(
+      itabashi.propertyId,
+      "HOME-JP-ITABASHI-LIVE"
+    );
     assert.match(itabashi.notes.join(" "), /HOME-JP-ITABASHI-LIVE/);
+    assert.ok(
+      itabashi.rooms.some(
+        (r) =>
+          r.id === "my-out-approach" &&
+          r.propertyId === "HOME-JP-ITABASHI-LIVE"
+      )
+    );
+    assert.ok(
+      itabashi.rooms.some(
+        (r) =>
+          r.floorId === "1f" &&
+          r.propertyId === "HOME-JP-ITABASHI-LIVE"
+      )
+    );
+    assert.equal(
+      moriya.rooms.some((r) => r.id === "my-out-approach"),
+      false
+    );
     assert.equal(moriya.addressLabel.includes("守谷"), true);
     assert.equal(moriya.displayName.includes("平屋"), true);
     assert.ok(moriya.rooms.some((r) => r.label === "勝手口キッチン"));
@@ -439,6 +461,8 @@ describe("security-floor-v1", () => {
     assert.match(iso3dJs, /resetCameraHome|DOUBLE_TAP/);
     assert.match(iso3dJs, /addAerialPerimeterSite|航空写真/);
     assert.match(iso3dJs, /asphalt|gravel|母屋|進入路|植栽/);
+    assert.match(iso3dJs, /HOME-JP-ITABASHI-LIVE/);
+    assert.match(iso3dJs, /isItabashiLiveAerialSite|propertyId/);
     assert.match(iso3dJs, /0xea580c|オレンジ屋根|houseRoof/);
     assert.match(iso3dJs, /my-out-approach|my-out-house|my-out-hedge/);
     assert.match(iso3dJs, /shadeRoomMaterials/);
@@ -582,6 +606,10 @@ describe("security-floor-v1", () => {
       path.join(publicDir, "security-v1.html"),
       "utf8"
     );
+    assert.match(fbJs, /FALLBACK_DEFAULT_SITE_ID = "SEC-JP-ITABASHI-LIVE"/);
+    assert.match(fbJs, /UI_VISIBLE_SITE_IDS|listFallbackCatalogSites/);
+    assert.match(opJs, /filterUiSites|板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
+    assert.match(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);
     assert.match(opHtml, /Push通知を再登録・購読/);
@@ -640,20 +668,44 @@ describe("security-floor-v1", () => {
     const moriyaDash = buildSecurityFloorCustomerDashboardV1(
       "SEC-JP-MORIYA-001"
     );
-    assert.ok(
-      moriyaDash.rooms.some((r) => r.id === "my-out-approach")
+    assert.equal(
+      moriyaDash.rooms.some((r) => r.id === "my-out-approach"),
+      false
+    );
+    assert.equal(
+      moriyaDash.rooms.some((r) => r.id === "my-out-house"),
+      false
+    );
+    assert.equal(
+      moriyaDash.sensors.some((s) => s.id === "my-di1-park"),
+      false
+    );
+    assert.equal(
+      moriyaDash.sensors.some((s) => s.id === "my-do2-light"),
+      false
+    );
+
+    const itabashiDash = buildSecurityFloorCustomerDashboardV1(
+      "SEC-JP-ITABASHI-LIVE"
     );
     assert.ok(
-      moriyaDash.rooms.some((r) => r.id === "my-out-house")
+      itabashiDash.rooms.some((r) => r.id === "my-out-approach")
     );
     assert.ok(
-      moriyaDash.sensors.some((s) => s.id === "my-di1-park")
+      itabashiDash.rooms.some((r) => r.id === "my-out-house")
     );
     assert.ok(
-      moriyaDash.sensors.some((s) => s.id === "my-di2-garage")
+      itabashiDash.sensors.some((s) => s.id === "my-di1-park")
     );
     assert.ok(
-      moriyaDash.sensors.some((s) => s.id === "my-do2-light")
+      itabashiDash.sensors.some((s) => s.id === "my-di2-garage")
+    );
+    assert.ok(
+      itabashiDash.sensors.some((s) => s.id === "my-do2-light")
+    );
+    assert.equal(
+      itabashiDash.propertyId,
+      "HOME-JP-ITABASHI-LIVE"
     );
 
     const notifyMoriya = await request(app)

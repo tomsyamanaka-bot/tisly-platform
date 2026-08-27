@@ -1469,7 +1469,17 @@ function addRoomWallRibs(layer, cx, cz, ww, dd, floorY, ribH) {
 /**
  * 航空写真風の縦長外周敷地ブロック
  * （進入路・植栽・駐車場・母屋）
+ * propertyId: HOME-JP-ITABASHI-LIVE 専用
  */
+function isItabashiLiveAerialSite(site) {
+  if (!site) return false;
+  if (site.propertyId === "HOME-JP-ITABASHI-LIVE") {
+    return true;
+  }
+  const id = site.siteId || site.id;
+  return id === "SEC-JP-ITABASHI-LIVE";
+}
+
 function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
   const siteRooms = roomsForFloor("outdoor");
   const alertById = new Map(
@@ -1480,7 +1490,8 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
    *  id: string, label: string, x: number, y: number,
    *  w: number, h: number, fill: number,
    *  pattern: string, icon: string, boxH: number,
-   *  roof?: boolean, hedge?: boolean
+   *  roof?: boolean, hedge?: boolean,
+   *  propertyId: string
    * }>} */
   const zones = [
     {
@@ -1494,6 +1505,7 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
       pattern: "asphalt",
       icon: "🛣️",
       boxH: 0.1,
+      propertyId: "HOME-JP-ITABASHI-LIVE",
     },
     {
       id: "my-out-hedge",
@@ -1507,6 +1519,7 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
       icon: "🌳",
       boxH: 0.55,
       hedge: true,
+      propertyId: "HOME-JP-ITABASHI-LIVE",
     },
     {
       id: "my-out-park",
@@ -1519,6 +1532,7 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
       pattern: "gravel",
       icon: "🅿️",
       boxH: 0.1,
+      propertyId: "HOME-JP-ITABASHI-LIVE",
     },
     {
       id: "my-out-house",
@@ -1532,6 +1546,7 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
       icon: "🏠",
       boxH: 1.35,
       roof: true,
+      propertyId: "HOME-JP-ITABASHI-LIVE",
     },
     {
       id: "my-out-garden",
@@ -1544,6 +1559,7 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
       pattern: "grass",
       icon: "🌿",
       boxH: 0.12,
+      propertyId: "HOME-JP-ITABASHI-LIVE",
     },
   ];
 
@@ -1582,6 +1598,7 @@ function addAerialPerimeterSite(layer, floorY, ribH, isFocus) {
       floorId: "outdoor",
       baseOpacity: SOLID_OPACITY,
       aerialZone: true,
+      propertyId: z.propertyId || "HOME-JP-ITABASHI-LIVE",
     };
     layer.add(mesh);
 
@@ -1787,13 +1804,42 @@ function addFloorLayer(floorId, yBase, wallH, isFocus) {
   let firstAlertRoom = null;
 
   if (isOutdoor) {
-    /* 航空写真ベースの縦長敷地を描画 */
-    firstAlertRoom = addAerialPerimeterSite(
-      layer,
-      floorY,
-      ribH,
-      isFocus
-    );
+    /* 板橋自宅のみ航空写真ベース外周を描画 */
+    if (isItabashiLiveAerialSite(state.site)) {
+      firstAlertRoom = addAerialPerimeterSite(
+        layer,
+        floorY,
+        ribH,
+        isFocus
+      );
+    } else {
+      const rooms = roomsForFloor(floorId);
+      for (const r of rooms) {
+        if (!state.showZones) continue;
+        const alerting = !!r.alertVisible;
+        const ww = Math.max(r.w * 0.2, 0.5);
+        const dd = Math.max(r.h * 0.2, 0.5);
+        const cx = pctToWorldV1(r.x + r.w / 2);
+        const cz = pctToWorldV1(r.y + r.h / 2);
+        const { mat, edge: edgeColor } = roomMaterials(
+          alerting,
+          floorId,
+          r.label
+        );
+        const geo = new THREE.BoxGeometry(ww, 0.12, dd);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(cx, floorY + 0.06, cz);
+        mesh.userData = {
+          roomId: r.id,
+          floorId,
+          aerialZone: false,
+        };
+        layer.add(mesh);
+        if (alerting && !firstAlertRoom) {
+          firstAlertRoom = mesh;
+        }
+      }
+    }
   } else {
     const rooms = roomsForFloor(floorId);
     for (const r of rooms) {

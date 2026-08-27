@@ -101,6 +101,14 @@ function siteOptionLabel(s) {
   return `${s.displayName}（${s.countryCode || "JP"}）`;
 }
 
+/** UI 表示対象のみ（板橋自宅） */
+function filterUiSites(sites) {
+  const allow = new Set(["SEC-JP-ITABASHI-LIVE"]);
+  return (sites || []).filter((s) =>
+    allow.has(s.siteId || s.id)
+  );
+}
+
 function sortSitesForSelect(sites) {
   const list = [...(sites || [])];
   list.sort((a, b) => {
@@ -117,15 +125,43 @@ function fillSiteSelect(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
   const list = sortSitesForSelect(
-    sites?.length ? sites : listFallbackSites()
+    filterUiSites(
+      sites?.length ? sites : listFallbackSites()
+    )
   );
+  // 万一空なら板橋を強制投入
+  if (!list.length) {
+    list.push({
+      id: "SEC-JP-ITABASHI-LIVE",
+      siteId: "SEC-JP-ITABASHI-LIVE",
+      displayName: "板橋自宅",
+      countryCode: "JP",
+    });
+  }
   sel.innerHTML = list
     .map((s) => {
       const id = s.siteId || s.id;
       return `<option value="${id}">${siteOptionLabel(s)}</option>`;
     })
     .join("");
+  state.siteId = "SEC-JP-ITABASHI-LIVE";
   sel.value = state.siteId;
+  // 単一物件のため切替不可表示
+  sel.disabled = list.length <= 1;
+}
+
+function syncHeaderTitle(site) {
+  const title =
+    site?.id === "SEC-JP-ITABASHI-LIVE" ||
+    site?.siteId === "SEC-JP-ITABASHI-LIVE"
+      ? "板橋自宅 (HOME-JP-ITABASHI-LIVE)"
+      : site?.displayName ||
+        "板橋自宅 (HOME-JP-ITABASHI-LIVE)";
+  setText("sf-title", title);
+  if (document.title) {
+    document.title = `TiSLY · ${title}`;
+  }
+  setText("sf-remote-target", `実機: HOME-JP-ITABASHI-LIVE`);
 }
 
 function openAlarms(soc) {
@@ -377,13 +413,14 @@ function renderSite(site, dash) {
     state.dash = dash || state.dash || { alertCount: 0 };
     state.alarmSig = alarmSignature(site);
     applyStatusHero(site);
+    syncHeaderTitle(site);
     setText(
       "sf-plan",
       `${site.planCode || "home_security_std"} / ${site.planStatus || "active"} / ${site.currency || "JPY"}`
     );
     setHtml(
       "sf-property",
-      `<strong>${site.displayName}</strong><br>${site.addressLabel || ""}`
+      `<strong>板橋自宅 (HOME-JP-ITABASHI-LIVE)</strong><br>${site.addressLabel || "東京都板橋区"}`
     );
     const w = site.soc?.weather;
     if (w) {
@@ -582,7 +619,13 @@ function bind() {
     if (id) state.floorId = id;
   });
   $("sf-site-select")?.addEventListener("change", (e) => {
-    state.siteId = e.target.value;
+    // UI は板橋固定。他 ID が来ても板橋へ戻す
+    const next = e.target.value;
+    state.siteId =
+      next === "SEC-JP-ITABASHI-LIVE"
+        ? next
+        : "SEC-JP-ITABASHI-LIVE";
+    e.target.value = state.siteId;
     bootFallback();
     loadOperator().catch(() => {});
     refreshSecurityRemoteConfigV1(state.siteId).catch(() => {});

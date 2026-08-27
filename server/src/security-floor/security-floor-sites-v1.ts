@@ -41,6 +41,8 @@ export interface SecurityRoomV1 {
   y: number;
   w: number;
   h: number;
+  /** 物件スコープ（板橋ライブ等） */
+  propertyId?: string;
 }
 
 export interface SecuritySensorV1 {
@@ -55,6 +57,8 @@ export interface SecuritySensorV1 {
   state: SecuritySensorStateV1;
   deviceId: string;
   linkedCameraId?: string;
+  /** 物件スコープ（板橋ライブ等） */
+  propertyId?: string;
 }
 
 export interface SecuritySiteV1 {
@@ -78,10 +82,36 @@ export interface SecuritySiteV1 {
   energyKw?: number;
   energyMaxKw?: number;
   networkMs?: number;
+  /**
+   * HOME / RP2350 物件 ID。
+   * 板橋ライブは HOME-JP-ITABASHI-LIVE。
+   */
+  propertyId?: string;
 }
 
+/** API 未指定時フォールバック（既存互換） */
 export const SECURITY_FLOOR_DEFAULT_SITE_ID_V1 =
   "SEC-JP-TSUKUBA-001";
+
+/** 板橋自宅（Security Floor ID） */
+export const SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1 =
+  "SEC-JP-ITABASHI-LIVE";
+
+/** 板橋自宅の HOME / RP2350 propertyId */
+export const SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1 =
+  "HOME-JP-ITABASHI-LIVE";
+
+/**
+ * UI 物件セレクタに出す ID（板橋のみ固定）。
+ * カタログ本体のデモ物件は削除しない。
+ */
+export const SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1 = [
+  SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
+] as const;
+
+/** UI 初期選択（板橋自宅） */
+export const SECURITY_FLOOR_UI_DEFAULT_SITE_ID_V1 =
+  SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1;
 
 const JP_FLOORS: SecurityFloorMetaV1[] = [
   { id: "1f", label: "1F", enabled: true },
@@ -811,6 +841,25 @@ export function listSecuritySitesV1(): SecuritySiteV1[] {
   return [...SECURITY_FLOOR_SITES_V1];
 }
 
+/** UI セレクタ用（板橋自宅のみ） */
+export function listSecurityFloorUiSitesV1(): SecuritySiteV1[] {
+  const allow = new Set<string>(
+    SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1
+  );
+  return listSecuritySitesV1().filter((s) =>
+    allow.has(s.id)
+  );
+}
+
+export function isSecurityFloorUiVisibleSiteIdV1(
+  siteId: string | null | undefined
+): boolean {
+  const id = String(siteId || "").trim();
+  return (
+    SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1 as readonly string[]
+  ).includes(id);
+}
+
 export function guardModeLabelJaV1(
   mode: SecurityGuardModeV1
 ): string {
@@ -1166,7 +1215,7 @@ function enrichExistingSitesForSocV1(): void {
 function ensureItabashiLiveSecuritySiteV1(): void {
   if (
     SECURITY_FLOOR_SITES_V1.some(
-      (s) => s.id === "SEC-JP-ITABASHI-LIVE"
+      (s) => s.id === SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1
     )
   ) {
     return;
@@ -1178,7 +1227,8 @@ function ensureItabashiLiveSecuritySiteV1(): void {
   const site: SecuritySiteV1 = JSON.parse(
     JSON.stringify(template)
   ) as SecuritySiteV1;
-  site.id = "SEC-JP-ITABASHI-LIVE";
+  site.id = SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1;
+  site.propertyId = SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
   site.displayName = "板橋自宅";
   site.addressLabel = "東京都板橋区";
   site.planCode = "home_live";
@@ -1193,15 +1243,62 @@ function ensureItabashiLiveSecuritySiteV1(): void {
   site.energyKw ??= 2.1;
   site.energyMaxKw ??= 6;
   site.networkMs ??= 8;
+  // 1F・外周ルームを板橋 propertyId で明示スコープ
+  for (const room of site.rooms) {
+    if (
+      room.floorId === "1f" ||
+      room.floorId === "outdoor"
+    ) {
+      room.propertyId =
+        SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
+    }
+  }
+  for (const sensor of site.sensors) {
+    sensor.propertyId =
+      SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
+  }
   SECURITY_FLOOR_SITES_V1.push(site);
+}
+
+/**
+ * 既存板橋サイトへ propertyId を差分追記。
+ * カタログ行は削除せず、欠落フィールドのみ埋める。
+ */
+function ensureItabashiPropertyScopeV1(): void {
+  const site = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1
+  );
+  if (!site) return;
+  if (!site.propertyId) {
+    site.propertyId =
+      SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
+  }
+  for (const room of site.rooms) {
+    if (
+      (room.floorId === "1f" ||
+        room.floorId === "outdoor") &&
+      !room.propertyId
+    ) {
+      room.propertyId =
+        SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
+    }
+  }
+  for (const sensor of site.sensors) {
+    if (!sensor.propertyId) {
+      sensor.propertyId =
+        SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
+    }
+  }
 }
 
 /** 板橋自宅に RP2350 DI1/DI2 センサーを差分追記 */
 function enrichItabashiDiSensorsV1(): void {
   const site = SECURITY_FLOOR_SITES_V1.find(
-    (s) => s.id === "SEC-JP-ITABASHI-LIVE"
+    (s) => s.id === SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1
   );
   if (!site) return;
+  const propertyId =
+    SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
   appendIfMissing(site.sensors, {
     id: "my-di1-park",
     floorId: "outdoor",
@@ -1213,6 +1310,7 @@ function enrichItabashiDiSensorsV1(): void {
     y: 40,
     state: "normal",
     deviceId: "RP2350-DI1",
+    propertyId,
   });
   appendIfMissing(site.sensors, {
     id: "my-di2-garage",
@@ -1225,14 +1323,18 @@ function enrichItabashiDiSensorsV1(): void {
     y: 55,
     state: "normal",
     deviceId: "RP2350-DI2",
+    propertyId,
   });
 }
 
 /**
  * 航空写真風外周（進入路・植栽・母屋）と
- * DI1/DI2/DO2 ピンを末尾追記する。
+ * DO2 ピンを【板橋自宅のみ】へ末尾追記する。
+ * 他デモ物件（つくば・Sydney・平屋）とは混在させない。
  */
 function enrichAerialPerimeterSitesV1(): void {
+  const propertyId =
+    SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1;
   const roomDefs = [
     {
       id: "my-out-approach",
@@ -1242,6 +1344,7 @@ function enrichAerialPerimeterSitesV1(): void {
       y: 2,
       w: 44,
       h: 16,
+      propertyId,
     },
     {
       id: "my-out-hedge",
@@ -1251,6 +1354,7 @@ function enrichAerialPerimeterSitesV1(): void {
       y: 16,
       w: 18,
       h: 70,
+      propertyId,
     },
     {
       id: "my-out-house",
@@ -1260,44 +1364,27 @@ function enrichAerialPerimeterSitesV1(): void {
       y: 56,
       w: 40,
       h: 30,
-    },
-  ];
-  const sensorDefsMoriya = [
-    {
-      id: "my-di1-park",
-      floorId: "outdoor" as const,
-      roomId: "my-out-approach",
-      kind: "mmwave" as const,
-      label: "進入路センサー (DI1)",
-      customerLabel: "進入路センサー",
-      x: 50,
-      y: 10,
-      state: "normal" as const,
-      deviceId: "RP2350-DI1",
+      propertyId,
     },
     {
-      id: "my-di2-garage",
+      id: "my-out-park",
       floorId: "outdoor" as const,
-      roomId: "my-out-park",
-      kind: "mmwave" as const,
-      label: "駐車場センサー (DI2)",
-      customerLabel: "駐車場センサー",
-      x: 48,
-      y: 36,
-      state: "normal" as const,
-      deviceId: "RP2350-DI2",
+      label: "駐車場",
+      x: 22,
+      y: 18,
+      w: 56,
+      h: 36,
+      propertyId,
     },
     {
-      id: "my-do2-light",
+      id: "my-out-garden",
       floorId: "outdoor" as const,
-      roomId: "my-out-house",
-      kind: "light" as const,
-      label: "防犯ライト (DO2)",
-      customerLabel: "母屋北面のライト",
-      x: 50,
-      y: 56,
-      state: "normal" as const,
-      deviceId: "RP2350-DO2",
+      label: "庭",
+      x: 80,
+      y: 18,
+      w: 16,
+      h: 68,
+      propertyId,
     },
   ];
   const sensorDefsItabashiDo2 = [
@@ -1312,33 +1399,27 @@ function enrichAerialPerimeterSitesV1(): void {
       y: 56,
       state: "normal" as const,
       deviceId: "RP2350-DO2",
+      propertyId,
     },
   ];
 
-  for (const siteId of [
-    "SEC-JP-MORIYA-001",
-    "SEC-JP-ITABASHI-LIVE",
-  ] as const) {
-    const site = SECURITY_FLOOR_SITES_V1.find(
-      (s) => s.id === siteId
-    );
-    if (!site) continue;
-    for (const room of roomDefs) {
-      appendIfMissing(site.rooms, room);
-    }
-    const sensors =
-      siteId === "SEC-JP-MORIYA-001"
-        ? sensorDefsMoriya
-        : sensorDefsItabashiDo2;
-    for (const sensor of sensors) {
-      appendIfMissing(site.sensors, sensor);
-    }
+  // 板橋自宅のみへ外周 3D データを紐付け
+  const site = SECURITY_FLOOR_SITES_V1.find(
+    (s) => s.id === SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1
+  );
+  if (!site) return;
+  for (const room of roomDefs) {
+    appendIfMissing(site.rooms, room);
+  }
+  for (const sensor of sensorDefsItabashiDo2) {
+    appendIfMissing(site.sensors, sensor);
   }
 }
 
 enrichExistingSitesForSocV1();
 enrichItabashiDiSensorsV1();
 enrichAerialPerimeterSitesV1();
+ensureItabashiPropertyScopeV1();
 
 type SocSensorListenerV1 = (
   site: SecuritySiteV1,

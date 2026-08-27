@@ -42,6 +42,8 @@ export interface SecurityFloorViewRoomV1 {
   w: number;
   h: number;
   alertVisible: boolean;
+  /** 物件スコープ（板橋ライブ等） */
+  propertyId?: string;
 }
 
 export interface SecurityFloorCustomerDashboardV1 {
@@ -65,6 +67,8 @@ export interface SecurityFloorCustomerDashboardV1 {
   notes: string[];
   lastUpdatedAt: string;
   soc: SecuritySocOverlayV1;
+  /** HOME / RP2350 propertyId */
+  propertyId?: string;
 }
 
 export interface SecurityFloorOperatorSiteRowV1 {
@@ -89,6 +93,8 @@ export interface SecurityFloorOperatorSiteRowV1 {
   sensors: SecurityFloorViewSensorV1[];
   notes: string[];
   soc: SecuritySocOverlayV1;
+  /** HOME / RP2350 propertyId */
+  propertyId?: string;
 }
 
 export interface SecurityFloorOperatorDashboardV1 {
@@ -142,6 +148,7 @@ function mapRooms(
     w: room.w,
     h: room.h,
     alertVisible: alertRooms.has(room.id),
+    propertyId: room.propertyId,
   }));
 }
 
@@ -174,6 +181,7 @@ export function buildSecurityFloorCustomerDashboardV1(
     notes: [...site.notes],
     lastUpdatedAt: new Date().toISOString(),
     soc: buildSecuritySocOverlayV1(site),
+    propertyId: site.propertyId,
   };
 }
 
@@ -203,6 +211,7 @@ function toOperatorRow(
     sensors,
     notes: [...site.notes],
     soc: buildSecuritySocOverlayV1(site),
+    propertyId: site.propertyId,
   };
 }
 

@@ -4,7 +4,14 @@
  * 平屋・手書き間取りデモ
  */
 
-export const FALLBACK_DEFAULT_SITE_ID = "SEC-JP-MORIYA-001";
+/** UI 初期・固定選択（板橋自宅） */
+export const FALLBACK_DEFAULT_SITE_ID = "SEC-JP-ITABASHI-LIVE";
+
+/** UI セレクタに出す物件 ID（デモはカタログに残す） */
+export const UI_VISIBLE_SITE_IDS = ["SEC-JP-ITABASHI-LIVE"];
+
+/** 板橋自宅の HOME / RP2350 propertyId */
+export const ITABASHI_PROPERTY_ID = "HOME-JP-ITABASHI-LIVE";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -459,6 +466,7 @@ function itabashiSite() {
   const site = moriyaSite();
   site.siteId = "SEC-JP-ITABASHI-LIVE";
   site.id = "SEC-JP-ITABASHI-LIVE";
+  site.propertyId = ITABASHI_PROPERTY_ID;
   site.displayName = "板橋自宅";
   site.addressLabel = "東京都板橋区";
   site.planCode = "home_live";
@@ -469,10 +477,36 @@ function itabashiSite() {
   site.soc.energyKw = 2.1;
   site.soc.energyMaxKw = 6;
   site.soc.networkMs = 8;
+  // 1F・外周を板橋 propertyId で明示スコープ
+  for (const room of site.rooms || []) {
+    if (
+      room.floorId === "1f" ||
+      room.floorId === "outdoor"
+    ) {
+      room.propertyId = ITABASHI_PROPERTY_ID;
+    }
+  }
+  for (const sensor of site.sensors || []) {
+    sensor.propertyId = ITABASHI_PROPERTY_ID;
+  }
   return site;
 }
 
 export function listFallbackSites() {
+  // UI は板橋自宅のみ表示（デモ定義は残す）
+  return [
+    {
+      id: "SEC-JP-ITABASHI-LIVE",
+      siteId: "SEC-JP-ITABASHI-LIVE",
+      displayName: "板橋自宅",
+      countryCode: "JP",
+      propertyId: ITABASHI_PROPERTY_ID,
+    },
+  ];
+}
+
+/** デモ物件定義は残し、フォールバック解決用に保持 */
+export function listFallbackCatalogSites() {
   return [
     {
       id: "SEC-JP-ITABASHI-LIVE",
@@ -494,6 +528,7 @@ export function listFallbackSites() {
     },
   ];
 }
+
 
 export function getFallbackSite(siteId) {
   const id = String(siteId || FALLBACK_DEFAULT_SITE_ID);
