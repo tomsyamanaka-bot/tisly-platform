@@ -1110,3 +1110,55 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* 主要モジュールカード一覧の表示最適化（追記） */
+.app-hub-body {
+  max-width: 640px;
+}
+
+.hub-practical-grid {
+  gap: 14px;
+}
+
+.practical-card {
+  min-height: 96px;
+  padding: 16px 18px;
+}
+
+.practical-card.field-primary {
+  border-left-width: 6px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.practical-card.field-primary .practical-label {
+  font-size: 1.12rem;
+  color: #0f172a;
+}
+
+.practical-card.field-primary .practical-icon {
+  font-size: 2rem;
+}
+
+.practical-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-left: 2.75rem;
+}
+
+.practical-features li {
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .hub-practical-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .practical-card.field-primary {
+    grid-column: 1 / -1;
+  }
+}

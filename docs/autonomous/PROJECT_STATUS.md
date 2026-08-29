@@ -1582,3 +1582,15 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | �R�[�h | home-sites-v1.ts �E home-control-v1.ts �E p2350-relay-pulse-v1.ts �E p2350-relay-v1.ts �E firmware main.py |
 | �e�X�g | server/test/tisly-home-v1.test.ts |
 | �m�F | /home-v1?siteId=HOME-JP-ITABASHI-LIVE �E https://tisly.jp/api/health |
+
+### App Hub 主要モジュールカード完全復旧（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | `/app` 現場ハブの大きいカード UI をマスタービジョン順で完全復旧 |
+| 表示 | 3D間取り・フロア俯瞰図 · Security · HOME · ミリ波 · デマンド · QR登録 · 価格原価 · 通話音声 · Document Center · 案件ダッシュボード · 日程調整 |
+| 非表示維持 | 今日のオペレーション · Deploy/監査/リハーサル（`showOpsPanels:false` · `operations:null`） |
+| 順序 | `FIELD_HUB_PRACTICAL_IDS` に `floorplan_builder_v1` · `project_dashboard_v1` を追記し指定順へ |
+| UI | 主要3カード（3D/Security/HOME）を `field-primary` 強調 · 640px幅 · 2列グリッド |
+| テスト | `multi-pwa-app-hub` · `dashboard-v1` · `customer-enabled-modules-v1` |
+| 確認 | https://tisly.jp/app · https://tisly.jp/api/health |

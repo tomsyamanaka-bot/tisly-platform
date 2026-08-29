@@ -83,12 +83,16 @@ describe("Phase 461-480 multi PWA app hub", () => {
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
     const apps = res.body.practicalApps || [];
-    assert.ok(apps.length >= 6);
+    assert.ok(apps.length >= 10);
     const ids = apps.map((a: { id: string }) => a.id);
+    assert.ok(ids.includes("floorplan_builder_v1"));
+    assert.ok(ids.includes("security_floor_v1"));
+    assert.ok(ids.includes("tisly_home_v1"));
     assert.ok(ids.includes("schedule_v1"));
     assert.ok(ids.includes("radar_settings_v1"));
     assert.ok(ids.includes("voice_hub_v1"));
     assert.ok(ids.includes("documents_v1"));
+    assert.ok(ids.includes("project_dashboard_v1"));
     assert.ok(!ids.includes("survey_v1"));
     assert.ok(!ids.includes("estimate_v1"));
     assert.ok(!ids.includes("eco_water_v1"));
@@ -102,6 +106,11 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(voiceHub?.status, "ready");
     assert.equal(voiceHub?.url, "/voice-hub-v1");
     assert.match(String(voiceHub?.label ?? ""), /通話音声/);
+    const floor = apps.find(
+      (a: { id: string }) => a.id === "floorplan_builder_v1"
+    );
+    assert.equal(floor?.status, "ready");
+    assert.match(String(floor?.label ?? ""), /3D間取り/);
   });
 
   it("installer hub field apps omit legacy catalog cards", async () => {

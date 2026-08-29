@@ -575,14 +575,19 @@ function renderPracticalApps(apps) {
       const features = (a.features || [])
         .map((f) => `<li>${f}</li>`)
         .join("");
+      // 主要モジュールを大きめカード強調（現場ワンタップ）
       const featured =
-        a.id === "voice_hub_v1"
-          ? " featured"
-          : a.id === "survey_v1"
+        a.id === "floorplan_builder_v1" ||
+        a.id === "security_floor_v1" ||
+        a.id === "tisly_home_v1"
+          ? " featured field-primary"
+          : a.id === "voice_hub_v1"
             ? " featured"
-            : a.id === "estimate_v1"
-              ? " featured estimate"
-              : "";
+            : a.id === "survey_v1"
+              ? " featured"
+              : a.id === "estimate_v1"
+                ? " featured estimate"
+                : "";
       if (isReady) {
         return `<a class="practical-card${featured}" href="${a.url}" style="--card-accent:${a.themeColor}">
           <div class="practical-card-head">

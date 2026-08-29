@@ -211,7 +211,9 @@ describe("customer enabled modules / tenant filter v1", () => {
       (a: { id: string }) => a.id
     );
     assert.ok(!ids.includes("survey_v1"));
-    assert.ok(!ids.includes("project_dashboard_v1"));
+    // 案件ダッシュボードは現場カードへ復旧
+    assert.ok(ids.includes("project_dashboard_v1"));
+    assert.ok(ids.includes("floorplan_builder_v1"));
     assert.ok(ids.includes("radar_settings_v1"));
     assert.ok(ids.includes("tisly_home_v1"));
   });

@@ -196,7 +196,7 @@ describe("案件ダッシュボード v1", () => {
     assert.ok(res.text.includes('href: "/projects-v1"'));
   });
 
-  it("App Hub は案件ダッシュボードを現場カードから除外", async () => {
+  it("App Hub は案件ダッシュボードを現場カードに含める", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${token}`);
@@ -204,8 +204,9 @@ describe("案件ダッシュボード v1", () => {
     const dash = (res.body.practicalApps ?? []).find(
       (a: { id: string }) => a.id === "project_dashboard_v1"
     );
-    assert.equal(dash, undefined);
-    // 定義自体は残存（buildPracticalHubCards）
+    assert.ok(dash);
+    assert.equal(dash.url, "/project-dashboard-v1");
+    // 定義自体も残存（buildPracticalHubCards）
     const { buildPracticalHubCards } = await import("../src/pwa/pwa-hub.js");
     const full = buildPracticalHubCards("admin").find(
       (a) => a.id === "project_dashboard_v1"

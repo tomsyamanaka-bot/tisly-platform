@@ -471,14 +471,18 @@ const PRACTICAL_PWA_DEFS: Array<
   // 3D Floorplan Builder（追記）
   {
     id: "floorplan_builder_v1",
-    label: "3Dフロアプランビルダー",
-    subtitle: "方眼紙スキャン・アイソメ俯瞰・Security送信",
+    // 現場カード名をマスタービジョン表記へ合わせる
+    label: "3D間取り・フロア俯瞰図",
+    subtitle:
+      "3Dアイソメ生成 / 3Dプリンター・CAD連携 · 方眼紙スキャン",
     icon: "📐",
     features: [
       "方眼紙写真読込",
       "1F/2F/外周タブ",
       "3D斜め俯瞰",
       "Security連携",
+      // CAD・プリンター連携（末尾追記）
+      "3Dプリンター・CAD連携",
     ],
     href: "/builder",
     themeColor: "#0d1528",
@@ -546,16 +550,19 @@ export function buildPracticalHubCardsFiltered(
 /**
  * /app 現場向けカード（社内運用・開発カードは含めない）。
  * 既存 PRACTICAL_PWA_DEFS は削除せず、表示のみこの ID に限定する。
+ * 主要モジュールカードをマスタービジョン順で復旧（追記）。
  */
 export const FIELD_HUB_PRACTICAL_IDS: readonly string[] = [
+  "floorplan_builder_v1",
+  "security_floor_v1",
+  "tisly_home_v1",
   "radar_settings_v1",
   "demand_security_v1",
-  "tisly_home_v1",
   "device_binding_v1",
   "price_cost_master_v1",
-  "security_floor_v1",
   "voice_hub_v1",
   "documents_v1",
+  "project_dashboard_v1",
   "schedule_v1",
 ];
 
