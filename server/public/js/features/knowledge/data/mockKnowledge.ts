@@ -792,3 +792,55 @@ export const MOCK_VOICE_CALL_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX・方眼紙→STL ナレッジ（末尾追記） */
+export const FACTORY_STL_KNOWLEDGE_TITLES = [
+  "【製造DX】方眼紙スケッチ✕Gemini Visionによる手書き図面からの即時STL生成",
+] as const;
+
+const FACTORY_STL_CREATED_AT = "2026-08-29T12:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に製造DX 1 件を保持。
+ */
+export const MOCK_FACTORY_STL_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-factory-stl-gemini-001",
+    title:
+      "【製造DX】方眼紙スケッチ✕Gemini Visionによる手書き図面からの即時STL生成",
+    summary: [
+      "方眼紙に手書きした2Dスケッチ・寸法文字をPWAカメラで認識し、",
+      "Gemini Vision APIがOpenSCAD/3Dパラメータを抽出。",
+      "ブラウザ上でThree.jsプレビュー後、ワンタップでSTLを出力して現場特化ブラケットを即時3Dプリント。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#AI_Vision",
+      "#GeminiAPI",
+      "#手書き図面DX",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_STL_CREATED_AT,
+    body: [
+      "【現場フロー】",
+      "方眼紙に手書きした 2D スケッチと寸法文字を",
+      "PWA カメラ（capture=environment）で撮影する。",
+      "アルバム取込も可。暗い現場でも白ベース UI で",
+      "プレビュー確認し、解析へ進む。",
+      "",
+      "【Gemini Vision 抽出】",
+      "Gemini Vision API が外形・穴位置・板厚・ねじ径",
+      "などから OpenSCAD / 3D パラメータを構造化する。",
+      "失敗時はルールベース寸法テンプレへフォールバック。",
+      "",
+      "【Three.js → STL】",
+      "ブラウザ上で Three.js プレビュー後、ワンタップで",
+      "STL を出力。現場特化ブラケット・IoT ボックスを",
+      "即時 3D プリントし、設計〜施工を短縮する。",
+    ].join("\n"),
+  },
+];

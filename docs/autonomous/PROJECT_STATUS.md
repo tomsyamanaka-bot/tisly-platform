@@ -1594,3 +1594,17 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | UI | 主要3カード（3D/Security/HOME）を `field-primary` 強調 · 640px幅 · 2列グリッド |
 | テスト | `multi-pwa-app-hub` · `dashboard-v1` · `customer-enabled-modules-v1` |
 | 確認 | https://tisly.jp/app · https://tisly.jp/api/health |
+
+### Knowledge 製造DX STL（方眼紙×Gemini Vision）
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 1 件 append |
+| タイトル | 【製造DX】方眼紙スケッチ✕Gemini Visionによる手書き図面からの即時STL生成 |
+| Module | module-items.json 末尾追記 · knowledge-factory-stl-seed-v1.ts |
+| Mock | MOCK_FACTORY_STL_ITEMS |
+| Card | FACTORY-STL-GEMINI-001 |
+| タグ | #3Dプリンター #AI_Vision #GeminiAPI #手書き図面DX #TiSLY_Factory #PWA |
+| テスト | knowledge-module-v1 / knowledge-module-api-v1 |
+| 確認 | /knowledge · https://tisly.jp/api/health |
+

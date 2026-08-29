@@ -1,7 +1,748 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-26T13:03:54.623Z",
+  "updatedAt": "2026-08-29T12:51:30.159Z",
   "entries": [
+    {
+      "id": "FACTORY-STL-GEMINI-001",
+      "title": "【製造DX】方眼紙スケッチ✕Gemini Visionによる手書き図面からの即時STL生成",
+      "category": "IOT関連",
+      "tags": [
+        "#3Dプリンター",
+        "#AI_Vision",
+        "#GeminiAPI",
+        "#手書き図面DX",
+        "#TiSLY_Factory",
+        "#PWA"
+      ],
+      "summary": "方眼紙に手書きした2Dスケッチ・寸法文字をPWAカメラで認識し、\nGemini Vision APIがOpenSCAD/3Dパラメータを抽出。\nブラウザ上でThree.jsプレビュー後、ワンタップでSTLを出力して現場特化ブラケットを即時3Dプリント。\n\n【現場フロー】\n方眼紙に手書きした 2D スケッチと寸法文字を\nPWA カメラ（capture=environment）で撮影する。\nアルバム取込も可。暗い現場でも白ベース UI で\nプレビュー確認し、解析へ進む。\n\n【Gemini Vision 抽出】\nGemini Vision API が外形・穴位置・板厚・ねじ径\nなどから OpenSCAD / 3D パラメータを構造化する。\n失敗時はルールベース寸法テンプレへフォールバック。\n\n【Three.js → STL】\nブラウザ上で Three.js プレビュー後、ワンタップで\nSTL を出力。現場特化ブラケット・IoT ボックスを\n即時 3D プリントし、設計〜施工を短縮する。",
+      "updatedAt": "2026-08-29",
+      "sourceType": "manual"
+    },
+    {
+      "id": "CAM-WEBRTC-HYBRID-001",
+      "title": "【防犯・映像配信】PWA（WebRTC）とネイティブアプリにおける防犯カメラストリーミング比較設計",
+      "category": "防犯カメラ",
+      "tags": [
+        "#Security",
+        "#Camera",
+        "#Streaming",
+        "#WebRTC",
+        "#PWA",
+        "#NativeApp"
+      ],
+      "summary": "PWAでのRTSP→WebRTC/HLS変換配信（低遅延・即時性）と、ストアアプリでのネイティブデコード（高負荷マルチ画面・PiP常時監視）の違いとTiSLYにおけるハイブリッド運用指針。\n\n【PWA 配信（低遅延・即時性）】\n現場スマホは PWA で即閲覧できることが\n最優先。NVR/カメラの RTSP をゲートウェイで\nWebRTC または HLS に変換し、ブラウザ再生する。\nWebRTC はサブ秒〜数秒の低遅延向き。\nHLS は互換性が高く回線変動に強い。\n\n【ネイティブアプリ】\nストアアプリはハードデコードと PiP、\nマルチ画面常時監視に強い。CPU/GPU 負荷の\n高い同時視聴やバックグラウンド監視は\nネイティブ側へ寄せる。\n\n【TiSLY ハイブリッド指針】\n日常確認・発報直後のクイック視聴は PWA。\n常時監視・多分割はネイティブ。同一 NVR の\nサブストリーム URL を両クライアントで共有し、\n設計・施工・月額監視を一元化する。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "GAS-PULSE-SUBSC-001",
+      "title": "【住設・サブスク】ガスメーターパルス（DT/SG）直結による自動検針＆24時間見守り",
+      "category": "IOT関連",
+      "tags": [
+        "#Gas",
+        "#Pulse",
+        "#Subsc",
+        "#PWA"
+      ],
+      "summary": "ガスメーターの無電圧パルスをRP2350で読み取り、月1〜3GBの格安SIM経由で検針・異常遮断・生活反応をPWAへ即時連携する低コスト運用。\n\n【パルス直結】\nガスメーターの無電圧パルス（DT/SG）を\nRP2350 DI へ 2 芯弱電で直結する。\n積算で自動検針、長時間ゼロで生活反応アラート、\n感震遮断接点は別 DI で即時通知する。\n\n【低コスト通信】\n月 1〜3GB 格安 SIM でテキストログを常時送信。\n映像は使わず通信費を最小化し、月額見守り\nサブスクの原価を抑える。\n\n【PWA 一元管理】\n検針値・異常・生活反応を顧客ポータルへ反映。\nテナント単位でデバイスとプラン状態を紐づけ、\nSaaS 課金の土台とする。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "NVR-HVIEW-RTSP-001",
+      "title": "【防犯・NVR】H.View製NVRおよびマルチメーカーIPカメラのRTSP/サブストリーム統合",
+      "category": "防犯カメラ",
+      "tags": [
+        "#Security",
+        "#Camera",
+        "#NVR",
+        "#RTSP",
+        "#HView"
+      ],
+      "summary": "H.ViewやReolink等のNVRからRTSPサブストリーム（例: /unicast/c1/s1/live）を抽出し、PWA上で軽量・低遅延に同時マルチカメラ表示を行う手法。\n\n【RTSP サブストリーム抽出】\nH.View / Reolink 等の NVR ではメインは高解像、\nサブは軽量（例: /unicast/c1/s1/live）。\nPWA 同時マルチ表示はサブストリームを基本にし、\n帯域と端末負荷を抑える。\n\n【統合手順】\n1. NVR 管理画面で各チャネルの RTSP URL を控える。\n2. 認証（user/pass）とポートを物件カードへ保存。\n3. 変換ゲートウェイへ登録し PWA タイルへ割当。\n4. メインは録画・ズーム、サブは一覧ライブ。\n\n【現場注意】\nメーカー差でパスが異なる。実機で再生確認し、\n失敗時は ONVIF で再取得する。LAN 内完結を優先し、\n外部公開は VPN または中継に限定する。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-BRAND-SHIELD-001",
+      "title": "【ブランド・アセット】TiSLY公式立体シールドエンブレムロゴの規格とPWA統一配置",
+      "category": "その他",
+      "tags": [
+        "#Branding",
+        "#Logo",
+        "#TiSLY",
+        "#Asset"
+      ],
+      "summary": "青い立体多面体シールド（盾）を基調とした公式エンブレムの策定。\nヘッダーアイコン（高さ32〜40px）、PWAアプリアイコン、ファビコンへの展開。\n白ベース×ネイビー基調のプロ向けUIと調和する高解像度アセット管理。\n\n【公式エンブレム】\n青い立体多面体シールド（盾）を基調とした\nTiSLY 公式エンブレムをブランドの中核に\n据える。信頼・防護・プロ品質を象徴する。\n\n【PWA 配置規格】\nヘッダーアイコンは高さ 32〜40px。\nアプリアイコン・ファビコンへ同一系譜を\n展開し、白ベース×ネイビー UI と調和させる。\n\n【アセット管理】\nSVG／PNG を解像度別に最適化し、\n将来のオーストラリア市場展開でも\n同一シンボルで信頼感を維持する。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-RADAR-DEBOUNCE-001",
+      "title": "【防犯・施工】人感・ミリ波センサーのデバウンス黄金比（100ms）と草木誤検知防止",
+      "category": "防犯カメラ",
+      "tags": [
+        "#Security",
+        "#Radar",
+        "#LD2410",
+        "#FalseAlarm"
+      ],
+      "summary": "歩行速度（時速4km=28cm/0.25秒）と早歩き（時速6km）の通過パルス幅評価。\n50msでは風による草木揺れを拾うリスクがあり、現場では100ms〜150msが最適解。\nレーダーの距離ゲート調整（HLKRadarTool）と床上70〜100cm設置による物理防犯施工。\n\n【歩行速度とパルス幅】\n時速 4km 歩行は 0.25 秒で約 28cm 進む。\nレーダー検知ゾーン通過のパルス幅は\nこの移動距離とゲート幅で決まる。\n早歩き（時速 6km）ではパルスが短くなり、\nデバウンスが長すぎると取りこぼす。\n\n【100ms 黄金比】\n50ms では風による草木揺れを人検知と\n誤認しやすい。現場では 100ms〜150ms が\n誤報低減と早歩き通過のバランス最適解。\nRP2350 DI 側で OUT をこの時間で確定する。\n\n【物理施工】\nHLKRadarTool で距離ゲートを動線に合わせ、\n草木ゾーンを除外する。取付高さは床上\n70〜100cm。角度は歩行胴体を狙い、\n地面・植栽の反射を避ける。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-RP2350-HEARTBEAT-001",
+      "title": "【エッジ・運用】RP2350のハートビート5分周期化とタイムスケジュール警戒システム",
+      "category": "IOT関連",
+      "tags": [
+        "#RP2350",
+        "#Heartbeat",
+        "#Scheduler",
+        "#Security"
+      ],
+      "summary": "常時負荷を抑える300秒（5分）ハートビートと10〜15分しきい値での生存監視。\n「夜間のみ」固定から、開始・終了時刻を遠隔設定できる時間指定警戒への進化。\n昼間（指定時間外）はライトを消灯しWeb Push/ログのみ記録する省エネ防犯連動。\n\n【5 分ハートビート】\n常時負荷を抑えるため RP2350 は\n300 秒（5 分）周期で生存通知する。\nVPS 側は 10〜15 分無通信でオフライン\n判定し、回線瞬断での誤警報を避ける。\n\n【時間指定警戒】\n「夜間のみ」固定から、開始・終了時刻を\n遠隔設定できるスケジュール警戒へ進化。\n日跨ぎ（例: 19:00〜06:00）は開始≧終了\nの判定で正しくカバーする。\n\n【省エネ連動】\n指定時間外はライト消灯し、Web Push と\nログのみ記録する。夜間点灯秒数は\nPWA スライダー（5〜180 秒）で同期する。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-SENSOR-DELAY-001",
+      "title": "【センサー・設計】産業・防犯用センサーの応答速度とソフトウェアディレイ設計基準",
+      "category": "IOT関連",
+      "tags": [
+        "#Sensor",
+        "#RP2350",
+        "#Delay",
+        "#Hardware"
+      ],
+      "summary": "物理現象・化学反応に応じた時定数（pH: 10〜30秒、水位: 3秒、CT平滑化: 1〜3秒）。\n赤外線ビーム（50〜100ms）やミリ波（100ms）の応答特性。\n外乱ノイズ遮断と誤報ゼロを実現するマイコン側の遅延確定ロジック。\n\n【時定数の違い】\nセンサーは物理・化学変化を測るため、\n応答に固有の時定数がある。\npH はガラス膜のイオン交換で 10〜30 秒、\n水位フロートは浮力安定まで約 3 秒、\nCT（電流）は平滑化で 1〜3 秒を要する。\n\n【防犯センサーの応答】\n赤外線ビーム遮断は 50〜100ms、\nミリ波（LD2410 系）は約 100ms で\n人が通過した判定が出る。\nPIR は熱変化の蓄積で数百 ms〜数秒。\n炎・漏水も媒質や接点バウンスに依存する。\n\n【RP2350 側の確定ロジック】\n生サンプリングだけでは外乱ノイズで\n誤報になる。移動平均とディレイ判定を\n組み合わせ、閾値超えが N サンプル連続\nしたときだけ ON を確定する。\n誤報ゼロを優先し、物理時定数より\n短すぎる確定は避ける。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-UI-ISOMETRIC-3D-001",
+      "title": "【UI/UX・3D】お掃除ロボット風 3Dアイソメトリック間取り図の視認性・操作性設計",
+      "category": "IOT関連",
+      "tags": [
+        "#3D",
+        "#Isometric",
+        "#ThreeJS",
+        "#UIUX"
+      ],
+      "summary": "白い立体間仕切り壁（ウォールリブ）と部屋別カラー床塗り分け（オリーブ/グレー等）。\n視界を邪魔しない半透明白カプセル型ミニバッジ（9〜10px）と独立階層ボタン。\nドラッグ回転・ピンチ拡大・2本指パン移動のスムーズな操作イベント分離。\n\n【視認性の骨格】\n白い立体間仕切り（ウォールリブ）で\n部屋境界を明示し、床は部屋別に\nオリーブ／グレー等で塗り分ける。\nお掃除ロボット風のアイソメ図は\n現場説明と遠隔監視の共通言語になる。\n\n【UI 階層】\n状態表示は半透明白カプセル型の\nミニバッジ（9〜10px）に留め、\n視界を遮らない。階層切替は独立ボタン\nとしてオーバーレイ文字を枠外配置する。\n\n【操作イベント分離】\nスマホ 1 画面向けに 260〜300px の\nコンパクト正方形で描画する。\nThree.js OrbitControls ではドラッグ回転・\nピンチ拡大・2 本指パンを分離し、\n誤操作なくスムーズに動かす。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "POE-200V-HUB-001",
+      "title": "【電源・施工】単相200V環境からのマルチ電圧（100-240V）PoEハブ給電ハック",
+      "category": "電気工事",
+      "tags": [
+        "#Electrical",
+        "#PoE",
+        "#200V",
+        "#Wiring"
+      ],
+      "summary": "200V電源から直接PoEスイッチ（TL-SG1005P等）へ給電し、LANケーブル1本でカメラ・RP2350・センサーへ一括送電する省配線施工。\n\n【単相 200V → マルチ電圧 PoE】\n工場・店舗の単相 200V から、入力 100-240V 対応の\nPoE スイッチ（例: TL-SG1005P）へ直接給電する。\n降圧トランスを省略でき、盤内スペースとコストを削減。\n\n【省配線施工】\nカメラ・RP2350・センサー類は LAN 1 本で\nデータ＋電源を一括供給。弱電ルートを最小化し、\n増設は PoE ポート追加で完結させる。\n\n【安全確認】\n機器の入力定格（100-240V）と接地を必ず照合。\n200V 側ブレーカ容量、PoE 総電力予算、\n屋外機器のサージ対策を施工チェックへ入れる。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "RADAR-CARE-PRIVACY-001",
+      "title": "【見守り・センサー】ミリ波レーダー（HLK-LD2410B/LD2450）によるプライバシー保護型安否確認",
+      "category": "IOT関連",
+      "tags": [
+        "#Radar",
+        "#Care",
+        "#RP2350",
+        "#Privacy"
+      ],
+      "summary": "カメラを置けない居室・浴室にミリ波レーダーを露出ボックス裏へ隠蔽設置し、RP2350のDI/UARTで微細呼吸・動線を検出するハック。\n\n【プライバシー優先の安否確認】\n居室・浴室などカメラ設置が難しい場所では、\nHLK-LD2410B / LD2450 ミリ波レーダーを用いる。\n映像を撮らず、在室・微動・呼吸相当の変化を検知する。\n\n【隠蔽設置】\n露出ボックス裏やビーマー内部へ仕込み、\n見た目は通常のスイッチボックスのままにする。\n電波はプラスチックカバーを透過する前提で位置決め。\n\n【RP2350 連携】\nOUT は DI、詳細は UART で距離ゲート等を読む。\n無反応しきい値で見守りアラートを PWA / Web Push へ。\n防犯人感とは別タグ・別しきい値で運用する。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "VOICE-CALL-CALENDAR-DX-001",
+      "title": "【現場DX・音声AI】通話録音テキストからのGoogleカレンダー自動同期＆材料自動抽出アーキテクチャ",
+      "category": "IOT関連",
+      "tags": [
+        "#VoiceAI",
+        "#Gemini",
+        "#Calendar",
+        "#FieldDX",
+        "#PWA"
+      ],
+      "summary": "市販イヤホン（骨伝導等）での通話テキストをPWAへ受け渡すワークフロー。\nGeminiによる日程・現場名・材料リストの自動構造化とJSON抽出。\n通話後ワンタップでGoogleカレンダーとTiSLY材料チェックへ同時登録する省力化。\n\n【ワークフロー】\n市販イヤホン（骨伝導等）や通話録音アプリで\n得たテキストを、PWA「通話音声・クイック入力」\nへワンタップ貼付する。Web Speech API による\nその場の文字起こしも併用できる。\n\n【LLM プロンプト設計】\nGemini に JSON のみを返させる。抽出項目は\n予定（件名・開始・終了・場所）、材料\n（品名・数量・単位・発注フラグ）、案件メモ\n（3行要約・要望・決定事項）。キー未設定時は\nルールベース抽出にフォールバックする。\n\n【データフロー】\n抽出プレビュー確認後、ワンタップで\nGoogle Calendar API（mock/real）へ予定登録し、\n同時に材料チェックへ部材を追記、案件メモへ\n要約を保存する。tenant_id / JP|AU / JPY|AUD\nを意識した拡張ポイントをログに残す。",
+      "updatedAt": "2026-08-26",
+      "sourceType": "manual"
+    },
+    {
+      "id": "PDF-MO260621099-ESTIMATE-001",
+      "title": "見積書 — MO-26-0621-099",
+      "category": "防犯カメラ",
+      "tags": [
+        "見積書",
+        "MO-26-0621-099",
+        "テスト顧客",
+        "PDF"
+      ],
+      "summary": "テスト顧客 · 案件 MO-26-0621-099 の見積書。",
+      "updatedAt": "2026-08-24",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "PHOTO-COMP-CPKNOW1",
+      "title": "盤内配線",
+      "category": "LAN",
+      "tags": [
+        "盤内配線",
+        "RJ45",
+        "LAN",
+        "完了報告"
+      ],
+      "summary": "完了報告写真: 盤内配線（案件 MO-26-0621-099）",
+      "updatedAt": "2026-08-24",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "photo"
+    },
+    {
+      "id": "QUICK-MT7V3OTB",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-24",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MT3Z7EM3",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-22",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MT41SY9T",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-22",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MT46OWY2",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-22",
+      "sourceType": "quick"
+    },
+    {
+      "id": "SEC-FLOOD-YELLOW-001",
+      "title": "【照明・害虫対策】投光器6500Kの防虫クリアイエロー塗装ハック",
+      "category": "防犯カメラ",
+      "tags": [
+        "照明",
+        "害虫",
+        "カメラ",
+        "アイデア"
+      ],
+      "summary": "ダイヤワイト等の「透過型クリアイエロー」をレンズカバーに塗装し、誘虫波長（紫外線〜青色）をカットしてカメラ誤作動と虫害を防ぐ手法。\n\n【目的】\n投光器 6500K は誘虫波長（紫外〜青）が\n強く、虫がレンズに集まりカメラ誤作動の\n原因になる。\n\n【塗装ハック】\nダイヤワイト等の透過型クリアイエローを\nレンズカバーへ薄く塗装する。照度は残し、\n誘虫帯域だけをカットする。\n\n【現場注意】\n厚塗りは光量が落ちる。2 回薄塗りを基本。\n防水パッキンを塗装で塞がない。",
+      "updatedAt": "2026-08-19",
+      "sourceType": "manual"
+    },
+    {
+      "id": "SEC-FLOOR-MMWAVE-001",
+      "title": "【防犯・セキュリティ】フロア俯瞰図連動とミリ波レーダー（HLK-LD2410B）のDI直結施工",
+      "category": "防犯カメラ",
+      "tags": [
+        "防犯",
+        "ミリ波",
+        "RP2350",
+        "施工方法",
+        "IOT関連"
+      ],
+      "summary": "ビーマーや露出ボックス内にHLK-LD2410Bを仕込み、RP2350のDIへ直結。フロアマップ上でリアルタイムに該当エリアを発光させる配線手法。\n\n【機器と仕込み位置】\nHLK-LD2410B をビーマー内部、または\n露出ボックスの奥に収める。レンズ面は\n人の動線に向け、金属カバーで電波を\n遮らない。\n\n【RP2350 DI 直結】\nLD2410B の OUT（人検知）を\nRP2350 の DI へ 2 芯弱電で直結する。\nプルアップと 50ms デバウンスを入れる。\n電源は 5V 安定化、GND 共通化を徹底。\n\n【フロアマップ発光】\nDI ON をテレメトリで送り、該当部屋を\n赤色パルス発光させる。間取り座標は\n物件ごとのセンサーマッピングで持つ。",
+      "updatedAt": "2026-08-19",
+      "sourceType": "manual"
+    },
+    {
+      "id": "SEC-GAS-PULSE-001",
+      "title": "【住設ハック】ガスメーターパルス（DT/SG）＆ケイホウ直結による24時間見守り",
+      "category": "IOT関連",
+      "tags": [
+        "ガス",
+        "見守り",
+        "RP2350",
+        "施工方法",
+        "IOT関連"
+      ],
+      "summary": "ガスメーターの接点からRP2350へ2芯弱電線を直結し、自動検針・24時間ガス未検知アラート・地震自動遮断通知をPWAへ即時連携させる仕組み。\n\n【接点取り出し】\nガスメーターのパルス（DT/SG）接点から\nRP2350 DI へ 2 芯弱電線を直結する。\n計量法とガス事業者の工事範囲を確認。\n\n【見守り連携】\nパルス積算で自動検針。24 時間ガス未検知\nは生活見守りアラート。感震遮断は\nケイホウ接点を別 DI で即時通知する。\n\n【PWA】\n発報はホームセキュリティ俯瞰と\nガス見守り画面へ同時に反映する。",
+      "updatedAt": "2026-08-19",
+      "sourceType": "manual"
+    },
+    {
+      "id": "SEC-SIM-WATCH-001",
+      "title": "【通信設計】格安SIM（月1〜3GB）での低コスト遠隔監視・ホームセキュリティ運用",
+      "category": "ネットワーク",
+      "tags": [
+        "通信",
+        "SIM",
+        "監視",
+        "IOT関連"
+      ],
+      "summary": "センサーログや接点信号はテキスト（軽量）で常時通信し、カメラはオンデマンド/イベント発動時のみ送信することで月額通信費を最小化する設計。\n\n【通信設計】\n格安 SIM 月 1〜3GB を前提に設計する。\nセンサーログと接点はテキストで常時送信。\n\n【カメラ】\n常時ストリーミングはしない。\nイベント発動時またはオンデマンドのみ\n映像を送る。\n\n【効果】\n月額通信費を最小化しつつ、\n遠隔監視とホームセキュリティを両立する。",
+      "updatedAt": "2026-08-19",
+      "sourceType": "manual"
+    },
+    {
+      "id": "EW-PH-CAL-001",
+      "title": "pHセンサーの標準液校正（キャリブレーション）手順",
+      "category": "Eco-Water",
+      "tags": [
+        "施工方法",
+        "保守",
+        "Eco-Water",
+        "点検"
+      ],
+      "summary": "pH標準液（6.86・4.01/9.18）を用いた2点校正を実施。\nクエン酸洗浄後でも測定値がズレる場合の必須復旧手順。\n校正液の使い回し厳禁と温度補償の確認。\n\n【標準液への浸漬手順】\n1. 電極を純水ですすぎ、柔らかい紙で水分を吸い取る。\n2. pH6.86（中性点付近）の標準液に電極を浸漬し、\n   値が安定するまで待つ（通常 30〜90 秒）。\n3. トランスミッターでゼロ点（オフセット）を合わせる。\n4. 純水ですすぎ、pH4.01（酸性）または pH9.18\n   （アルカリ）へ浸漬し、スパン（傾き）を合わせる。\n5. 強アルカリ排水現場では pH9.18 側を優先する。\n   Eco-Water の放流判定（5.8〜8.6）に近い点が重要。\n\n【ゼロ点 / スパン調整】\nゼロ点は基準液の指示差をオフセット補正する。\nスパンは 2 点間の傾きを合わせ、応答直線性を確保する。\nクエン酸洗浄後も値がズレる場合は、膜表面の残留物や\n内部液の濃度変化が原因のことが多い。洗浄→すすぎ→\n標準液 2 点校正を必ず実施してから自動運転へ戻す。\n\n【校正液管理と電極寿命】\n標準液の使い回しは禁止。開封後は汚染と CO₂ 吸収で\n値が変わる。使い切り、または期限管理する。\n温度補償（ATC）が有効か確認する。液温と校正液温が\n大きく違うと見かけの誤差が出る。\n校正しても応答が遅い・振れが大きい場合は電極寿命。\nガラス膜の曇り、KCl 結晶、応答 3 分以上は交換目安。",
+      "updatedAt": "2026-08-18",
+      "sourceType": "manual"
+    },
+    {
+      "id": "EW-PH-CITRIC-001",
+      "title": "pHセンサーの定期点検・現場メンテナンス手順（クエン酸洗浄）",
+      "category": "Eco-Water",
+      "tags": [
+        "施工方法",
+        "保守",
+        "Eco-Water",
+        "点検"
+      ],
+      "summary": "点検時は透明保護キャップを外し、擦らず浸け置き洗浄。\n5〜10%クエン酸水に2〜5分浸けてセメントカスを溶解。\n保管時は保護液（3M KCl）で乾燥を防ぎ、PWAで点検モード運用。\n\n【クエン酸浸け置き】\n1. PWA で当該現場を点検モードにする。\nCO₂電磁弁・酸注入リレーをロックし、\n誤中和・誤放流を防ぐ。\n2. 透明保護キャップを外す。\nガラス膜は布で擦らない。\n3. 5〜10% クエン酸水を用意し、\n電極先端を 2〜5 分浸け置きする。\nセメントカス・カルシウムを溶解する。\n強いこすり洗いは膜を傷つけるため禁止。\n\n【すすぎと水分の吸い取り】\n4. 純水またはきれいな水ですすぐ。\n柔らかい紙やワイパーで水分を優しく吸い取る。\nガラス膜そのものは拭き取らない。\n5. 再設置する場合は測定液で安定を待つ。\n保管する場合は保護キャップに 3M KCl を入れて装着する。\n\n【メンテナンスモード連携】\n6. 点検完了後に点検モードを解除する。\npH が安定してから自動中和を再開する。\n必要なら標準液（pH7 / pH4 または pH9）で校正し、\n結果を保守カードへ記録する。",
+      "updatedAt": "2026-08-18",
+      "sourceType": "manual"
+    },
+    {
+      "id": "EW-PH-LIFE-001",
+      "title": "工業用・水質pHセンサーの耐久性と寿命基準",
+      "category": "Eco-Water",
+      "tags": [
+        "IoT",
+        "水質",
+        "保守",
+        "Eco-Water"
+      ],
+      "summary": "pH電極は化学的な消耗品（寿命は約半年〜1年半）。\nセメント等の強アルカリ排水下では3〜6ヶ月で反応低下。\n送信機は流用し、先端電極のみ格安交換する保守設計が最適。\n\n設置環境で寿命は大きく変わる。\n一般的な中和槽・放流ピットでは、\nガラス膜電極の交換目安は約半年〜1年半。\nセメント・生コンヤードの強アルカリ排水\n（pH12前後）では膜のエッチングが進み、\n3〜6ヶ月で応答が鈍くなる。\n高温排水や酸洗浄槽でも同様に短い。\n\n電極は乾燥厳禁。ガラス膜が乾くと\n内部液（KCl）が結晶化し、オフセット異常や\n応答不能の原因になる。保管・運搬時は\n保護キャップに 3M KCl（または指定保護液）\nを入れ、常時湿潤を保つ。\n\n月額サブスク（定期交換プラン）では、\n送信機・変換器・PoE/Modbus 配線は流用し、\n消耗する先端電極だけを現場寿命に合わせて交換する。\n校正記録と次回交換日を PWA で管理し、\n放流基準（pH5.8〜8.6）を安定維持する。",
+      "updatedAt": "2026-08-18",
+      "sourceType": "manual"
+    },
+    {
+      "id": "EW-RS485-MODBUS-001",
+      "title": "RS485・Modbus通信の結線と不通トラブルシューティング",
+      "category": "Eco-Water",
+      "tags": [
+        "IoT",
+        "通信",
+        "トラブルシュート",
+        "RS485"
+      ],
+      "summary": "通信不通時はまずA/B結線の反転（極性逆接）を確認。\n初期ボーレート（9600bps等）とスレーブIDの不一致をチェック。\n長距離配線時はツイストペアシールド線と片端接地を徹底。\n\n【A/B 極性逆接の挙動】\nRS-485 は差動通信のため、A/B を逆に結線すると\n波形の極性が反転する。通信は通っているように見えても\nModbus フレームが CRC エラーやタイムアウトになる。\n不通時はまずテスターで A-B 間電圧を確認し、\nスレーブ側の A/B を入れ替えて再試行する。\n機器によっては D+/D-、A+/B- の表記がメーカーで\n逆になることがある。実機シルクと取説を照合する。\n\n【ボーレートとスレーブ ID】\n初期値は 9600bps / 8N1 / スレーブ ID=1 が多い。\nPLC・変換器・pH トランスミッターで ID が重複すると\n応答が衝突し、間欠不通になる。1 バス 1 ID を徹底する。\nパリティやストップビットの不一致も不通原因になる。\n\n【終端抵抗 120Ω】\nバスの両端（マスター側と最遠スレーブ）にのみ\n120Ω を入れる。中間機器への終端は反射を増やす。\n短距離（数 m 以内の盤内）では終端なしでも通ることが多い。\n長距離や高速（38400bps 以上）では必須に近い。\n\n【ノイズ対策と GND 共通化】\nシールド付きツイストペアを使い、\nシールドは片端接地（制御盤側 1 点）とする。\n両端接地はループ電流でノイズを拾う。\n信号 GND（SG / COM）を機器間で共通化しないと\nコモンモード電圧が規格を超え、IC 破損や間欠不通になる。\n動力線と平行配線する場合は 300mm 以上離すか、\n金属ダクトで分離する。",
+      "updatedAt": "2026-08-18",
+      "sourceType": "manual"
+    },
+    {
+      "id": "EW-SENSOR-INSTALL-001",
+      "title": "水質センサーの現場配管・浸漬設置基準",
+      "category": "Eco-Water",
+      "tags": [
+        "施工方法",
+        "現場",
+        "Eco-Water"
+      ],
+      "summary": "電極内部の気泡溜まりを防ぐため垂直〜斜め45度以上で設置。\n水流直撃や異物衝突を避ける保護管（VP管スリーブ）施工。\n液面低下時の乾燥を防ぐ常時浸漬深さの確保。\n\n【設置角度】\n電極内部に気泡が溜まるとガラス膜が液面から離れ、\n見かけ上 pH が跳ねる・応答が止まる。\n垂直〜斜め 45 度以上で設置し、先端が常に液中にある\n姿勢を保つ。逆さ設置（先端が上）は厳禁。\n気泡が膜面に滞留し、校正直後でも指示が狂う。\n\n【水流・スラッジ対策】\n水流の直撃は膜を傷つけ、指示が不安定になる。\n異物（砂利・セメント塊）の衝突を避けるため、\nVP 管スリーブ等の保護管を電極周囲に施工する。\nサンプリング槽（分岐ピット）を設け、本流から\n静かな液を取る設計が望ましい。\n槽底のスラッジ堆積位置より上に先端を置く。\n\n【常時浸漬と配線防水】\n液面低下時に電極が乾燥すると内部液が結晶化する。\n最低水位でも先端が 50mm 以上浸かる深さを確保する。\n配線引き出し部はグランド・防水コネクタ・ブチル\nテープで処理し、結露水の侵入を防ぐ。\nシールド線は制御盤側で片端接地する。",
+      "updatedAt": "2026-08-18",
+      "sourceType": "manual"
+    },
+    {
+      "id": "QUICK-MSWJQ4O8",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-17",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MSWJWN7N",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-17",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MSWK4AGN",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-17",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MSX9497U",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-17",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MSVSOKGM",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-08-16",
+      "sourceType": "quick"
+    },
+    {
+      "id": "FAB-ACRYLIC-WELD-001",
+      "title": "溶剤接着（溶着）によるシームレスアクリル配管",
+      "category": "その他",
+      "tags": [
+        "製作ノウハウ",
+        "サイロ",
+        "プラント"
+      ],
+      "summary": "アクリル管と漏斗の接着に接着剤を使わず、アクリル用溶剤（二塩化メチレン等）を使用。\n素材同士を化学反応で溶かして完全に「一体化（溶着）」させる。\nはみ出し跡を削り落とすことで、ボンド跡のない美しいシームレスパイプが完成する。",
+      "updatedAt": "2026-07-16",
+      "sourceType": "manual"
+    },
+    {
+      "id": "FAB-BELT-SKIVE-001",
+      "title": "ゴムベルトの斜めカット（スカイブ接合）による静音駆動",
+      "category": "その他",
+      "tags": [
+        "製作ノウハウ",
+        "コンベア",
+        "ゴムベルト"
+      ],
+      "summary": "ゴムシートを垂直に切るのではなく、端を30度の角度で「くさび形」に斜めスライスする。\n重ね合わせた時の厚みが元の1枚分（5mm等）になるよう、ゴム用瞬間接着剤でガチ圧着。\n継ぎ目をヤスリで滑らかに仕上げることで、ローラーを通る際の引っかかりやガタガタ音をゼロにする。",
+      "updatedAt": "2026-07-16",
+      "sourceType": "manual"
+    },
+    {
+      "id": "FAB-PRIMER-MATTE-001",
+      "title": "プラサフ（下地）とマット塗装による工業POM質感仕上げ",
+      "category": "その他",
+      "tags": [
+        "製作ノウハウ",
+        "塗装",
+        "仕上げ"
+      ],
+      "summary": "削りキズやプラ・ゴムの微細な巣穴を「プラサフ」スプレーで埋めて下地を作る。\n乾燥後、#1000のヤスリで水研ぎして赤ちゃんの肌のようなツルツルにする。\n仕上げにマットブラック（艶消し黒）を吹くことで、高級な削り出しプラスチックの質感を再現。",
+      "updatedAt": "2026-07-16",
+      "sourceType": "manual"
+    },
+    {
+      "id": "FAB-PUTTY-SAND-001",
+      "title": "パテ盛り＋サンディングによる段差・継ぎ目消し技術",
+      "category": "その他",
+      "tags": [
+        "製作ノウハウ",
+        "デモ機加工",
+        "仕上げ"
+      ],
+      "summary": "異なるパーツの接続部にエポキシパテをヘラで盛り付ける。\n完全乾燥後、紙ヤスリ（#180➔#400➔#800）で指で触って段差が消えるまで削る。\nこれで別々のパーツを、金型から抜いた一体成型のような見た目に昇華。",
+      "updatedAt": "2026-07-16",
+      "sourceType": "manual"
+    },
+    {
+      "id": "QUICK-MRNKW4BV",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-07-16",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MRNKWTFH",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-07-16",
+      "sourceType": "quick"
+    },
+    {
+      "id": "ELEC-CABLE-AMPACITY-001",
+      "title": "TiSLY 強電選定規格（施工条件別）",
+      "category": "コンセント",
+      "tags": [
+        "強電",
+        "許容電流",
+        "VVF",
+        "IV",
+        "HIV",
+        "CV",
+        "CVT",
+        "配管",
+        "露出配線",
+        "天井裏",
+        "電線選定"
+      ],
+      "summary": "日本標準ケーブルの施工条件別許容電流マスター。基準周囲温度30°C、配管内3本以下（0.70係数適用済み）、3線通電ベース。VVF/IV/HIV/CV/CVT/DV/OW/VCT等の露出・配管内・天井裏露出の安全閾値と不可条件を定義。",
+      "updatedAt": "2026-07-04"
+    },
+    {
+      "id": "QUICK-MR6CS57Z",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-07-04",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MR6WJY6J",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-07-04",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQXNMYYW",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-28",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQUT0UX0",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-26",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQUWQYD6",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-26",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQUYQJ8O",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-26",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQTBXOUX",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-25",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQTI5W0D",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-25",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQU06YSS",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-25",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQU180FZ",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-25",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQU1Z47F",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-25",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQQFF0OJ",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-23",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MQP6XT18",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-06-22",
+      "sourceType": "quick"
+    },
     {
       "id": "AUTO-MO260621200-ESTIMATE-001",
       "title": "防犯カメラ設置（見積）",
@@ -44,36 +785,550 @@
       "sourceType": "project"
     },
     {
-      "id": "PDF-MO260621099-ESTIMATE-001",
-      "title": "見積書 — MO-26-0621-099",
+      "id": "AUTO-SYNCMQP6Y2ST-1",
+      "title": "一括承認1",
       "category": "防犯カメラ",
       "tags": [
-        "見積書",
-        "MO-26-0621-099",
-        "テスト顧客",
-        "PDF"
+        "テスト"
       ],
-      "summary": "テスト顧客 · 案件 MO-26-0621-099 の見積書。",
+      "summary": "一括承認テスト 1",
       "updatedAt": "2026-06-21",
-      "projectNo": "MO-26-0621-099",
-      "customerName": "テスト顧客",
-      "sourceType": "pdf"
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
     },
     {
-      "id": "PHOTO-COMP-CPKNOW1",
-      "title": "盤内配線",
-      "category": "LAN",
+      "id": "AUTO-SYNCMQP6Y2ST-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
       "tags": [
-        "盤内配線",
-        "RJ45",
-        "LAN",
-        "完了報告"
+        "テスト"
       ],
-      "summary": "完了報告写真: 盤内配線（案件 MO-26-0621-099）",
+      "summary": "一括承認テスト 2",
       "updatedAt": "2026-06-21",
-      "projectNo": "MO-26-0621-099",
-      "customerName": "テスト顧客",
-      "sourceType": "photo"
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQQFF68T-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQQFF68T-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQTBYJ7H-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQTBYJ7H-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQTI6ZMY-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQTI6ZMY-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQU086E5-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQU086E5-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQU1ZL74-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQU1ZL74-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQUT27S5-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQUT27S5-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQUWS5VR-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQUWS5VR-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQUYR9VT-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQUYR9VT-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQXNNQX3-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMQXNNQX3-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMR6CT2N7-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMR6CT2N7-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMR6WKWGI-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMR6WKWGI-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSVSPMVG-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSVSPMVG-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSWJQGNK-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSWJQGNK-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSWJWYVB-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSWJWYVB-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSWK4KXZ-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSWK4KXZ-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSX94JV8-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMSX94JV8-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT3Z7TNK-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT3Z7TNK-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT41TAU9-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT41TAU9-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT46PAI6-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT46PAI6-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT7V439W-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMT7V439W-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
     },
     {
       "id": "PLC-BLINK-001",
@@ -230,17 +1485,6 @@
       "sourceType": "quick"
     },
     {
-      "id": "SEARCH-PROJ-1782030140701",
-      "title": "案件フィルタテスト",
-      "category": "LAN",
-      "tags": [
-        "テスト"
-      ],
-      "summary": "project filter test",
-      "updatedAt": "2026-06-21",
-      "projectNo": "MO-99-9999-001"
-    },
-    {
       "id": "AUTO-MO260621100-ESTIMATE-001",
       "title": "防犯カメラ工事（見積）",
       "category": "防犯カメラ",
@@ -383,233 +1627,6 @@
       "summary": "配線例 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
       "updatedAt": "2026-06-20",
       "sourceType": "rp-template"
-    },
-    {
-      "id": "EW-PH-LIFE-001",
-      "title": "工業用・水質pHセンサーの耐久性と寿命基準",
-      "category": "Eco-Water",
-      "tags": [
-        "IoT",
-        "水質",
-        "保守",
-        "Eco-Water"
-      ],
-      "summary": "pH電極は化学的な消耗品（寿命は約半年〜1年半）。\nセメント等の強アルカリ排水下では3〜6ヶ月で反応低下。\n送信機は流用し、先端電極のみ格安交換する保守設計が最適。\n\n設置環境で寿命は大きく変わる。\n一般的な中和槽・放流ピットでは、\nガラス膜電極の交換目安は約半年〜1年半。\nセメント・生コンヤードの強アルカリ排水\n（pH12前後）では膜のエッチングが進み、\n3〜6ヶ月で応答が鈍くなる。\n高温排水や酸洗浄槽でも同様に短い。\n\n電極は乾燥厳禁。ガラス膜が乾くと\n内部液（KCl）が結晶化し、オフセット異常や\n応答不能の原因になる。保管・運搬時は\n保護キャップに 3M KCl（または指定保護液）\nを入れ、常時湿潤を保つ。\n\n月額サブスク（定期交換プラン）では、\n送信機・変換器・PoE/Modbus 配線は流用し、\n消耗する先端電極だけを現場寿命に合わせて交換する。\n校正記録と次回交換日を PWA で管理し、\n放流基準（pH5.8〜8.6）を安定維持する。",
-      "updatedAt": "2026-08-18",
-      "sourceType": "manual"
-    },
-    {
-      "id": "EW-PH-CITRIC-001",
-      "title": "pHセンサーの定期点検・現場メンテナンス手順（クエン酸洗浄）",
-      "category": "Eco-Water",
-      "tags": [
-        "施工方法",
-        "保守",
-        "Eco-Water",
-        "点検"
-      ],
-      "summary": "点検時は透明保護キャップを外し、擦らず浸け置き洗浄。\n5〜10%クエン酸水に2〜5分浸けてセメントカスを溶解。\n保管時は保護液（3M KCl）で乾燥を防ぎ、PWAで点検モード運用。\n\n【クエン酸浸け置き】\n1. PWA で当該現場を点検モードにする。\nCO₂電磁弁・酸注入リレーをロックし、\n誤中和・誤放流を防ぐ。\n2. 透明保護キャップを外す。\nガラス膜は布で擦らない。\n3. 5〜10% クエン酸水を用意し、\n電極先端を 2〜5 分浸け置きする。\nセメントカス・カルシウムを溶解する。\n強いこすり洗いは膜を傷つけるため禁止。\n\n【すすぎと水分の吸い取り】\n4. 純水またはきれいな水ですすぐ。\n柔らかい紙やワイパーで水分を優しく吸い取る。\nガラス膜そのものは拭き取らない。\n5. 再設置する場合は測定液で安定を待つ。\n保管する場合は保護キャップに 3M KCl を入れて装着する。\n\n【メンテナンスモード連携】\n6. 点検完了後に点検モードを解除する。\npH が安定してから自動中和を再開する。\n必要なら標準液（pH7 / pH4 または pH9）で校正し、\n結果を保守カードへ記録する。",
-      "updatedAt": "2026-08-18",
-      "sourceType": "manual"
-    },
-    {
-      "id": "EW-RS485-MODBUS-001",
-      "title": "RS485・Modbus通信の結線と不通トラブルシューティング",
-      "category": "Eco-Water",
-      "tags": [
-        "IoT",
-        "通信",
-        "トラブルシュート",
-        "RS485"
-      ],
-      "summary": "通信不通時はまずA/B結線の反転（極性逆接）を確認。\n初期ボーレート（9600bps等）とスレーブIDの不一致をチェック。\n長距離配線時はツイストペアシールド線と片端接地を徹底。\n\n【A/B 極性逆接の挙動】\nRS-485 は差動通信のため、A/B を逆に結線すると\n波形の極性が反転する。通信は通っているように見えても\nModbus フレームが CRC エラーやタイムアウトになる。\n不通時はまずテスターで A-B 間電圧を確認し、\nスレーブ側の A/B を入れ替えて再試行する。\n機器によっては D+/D-、A+/B- の表記がメーカーで\n逆になることがある。実機シルクと取説を照合する。\n\n【ボーレートとスレーブ ID】\n初期値は 9600bps / 8N1 / スレーブ ID=1 が多い。\nPLC・変換器・pH トランスミッターで ID が重複すると\n応答が衝突し、間欠不通になる。1 バス 1 ID を徹底する。\nパリティやストップビットの不一致も不通原因になる。\n\n【終端抵抗 120Ω】\nバスの両端（マスター側と最遠スレーブ）にのみ\n120Ω を入れる。中間機器への終端は反射を増やす。\n短距離（数 m 以内の盤内）では終端なしでも通ることが多い。\n長距離や高速（38400bps 以上）では必須に近い。\n\n【ノイズ対策と GND 共通化】\nシールド付きツイストペアを使い、\nシールドは片端接地（制御盤側 1 点）とする。\n両端接地はループ電流でノイズを拾う。\n信号 GND（SG / COM）を機器間で共通化しないと\nコモンモード電圧が規格を超え、IC 破損や間欠不通になる。\n動力線と平行配線する場合は 300mm 以上離すか、\n金属ダクトで分離する。",
-      "updatedAt": "2026-08-18",
-      "sourceType": "manual"
-    },
-    {
-      "id": "EW-PH-CAL-001",
-      "title": "pHセンサーの標準液校正（キャリブレーション）手順",
-      "category": "Eco-Water",
-      "tags": [
-        "施工方法",
-        "保守",
-        "Eco-Water",
-        "点検"
-      ],
-      "summary": "pH標準液（6.86・4.01/9.18）を用いた2点校正を実施。\nクエン酸洗浄後でも測定値がズレる場合の必須復旧手順。\n校正液の使い回し厳禁と温度補償の確認。\n\n【標準液への浸漬手順】\n1. 電極を純水ですすぎ、柔らかい紙で水分を吸い取る。\n2. pH6.86（中性点付近）の標準液に電極を浸漬し、\n   値が安定するまで待つ（通常 30〜90 秒）。\n3. トランスミッターでゼロ点（オフセット）を合わせる。\n4. 純水ですすぎ、pH4.01（酸性）または pH9.18\n   （アルカリ）へ浸漬し、スパン（傾き）を合わせる。\n5. 強アルカリ排水現場では pH9.18 側を優先する。\n   Eco-Water の放流判定（5.8〜8.6）に近い点が重要。\n\n【ゼロ点 / スパン調整】\nゼロ点は基準液の指示差をオフセット補正する。\nスパンは 2 点間の傾きを合わせ、応答直線性を確保する。\nクエン酸洗浄後も値がズレる場合は、膜表面の残留物や\n内部液の濃度変化が原因のことが多い。洗浄→すすぎ→\n標準液 2 点校正を必ず実施してから自動運転へ戻す。\n\n【校正液管理と電極寿命】\n標準液の使い回しは禁止。開封後は汚染と CO₂ 吸収で\n値が変わる。使い切り、または期限管理する。\n温度補償（ATC）が有効か確認する。液温と校正液温が\n大きく違うと見かけの誤差が出る。\n校正しても応答が遅い・振れが大きい場合は電極寿命。\nガラス膜の曇り、KCl 結晶、応答 3 分以上は交換目安。",
-      "updatedAt": "2026-08-18",
-      "sourceType": "manual"
-    },
-    {
-      "id": "EW-SENSOR-INSTALL-001",
-      "title": "水質センサーの現場配管・浸漬設置基準",
-      "category": "Eco-Water",
-      "tags": [
-        "施工方法",
-        "現場",
-        "Eco-Water"
-      ],
-      "summary": "電極内部の気泡溜まりを防ぐため垂直〜斜め45度以上で設置。\n水流直撃や異物衝突を避ける保護管（VP管スリーブ）施工。\n液面低下時の乾燥を防ぐ常時浸漬深さの確保。\n\n【設置角度】\n電極内部に気泡が溜まるとガラス膜が液面から離れ、\n見かけ上 pH が跳ねる・応答が止まる。\n垂直〜斜め 45 度以上で設置し、先端が常に液中にある\n姿勢を保つ。逆さ設置（先端が上）は厳禁。\n気泡が膜面に滞留し、校正直後でも指示が狂う。\n\n【水流・スラッジ対策】\n水流の直撃は膜を傷つけ、指示が不安定になる。\n異物（砂利・セメント塊）の衝突を避けるため、\nVP 管スリーブ等の保護管を電極周囲に施工する。\nサンプリング槽（分岐ピット）を設け、本流から\n静かな液を取る設計が望ましい。\n槽底のスラッジ堆積位置より上に先端を置く。\n\n【常時浸漬と配線防水】\n液面低下時に電極が乾燥すると内部液が結晶化する。\n最低水位でも先端が 50mm 以上浸かる深さを確保する。\n配線引き出し部はグランド・防水コネクタ・ブチル\nテープで処理し、結露水の侵入を防ぐ。\nシールド線は制御盤側で片端接地する。",
-      "updatedAt": "2026-08-18",
-      "sourceType": "manual"
-    },
-    {
-      "id": "OPS-SENSOR-DELAY-001",
-      "title": "【センサー・設計】産業・防犯用センサーの応答速度とソフトウェアディレイ設計基準",
-      "category": "IOT関連",
-      "tags": [
-        "#Sensor",
-        "#RP2350",
-        "#Delay",
-        "#Hardware"
-      ],
-      "summary": "物理現象・化学反応に応じた時定数（pH: 10〜30秒、水位: 3秒、CT平滑化: 1〜3秒）。\n赤外線ビーム（50〜100ms）やミリ波（100ms）の応答特性。\n外乱ノイズ遮断と誤報ゼロを実現するマイコン側の遅延確定ロジック。\n\n【時定数の違い】\nセンサーは物理・化学変化を測るため、\n応答に固有の時定数がある。\npH はガラス膜のイオン交換で 10〜30 秒、\n水位フロートは浮力安定まで約 3 秒、\nCT（電流）は平滑化で 1〜3 秒を要する。\n\n【防犯センサーの応答】\n赤外線ビーム遮断は 50〜100ms、\nミリ波（LD2410 系）は約 100ms で\n人が通過した判定が出る。\nPIR は熱変化の蓄積で数百 ms〜数秒。\n炎・漏水も媒質や接点バウンスに依存する。\n\n【RP2350 側の確定ロジック】\n生サンプリングだけでは外乱ノイズで\n誤報になる。移動平均とディレイ判定を\n組み合わせ、閾値超えが N サンプル連続\nしたときだけ ON を確定する。\n誤報ゼロを優先し、物理時定数より\n短すぎる確定は避ける。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "OPS-RADAR-DEBOUNCE-001",
-      "title": "【防犯・施工】人感・ミリ波センサーのデバウンス黄金比（100ms）と草木誤検知防止",
-      "category": "防犯カメラ",
-      "tags": [
-        "#Security",
-        "#Radar",
-        "#LD2410",
-        "#FalseAlarm"
-      ],
-      "summary": "歩行速度（時速4km=28cm/0.25秒）と早歩き（時速6km）の通過パルス幅評価。\n50msでは風による草木揺れを拾うリスクがあり、現場では100ms〜150msが最適解。\nレーダーの距離ゲート調整（HLKRadarTool）と床上70〜100cm設置による物理防犯施工。\n\n【歩行速度とパルス幅】\n時速 4km 歩行は 0.25 秒で約 28cm 進む。\nレーダー検知ゾーン通過のパルス幅は\nこの移動距離とゲート幅で決まる。\n早歩き（時速 6km）ではパルスが短くなり、\nデバウンスが長すぎると取りこぼす。\n\n【100ms 黄金比】\n50ms では風による草木揺れを人検知と\n誤認しやすい。現場では 100ms〜150ms が\n誤報低減と早歩き通過のバランス最適解。\nRP2350 DI 側で OUT をこの時間で確定する。\n\n【物理施工】\nHLKRadarTool で距離ゲートを動線に合わせ、\n草木ゾーンを除外する。取付高さは床上\n70〜100cm。角度は歩行胴体を狙い、\n地面・植栽の反射を避ける。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "OPS-UI-ISOMETRIC-3D-001",
-      "title": "【UI/UX・3D】お掃除ロボット風 3Dアイソメトリック間取り図の視認性・操作性設計",
-      "category": "IOT関連",
-      "tags": [
-        "#3D",
-        "#Isometric",
-        "#ThreeJS",
-        "#UIUX"
-      ],
-      "summary": "白い立体間仕切り壁（ウォールリブ）と部屋別カラー床塗り分け（オリーブ/グレー等）。\n視界を邪魔しない半透明白カプセル型ミニバッジ（9〜10px）と独立階層ボタン。\nドラッグ回転・ピンチ拡大・2本指パン移動のスムーズな操作イベント分離。\n\n【視認性の骨格】\n白い立体間仕切り（ウォールリブ）で\n部屋境界を明示し、床は部屋別に\nオリーブ／グレー等で塗り分ける。\nお掃除ロボット風のアイソメ図は\n現場説明と遠隔監視の共通言語になる。\n\n【UI 階層】\n状態表示は半透明白カプセル型の\nミニバッジ（9〜10px）に留め、\n視界を遮らない。階層切替は独立ボタン\nとしてオーバーレイ文字を枠外配置する。\n\n【操作イベント分離】\nスマホ 1 画面向けに 260〜300px の\nコンパクト正方形で描画する。\nThree.js OrbitControls ではドラッグ回転・\nピンチ拡大・2 本指パンを分離し、\n誤操作なくスムーズに動かす。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "OPS-RP2350-HEARTBEAT-001",
-      "title": "【エッジ・運用】RP2350のハートビート5分周期化とタイムスケジュール警戒システム",
-      "category": "IOT関連",
-      "tags": [
-        "#RP2350",
-        "#Heartbeat",
-        "#Scheduler",
-        "#Security"
-      ],
-      "summary": "常時負荷を抑える300秒（5分）ハートビートと10〜15分しきい値での生存監視。\n「夜間のみ」固定から、開始・終了時刻を遠隔設定できる時間指定警戒への進化。\n昼間（指定時間外）はライトを消灯しWeb Push/ログのみ記録する省エネ防犯連動。\n\n【5 分ハートビート】\n常時負荷を抑えるため RP2350 は\n300 秒（5 分）周期で生存通知する。\nVPS 側は 10〜15 分無通信でオフライン\n判定し、回線瞬断での誤警報を避ける。\n\n【時間指定警戒】\n「夜間のみ」固定から、開始・終了時刻を\n遠隔設定できるスケジュール警戒へ進化。\n日跨ぎ（例: 19:00〜06:00）は開始≧終了\nの判定で正しくカバーする。\n\n【省エネ連動】\n指定時間外はライト消灯し、Web Push と\nログのみ記録する。夜間点灯秒数は\nPWA スライダー（5〜180 秒）で同期する。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "OPS-BRAND-SHIELD-001",
-      "title": "【ブランド・アセット】TiSLY公式立体シールドエンブレムロゴの規格とPWA統一配置",
-      "category": "その他",
-      "tags": [
-        "#Branding",
-        "#Logo",
-        "#TiSLY",
-        "#Asset"
-      ],
-      "summary": "青い立体多面体シールド（盾）を基調とした公式エンブレムの策定。\nヘッダーアイコン（高さ32〜40px）、PWAアプリアイコン、ファビコンへの展開。\n白ベース×ネイビー基調のプロ向けUIと調和する高解像度アセット管理。\n\n【公式エンブレム】\n青い立体多面体シールド（盾）を基調とした\nTiSLY 公式エンブレムをブランドの中核に\n据える。信頼・防護・プロ品質を象徴する。\n\n【PWA 配置規格】\nヘッダーアイコンは高さ 32〜40px。\nアプリアイコン・ファビコンへ同一系譜を\n展開し、白ベース×ネイビー UI と調和させる。\n\n【アセット管理】\nSVG／PNG を解像度別に最適化し、\n将来のオーストラリア市場展開でも\n同一シンボルで信頼感を維持する。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "CAM-WEBRTC-HYBRID-001",
-      "title": "【防犯・映像配信】PWA（WebRTC）とネイティブアプリにおける防犯カメラストリーミング比較設計",
-      "category": "防犯カメラ",
-      "tags": [
-        "#Security",
-        "#Camera",
-        "#Streaming",
-        "#WebRTC",
-        "#PWA",
-        "#NativeApp"
-      ],
-      "summary": "PWAでのRTSP→WebRTC/HLS変換配信（低遅延・即時性）と、ストアアプリでのネイティブデコード（高負荷マルチ画面・PiP常時監視）の違いとTiSLYにおけるハイブリッド運用指針。\n\n【PWA 配信（低遅延・即時性）】\n現場スマホは PWA で即閲覧できることが\n最優先。NVR/カメラの RTSP をゲートウェイで\nWebRTC または HLS に変換し、ブラウザ再生する。\nWebRTC はサブ秒〜数秒の低遅延向き。\nHLS は互換性が高く回線変動に強い。\n\n【ネイティブアプリ】\nストアアプリはハードデコードと PiP、\nマルチ画面常時監視に強い。CPU/GPU 負荷の\n高い同時視聴やバックグラウンド監視は\nネイティブ側へ寄せる。\n\n【TiSLY ハイブリッド指針】\n日常確認・発報直後のクイック視聴は PWA。\n常時監視・多分割はネイティブ。同一 NVR の\nサブストリーム URL を両クライアントで共有し、\n設計・施工・月額監視を一元化する。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "NVR-HVIEW-RTSP-001",
-      "title": "【防犯・NVR】H.View製NVRおよびマルチメーカーIPカメラのRTSP/サブストリーム統合",
-      "category": "防犯カメラ",
-      "tags": [
-        "#Security",
-        "#Camera",
-        "#NVR",
-        "#RTSP",
-        "#HView"
-      ],
-      "summary": "H.ViewやReolink等のNVRからRTSPサブストリーム（例: /unicast/c1/s1/live）を抽出し、PWA上で軽量・低遅延に同時マルチカメラ表示を行う手法。\n\n【RTSP サブストリーム抽出】\nH.View / Reolink 等の NVR ではメインは高解像、\nサブは軽量（例: /unicast/c1/s1/live）。\nPWA 同時マルチ表示はサブストリームを基本にし、\n帯域と端末負荷を抑える。\n\n【統合手順】\n1. NVR 管理画面で各チャネルの RTSP URL を控える。\n2. 認証（user/pass）とポートを物件カードへ保存。\n3. 変換ゲートウェイへ登録し PWA タイルへ割当。\n4. メインは録画・ズーム、サブは一覧ライブ。\n\n【現場注意】\nメーカー差でパスが異なる。実機で再生確認し、\n失敗時は ONVIF で再取得する。LAN 内完結を優先し、\n外部公開は VPN または中継に限定する。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "POE-200V-HUB-001",
-      "title": "【電源・施工】単相200V環境からのマルチ電圧（100-240V）PoEハブ給電ハック",
-      "category": "電気工事",
-      "tags": [
-        "#Electrical",
-        "#PoE",
-        "#200V",
-        "#Wiring"
-      ],
-      "summary": "200V電源から直接PoEスイッチ（TL-SG1005P等）へ給電し、LANケーブル1本でカメラ・RP2350・センサーへ一括送電する省配線施工。\n\n【単相 200V → マルチ電圧 PoE】\n工場・店舗の単相 200V から、入力 100-240V 対応の\nPoE スイッチ（例: TL-SG1005P）へ直接給電する。\n降圧トランスを省略でき、盤内スペースとコストを削減。\n\n【省配線施工】\nカメラ・RP2350・センサー類は LAN 1 本で\nデータ＋電源を一括供給。弱電ルートを最小化し、\n増設は PoE ポート追加で完結させる。\n\n【安全確認】\n機器の入力定格（100-240V）と接地を必ず照合。\n200V 側ブレーカ容量、PoE 総電力予算、\n屋外機器のサージ対策を施工チェックへ入れる。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "RADAR-CARE-PRIVACY-001",
-      "title": "【見守り・センサー】ミリ波レーダー（HLK-LD2410B/LD2450）によるプライバシー保護型安否確認",
-      "category": "IOT関連",
-      "tags": [
-        "#Radar",
-        "#Care",
-        "#RP2350",
-        "#Privacy"
-      ],
-      "summary": "カメラを置けない居室・浴室にミリ波レーダーを露出ボックス裏へ隠蔽設置し、RP2350のDI/UARTで微細呼吸・動線を検出するハック。\n\n【プライバシー優先の安否確認】\n居室・浴室などカメラ設置が難しい場所では、\nHLK-LD2410B / LD2450 ミリ波レーダーを用いる。\n映像を撮らず、在室・微動・呼吸相当の変化を検知する。\n\n【隠蔽設置】\n露出ボックス裏やビーマー内部へ仕込み、\n見た目は通常のスイッチボックスのままにする。\n電波はプラスチックカバーを透過する前提で位置決め。\n\n【RP2350 連携】\nOUT は DI、詳細は UART で距離ゲート等を読む。\n無反応しきい値で見守りアラートを PWA / Web Push へ。\n防犯人感とは別タグ・別しきい値で運用する。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "GAS-PULSE-SUBSC-001",
-      "title": "【住設・サブスク】ガスメーターパルス（DT/SG）直結による自動検針＆24時間見守り",
-      "category": "IOT関連",
-      "tags": [
-        "#Gas",
-        "#Pulse",
-        "#Subsc",
-        "#PWA"
-      ],
-      "summary": "ガスメーターの無電圧パルスをRP2350で読み取り、月1〜3GBの格安SIM経由で検針・異常遮断・生活反応をPWAへ即時連携する低コスト運用。\n\n【パルス直結】\nガスメーターの無電圧パルス（DT/SG）を\nRP2350 DI へ 2 芯弱電で直結する。\n積算で自動検針、長時間ゼロで生活反応アラート、\n感震遮断接点は別 DI で即時通知する。\n\n【低コスト通信】\n月 1〜3GB 格安 SIM でテキストログを常時送信。\n映像は使わず通信費を最小化し、月額見守り\nサブスクの原価を抑える。\n\n【PWA 一元管理】\n検針値・異常・生活反応を顧客ポータルへ反映。\nテナント単位でデバイスとプラン状態を紐づけ、\nSaaS 課金の土台とする。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
-    },
-    {
-      "id": "VOICE-CALL-CALENDAR-DX-001",
-      "title": "【現場DX・音声AI】通話録音テキストからのGoogleカレンダー自動同期＆材料自動抽出アーキテクチャ",
-      "category": "IOT関連",
-      "tags": [
-        "#VoiceAI",
-        "#Gemini",
-        "#Calendar",
-        "#FieldDX",
-        "#PWA"
-      ],
-      "summary": "市販イヤホン（骨伝導等）での通話テキストをPWAへ受け渡すワークフロー。\nGeminiによる日程・現場名・材料リストの自動構造化とJSON抽出。\n通話後ワンタップでGoogleカレンダーとTiSLY材料チェックへ同時登録する省力化。\n\n【ワークフロー】\n市販イヤホン（骨伝導等）や通話録音アプリで\n得たテキストを、PWA「通話音声・クイック入力」\nへワンタップ貼付する。Web Speech API による\nその場の文字起こしも併用できる。\n\n【LLM プロンプト設計】\nGemini に JSON のみを返させる。抽出項目は\n予定（件名・開始・終了・場所）、材料\n（品名・数量・単位・発注フラグ）、案件メモ\n（3行要約・要望・決定事項）。キー未設定時は\nルールベース抽出にフォールバックする。\n\n【データフロー】\n抽出プレビュー確認後、ワンタップで\nGoogle Calendar API（mock/real）へ予定登録し、\n同時に材料チェックへ部材を追記、案件メモへ\n要約を保存する。tenant_id / JP|AU / JPY|AUD\nを意識した拡張ポイントをログに残す。",
-      "updatedAt": "2026-08-26",
-      "sourceType": "manual"
     }
   ]
 }

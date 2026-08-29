@@ -55,6 +55,10 @@ const {
   VOICE_CALL_MODULE_SEED_IDS,
   seedVoiceCallKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-voice-call-seed-v1.js");
+const {
+  FACTORY_STL_MODULE_SEED_IDS,
+  seedFactoryStlKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-factory-stl-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -543,6 +547,35 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(voice);
     assert.match(voice!.title, /材料自動抽出/);
     assert.ok(voice!.tags.includes("#FieldDX"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends factory STL seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of FACTORY_STL_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const factory = listed.find(
+      (x) => x.id === "kn-seed-factory-stl-gemini-001"
+    );
+    assert.ok(factory);
+    assert.match(factory!.title, /即時STL生成/);
+    assert.ok(factory!.tags.includes("#3Dプリンター"));
+    assert.ok(factory!.tags.includes("#GeminiAPI"));
+    assert.ok(factory!.tags.includes("#TiSLY_Factory"));
+    assert.match(String(factory!.body ?? ""), /Three\.js/);
+  });
+
+  it("seedFactoryStlKnowledgeCardsV1 upserts searchable cards", () => {
+    seedFactoryStlKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-STL-GEMINI-001");
+    assert.ok(card);
+    assert.match(card!.title, /方眼紙スケッチ/);
+    assert.ok(card!.tags.includes("#AI_Vision"));
+    assert.ok(card!.tags.includes("#手書き図面DX"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
