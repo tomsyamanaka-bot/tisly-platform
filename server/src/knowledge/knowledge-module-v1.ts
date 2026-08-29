@@ -53,6 +53,10 @@ import {
   FACTORY_DX_PART1_MODULE_SEED_IDS,
   getFactoryDxPart1ModuleSeedItemsV1,
 } from "./knowledge-factory-dx-part1-seed-v1.js";
+import {
+  FACTORY_DX_PART2_MODULE_SEED_IDS,
+  getFactoryDxPart2ModuleSeedItemsV1,
+} from "./knowledge-factory-dx-part2-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -747,6 +751,49 @@ function mergeFactoryDxPart1Seed(
   return { items: next, changed };
 }
 
+/**
+ * 製造DX Part2（4件）を末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeFactoryDxPart2Seed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(FACTORY_DX_PART2_MODULE_SEED_IDS);
+  const seeds = getFactoryDxPart2ModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -792,7 +839,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedHybrid = mergeHybrid3dStoreSeed(mergedRevopoint.items);
   const mergedParametric = mergeParametric3dSeed(mergedHybrid.items);
   const mergedPart1 = mergeFactoryDxPart1Seed(mergedParametric.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedPart1.items);
+  const mergedPart2 = mergeFactoryDxPart2Seed(mergedPart1.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedPart2.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -806,6 +854,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedHybrid.changed ||
     mergedParametric.changed ||
     mergedPart1.changed ||
+    mergedPart2.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

@@ -1660,3 +1660,17 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | knowledge-module-v1 / knowledge-module-api-v1 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
 
+### Knowledge 製造DX Part2（4件）
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 4 件 append |
+| 1 | Saturn 4 Ultra ✕ K2 Plus ハイブリッド出力＆結合アセンブリ |
+| 2 | 3Dプリンター稼働監視 · PWA通知 · 積層強度AI |
+| 3 | インサートナット熱圧入 · 原価試算 · 耐候性樹脂ナビ |
+| 4 | インシュロック固定ブリッジ · 端子モールド一体成形 |
+| Module | knowledge-factory-dx-part2-seed-v1.ts |
+| Mock | MOCK_FACTORY_DX_PART2_ITEMS |
+| テスト | knowledge-module-v1 / knowledge-module-api-v1 |
+| 確認 | /knowledge · https://tisly.jp/api/health |
+

@@ -1,0 +1,21 @@
+{
+  "id": "FACTORY-HYBRID-SLA-FDM-ASM-001",
+  "title": "【製造DX】光造形（Saturn 4 Ultra）✕ 大型FDM（K2 Plus）ハイブリッド出力＆結合アセンブリ設計",
+  "category": "IOT関連",
+  "tags": [
+    "#3Dプリンター",
+    "#光造形",
+    "#FDM",
+    "#アセンブリ",
+    "#Creality",
+    "#ELEGOO",
+    "#TiSLY_Factory",
+    "#PWA"
+  ],
+  "summary": "12K光造形の精密ギヤ・スキャンパーツと大型FDMの耐候性トラスフレームを\nPWA上で結合・分解（爆発図）プレビュー。\n素材別色分けと結合クリアランス自動調整で異種3Dプリンター混在製造を最適化。\n\n【ハイブリッド出力】\nELEGOO Saturn 4 Ultra（12K 光造形）で精密ギヤ・\nスキャンパーツを造形し、Creality K2 Plus（大型 FDM）\nで耐候性トラスフレームを造形する。\n\n【結合プレビュー】\nPWA 上で結合・分解（爆発図）を Three.js 表示。\n素材別色分けと結合クリアランスを自動調整する。\n\n【効果】\n異種プリンター混在製造を最適化し、現場筐体の\n強度と精度を両立する。",
+  "files": [],
+  "updatedAt": "2026-08-29",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【ハイブリッド出力】\nELEGOO Saturn 4 Ultra（12K 光造形）で精密ギヤ・\nスキャンパーツを造形し、Creality K2 Plus（大型 FDM）\nで耐候性トラスフレームを造形する。\n\n【結合プレビュー】\nPWA 上で結合・分解（爆発図）を Three.js 表示。\n素材別色分けと結合クリアランスを自動調整する。\n\n【効果】\n異種プリンター混在製造を最適化し、現場筐体の\n強度と精度を両立する。"
+}

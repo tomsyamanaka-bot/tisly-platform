@@ -22,6 +22,7 @@ import { seedRevopointScanKnowledgeCardsV1 } from "./knowledge-revopoint-scan-se
 import { seedHybrid3dStoreKnowledgeCardsV1 } from "./knowledge-hybrid-3d-store-seed-v1.js";
 import { seedParametric3dKnowledgeCardsV1 } from "./knowledge-parametric-3d-seed-v1.js";
 import { seedFactoryDxPart1KnowledgeCardsV1 } from "./knowledge-factory-dx-part1-seed-v1.js";
+import { seedFactoryDxPart2KnowledgeCardsV1 } from "./knowledge-factory-dx-part2-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -160,6 +161,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   hybrid3dStoreCreated: number;
   parametric3dCreated: number;
   factoryDxPart1Created: number;
+  factoryDxPart2Created: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -175,6 +177,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const hybrid3dStore = seedHybrid3dStoreKnowledgeCardsV1();
   const parametric3d = seedParametric3dKnowledgeCardsV1();
   const factoryDxPart1 = seedFactoryDxPart1KnowledgeCardsV1();
+  const factoryDxPart2 = seedFactoryDxPart2KnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -190,5 +193,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     hybrid3dStoreCreated: hybrid3dStore.length,
     parametric3dCreated: parametric3d.length,
     factoryDxPart1Created: factoryDxPart1.length,
+    factoryDxPart2Created: factoryDxPart2.length,
   };
 }

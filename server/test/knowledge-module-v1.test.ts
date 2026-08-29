@@ -105,6 +105,12 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /AR原寸重ね合わせ/);
     assert.match(mockSrc, /MOCK_FACTORY_DX_PART1_ITEMS/);
     assert.match(mockSrc, /#AR干渉チェック/);
+    assert.match(mockSrc, /ハイブリッド出力＆結合アセンブリ/);
+    assert.match(mockSrc, /積層強度AIガイド/);
+    assert.match(mockSrc, /インサートナット熱圧入/);
+    assert.match(mockSrc, /端子モールド一体成形/);
+    assert.match(mockSrc, /MOCK_FACTORY_DX_PART2_ITEMS/);
+    assert.match(mockSrc, /#ELEGOO/);
   });
 
   it("nav script requires login before loading bundle", () => {

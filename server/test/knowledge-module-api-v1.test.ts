@@ -75,6 +75,10 @@ const {
   FACTORY_DX_PART1_MODULE_SEED_IDS,
   seedFactoryDxPart1KnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-factory-dx-part1-seed-v1.js");
+const {
+  FACTORY_DX_PART2_MODULE_SEED_IDS,
+  seedFactoryDxPart2KnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-factory-dx-part2-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -732,6 +736,58 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(qrAr);
     assert.match(qrAr!.title, /QRコード直結/);
     assert.ok(qrAr!.tags.includes("#保守DX"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends factory DX part2 seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of FACTORY_DX_PART2_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const asm = listed.find(
+      (x) => x.id === "kn-seed-hybrid-sla-fdm-asm-001"
+    );
+    assert.ok(asm);
+    assert.match(asm!.title, /結合アセンブリ/);
+    assert.ok(asm!.tags.includes("#光造形"));
+    assert.ok(asm!.tags.includes("#ELEGOO"));
+    const push = listed.find(
+      (x) => x.id === "kn-seed-printer-push-strength-001"
+    );
+    assert.ok(push);
+    assert.match(push!.title, /積層強度AIガイド/);
+    assert.ok(push!.tags.includes("#PWA通知"));
+    const insert = listed.find(
+      (x) => x.id === "kn-seed-insert-nut-cost-resin-001"
+    );
+    assert.ok(insert);
+    assert.match(insert!.title, /インサートナット/);
+    assert.ok(insert!.tags.includes("#耐候性樹脂"));
+    const tywrap = listed.find(
+      (x) => x.id === "kn-seed-tywrap-terminal-mold-001"
+    );
+    assert.ok(tywrap);
+    assert.match(tywrap!.title, /端子モールド/);
+    assert.ok(tywrap!.tags.includes("#結束バンド"));
+  });
+
+  it("seedFactoryDxPart2KnowledgeCardsV1 upserts searchable cards", () => {
+    seedFactoryDxPart2KnowledgeCardsV1();
+    const asm = getKnowledgeCardV1("FACTORY-HYBRID-SLA-FDM-ASM-001");
+    assert.ok(asm);
+    assert.ok(asm!.tags.includes("#Creality"));
+    const push = getKnowledgeCardV1("FACTORY-PRINTER-PUSH-STRENGTH-001");
+    assert.ok(push);
+    assert.match(push!.title, /PWAプッシュ通知/);
+    const insert = getKnowledgeCardV1("FACTORY-INSERT-NUT-COST-RESIN-001");
+    assert.ok(insert);
+    assert.ok(insert!.tags.includes("#原価計算"));
+    const tywrap = getKnowledgeCardV1("FACTORY-TYWRAP-TERMINAL-MOLD-001");
+    assert.ok(tywrap);
+    assert.ok(tywrap!.tags.includes("#立体モールド"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

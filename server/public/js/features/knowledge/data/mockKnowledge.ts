@@ -1150,3 +1150,154 @@ export const MOCK_FACTORY_DX_PART1_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX Part2（末尾追記・4件） */
+export const FACTORY_DX_PART2_KNOWLEDGE_TITLES = [
+  "【製造DX】光造形（Saturn 4 Ultra）✕ 大型FDM（K2 Plus）ハイブリッド出力＆結合アセンブリ設計",
+  "【製造DX】3Dプリンター稼働監視・PWAプッシュ通知連動と積層強度AIガイド",
+  "【盤製造DX】インサートナット熱圧入ポケット・資材コスト試算・耐候性樹脂ナビ",
+  "【配線施工DX】インシュロック固定ブリッジ＆端子モールド一体成形設計",
+] as const;
+
+const FACTORY_DX_PART2_CREATED_AT = "2026-08-29T17:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に Part2 の 4 件を保持。
+ */
+export const MOCK_FACTORY_DX_PART2_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-hybrid-sla-fdm-asm-001",
+    title:
+      "【製造DX】光造形（Saturn 4 Ultra）✕ 大型FDM（K2 Plus）ハイブリッド出力＆結合アセンブリ設計",
+    summary: [
+      "12K光造形の精密ギヤ・スキャンパーツと大型FDMの耐候性トラスフレームを",
+      "PWA上で結合・分解（爆発図）プレビュー。",
+      "素材別色分けと結合クリアランス自動調整で異種3Dプリンター混在製造を最適化。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#光造形",
+      "#FDM",
+      "#アセンブリ",
+      "#Creality",
+      "#ELEGOO",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART2_CREATED_AT,
+    body: [
+      "【ハイブリッド出力】",
+      "ELEGOO Saturn 4 Ultra（12K 光造形）で精密ギヤ・",
+      "スキャンパーツを造形し、Creality K2 Plus（大型 FDM）",
+      "で耐候性トラスフレームを造形する。",
+      "",
+      "【結合プレビュー】",
+      "PWA 上で結合・分解（爆発図）を Three.js 表示。",
+      "素材別色分けと結合クリアランスを自動調整する。",
+      "",
+      "【効果】",
+      "異種プリンター混在製造を最適化し、現場筐体の",
+      "強度と精度を両立する。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-printer-push-strength-001",
+    title:
+      "【製造DX】3Dプリンター稼働監視・PWAプッシュ通知連動と積層強度AIガイド",
+    summary: [
+      "事務所・車載3Dプリンターの出力完了・異常をPWAへ即時プッシュ通知。",
+      "ボルト締め付け・荷重方向からAIが最適なビルド印刷向き（Z軸）を自動判定し、",
+      "現場での積層剥離割れを防止。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#PWA通知",
+      "#積層強度",
+      "#現場DX",
+      "#TiSLY_Factory",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART2_CREATED_AT,
+    body: [
+      "【稼働監視】",
+      "事務所・車載 3D プリンターの完了・異常を",
+      "PWA プッシュ通知で即時共有する。",
+      "",
+      "【積層強度 AI】",
+      "ボルト締め・荷重方向から最適なビルド向き",
+      "（Z 軸）を自動判定し、積層剥離割れを防ぐ。",
+      "",
+      "【現場効果】",
+      "再プリント待ちと現場破損を削減する。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-insert-nut-cost-resin-001",
+    title:
+      "【盤製造DX】インサートナット熱圧入ポケット・資材コスト試算・耐候性樹脂ナビ",
+    summary: [
+      "真鍮インサートナット（M3/M4）用熱圧入下穴を自動設計。",
+      "樹脂使用量（g）・原価・印刷時間をリアルタイム試算し、",
+      "設置環境に応じた耐候性樹脂（ASA/PETG/CF）を自動選定。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#インサートナット",
+      "#原価計算",
+      "#耐候性樹脂",
+      "#3Dプリンター",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART2_CREATED_AT,
+    body: [
+      "【熱圧入ポケット】",
+      "真鍮インサートナット（M3/M4）用の熱圧入下穴を",
+      "パラメトリック自動設計する。",
+      "",
+      "【原価試算】",
+      "樹脂使用量（g）・原価・印刷時間をリアルタイム表示。",
+      "",
+      "【耐候ナビ】",
+      "設置環境に応じ ASA / PETG / CF を自動選定する。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-tywrap-terminal-mold-001",
+    title:
+      "【配線施工DX】インシュロック固定ブリッジ＆端子モールド一体成形設計",
+    summary: [
+      "ボックス底面・側面に結束バンドを通すタイラップアイを自動配置し、",
+      "機械振動による電線抜けを防止。",
+      "3Dプリント時に天板・端子番号（DI/RO）を立体モールド成形し、配線施工ミスをゼロ化。",
+    ].join("\n"),
+    genre: "電気工事",
+    tags: [
+      "#配線整理",
+      "#結束バンド",
+      "#立体モールド",
+      "#施工品質",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART2_CREATED_AT,
+    body: [
+      "【タイラップアイ】",
+      "ボックス底面・側面に結束バンド通し穴を自動配置し、",
+      "機械振動による電線抜けを防止する。",
+      "",
+      "【立体モールド】",
+      "天板・端子番号（DI/RO）を 3D プリント時に一体成形し、",
+      "配線施工ミスをゼロ化する。",
+      "",
+      "【施工品質】",
+      "白ベース×navy UI で現場でも番号確認しやすい。",
+    ].join("\n"),
+  },
+];
