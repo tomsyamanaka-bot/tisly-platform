@@ -1634,3 +1634,16 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | knowledge-module-v1 / knowledge-module-api-v1 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
 
+### Knowledge 製造DX パラメトリック寸法 2件
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 2 件 append |
+| 1 | 現場リアルタイム寸法微調整・パラメトリック差分更新アーキテクチャ |
+| 2 | 3Dパラメトリック寸法ナンバリング・インデックス連動UI設計 |
+| Module | module-items.json 末尾追記 · knowledge-parametric-3d-seed-v1.ts |
+| Mock | MOCK_PARAMETRIC_3D_ITEMS |
+| Card | FACTORY-3D-PARAM-DELTA-001 · FACTORY-3D-PARAM-NUMBER-001 |
+| テスト | knowledge-module-v1 / knowledge-module-api-v1 |
+| 確認 | /knowledge · https://tisly.jp/api/health |
+

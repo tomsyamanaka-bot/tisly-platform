@@ -67,6 +67,10 @@ const {
   HYBRID_3D_STORE_MODULE_SEED_IDS,
   seedHybrid3dStoreKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-hybrid-3d-store-seed-v1.js");
+const {
+  PARAMETRIC_3D_MODULE_SEED_IDS,
+  seedParametric3dKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-parametric-3d-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -642,6 +646,45 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /QNAP\/IndexedDB/);
     assert.ok(card!.tags.includes("#ThreeJS"));
     assert.ok(card!.tags.includes("#TiSLY_Factory"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends parametric 3D seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of PARAMETRIC_3D_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const delta = listed.find(
+      (x) => x.id === "kn-seed-3d-param-delta-001"
+    );
+    assert.ok(delta);
+    assert.match(delta!.title, /パラメトリック差分更新/);
+    assert.ok(delta!.tags.includes("#パラメトリック設計"));
+    assert.ok(delta!.tags.includes("#寸法調整"));
+    assert.match(String(delta!.body ?? ""), /赤ペン再撮影/);
+    const numbering = listed.find(
+      (x) => x.id === "kn-seed-3d-param-number-001"
+    );
+    assert.ok(numbering);
+    assert.match(numbering!.title, /ナンバリング/);
+    assert.ok(numbering!.tags.includes("#UI設計"));
+    assert.ok(numbering!.tags.includes("#ナンバリング"));
+    assert.match(String(numbering!.body ?? ""), /丸数字/);
+  });
+
+  it("seedParametric3dKnowledgeCardsV1 upserts searchable cards", () => {
+    seedParametric3dKnowledgeCardsV1();
+    const delta = getKnowledgeCardV1("FACTORY-3D-PARAM-DELTA-001");
+    assert.ok(delta);
+    assert.match(delta!.title, /リアルタイム寸法微調整/);
+    assert.ok(delta!.tags.includes("#現場DX"));
+    const numbering = getKnowledgeCardV1("FACTORY-3D-PARAM-NUMBER-001");
+    assert.ok(numbering);
+    assert.match(numbering!.title, /インデックス連動UI/);
+    assert.ok(numbering!.tags.includes("#ナンバリング"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

@@ -96,6 +96,10 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /ハイブリッド保存設計/);
     assert.match(mockSrc, /MOCK_HYBRID_3D_STORE_ITEMS/);
     assert.match(mockSrc, /#IndexedDB/);
+    assert.match(mockSrc, /パラメトリック差分更新/);
+    assert.match(mockSrc, /寸法ナンバリング/);
+    assert.match(mockSrc, /MOCK_PARAMETRIC_3D_ITEMS/);
+    assert.match(mockSrc, /#パラメトリック設計/);
   });
 
   it("nav script requires login before loading bundle", () => {
