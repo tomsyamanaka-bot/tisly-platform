@@ -90,6 +90,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /即時STL生成/);
     assert.match(mockSrc, /MOCK_FACTORY_STL_ITEMS/);
     assert.match(mockSrc, /#TiSLY_Factory/);
+    assert.match(mockSrc, /Revopoint MINI 2/);
+    assert.match(mockSrc, /MOCK_REVOPOINT_SCAN_ITEMS/);
+    assert.match(mockSrc, /#リバースエンジニアリング/);
   });
 
   it("nav script requires login before loading bundle", () => {

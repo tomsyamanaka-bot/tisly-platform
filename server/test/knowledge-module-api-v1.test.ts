@@ -59,6 +59,10 @@ const {
   FACTORY_STL_MODULE_SEED_IDS,
   seedFactoryStlKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-factory-stl-seed-v1.js");
+const {
+  REVOPOINT_SCAN_MODULE_SEED_IDS,
+  seedRevopointScanKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-revopoint-scan-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -576,6 +580,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /方眼紙スケッチ/);
     assert.ok(card!.tags.includes("#AI_Vision"));
     assert.ok(card!.tags.includes("#手書き図面DX"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends revopoint scan seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of REVOPOINT_SCAN_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-revopoint-mini2-scan-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /Revopoint MINI 2/);
+    assert.ok(item!.tags.includes("#Revopoint"));
+    assert.ok(item!.tags.includes("#3Dスキャナー"));
+    assert.ok(item!.tags.includes("#リバースエンジニアリング"));
+    assert.match(String(item!.body ?? ""), /Three\.js/);
+  });
+
+  it("seedRevopointScanKnowledgeCardsV1 upserts searchable cards", () => {
+    seedRevopointScanKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("REVOPOINT-MINI2-SCAN-001");
+    assert.ok(card);
+    assert.match(card!.title, /リバースエンジニアリング/);
+    assert.ok(card!.tags.includes("#ThreeJS"));
+    assert.ok(card!.tags.includes("#現場DX"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

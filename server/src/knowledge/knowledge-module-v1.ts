@@ -37,6 +37,10 @@ import {
   FACTORY_STL_MODULE_SEED_IDS,
   getFactoryStlModuleSeedItemsV1,
 } from "./knowledge-factory-stl-seed-v1.js";
+import {
+  REVOPOINT_SCAN_MODULE_SEED_IDS,
+  getRevopointScanModuleSeedItemsV1,
+} from "./knowledge-revopoint-scan-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -559,6 +563,49 @@ function mergeFactoryStlSeed(
   return { items: next, changed };
 }
 
+/**
+ * 製造DX・Revopoint スキャンを末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeRevopointScanSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(REVOPOINT_SCAN_MODULE_SEED_IDS);
+  const seeds = getRevopointScanModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -600,7 +647,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedStream = mergeSecurityStreamSeed(mergedOps.items);
   const mergedVoice = mergeVoiceCallSeed(mergedStream.items);
   const mergedFactory = mergeFactoryStlSeed(mergedVoice.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedFactory.items);
+  const mergedRevopoint = mergeRevopointScanSeed(mergedFactory.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedRevopoint.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -610,6 +658,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedStream.changed ||
     mergedVoice.changed ||
     mergedFactory.changed ||
+    mergedRevopoint.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

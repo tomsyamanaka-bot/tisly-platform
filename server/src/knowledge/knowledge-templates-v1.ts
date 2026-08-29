@@ -18,6 +18,7 @@ import { seedOpsInsightKnowledgeCardsV1 } from "./knowledge-ops-insight-seed-v1.
 import { seedSecurityStreamKnowledgeCardsV1 } from "./knowledge-security-stream-seed-v1.js";
 import { seedVoiceCallKnowledgeCardsV1 } from "./knowledge-voice-call-seed-v1.js";
 import { seedFactoryStlKnowledgeCardsV1 } from "./knowledge-factory-stl-seed-v1.js";
+import { seedRevopointScanKnowledgeCardsV1 } from "./knowledge-revopoint-scan-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -152,6 +153,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   securityStreamCreated: number;
   voiceCallCreated: number;
   factoryStlCreated: number;
+  revopointScanCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -163,6 +165,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const securityStream = seedSecurityStreamKnowledgeCardsV1();
   const voiceCall = seedVoiceCallKnowledgeCardsV1();
   const factoryStl = seedFactoryStlKnowledgeCardsV1();
+  const revopointScan = seedRevopointScanKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -174,5 +177,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     securityStreamCreated: securityStream.length,
     voiceCallCreated: voiceCall.length,
     factoryStlCreated: factoryStl.length,
+    revopointScanCreated: revopointScan.length,
   };
 }

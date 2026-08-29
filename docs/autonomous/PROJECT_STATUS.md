@@ -1608,3 +1608,16 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | knowledge-module-v1 / knowledge-module-api-v1 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
 
+### Knowledge 製造DX Revopoint MINI 2
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 1 件 append |
+| タイトル | 【製造DX】Revopoint MINI 2連携・PWA上での3Dスキャンデータ管理とリバースエンジニアリング |
+| Module | module-items.json 末尾追記 · knowledge-revopoint-scan-seed-v1.ts |
+| Mock | MOCK_REVOPOINT_SCAN_ITEMS |
+| Card | REVOPOINT-MINI2-SCAN-001 |
+| タグ | #Revopoint #3Dスキャナー #ThreeJS #リバースエンジニアリング #現場DX #PWA |
+| テスト | knowledge-module-v1 / knowledge-module-api-v1 |
+| 確認 | /knowledge · https://tisly.jp/api/health |
+

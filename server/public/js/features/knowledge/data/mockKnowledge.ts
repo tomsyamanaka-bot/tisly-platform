@@ -844,3 +844,54 @@ export const MOCK_FACTORY_STL_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX・Revopoint スキャン（末尾追記） */
+export const REVOPOINT_SCAN_KNOWLEDGE_TITLES = [
+  "【製造DX】Revopoint MINI 2連携・PWA上での3Dスキャンデータ管理とリバースエンジニアリング",
+] as const;
+
+const REVOPOINT_SCAN_CREATED_AT = "2026-08-29T13:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に Revopoint 1 件を保持。
+ */
+export const MOCK_REVOPOINT_SCAN_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-revopoint-mini2-scan-001",
+    title:
+      "【製造DX】Revopoint MINI 2連携・PWA上での3Dスキャンデータ管理とリバースエンジニアリング",
+    summary: [
+      "Revopoint MINI 2（最高0.02mm精度）でスキャンしたSTL/OBJ/PLYファイルを",
+      "PWAのThree.jsビューアーで即時展開。",
+      "現場パーツの3D寸法計測、干渉確認、オンデマンド3Dプリント出力を一元管理。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#Revopoint",
+      "#3Dスキャナー",
+      "#ThreeJS",
+      "#リバースエンジニアリング",
+      "#現場DX",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: REVOPOINT_SCAN_CREATED_AT,
+    body: [
+      "【スキャン取込】",
+      "Revopoint MINI 2（最高 0.02mm 精度）で取得した",
+      "STL / OBJ / PLY を PWA へアップロードする。",
+      "物件・案件カードに紐づけ、テナント単位で保管する。",
+      "",
+      "【Three.js ビューアー】",
+      "ブラウザ上で即時展開し、回転・ピンチ拡大・断面",
+      "表示で現場パーツを確認する。白ベース×navy UI で",
+      "屋外でも寸法計測・干渉確認をワンタップ操作する。",
+      "",
+      "【リバース〜造形】",
+      "計測結果から補修ブラケット等を再設計し、",
+      "オンデマンド 3D プリントへ出力する。設計・施工・",
+      "保守を同一 PWA で一元管理する。",
+    ].join("\n"),
+  },
+];
