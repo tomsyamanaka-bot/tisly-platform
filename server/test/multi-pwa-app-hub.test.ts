@@ -133,6 +133,24 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(res.text.includes("ワンタップ STL"));
   });
 
+  it("3d-generator 方眼紙はライブラリとカメラを分離", async () => {
+    const res = await request(app).get("/3d-generator");
+    assert.equal(res.status, 200);
+    const html = res.text;
+    assert.match(html, /写真から選ぶ/);
+    assert.match(html, /カメラで撮影/);
+    assert.match(html, /AI寸法抽出/);
+    assert.match(html, /id="pg-sketch-library"/);
+    assert.match(html, /id="pg-sketch-camera"[^>]*capture="environment"/);
+    assert.match(html, /id="pg-sketch-clear"/);
+    // ライブラリ側に capture が付いていないこと
+    const libraryBlock = html.match(/id="pg-sketch-library"[^>]*>/)?.[0];
+    assert.ok(libraryBlock);
+    assert.equal(libraryBlock.includes("capture"), false);
+    // 旧・単一 input は残さない
+    assert.equal(html.includes('id="pg-sketch-input"'), false);
+  });
+
   it("installer hub field apps omit legacy catalog cards", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
@@ -257,6 +275,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2504-print-sketch-lib-cam") ||
       sw.text.includes("tisly-pwa-v2503-print-generator-card") ||
       sw.text.includes("tisly-pwa-v2502-field-hub-cards-restore") ||
       sw.text.includes("tisly-pwa-v2501-field-hub-clean") ||

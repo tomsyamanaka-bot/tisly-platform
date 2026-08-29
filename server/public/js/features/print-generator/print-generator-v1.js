@@ -443,6 +443,48 @@ function renderSliders() {
 }
 
 /**
+ * 方眼紙画像をプレビューへ反映
+ * @param {File} file
+ */
+function applySketchFile(file) {
+  if (!file || !/^image\//i.test(file.type || "")) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    sketchDataUrl = String(reader.result || "");
+    const prev = $("#pg-sketch-preview");
+    const img = $("#pg-sketch-img");
+    if (img) img.src = sketchDataUrl;
+    if (prev) prev.hidden = false;
+    const status = $("#pg-ai-status");
+    if (status) {
+      status.textContent =
+        "スケッチ読込済 — 「AI寸法抽出」を押してください";
+      status.classList.remove("is-warn", "is-ok");
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+/** 選択中スケッチをクリア */
+function clearSketch() {
+  sketchDataUrl = null;
+  const prev = $("#pg-sketch-preview");
+  const img = $("#pg-sketch-img");
+  if (img) img.removeAttribute("src");
+  if (prev) prev.hidden = true;
+  // input value を空にして同一ファイル再選択を許可
+  const lib = $("#pg-sketch-library");
+  const cam = $("#pg-sketch-camera");
+  if (lib) lib.value = "";
+  if (cam) cam.value = "";
+  const status = $("#pg-ai-status");
+  if (status) {
+    status.textContent = "スケッチを削除しました";
+    status.classList.remove("is-warn", "is-ok");
+  }
+}
+
+/**
  * 方眼紙画像から概寸を推定
  * （現場即時用ヒューリスティック）
  */
@@ -450,7 +492,8 @@ function extractDimsFromSketch() {
   const status = $("#pg-ai-status");
   if (!sketchDataUrl) {
     if (status) {
-      status.textContent = "先に方眼紙スケッチを撮影/選択してください";
+      status.textContent =
+        "先に「写真から選ぶ」または「カメラで撮影」してください";
       status.classList.add("is-warn");
       status.classList.remove("is-ok");
     }
@@ -501,23 +544,20 @@ function extractDimsFromSketch() {
 function bindUi() {
   $("#pg-stl-btn")?.addEventListener("click", downloadStl);
   $("#pg-ai-extract-btn")?.addEventListener("click", extractDimsFromSketch);
-  $("#pg-sketch-input")?.addEventListener("change", (ev) => {
+  $("#pg-sketch-clear")?.addEventListener("click", clearSketch);
+
+  // アルバム選択（capture なし）
+  $("#pg-sketch-library")?.addEventListener("change", (ev) => {
     const file = ev.target?.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      sketchDataUrl = String(reader.result || "");
-      const prev = $("#pg-sketch-preview");
-      const img = $("#pg-sketch-img");
-      if (img) img.src = sketchDataUrl;
-      if (prev) prev.hidden = false;
-      const status = $("#pg-ai-status");
-      if (status) {
-        status.textContent = "スケッチ読込済 — 「AI寸法抽出」を押してください";
-        status.classList.remove("is-warn", "is-ok");
-      }
-    };
-    reader.readAsDataURL(file);
+    applySketchFile(file);
+  });
+
+  // 現場カメラ（capture=environment）
+  $("#pg-sketch-camera")?.addEventListener("change", (ev) => {
+    const file = ev.target?.files?.[0];
+    if (!file) return;
+    applySketchFile(file);
   });
 }
 
