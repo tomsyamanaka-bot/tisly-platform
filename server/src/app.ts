@@ -100,6 +100,7 @@ import { remoteTestRouter } from "./api/routes/remote-test.js";
 import { pushRouter } from "./api/routes/push.js";
 import { storageSettingsV1Router } from "./api/routes/storage-settings-v1.js";
 import { tenantSaasV1Router } from "./api/routes/tenant-saas-v1.js";
+import { customerEnabledModulesV1Router } from "./api/routes/customer-enabled-modules-v1.js";
 import { ecoWaterRouter } from "./api/routes/eco-water.js";
 import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
@@ -187,6 +188,8 @@ export function createApp(): express.Application {
   app.use("/api/field-checklist/v1", fieldChecklistV1Router);
   app.use("/api/storage/v1/settings", storageSettingsV1Router);
   app.use("/api/tenant-saas/v1", tenantSaasV1Router);
+  // 顧客別モジュール出し分け（追記）
+  app.use("/api/customer-modules/v1", customerEnabledModulesV1Router);
   // Eco-Water IoT テレメトリ（既存ルートは維持）
   app.use("/api/eco-water", ecoWaterRouter);
   // ガス見守り（追記）

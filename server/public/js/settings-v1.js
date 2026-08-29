@@ -63,6 +63,23 @@ async function tenantSaasApi(path = "", opts = {}) {
   return data;
 }
 
+async function customerModulesApi(path = "", opts = {}) {
+  const res = await fetch(`/api/customer-modules/v1${path}`, {
+    ...opts,
+    headers: {
+      ...authHeaders(),
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || data.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
 function renderSummary(summary) {
   $("status-local").textContent = summary.localLabel.replace("✅ ", "") === "有効" ? "✅" : summary.localLabel;
   $("status-local").className = summary.localLabel.includes("✅") ? "status-ok" : "status-muted";
@@ -126,6 +143,103 @@ async function loadTenantSaas() {
   renderTenantSaas(data.status);
 }
 
+/**
+ * 顧客別モジュールトグルを描画
+ */
+function renderCustomerModules(view) {
+  const list = $("customer-modules-list");
+  const meta = $("customer-modules-meta");
+  if (!list || !view) return;
+
+  const enabled = new Set(view.enabledModules || []);
+  const allowAll = enabled.has("*");
+  const catalog = view.catalog || [];
+
+  if (meta) {
+    const src =
+      view.source === "stored" ? "保存済み" : "既定プリセット";
+    meta.textContent =
+      `${view.customerCode} · ${src}` +
+      (view.updatedAt
+        ? ` · 更新 ${formatJaDateTime(view.updatedAt)}`
+        : "");
+  }
+
+  list.innerHTML = catalog
+    .map((m) => {
+      const checked =
+        allowAll || enabled.has(m.id) ? "checked" : "";
+      return `<div class="customer-modules-item">
+        <input
+          type="checkbox"
+          id="mod-${m.id}"
+          data-module-id="${m.id}"
+          ${checked}
+        />
+        <label for="mod-${m.id}">
+          <strong>${m.label}</strong>
+          <small>${m.description} · ${m.category}</small>
+        </label>
+      </div>`;
+    })
+    .join("");
+
+  // 全機能（*）のとき ops_deploy もON表示を維持
+  if (allowAll) {
+    const starHint = document.createElement("p");
+    starHint.className = "hint";
+    starHint.textContent =
+      "※ この顧客は「全機能（*）」既定です。個別OFF後に保存すると絞り込みます。";
+    list.prepend(starHint);
+  }
+}
+
+function collectSelectedModules() {
+  const boxes = document.querySelectorAll(
+    "#customer-modules-list input[data-module-id]"
+  );
+  const ids = [];
+  boxes.forEach((el) => {
+    if (el.checked) ids.push(el.dataset.moduleId);
+  });
+  return ids;
+}
+
+async function loadCustomerModules() {
+  const codeInput = $("customer-modules-code");
+  const code = (
+    codeInput?.value ||
+    sessionStorage.getItem("tisly_customer_code") ||
+    "TOMS001"
+  )
+    .trim()
+    .toUpperCase();
+  if (codeInput) codeInput.value = code;
+  const data = await customerModulesApi(
+    `?customerCode=${encodeURIComponent(code)}`
+  );
+  renderCustomerModules(data);
+}
+
+async function saveCustomerModules() {
+  const codeInput = $("customer-modules-code");
+  const code = (codeInput?.value || "TOMS001").trim().toUpperCase();
+  const modules = collectSelectedModules();
+  if (!modules.length) {
+    toast("1つ以上のモジュールを選択してください");
+    return;
+  }
+  await customerModulesApi("", {
+    method: "PATCH",
+    body: JSON.stringify({
+      customerCode: code,
+      enabledModules: modules,
+    }),
+  });
+  toast("利用機能を保存しました");
+  await loadCustomerModules();
+}
+
 async function init() {
   initPracticalNav({ appId: "settings_v1", appName: "設定", theme: "hub" });
 
@@ -141,6 +255,11 @@ async function init() {
     return;
   }
 
+  const codeInput = $("customer-modules-code");
+  if (codeInput && session.customerCode) {
+    codeInput.value = String(session.customerCode).toUpperCase();
+  }
+
   try {
     await load();
   } catch (e) {
@@ -154,6 +273,30 @@ async function init() {
     if (planEl) planEl.textContent = "取得失敗";
     toast(e.message || "契約ステータスの読込に失敗");
   }
+
+  try {
+    await loadCustomerModules();
+  } catch (e) {
+    const meta = $("customer-modules-meta");
+    if (meta) meta.textContent = "取得失敗";
+    toast(e.message || "モジュール設定の読込に失敗");
+  }
+
+  $("btn-modules-reload")?.addEventListener("click", () => {
+    loadCustomerModules().catch((e) =>
+      toast(e.message || "再読込に失敗")
+    );
+  });
+  $("btn-modules-save")?.addEventListener("click", () => {
+    saveCustomerModules().catch((e) =>
+      toast(e.message || "保存に失敗")
+    );
+  });
+  codeInput?.addEventListener("change", () => {
+    loadCustomerModules().catch((e) =>
+      toast(e.message || "読込に失敗")
+    );
+  });
 }
 
 init().catch(console.error);

@@ -551,8 +551,8 @@ document.getElementById("gmail-auth-modal")?.addEventListener("click", (e) => {
   if (e.target.id === "gmail-auth-modal") closeGmailAuthModal();
 });
 
-loadPublishAudit();
-loadGmailTestCard();
+// 未ログイン時は社内opsパネルを出さない
+toggleOpsPanels(false);
 
 async function customerLogin(code, username, password) {
   const res = await fetch("/api/auth/customer/login", {
@@ -658,6 +658,11 @@ async function loadHubApps() {
   document.getElementById("login-panel").hidden = true;
   document.getElementById("hub-apps-panel").hidden = false;
   toggleOpsPanels(data.showOpsPanels === true);
+  if (data.showOpsPanels === true) {
+    // 社内オペのみ監査・Gmailカードを読込
+    loadPublishAudit();
+    loadGmailTestCard();
+  }
   document.getElementById("hub-role-label").textContent =
     `${data.customerCode} でログイン中`;
   renderPracticalApps(data.practicalApps);

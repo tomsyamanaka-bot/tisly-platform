@@ -2,18 +2,26 @@ import { Router } from "express";
 import type { AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireAuth } from "../../auth/auth-middleware.js";
 import {
-  buildHubCards,
-  buildPracticalHubCards,
+  buildHubCardsFiltered,
+  buildPracticalHubCardsFiltered,
   canAccessPwa,
   type PwaAppId,
   PWA_APP_CATALOG,
   showOpsPanelsForRole,
 } from "../../pwa/pwa-hub.js";
-import { buildHubNotificationLinks, buildHubWorkflowLinks } from "../../pwa/hub-insights.js";
+import {
+  buildHubNotificationLinks,
+  buildHubWorkflowLinks,
+} from "../../pwa/hub-insights.js";
 import { buildHubOperations } from "../../toms/hub-operations.js";
 import { buildPwaPublishAudit } from "../../pwa/pwa-publish-audit.js";
 import { listPropertyPortMappingsV1 } from "../../device/device-port-config-v1.js";
 import { getPropertyByIdV1 } from "../../shared/customer/customer-property-master-v1.js";
+import {
+  hasBusinessModulesV1,
+  isInternalOpsCustomerV1,
+} from "../../tenant/customer-enabled-modules-v1.js";
+import { getEnabledModulesForCustomerV1 } from "../../tenant/customer-enabled-modules-store-v1.js";
 
 export const pwaHubRouter = Router();
 
@@ -59,21 +67,50 @@ pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
   const customerCode = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
   const installerSurveyOptional =
     process.env.TISLY_INSTALLER_SURVEY_OPTIONAL === "true";
-  const cards = buildHubCards(role, customerCode, { installerSurveyOptional });
+
+  // 顧客コードに紐づく有効モジュールで出し分け
+  const enabledModules = getEnabledModulesForCustomerV1(customerCode);
+  const cards = buildHubCardsFiltered(
+    role,
+    customerCode,
+    enabledModules,
+    { installerSurveyOptional }
+  );
+  const practicalApps = buildPracticalHubCardsFiltered(
+    role,
+    enabledModules
+  );
+  const showOps =
+    showOpsPanelsForRole(role, customerCode) &&
+    (enabledModules.includes("*") ||
+      enabledModules.includes("ops_deploy") ||
+      isInternalOpsCustomerV1(customerCode));
+  const showBusiness = hasBusinessModulesV1(enabledModules);
+
   res.json({
     role,
     customerCode,
-    practicalApps: buildPracticalHubCards(role),
-    showOpsPanels: showOpsPanelsForRole(role),
+    enabledModules,
+    practicalApps,
+    showOpsPanels: showOps,
     apps: cards,
-    workflows: buildHubWorkflowLinks(customerCode, role),
-    notifications: buildHubNotificationLinks(role),
-    operations: buildHubOperations(customerCode),
+    workflows: showBusiness
+      ? buildHubWorkflowLinks(customerCode, role)
+      : [],
+    notifications: showBusiness
+      ? buildHubNotificationLinks(role)
+      : [],
+    operations: showBusiness
+      ? buildHubOperations(customerCode)
+      : null,
     monitoredProperties: buildMonitoredProperties(customerCode),
     switcher: Object.values(PWA_APP_CATALOG).map((c) => ({
       id: c.id,
       label: c.label,
-      visible: canAccessPwa(role, c.id),
+      visible:
+        canAccessPwa(role, c.id) &&
+        (enabledModules.includes("*") ||
+          enabledModules.includes(c.id)),
     })),
   });
 });
@@ -85,8 +122,25 @@ pwaHubRouter.get("/access/:pwaId", requireAuth("viewer"), (req: AuthedRequest, r
     return;
   }
   const role = req.admin?.role ?? "viewer";
+  const customerCode = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
+  const enabledModules = getEnabledModulesForCustomerV1(customerCode);
   if (!canAccessPwa(role, pwaId)) {
-    res.status(403).json({ error: "PWA access denied for this role", pwa: pwaId, role });
+    res.status(403).json({
+      error: "PWA access denied for this role",
+      pwa: pwaId,
+      role,
+    });
+    return;
+  }
+  if (
+    !enabledModules.includes("*") &&
+    !enabledModules.includes(pwaId)
+  ) {
+    res.status(403).json({
+      error: "Module not enabled for this customer",
+      pwa: pwaId,
+      customerCode,
+    });
     return;
   }
   res.json({ ok: true, pwa: pwaId, role });

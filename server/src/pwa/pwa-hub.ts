@@ -512,8 +512,48 @@ export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
   });
 }
 
-/** manager 以上のみデプロイ系カードを表示 */
-export function showOpsPanelsForRole(role: string): boolean {
+/** manager 以上かつ社内顧客のみデプロイ系カードを表示 */
+export function showOpsPanelsForRole(
+  role: string,
+  customerCode?: string
+): boolean {
+  const code = String(customerCode || "").toUpperCase();
+  // 一般顧客テナントでは Deploy / 監査を完全非表示
+  if (code && code !== "TOMS001") return false;
   const r = normalizePwaRole(role);
-  return ["manager", "owner", "admin", "super_admin"].includes(r) || role === "super_admin";
+  return (
+    ["manager", "owner", "admin", "super_admin"].includes(r) ||
+    role === "super_admin"
+  );
+}
+
+/**
+ * 顧客の enabledModules で実務カードを絞り込む。
+ * "*" または未指定時は従来どおり全カード（ロール判定付き）。
+ */
+export function buildPracticalHubCardsFiltered(
+  role: string,
+  enabledModules?: string[] | null
+): PracticalPwaCard[] {
+  const cards = buildPracticalHubCards(role);
+  if (!enabledModules || enabledModules.includes("*")) {
+    return cards;
+  }
+  const set = new Set(enabledModules);
+  return cards.filter((c) => set.has(c.id));
+}
+
+/** PWA カタログカードを enabledModules で絞り込み */
+export function buildHubCardsFiltered(
+  role: string,
+  customerCode: string,
+  enabledModules?: string[] | null,
+  opts?: { installerSurveyOptional?: boolean }
+): Array<PwaAppCard & { url: string }> {
+  const cards = buildHubCards(role, customerCode, opts);
+  if (!enabledModules || enabledModules.includes("*")) {
+    return cards;
+  }
+  const set = new Set(enabledModules);
+  return cards.filter((c) => set.has(c.id));
 }

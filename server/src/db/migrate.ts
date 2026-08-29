@@ -254,6 +254,8 @@ export function runMigrations(database: Database.Database): void {
   migrateTislyHomeCustomerRegistryV1(database);
   migrateTislyHomeBathScheduleV1(database);
   migrateTislyHomeSecurityV1(database);
+  // 顧客別モジュール出し分け（追記）
+  migrateCustomerEnabledModulesV1(database);
 }
 
 /**
@@ -5540,5 +5542,22 @@ function migrateDevicePortConfigsV1(
 
     CREATE INDEX IF NOT EXISTS idx_device_emergency_events_latest
       ON device_emergency_events_v1(device_id, id DESC);
+  `);
+}
+
+/**
+ * 顧客別有効モジュール（テナント権限フィルター）。
+ * 既存 customers 行は変更せず専用テーブルを追記。
+ */
+function migrateCustomerEnabledModulesV1(
+  database: Database.Database
+): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS customer_enabled_modules_v1 (
+      customer_code TEXT PRIMARY KEY,
+      enabled_modules_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT
+    );
   `);
 }

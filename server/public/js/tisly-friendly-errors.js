@@ -68,8 +68,8 @@ export function friendlyLoginError(body, status) {
   if (status === 401 || /password|パスワード|認証/i.test(err)) {
     return "パスワードが違うようです。入力し直すか、担当者に確認してください。";
   }
-  if (/customer|会社コード|tenant/i.test(err)) {
-    return "会社コードが見つかりません。大文字・数字を確認してください（例: TOMS001）。";
+  if (/customer|会社コード|顧客コード|tenant/i.test(err)) {
+    return "顧客コードが見つかりません。大文字・数字を確認してください（例: TOMS001）。";
   }
   if (/user|ユーザー/i.test(err)) {
     return "ユーザー名が見つかりません。スペルとピリオド（例: toms001.surveyor）を確認してください。";

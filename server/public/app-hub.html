@@ -24,8 +24,8 @@
   </header>
   <section id="login-panel" class="card login-card-friendly">
     <h2>ログイン</h2>
-    <p class="login-hint">会社コードとユーザー名で入ります</p>
-    <label>会社コード <input id="hub-customer-code" value="TOMS001" autocomplete="organization" /></label>
+    <p class="login-hint">顧客コードとユーザー名で入ります</p>
+    <label>顧客コード <input id="hub-customer-code" value="TOMS001" autocomplete="organization" /></label>
     <label>ユーザー名 <input id="hub-username" autocomplete="username" /></label>
     <label>パスワード <input id="hub-password" type="password" autocomplete="current-password" /></label>
     <button type="button" class="btn btn-login-friendly" id="btn-hub-login">ログイン</button>
@@ -54,7 +54,8 @@
     <div id="hub-workflow-grid" class="hub-workflow-grid" hidden></div>
     <p class="hint hub-tv-hint">Google TV は PWA ではなく TV 専用アプリ（<code>/tv/:code</code>）です。</p>
   </main>
-  <div id="ops-panels-wrap">
+  <!-- 社内オペのみ表示（顧客ログイン時は非表示） -->
+  <div id="ops-panels-wrap" hidden>
   <section id="rehearsal-summary-card" class="card rehearsal-summary-card">
     <h2>Deployment Summary</h2>
     <p class="hint">Phase 1581–1620 Production Deployment Rehearsal</p>
