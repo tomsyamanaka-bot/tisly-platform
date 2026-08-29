@@ -100,6 +100,11 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /寸法ナンバリング/);
     assert.match(mockSrc, /MOCK_PARAMETRIC_3D_ITEMS/);
     assert.match(mockSrc, /#パラメトリック設計/);
+    assert.match(mockSrc, /QNAP\/IndexedDBハイブリッド保存/);
+    assert.match(mockSrc, /リアルタイム差分更新UI/);
+    assert.match(mockSrc, /AR原寸重ね合わせ/);
+    assert.match(mockSrc, /MOCK_FACTORY_DX_PART1_ITEMS/);
+    assert.match(mockSrc, /#AR干渉チェック/);
   });
 
   it("nav script requires login before loading bundle", () => {

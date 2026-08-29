@@ -1647,3 +1647,16 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | knowledge-module-v1 / knowledge-module-api-v1 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
 
+### Knowledge 製造DX/保守DX Part1（3件）
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 3 件 append |
+| 1 | Revopoint MINI 2 · PWA 3Dビューアー · QNAP/IndexedDB |
+| 2 | パラメトリック寸法ナンバリング＆リアルタイム差分更新UI |
+| 3 | QR直結再出力 · AR原寸重ね合わせ干渉チェック |
+| Module | knowledge-factory-dx-part1-seed-v1.ts |
+| Mock | MOCK_FACTORY_DX_PART1_ITEMS |
+| テスト | knowledge-module-v1 / knowledge-module-api-v1 |
+| 確認 | /knowledge · https://tisly.jp/api/health |
+

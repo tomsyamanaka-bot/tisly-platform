@@ -1,0 +1,12 @@
+{
+  "id": "FACTORY-REVOPOINT-HYBRID-VIEWER-001",
+  "title": "【製造DX】Revopoint MINI 2連携・PWA 3DビューアーとQNAP/IndexedDBハイブリッド保存",
+  "category": "IOT関連",
+  "tags": ["#Revopoint", "#3Dスキャナー", "#QNAP", "#IndexedDB", "#ThreeJS", "#TiSLY_Factory", "#PWA"],
+  "summary": "0.02mm精度の3Dスキャンデータや方眼紙AIデータをThree.jsで一元管理。\n端末内IndexedDB（オフライン）、ConoHa VPS（メタ共有）、\n社内QNAP NAS（大容量マスター保管）の3層保存で超高速運用。\n\n【一元ビューアー】\nRevopoint MINI 2（0.02mm 級）スキャンと方眼紙 AI\n生成データを Three.js で同一 PWA に載せる。\n白ベース×navy で現場でも寸法確認できる。\n\n【3 層保存】\nIndexedDB（オフライン）· ConoHa VPS（メタ共有）·\n社内 QNAP NAS（大容量マスター）で超高速運用する。\n\n【効果】\n回線コストを抑えつつ、現場プレビューと事務所保管を両立。",
+  "files": [],
+  "updatedAt": "2026-08-29",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【一元ビューアー】\nRevopoint MINI 2（0.02mm 級）スキャンと方眼紙 AI\n生成データを Three.js で同一 PWA に載せる。\n白ベース×navy で現場でも寸法確認できる。\n\n【3 層保存】\nIndexedDB（オフライン）· ConoHa VPS（メタ共有）·\n社内 QNAP NAS（大容量マスター）で超高速運用する。\n\n【効果】\n回線コストを抑えつつ、現場プレビューと事務所保管を両立。"
+}

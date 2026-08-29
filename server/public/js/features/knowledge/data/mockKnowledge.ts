@@ -1032,3 +1032,121 @@ export const MOCK_PARAMETRIC_3D_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX/保守DX Part1（末尾追記・3件） */
+export const FACTORY_DX_PART1_KNOWLEDGE_TITLES = [
+  "【製造DX】Revopoint MINI 2連携・PWA 3DビューアーとQNAP/IndexedDBハイブリッド保存",
+  "【製造DX】3Dパラメトリック寸法ナンバリング＆現場リアルタイム差分更新UI",
+  "【保守DX】QRコード直結によるパーツ即時再出力と現場AR原寸重ね合わせ干渉チェック",
+] as const;
+
+const FACTORY_DX_PART1_CREATED_AT = "2026-08-29T16:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に Part1 の 3 件を保持。
+ */
+export const MOCK_FACTORY_DX_PART1_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-revopoint-hybrid-viewer-001",
+    title:
+      "【製造DX】Revopoint MINI 2連携・PWA 3DビューアーとQNAP/IndexedDBハイブリッド保存",
+    summary: [
+      "0.02mm精度の3Dスキャンデータや方眼紙AIデータをThree.jsで一元管理。",
+      "端末内IndexedDB（オフライン）、ConoHa VPS（メタ共有）、",
+      "社内QNAP NAS（大容量マスター保管）の3層保存で超高速運用。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#Revopoint",
+      "#3Dスキャナー",
+      "#QNAP",
+      "#IndexedDB",
+      "#ThreeJS",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART1_CREATED_AT,
+    body: [
+      "【一元ビューアー】",
+      "Revopoint MINI 2（0.02mm 級）スキャンと方眼紙 AI",
+      "生成データを Three.js で同一 PWA に載せる。",
+      "白ベース×navy で現場でも寸法確認できる。",
+      "",
+      "【3 層保存】",
+      "IndexedDB（オフライン）· ConoHa VPS（メタ共有）·",
+      "社内 QNAP NAS（大容量マスター）で超高速運用する。",
+      "",
+      "【効果】",
+      "回線コストを抑えつつ、現場プレビューと事務所保管を両立。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-3d-param-number-delta-ui-001",
+    title:
+      "【製造DX】3Dパラメトリック寸法ナンバリング＆現場リアルタイム差分更新UI",
+    summary: [
+      "3Dモデルの変更可能箇所（幅/高さ/穴径/ピッチ）に「①, ②, ③...」の丸数字バッジを自動付与。",
+      "スライダー操作・音声/テキスト差分・赤ペン再撮影で",
+      "即座に寸法を再計算・再出力する高速UI。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#パラメトリック設計",
+      "#ナンバリング",
+      "#寸法調整",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART1_CREATED_AT,
+    body: [
+      "【丸数字バッジ】",
+      "幅／高さ／穴径／ピッチに ①②③… を自動付与し、",
+      "番号指定でスライダー・音声・テキスト差分を操作する。",
+      "",
+      "【リアルタイム再計算】",
+      "赤ペン再撮影を含む差分入力で寸法を即再計算し、",
+      "STL を再出力する。現物合わせを爆速化する。",
+      "",
+      "【UI】",
+      "大きなタップ領域と高コントラストで屋外でも迷わない。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-qr-ar-reprint-001",
+    title:
+      "【保守DX】QRコード直結によるパーツ即時再出力と現場AR原寸重ね合わせ干渉チェック",
+    summary: [
+      "3Dプリント筐体に刻印したQRからPWAのSTL画面をダイレクト起動。",
+      "WebXR/ARによる現場原寸重ね合わせ確認と",
+      "ワンタップ遠隔3Dプリントで保守手戻りをゼロ化。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#QR連動",
+      "#AR干渉チェック",
+      "#保守DX",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: FACTORY_DX_PART1_CREATED_AT,
+    body: [
+      "【QR 直結】",
+      "3D プリント筐体に刻印した QR から PWA の STL 画面を",
+      "ダイレクト起動する。ログイン後ワンタップで再出力。",
+      "",
+      "【AR 干渉チェック】",
+      "WebXR / AR で現場原寸の重ね合わせ確認を行い、",
+      "干渉・クリアランスをその場で判定する。",
+      "",
+      "【保守効果】",
+      "遠隔 3D プリント連携で手戻りをゼロ化し、月額保守の",
+      "再製作リードタイムを短縮する。",
+    ].join("\n"),
+  },
+];

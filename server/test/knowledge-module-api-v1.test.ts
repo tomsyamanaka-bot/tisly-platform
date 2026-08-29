@@ -71,6 +71,10 @@ const {
   PARAMETRIC_3D_MODULE_SEED_IDS,
   seedParametric3dKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-parametric-3d-seed-v1.js");
+const {
+  FACTORY_DX_PART1_MODULE_SEED_IDS,
+  seedFactoryDxPart1KnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-factory-dx-part1-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -685,6 +689,49 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(numbering);
     assert.match(numbering!.title, /インデックス連動UI/);
     assert.ok(numbering!.tags.includes("#ナンバリング"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends factory DX part1 seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of FACTORY_DX_PART1_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const viewer = listed.find(
+      (x) => x.id === "kn-seed-revopoint-hybrid-viewer-001"
+    );
+    assert.ok(viewer);
+    assert.match(viewer!.title, /ハイブリッド保存/);
+    assert.ok(viewer!.tags.includes("#Revopoint"));
+    assert.ok(viewer!.tags.includes("#QNAP"));
+    const deltaUi = listed.find(
+      (x) => x.id === "kn-seed-3d-param-number-delta-ui-001"
+    );
+    assert.ok(deltaUi);
+    assert.match(deltaUi!.title, /リアルタイム差分更新UI/);
+    assert.ok(deltaUi!.tags.includes("#ナンバリング"));
+    const qrAr = listed.find((x) => x.id === "kn-seed-qr-ar-reprint-001");
+    assert.ok(qrAr);
+    assert.match(qrAr!.title, /AR原寸重ね合わせ/);
+    assert.ok(qrAr!.tags.includes("#QR連動"));
+    assert.ok(qrAr!.tags.includes("#AR干渉チェック"));
+  });
+
+  it("seedFactoryDxPart1KnowledgeCardsV1 upserts searchable cards", () => {
+    seedFactoryDxPart1KnowledgeCardsV1();
+    const viewer = getKnowledgeCardV1("FACTORY-REVOPOINT-HYBRID-VIEWER-001");
+    assert.ok(viewer);
+    assert.match(viewer!.title, /3Dビューアー/);
+    const deltaUi = getKnowledgeCardV1("FACTORY-3D-PARAM-NUMBER-DELTA-UI-001");
+    assert.ok(deltaUi);
+    assert.ok(deltaUi!.tags.includes("#寸法調整"));
+    const qrAr = getKnowledgeCardV1("FACTORY-QR-AR-REPRINT-001");
+    assert.ok(qrAr);
+    assert.match(qrAr!.title, /QRコード直結/);
+    assert.ok(qrAr!.tags.includes("#保守DX"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
