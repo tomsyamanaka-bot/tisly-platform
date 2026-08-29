@@ -1684,3 +1684,14 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Mock | MOCK_IR_BEAM_MOUNT_ITEMS |
 | Card | SEC-IR-BEAM-MOUNT-VISOR-001 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
+
+### Knowledge 製品化DX RJ45ビームハウジング
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 1 件 append |
+| タイトル | TiSLYオリジナル・ポール＆壁面両対応RJ45ビームセンサーハウジング設計 |
+| Module | knowledge-rj45-beam-housing-seed-v1.ts |
+| Mock | MOCK_RJ45_BEAM_HOUSING_ITEMS |
+| Card | SEC-RJ45-BEAM-HOUSING-001 |
+| 確認 | /knowledge · https://tisly.jp/api/health |

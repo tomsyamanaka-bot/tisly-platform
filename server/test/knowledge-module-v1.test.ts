@@ -114,6 +114,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /単管マウント架台/);
     assert.match(mockSrc, /MOCK_IR_BEAM_MOUNT_ITEMS/);
     assert.match(mockSrc, /#TiSLY_Security/);
+    assert.match(mockSrc, /RJ45ビームセンサーハウジング/);
+    assert.match(mockSrc, /MOCK_RJ45_BEAM_HOUSING_ITEMS/);
+    assert.match(mockSrc, /#自社ブランド化/);
   });
 
   it("nav script requires login before loading bundle", () => {

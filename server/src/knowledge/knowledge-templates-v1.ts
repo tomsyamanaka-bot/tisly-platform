@@ -24,6 +24,7 @@ import { seedParametric3dKnowledgeCardsV1 } from "./knowledge-parametric-3d-seed
 import { seedFactoryDxPart1KnowledgeCardsV1 } from "./knowledge-factory-dx-part1-seed-v1.js";
 import { seedFactoryDxPart2KnowledgeCardsV1 } from "./knowledge-factory-dx-part2-seed-v1.js";
 import { seedIrBeamMountKnowledgeCardsV1 } from "./knowledge-ir-beam-mount-seed-v1.js";
+import { seedRj45BeamHousingKnowledgeCardsV1 } from "./knowledge-rj45-beam-housing-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -164,6 +165,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   factoryDxPart1Created: number;
   factoryDxPart2Created: number;
   irBeamMountCreated: number;
+  rj45BeamHousingCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -181,6 +183,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const factoryDxPart1 = seedFactoryDxPart1KnowledgeCardsV1();
   const factoryDxPart2 = seedFactoryDxPart2KnowledgeCardsV1();
   const irBeamMount = seedIrBeamMountKnowledgeCardsV1();
+  const rj45BeamHousing = seedRj45BeamHousingKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -198,5 +201,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     factoryDxPart1Created: factoryDxPart1.length,
     factoryDxPart2Created: factoryDxPart2.length,
     irBeamMountCreated: irBeamMount.length,
+    rj45BeamHousingCreated: rj45BeamHousing.length,
   };
 }

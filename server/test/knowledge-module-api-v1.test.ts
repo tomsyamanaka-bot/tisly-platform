@@ -83,6 +83,10 @@ const {
   IR_BEAM_MOUNT_MODULE_SEED_IDS,
   seedIrBeamMountKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-ir-beam-mount-seed-v1.js");
+const {
+  RJ45_BEAM_HOUSING_MODULE_SEED_IDS,
+  seedRj45BeamHousingKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-rj45-beam-housing-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -821,6 +825,36 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /誤報防止バイザー/);
     assert.ok(card!.tags.includes("#単管マウント"));
     assert.ok(card!.tags.includes("#3Dプリンター"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends RJ45 beam housing seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of RJ45_BEAM_HOUSING_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-rj45-beam-housing-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /RJ45ビームセンサーハウジング/);
+    assert.ok(item!.tags.includes("#自社ブランド化"));
+    assert.ok(item!.tags.includes("#壁面取付"));
+    assert.ok(item!.tags.includes("#RJ45"));
+    assert.ok(item!.tags.includes("#TiSLY_Security"));
+    assert.match(String(item!.body ?? ""), /万能ベースプレート/);
+  });
+
+  it("seedRj45BeamHousingKnowledgeCardsV1 upserts searchable cards", () => {
+    seedRj45BeamHousingKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("SEC-RJ45-BEAM-HOUSING-001");
+    assert.ok(card);
+    assert.match(card!.title, /ポール＆壁面両対応/);
+    assert.ok(card!.tags.includes("#ビームセンサー"));
+    assert.ok(card!.tags.includes("#単管マウント"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

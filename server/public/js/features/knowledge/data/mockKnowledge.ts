@@ -1351,3 +1351,54 @@ export const MOCK_IR_BEAM_MOUNT_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製品化DX・RJ45ビームハウジング（末尾追記） */
+export const RJ45_BEAM_HOUSING_KNOWLEDGE_TITLES = [
+  "【製品化DX】TiSLYオリジナル・ポール＆壁面両対応RJ45ビームセンサーハウジング設計",
+] as const;
+
+const RJ45_BEAM_HOUSING_CREATED_AT = "2026-08-29T22:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に製品化DX 1 件を保持。
+ */
+export const MOCK_RJ45_BEAM_HOUSING_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-rj45-beam-housing-001",
+    title:
+      "【製品化DX】TiSLYオリジナル・ポール＆壁面両対応RJ45ビームセンサーハウジング設計",
+    summary: [
+      "市販ビームセンサーをTiSLYブランド製品として再定義するカスタム筐体。",
+      "φ48.6単管・支柱用R溝（ステンレスバンド/Uボルト対応）と壁面用四隅ビス穴を一体化した万能ベースプレートを設計。",
+      "RJ45プラグ＆プレイ基板とブランドロゴモールドを内蔵し、施工工数を半減させつつ高付加価値化を実現。",
+    ].join("\n"),
+    genre: "セキュリティー",
+    tags: [
+      "#自社ブランド化",
+      "#ビームセンサー",
+      "#単管マウント",
+      "#壁面取付",
+      "#RJ45",
+      "#TiSLY_Security",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: RJ45_BEAM_HOUSING_CREATED_AT,
+    body: [
+      "【万能ベースプレート】",
+      "φ48.6 単管・支柱用 R 溝を設け、",
+      "ステンレスバンド／U ボルト取付に対応。",
+      "壁面用の四隅ビス穴も同一プレートに一体化する。",
+      "",
+      "【RJ45 プラグ＆プレイ】",
+      "市販ビームセンサーを TiSLY ブランド筐体へ再定義。",
+      "RJ45 基板とブランドロゴモールドを内蔵し、",
+      "配線・取付の施工工数を半減する。",
+      "",
+      "【高付加価値化】",
+      "ポール／壁面の両対応で現場選択を一本化し、",
+      "白ベース×navy の PWA で寸法・STL を共有する。",
+    ].join("\n"),
+  },
+];

@@ -61,6 +61,10 @@ import {
   IR_BEAM_MOUNT_MODULE_SEED_IDS,
   getIrBeamMountModuleSeedItemsV1,
 } from "./knowledge-ir-beam-mount-seed-v1.js";
+import {
+  RJ45_BEAM_HOUSING_MODULE_SEED_IDS,
+  getRj45BeamHousingModuleSeedItemsV1,
+} from "./knowledge-rj45-beam-housing-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -841,6 +845,49 @@ function mergeIrBeamMountSeed(
   return { items: next, changed };
 }
 
+/**
+ * 製品化DX・RJ45ビームハウジングを末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeRj45BeamHousingSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(RJ45_BEAM_HOUSING_MODULE_SEED_IDS);
+  const seeds = getRj45BeamHousingModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -888,7 +935,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedPart1 = mergeFactoryDxPart1Seed(mergedParametric.items);
   const mergedPart2 = mergeFactoryDxPart2Seed(mergedPart1.items);
   const mergedIrBeam = mergeIrBeamMountSeed(mergedPart2.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedIrBeam.items);
+  const mergedRj45Housing = mergeRj45BeamHousingSeed(mergedIrBeam.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedRj45Housing.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -904,6 +952,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedPart1.changed ||
     mergedPart2.changed ||
     mergedIrBeam.changed ||
+    mergedRj45Housing.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);
