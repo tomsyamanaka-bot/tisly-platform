@@ -86,6 +86,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(apps.length >= 10);
     const ids = apps.map((a: { id: string }) => a.id);
     assert.ok(ids.includes("floorplan_builder_v1"));
+    assert.ok(ids.includes("print_generator_v1"));
     assert.ok(ids.includes("security_floor_v1"));
     assert.ok(ids.includes("tisly_home_v1"));
     assert.ok(ids.includes("schedule_v1"));
@@ -111,6 +112,25 @@ describe("Phase 461-480 multi PWA app hub", () => {
     );
     assert.equal(floor?.status, "ready");
     assert.match(String(floor?.label ?? ""), /3D間取り/);
+    const printGen = apps.find(
+      (a: { id: string }) => a.id === "print_generator_v1"
+    );
+    assert.equal(printGen?.status, "ready");
+    assert.equal(printGen?.url, "/3d-generator");
+    assert.match(String(printGen?.label ?? ""), /3Dプリンター作成/);
+    // 並び: 間取り → プリンター → Security
+    const floorIdx = ids.indexOf("floorplan_builder_v1");
+    const printIdx = ids.indexOf("print_generator_v1");
+    const secIdx = ids.indexOf("security_floor_v1");
+    assert.ok(floorIdx < printIdx && printIdx < secIdx);
+  });
+
+  it("serves 3d-generator print page", async () => {
+    const res = await request(app).get("/3d-generator");
+    assert.equal(res.status, 200);
+    assert.ok(res.text.includes("3Dプリンター作成"));
+    assert.ok(res.text.includes("print-generator-v1"));
+    assert.ok(res.text.includes("ワンタップ STL"));
   });
 
   it("installer hub field apps omit legacy catalog cards", async () => {
@@ -237,6 +257,8 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2503-print-generator-card") ||
+      sw.text.includes("tisly-pwa-v2502-field-hub-cards-restore") ||
       sw.text.includes("tisly-pwa-v2501-field-hub-clean") ||
       sw.text.includes("tisly-pwa-v2500-dashboard-compact-3d") ||
       sw.text.includes("tisly-pwa-v2471-security-drum") ||

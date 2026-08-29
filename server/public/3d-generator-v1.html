@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TiSLY 3Dプリンター" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2003" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <title>TiSLY — 3Dプリンター作成</title>
+  <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
+  <link rel="stylesheet" href="/css/features/print-generator/print-generator-v1.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body class="pg-body tisly-friendly">
+  <!--
+    現場パーツ・筐体のパラメトリック
+    STL 即時生成コーナー
+  -->
+  <header class="pg-header">
+    <a class="pg-back" href="/app">← App Hub</a>
+    <div>
+      <p class="pg-brand">TiSLY · AIものづくり</p>
+      <h1 class="pg-title">3Dプリンター作成</h1>
+      <p class="pg-sub">オンデマンド造形 / STL生成 · 現場特化パーツ</p>
+    </div>
+  </header>
+
+  <main class="pg-main">
+    <section class="pg-card" aria-label="パーツ選択">
+      <p class="pg-card-label">現場特化テンプレート</p>
+      <div class="pg-tpl-grid" id="pg-tpl-grid" role="listbox" aria-label="テンプレート一覧"></div>
+    </section>
+
+    <section class="pg-layout">
+      <div class="pg-card pg-viewer-card" aria-label="3Dプレビュー">
+        <p class="pg-card-label">3Dプレビュー</p>
+        <div id="pg-canvas-wrap" class="pg-canvas-wrap">
+          <div id="pg-viewer-hint" class="pg-viewer-hint">寸法を動かすと即反映</div>
+        </div>
+        <p class="pg-hint">ドラッグで回転 · ピンチ/ホイールでズーム</p>
+      </div>
+
+      <div class="pg-side">
+        <section class="pg-card" aria-label="寸法スライダー">
+          <p class="pg-card-label">パラメトリック寸法（mm）</p>
+          <div id="pg-sliders" class="pg-sliders"></div>
+        </section>
+
+        <section class="pg-card" aria-label="方眼紙スケッチ">
+          <p class="pg-card-label">方眼紙スケッチ・AI寸法抽出</p>
+          <div class="pg-sketch-row">
+            <label class="pg-btn pg-btn-secondary pg-file-label">
+              方眼紙を撮影/選択
+              <input type="file" id="pg-sketch-input" accept="image/*" capture="environment" hidden />
+            </label>
+            <button type="button" class="pg-btn pg-btn-primary" id="pg-ai-extract-btn">
+              AI寸法抽出
+            </button>
+          </div>
+          <div id="pg-sketch-preview" class="pg-sketch-preview" hidden>
+            <img id="pg-sketch-img" alt="方眼紙スケッチ" />
+          </div>
+          <p id="pg-ai-status" class="pg-hint" role="status"></p>
+        </section>
+
+        <section class="pg-card pg-actions" aria-label="出力">
+          <button type="button" class="pg-btn pg-btn-primary pg-btn-lg" id="pg-stl-btn">
+            ワンタップ STL ダウンロード
+          </button>
+          <a class="pg-btn pg-btn-secondary" href="/print-model-viewer" id="pg-viewer-link">
+            印刷ビューワーで確認
+          </a>
+          <p id="pg-export-status" class="pg-hint" role="status"></p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/features/print-generator/print-generator-v1.js"></script>
+</body>
+</html>

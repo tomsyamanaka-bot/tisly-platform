@@ -496,6 +496,31 @@ const PRACTICAL_PWA_DEFS: Array<
       "super_admin",
     ],
   },
+  // 3Dプリンター作成ジェネレーター（追記・復旧）
+  {
+    id: "print_generator_v1",
+    label: "3Dプリンター作成（オンデマンド造形 / STL生成）",
+    subtitle:
+      "現場特化ブラケット・IoTボックス・方眼紙スケッチから3Dデータ即時出力",
+    icon: "🖨",
+    features: [
+      "パラメトリックスライダー寸法調整",
+      "方眼紙スケッチ・AI寸法抽出",
+      "ワンタップSTLダウンロード",
+      "現場特化マウント・ボックス出力",
+    ],
+    href: "/3d-generator",
+    themeColor: "#0ea5e9",
+    readyRoles: [
+      "surveyor",
+      "installer",
+      "maintenance",
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
@@ -554,6 +579,8 @@ export function buildPracticalHubCardsFiltered(
  */
 export const FIELD_HUB_PRACTICAL_IDS: readonly string[] = [
   "floorplan_builder_v1",
+  // 3Dプリンター作成を間取りの直後へ復旧
+  "print_generator_v1",
   "security_floor_v1",
   "tisly_home_v1",
   "radar_settings_v1",

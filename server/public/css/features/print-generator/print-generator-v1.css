@@ -1,0 +1,279 @@
+/* TiSLY 3Dプリンター作成ジェネレーター
+ * 白ベース × navy · 現場ワンタップ */
+
+:root {
+  --pg-bg: #ffffff;
+  --pg-bg-2: #f8fafc;
+  --pg-navy: #1e3a8a;
+  --pg-ink: #0f172a;
+  --pg-muted: #64748b;
+  --pg-line: #e2e8f0;
+  --pg-ok: #16a34a;
+  --pg-accent: #0ea5e9;
+  --pg-radius: 16px;
+  --pg-shadow: 0 1px 2px rgba(15, 23, 42, 0.06),
+    0 6px 18px rgba(15, 23, 42, 0.07);
+}
+
+.pg-body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--pg-bg) 0%, var(--pg-bg-2) 100%);
+  color: var(--pg-ink);
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+}
+
+.pg-header {
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 8px;
+}
+
+.pg-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--pg-navy);
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.pg-brand {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--pg-navy);
+  text-transform: uppercase;
+}
+
+.pg-title {
+  margin: 2px 0 0;
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: var(--pg-ink);
+}
+
+.pg-sub {
+  margin: 4px 0 0;
+  color: var(--pg-muted);
+  font-size: 0.92rem;
+}
+
+.pg-main {
+  padding: 8px 16px 24px;
+  display: grid;
+  gap: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.pg-card {
+  background: var(--pg-bg);
+  border: 1px solid var(--pg-line);
+  border-radius: var(--pg-radius);
+  box-shadow: var(--pg-shadow);
+  padding: 14px;
+}
+
+.pg-card-label {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--pg-navy);
+  text-transform: uppercase;
+}
+
+.pg-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .pg-tpl-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.pg-tpl-btn {
+  min-height: 72px;
+  border: 2px solid var(--pg-line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--pg-ink);
+  font-weight: 800;
+  font-size: 0.88rem;
+  padding: 10px 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pg-tpl-btn.is-active {
+  border-color: var(--pg-accent);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+  color: var(--pg-navy);
+}
+
+.pg-tpl-btn small {
+  display: block;
+  margin-top: 4px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: var(--pg-muted);
+}
+
+.pg-layout {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .pg-layout {
+    grid-template-columns: 1.2fr 0.9fr;
+    align-items: start;
+  }
+}
+
+.pg-side {
+  display: grid;
+  gap: 14px;
+}
+
+.pg-canvas-wrap {
+  position: relative;
+  height: min(48vh, 420px);
+  min-height: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 55%, #e2e8f0 100%);
+  border: 1px solid var(--pg-line);
+}
+
+.pg-canvas-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.pg-viewer-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  z-index: 2;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--pg-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.pg-sliders {
+  display: grid;
+  gap: 14px;
+}
+
+.pg-field label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.pg-field-value {
+  color: var(--pg-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-range {
+  width: 100%;
+  accent-color: var(--pg-navy);
+  min-height: 28px;
+}
+
+.pg-sketch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pg-sketch-preview {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--pg-line);
+  background: #f1f5f9;
+}
+
+.pg-sketch-preview img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.pg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 800;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.pg-btn-primary {
+  background: var(--pg-navy);
+  color: #fff;
+}
+
+.pg-btn-secondary {
+  background: #fff;
+  color: var(--pg-navy);
+  border: 1.5px solid var(--pg-line);
+}
+
+.pg-btn-lg {
+  width: 100%;
+  min-height: 56px;
+  font-size: 1.02rem;
+  margin-bottom: 8px;
+}
+
+.pg-file-label {
+  flex: 1;
+  min-width: 140px;
+}
+
+.pg-actions .pg-btn-secondary {
+  width: 100%;
+}
+
+.pg-hint {
+  margin: 8px 0 0;
+  color: var(--pg-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.pg-hint.is-ok {
+  color: var(--pg-ok);
+  font-weight: 700;
+}
+
+.pg-hint.is-warn {
+  color: #b45309;
+  font-weight: 700;
+}

@@ -120,6 +120,13 @@ export const MODULE_CATALOG_V1: ModuleCatalogEntryV1[] = [
     description: "STL 確認・印刷時間",
     category: "business",
   },
+  // 3Dプリンター作成ジェネレーター（追記）
+  {
+    id: "print_generator_v1",
+    label: "3Dプリンター作成",
+    description: "現場パーツ・筐体 STL 生成",
+    category: "business",
+  },
   {
     id: "customer_mgmt",
     label: "顧客を見る",

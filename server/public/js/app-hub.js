@@ -578,6 +578,7 @@ function renderPracticalApps(apps) {
       // 主要モジュールを大きめカード強調（現場ワンタップ）
       const featured =
         a.id === "floorplan_builder_v1" ||
+        a.id === "print_generator_v1" ||
         a.id === "security_floor_v1" ||
         a.id === "tisly_home_v1"
           ? " featured field-primary"

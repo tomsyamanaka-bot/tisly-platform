@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2502-field-hub-cards-restore";
+const SW_VERSION = "tisly-pwa-v2503-print-generator-card";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2502-field-hub-cards-restore
  * tisly-pwa-v2501-field-hub-clean
  * tisly-pwa-v2500-dashboard-compact-3d
  * tisly-pwa-v2498-iso3d-pinch-zoom
@@ -13,9 +14,9 @@ const SW_VERSION = "tisly-pwa-v2502-field-hub-cards-restore";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2502-field-hub-cards-restore";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2502-field-hub-cards-restore";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2502-field-hub-cards-restore";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2503-print-generator-card";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2503-print-generator-card";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2503-print-generator-card";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -284,6 +285,13 @@ const SHELL_URLS = [
   "/js/features/floorplan-builder/floorplan-security-bridge-v1.js",
   "/css/features/floorplan-builder/floorplan-builder-v1.css",
   "/images/floorplan/handplan-demo.png",
+  // 3Dプリンター作成ジェネレーター（追記）
+  "/3d-generator",
+  "/3d-generator-v1",
+  "/print-generator",
+  "/app/3d-generator",
+  "/js/features/print-generator/print-generator-v1.js",
+  "/css/features/print-generator/print-generator-v1.css",
   "/customer-view-v1",
   "/customer-view-v1.html",
   "/app/customer-view",

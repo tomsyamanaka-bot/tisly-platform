@@ -97,6 +97,17 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
     label: "3D Floorplan Builder (App)",
     zone: "internal",
   },
+  // 3Dプリンター作成ジェネレーター（追記）
+  {
+    path: "/3d-generator",
+    label: "3Dプリンター作成",
+    zone: "internal",
+  },
+  {
+    path: "/app/3d-generator",
+    label: "3Dプリンター作成 (App)",
+    zone: "internal",
+  },
   {
     path: "/app/price-cost-master",
     label: "価格・原価マスター (App)",

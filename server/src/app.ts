@@ -483,6 +483,17 @@ export function createApp(): express.Application {
   app.get("/tisly_3d_floorplan_builder.html", (_req, res) => {
     res.sendFile(path.join(publicDir, "tisly_3d_floorplan_builder.html"));
   });
+  // 3Dプリンター作成ジェネレーター（追記・復旧）
+  const sendPrintGenerator = (
+    _req: import("express").Request,
+    res: import("express").Response
+  ) => {
+    res.sendFile(path.join(publicDir, "3d-generator-v1.html"));
+  };
+  app.get("/3d-generator", sendPrintGenerator);
+  app.get("/3d-generator-v1", sendPrintGenerator);
+  app.get("/print-generator", sendPrintGenerator);
+  app.get("/app/3d-generator", sendPrintGenerator);
   app.get("/app/push", (_req, res) => {
     res.sendFile(path.join(publicDir, "app-push.html"));
   });

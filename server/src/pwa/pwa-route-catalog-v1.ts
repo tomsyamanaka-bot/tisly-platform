@@ -35,6 +35,11 @@ export const PWA_ROUTE_CATALOG_V1: PwaRouteEntryV1[] = [
   { path: "/tisly-monitoring-3d-v1", label: "Monitoring 3D V1", group: "monitoring", kind: "page" },
   { path: "/print-model-viewer", label: "3Dプリント ビューワー", group: "practical", kind: "page" },
   { path: "/print-model-viewer-v1", label: "3Dプリント ビューワー (v1)", group: "practical", kind: "page" },
+  // 3Dプリンター作成ジェネレーター（追記）
+  { path: "/3d-generator", label: "3Dプリンター作成", group: "practical", kind: "page" },
+  { path: "/3d-generator-v1", label: "3Dプリンター作成 (v1)", group: "practical", kind: "page" },
+  { path: "/app/3d-generator", label: "3Dプリンター作成 (App)", group: "practical", kind: "page" },
+  { path: "/print-generator", label: "3Dプリンター作成 (alias)", group: "practical", kind: "page" },
   { path: "/route-map", label: "Route Map (dev)", group: "diagnostics", kind: "page" },
   { path: "/route-health", label: "Route Health", group: "diagnostics", kind: "page" },
   { path: "/business", label: "TOMS業務", group: "business", kind: "page" },
