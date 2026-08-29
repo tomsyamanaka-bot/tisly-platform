@@ -40,6 +40,7 @@ import type {
   CustomerPortalLandingV1,
   CustomerProjectViewV1,
 } from "./customer-view-model-v1.js";
+import { getEnabledModulesForCustomerV1 } from "../../tenant/customer-enabled-modules-store-v1.js";
 
 function refFromShareId(shareId: string): string {
   return decodeCustomerShareIdV1(shareId);
@@ -52,11 +53,14 @@ export function shareIdFromRef(ref: string): string {
 export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
   const primary = getDefaultCustomerLandingPropertyV1();
   if (!primary) {
+    const code = "TOMS001";
     const home = buildCustomerHomeStateV1({
       shareId: "",
       propertyName: "お客様の物件",
       ref: "",
-      contact: buildContactFromMasterV1("TOMS001"),
+      contact: buildContactFromMasterV1(code),
+      // 契約モジュールで IoT カードを絞る
+      enabledModules: getEnabledModulesForCustomerV1(code),
     });
     return { home, demoProjects: [] };
   }
@@ -67,6 +71,7 @@ export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
     ref: primary.ref,
     contact: buildContactFromMasterV1(primary.customerCode),
     notifications: listCustomerNotificationsForHomeV1(primary.customerCode),
+    enabledModules: getEnabledModulesForCustomerV1(primary.customerCode),
   });
 
   const projects = listProjectListItemsForCustomerV1(primary.customerCode).map((p) => {
@@ -284,6 +289,8 @@ export function buildCustomerHomeByShareIdV1(
     ref,
     contact: buildContactFromMasterV1(customerCode),
     notifications: listCustomerNotificationsForHomeV1(customerCode),
+    // 物件の顧客コードで契約機能のみ表示
+    enabledModules: getEnabledModulesForCustomerV1(customerCode),
   });
 }
 

@@ -124,7 +124,8 @@ export const MODULE_CATALOG_V1: ModuleCatalogEntryV1[] = [
     id: "customer_mgmt",
     label: "顧客を見る",
     description: "お客様情報の一覧",
-    category: "business",
+    // portal: 業務WF（現調/見積）と誤判定しない
+    category: "portal",
   },
   {
     id: "installer",

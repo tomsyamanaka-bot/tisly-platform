@@ -12,6 +12,7 @@ import {
 import {
   buildHubNotificationLinks,
   buildHubWorkflowLinks,
+  roleMeetsBusiness,
 } from "../../pwa/hub-insights.js";
 import { buildHubOperations } from "../../toms/hub-operations.js";
 import { buildPwaPublishAudit } from "../../pwa/pwa-publish-audit.js";
@@ -85,7 +86,11 @@ pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
     (enabledModules.includes("*") ||
       enabledModules.includes("ops_deploy") ||
       isInternalOpsCustomerV1(customerCode));
-  const showBusiness = hasBusinessModulesV1(enabledModules);
+  // 社内業務UIは「業務モジュールあり」かつ業務ロールのみ
+  const showBusiness =
+    hasBusinessModulesV1(enabledModules) && roleMeetsBusiness(role);
+  // 下部ナビ（日程/現調/見積…）も社内業務のみ
+  const showPracticalNav = showBusiness;
 
   res.json({
     role,
@@ -93,6 +98,7 @@ pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
     enabledModules,
     practicalApps,
     showOpsPanels: showOps,
+    showPracticalNav,
     apps: cards,
     workflows: showBusiness
       ? buildHubWorkflowLinks(customerCode, role)

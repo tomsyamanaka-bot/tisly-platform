@@ -227,6 +227,9 @@ function roleMeetsMaintenance(role: string): boolean {
   return ["maintenance", "manager", "owner", "admin", "super_admin"].includes(role);
 }
 
-function roleMeetsBusiness(role: string): boolean {
-  return ["surveyor", "manager", "owner", "admin", "super_admin"].includes(role);
+/** 社内業務（現調・見積・KPI）ロール判定 */
+export function roleMeetsBusiness(role: string): boolean {
+  return ["surveyor", "manager", "owner", "admin", "super_admin"].includes(
+    role
+  );
 }

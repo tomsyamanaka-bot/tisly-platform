@@ -57,6 +57,18 @@ function bindNavLink(el) {
  * @param {{ appId: string; appName: string; theme?: 'green'|'blue'|'hub'|'orange'; onBack?: () => void }} opts
  */
 export function initPracticalNav(opts) {
+  // お客様ゾーンでは社内下部ナビを絶対に出さない
+  const path = String(location?.pathname || "");
+  if (path === "/customer" || path.startsWith("/customer/")) {
+    return {
+      setTitle() {},
+      setBackVisible() {},
+      setBackHandler() {},
+      setForwardEnabled() {},
+      setToast() {},
+      syncHistoryButtons() {},
+    };
+  }
   const { appId, appName, theme = "green", onBack } = opts;
   initNavigationStack();
   document.body.classList.add("has-practical-nav");

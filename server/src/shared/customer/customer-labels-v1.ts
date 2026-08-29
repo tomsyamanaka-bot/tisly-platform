@@ -58,7 +58,51 @@ export const CUSTOMER_HOME_CARDS_V1 = [
     label: "ホームセキュリティ",
     path: "/customer/security",
   },
+  // ミリ波レーダー見守り（追記 — 既存カードは変更しない）
+  {
+    id: "radar_watch",
+    emoji: "📡",
+    label: "ミリ波レーダー見守り",
+    path: "/customer/home",
+  },
 ] as const;
+
+/**
+ * 顧客ホームカード → 有効モジュール対応。
+ * null は常時表示（マニュアル・連絡など）。
+ * 既存マップは追記のみ。
+ */
+export const CUSTOMER_HOME_CARD_MODULE_MAP_V1: Record<
+  string,
+  string | null
+> = {
+  camera: null,
+  alerts: null,
+  notifications: null,
+  documents: null,
+  maintenance: null,
+  contact: null,
+  eco_water: "eco_water_v1",
+  gas_monitor: "gas_monitor_v1",
+  demand_security: "demand_security_v1",
+  tisly_home: "tisly_home_v1",
+  home_security: "security_floor_v1",
+  radar_watch: "radar_settings_v1",
+};
+
+/** 契約モジュールに基づき顧客ホームカードを表示するか */
+export function isCustomerHomeCardEnabledV1(
+  cardId: string,
+  enabledModules?: string[] | null
+): boolean {
+  // 未指定時は従来どおり全カード（後方互換）
+  if (!enabledModules || enabledModules.length === 0) return true;
+  if (enabledModules.includes("*")) return true;
+  const mapped = CUSTOMER_HOME_CARD_MODULE_MAP_V1[cardId];
+  if (mapped === undefined) return true;
+  if (mapped === null) return true;
+  return enabledModules.includes(mapped);
+}
 
 /** /customer DOM・API に出してはいけない語（検査用） */
 export const CUSTOMER_FORBIDDEN_WORDS_V1 = [

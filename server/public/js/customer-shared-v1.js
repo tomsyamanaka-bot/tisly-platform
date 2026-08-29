@@ -1,10 +1,10 @@
-// @tisly-customer-js-version customer-v1-phase27
+// @tisly-customer-js-version customer-v1-phase28-zone
 /**
  * お客様 UI 描画ロジック — DOM 操作を集約（React Native 移植時は差し替え）
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
-export const CUSTOMER_JS_VERSION = "customer-v1-phase27";
+export const CUSTOMER_JS_VERSION = "customer-v1-phase28-zone";
 
 export const CUSTOMER_HOME_LABELS = {
   currentStatus: "現在の状態",
@@ -58,18 +58,51 @@ export function renderHomeStatus(data) {
 }
 
 export function renderHomeCards(cards) {
+  const list = cards || [];
+  // 契約機能カード（HOME / Security / デマンド等）
+  const productIds = new Set([
+    "tisly_home",
+    "home_security",
+    "radar_watch",
+    "demand_security",
+    "eco_water",
+    "gas_monitor",
+  ]);
+  // マニュアル・契約・連絡など常設
+  const coreIds = new Set([
+    "documents",
+    "maintenance",
+    "contact",
+    "camera",
+    "alerts",
+    "notifications",
+  ]);
+  const products = list.filter((c) => productIds.has(c.id));
+  const core = list.filter((c) => coreIds.has(c.id));
+  const rest = list.filter(
+    (c) => !productIds.has(c.id) && !coreIds.has(c.id)
+  );
+
+  const cardHtml = (c) =>
+    `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
+      <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
+      <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
+    </a>`;
+
+  const section = (title, items, extraClass = "") => {
+    if (!items.length) return "";
+    return `
+      <section class="cv-card-section" aria-label="${escapeHtml(title)}">
+        <h2 class="cv-section-title">${escapeHtml(title)}</h2>
+        <div class="cv-card-grid ${extraClass}">
+          ${items.map(cardHtml).join("")}
+        </div>
+      </section>`;
+  };
+
   return `
-    <section class="cv-card-grid" aria-label="メニュー">
-      ${(cards || [])
-        .map(
-          (c) =>
-            `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
-              <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
-              <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
-            </a>`
-        )
-        .join("")}
-    </section>
+    ${section("ご契約の機能", products, "cv-card-grid-product")}
+    ${section("ご利用メニュー", [...core, ...rest])}
   `;
 }
 

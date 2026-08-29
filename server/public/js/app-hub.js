@@ -710,6 +710,13 @@ async function loadHubApps() {
           </a>`
       )
       .join("");
+  } else {
+    // 顧客・非業務ロールでは導線を完全非表示
+    wfTitle?.setAttribute("hidden", "");
+    if (wf) {
+      wf.hidden = true;
+      wf.innerHTML = "";
+    }
   }
   const ops = data.operations;
   if (ops) {
@@ -753,7 +760,32 @@ async function loadHubApps() {
     if ((ops.maintenanceOverdue ?? 0) > 0) {
       highlightAnomalyCard('a[href="/maintenance"].warn-card');
     }
+  } else {
+    // 顧客テナントではオペレーションを完全除去
+    document.getElementById("hub-ops-panel")?.remove();
   }
+  // 社内下部ナビは業務ロールのみ
+  ensurePracticalNav(data.showPracticalNav === true);
+}
+
+/** 顧客ログイン時は実務下部ナビを破棄 */
+function ensurePracticalNav(show) {
+  const bottom = document.getElementById("tisly-practical-bottomnav-root");
+  const top = document.getElementById("tisly-practical-topbar-root");
+  if (!show) {
+    bottom?.remove();
+    top?.remove();
+    document.body.classList.remove("has-practical-nav");
+    return;
+  }
+  if (bottom && top) return;
+  const hubNav = initPracticalNav({
+    appId: "hub",
+    appName: "業務アプリ",
+    theme: "hub",
+    onBack: () => navigateBackOne("/app"),
+  });
+  hubNav.setBackVisible(false);
 }
 
 document.getElementById("btn-hub-login")?.addEventListener("click", async () => {
@@ -786,11 +818,5 @@ if (sessionStorage.getItem(TOKEN_KEY)) {
     loadHubApps();
   }
 }
+// 未ログイン時は下部ナビを出さない（ログイン後に ensurePracticalNav）
 
-const hubNav = initPracticalNav({
-  appId: "hub",
-  appName: "業務アプリ",
-  theme: "hub",
-  onBack: () => navigateBackOne("/app"),
-});
-hubNav.setBackVisible(false);

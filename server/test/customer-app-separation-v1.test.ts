@@ -65,4 +65,29 @@ describe("customer-app-separation-v1 — HTML", () => {
     assert.equal(body.start_url, "/customer");
     assert.equal(getNavZoneV1(body.start_url), "customer");
   });
+
+  it("customer home HTML has no practical bottom nav", async () => {
+    const res = await request(app).get("/customer");
+    assert.equal(res.status, 200);
+    assert.doesNotMatch(res.text, /tisly-practical-nav/);
+    assert.doesNotMatch(res.text, /今日のオペレーション/);
+    assert.doesNotMatch(res.text, /ワークフロー導線/);
+    assert.doesNotMatch(res.text, /schedule-v1/);
+  });
+
+  it("practical nav JS guards /customer paths", () => {
+    const js = fs.readFileSync(
+      path.join(publicDir, "js/tisly-practical-nav.js"),
+      "utf-8"
+    );
+    assert.ok(js.includes('path.startsWith("/customer/")'));
+    assert.ok(js.includes('path === "/customer"'));
+  });
+
+  it("app-hub JS removes ops for non-business and gates practical nav", () => {
+    const js = fs.readFileSync(path.join(publicDir, "js/app-hub.js"), "utf-8");
+    assert.ok(js.includes("ensurePracticalNav"));
+    assert.ok(js.includes("showPracticalNav"));
+    assert.ok(js.includes('getElementById("hub-ops-panel")?.remove()'));
+  });
 });

@@ -253,3 +253,31 @@
   .cv-action-row { grid-template-columns: repeat(3, 1fr); }
   .cv-action-row-prominent { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* 顧客ホーム最適化（追記）— navy 基調・セクション見出し */
+.customer-v1 {
+  --cv-navy: #1e3a8a;
+}
+.customer-v1 header {
+  border-bottom-color: var(--cv-navy);
+}
+.cv-card-section {
+  margin-bottom: 1.15rem;
+}
+.cv-card-section .cv-section-title {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--cv-navy);
+  letter-spacing: 0.02em;
+}
+.cv-card-grid-product .cv-big-card {
+  border-color: #93c5fd;
+  min-height: 148px;
+  background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+}
+.cv-card-grid-product .cv-big-card:active {
+  border-color: var(--cv-navy);
+  box-shadow: 0 4px 16px rgba(30, 58, 138, 0.22);
+}
+

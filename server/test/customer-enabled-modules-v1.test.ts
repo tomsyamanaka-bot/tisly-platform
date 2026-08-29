@@ -197,12 +197,50 @@ describe("customer enabled modules / tenant filter v1", () => {
       .set("Authorization", `Bearer ${tomsAdmin}`);
     assert.equal(hub.status, 200);
     assert.equal(hub.body.showOpsPanels, true);
+    assert.equal(hub.body.showPracticalNav, true);
     assert.ok(
       (hub.body.practicalApps || []).some(
         (a: { id: string }) => a.id === "schedule_v1"
       )
     );
     assert.ok((hub.body.notifications || []).length > 0);
+    assert.ok(hub.body.operations != null);
+    assert.ok((hub.body.workflows || []).length > 0);
+  });
+
+  it("HOTEL001 without business modules hides ops / workflows / practical nav", async () => {
+    // PATCH 後も business 無しなら社内UIは出ない
+    const mods = getEnabledModulesForCustomerV1("HOTEL001");
+    assert.ok(!mods.includes("*"));
+    assert.ok(!mods.includes("schedule_v1"));
+
+    const hub = await request(app)
+      .get("/api/pwa/hub")
+      .set("Authorization", `Bearer ${hotelOwner}`);
+    assert.equal(hub.status, 200);
+    assert.equal(hub.body.showOpsPanels, false);
+    assert.equal(hub.body.showPracticalNav, false);
+    assert.equal(hub.body.operations, null);
+    assert.deepEqual(hub.body.workflows || [], []);
+    assert.deepEqual(hub.body.notifications || [], []);
+    const wfLabels = (hub.body.workflows || []).map(
+      (w: { label: string }) => w.label
+    );
+    assert.ok(
+      !wfLabels.some((l: string) => /Drawing|顧客台帳|TOMS KPI/i.test(l))
+    );
+  });
+
+  it("customer_mgmt is portal category (not business)", async () => {
+    const { MODULE_CATALOG_V1, hasBusinessModulesV1 } = await import(
+      "../src/tenant/customer-enabled-modules-v1.js"
+    );
+    const mgmt = MODULE_CATALOG_V1.find((m) => m.id === "customer_mgmt");
+    assert.equal(mgmt?.category, "portal");
+    assert.equal(
+      hasBusinessModulesV1(["customer_mgmt", "customer_portal"]),
+      false
+    );
   });
 
   it("store upsert persists modules", () => {

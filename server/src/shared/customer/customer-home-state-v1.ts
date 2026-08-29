@@ -12,7 +12,7 @@ import {
   CUSTOMER_HOME_LABELS_V1,
   CUSTOMER_PAGE_TITLE_V1,
   CUSTOMER_SYSTEM_STATUS_V1,
-  formatCustomerLastCheckedV1,
+  isCustomerHomeCardEnabledV1,
   type CustomerSystemStatusKeyV1,
 } from "./customer-labels-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
@@ -46,13 +46,17 @@ export function buildCustomerHomeStateV1(opts: {
   ref?: string;
   contact?: CustomerContactV1;
   notifications?: CustomerNotificationV1[];
+  /** 契約モジュール。未指定時は全カード表示 */
+  enabledModules?: string[] | null;
 }): CustomerHomeViewV1 {
   const ref = opts.ref ?? decodeCustomerShareIdV1(opts.shareId);
   const monitoring = buildCustomerMonitoringDetailV1(opts.shareId, opts.propertyName, ref);
   const systemKey = monitoring.systemStatus as CustomerSystemStatusKeyV1;
   const system = CUSTOMER_SYSTEM_STATUS_V1[systemKey];
 
-  const cards: CustomerHomeCardV1[] = CUSTOMER_HOME_CARDS_V1.map((c) => ({
+  const cards: CustomerHomeCardV1[] = CUSTOMER_HOME_CARDS_V1.filter((c) =>
+    isCustomerHomeCardEnabledV1(c.id, opts.enabledModules)
+  ).map((c) => ({
     id: c.id,
     emoji: c.emoji,
     label: c.label,
