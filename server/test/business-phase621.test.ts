@@ -152,7 +152,13 @@ describe("Phase 621-660 TOMS unified workflow", () => {
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(hub.status, 200);
-    assert.ok(hub.body.operations);
+    // /app ではオペレーションカードを非表示
+    assert.equal(hub.body.operations, null);
+    const { buildHubOperations } = await import(
+      "../src/toms/hub-operations.js"
+    );
+    const ops = buildHubOperations("TOMS001");
+    assert.ok(ops);
   });
 
   it("workflow states catalog", () => {

@@ -218,10 +218,16 @@ describe("Phase 521-540 TOMS business PWA foundation", () => {
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(hub.status, 200);
-    const wf = hub.body.workflows || [];
+    // /app ではワークフロー・その他アプリを非表示
+    assert.deepEqual(hub.body.workflows || [], []);
+    assert.deepEqual(hub.body.apps || [], []);
+    const { buildHubWorkflowLinks } = await import(
+      "../src/pwa/hub-insights.js"
+    );
+    const wf = buildHubWorkflowLinks("TOMS001", "admin");
     assert.ok(wf.some((w: { id: string }) => w.id === "business_pwa"));
-    assert.ok(wf.some((w: { id: string }) => w.id === "business_estimate_pending"));
-    const apps = hub.body.apps || [];
-    assert.ok(apps.some((a: { id: string }) => a.id === "business"));
+    assert.ok(
+      wf.some((w: { id: string }) => w.id === "business_estimate_pending")
+    );
   });
 });

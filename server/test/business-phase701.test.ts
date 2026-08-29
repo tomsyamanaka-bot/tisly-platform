@@ -192,8 +192,13 @@ describe("Phase 701-740 live operations", () => {
       .get("/api/pwa/hub")
       .set("Authorization", "Bearer " + token);
     assert.equal(res.status, 200);
-    assert.ok(typeof res.body.operations.maintenanceDueSoon === "number");
-    assert.ok(typeof res.body.operations.retryQueuePending === "number");
+    assert.equal(res.body.operations, null);
+    const { buildHubOperations } = await import(
+      "../src/toms/hub-operations.js"
+    );
+    const ops = buildHubOperations("TOMS001");
+    assert.ok(typeof ops.maintenanceDueSoon === "number");
+    assert.ok(typeof ops.retryQueuePending === "number");
   });
 
   it("unified PDF specification render", async () => {

@@ -190,13 +190,13 @@ describe("案件ダッシュボード v1", () => {
     );
   });
 
-  it("下部ナビ案件タブはダッシュボードへ", async () => {
+  it("下部ナビ案件タブは案件一覧へ", async () => {
     const res = await request(app).get("/js/tisly-practical-nav.js");
     assert.equal(res.status, 200);
-    assert.ok(res.text.includes('href: "/project-dashboard-v1"'));
+    assert.ok(res.text.includes('href: "/projects-v1"'));
   });
 
-  it("App Hub に案件ダッシュボードカード", async () => {
+  it("App Hub は案件ダッシュボードを現場カードから除外", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${token}`);
@@ -204,9 +204,14 @@ describe("案件ダッシュボード v1", () => {
     const dash = (res.body.practicalApps ?? []).find(
       (a: { id: string }) => a.id === "project_dashboard_v1"
     );
-    assert.ok(dash);
-    assert.equal(dash.url, "/project-dashboard-v1");
-    assert.equal(dash.status, "ready");
+    assert.equal(dash, undefined);
+    // 定義自体は残存（buildPracticalHubCards）
+    const { buildPracticalHubCards } = await import("../src/pwa/pwa-hub.js");
+    const full = buildPracticalHubCards("admin").find(
+      (a) => a.id === "project_dashboard_v1"
+    );
+    assert.ok(full);
+    assert.equal(full.url, "/project-dashboard-v1");
   });
 
   it("案件詳細リンクに return パラメータ", async () => {

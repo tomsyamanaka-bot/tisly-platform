@@ -178,8 +178,13 @@ describe("Phase 661-700 command center", () => {
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${token}`);
     assert.equal(res.status, 200);
-    assert.ok(typeof res.body.operations.unsentEstimates === "number");
-    assert.ok(typeof res.body.operations.aiEstimatePending === "number");
+    assert.equal(res.body.operations, null);
+    const { buildHubOperations } = await import(
+      "../src/toms/hub-operations.js"
+    );
+    const ops = buildHubOperations("TOMS001");
+    assert.ok(typeof ops.unsentEstimates === "number");
+    assert.ok(typeof ops.aiEstimatePending === "number");
   });
 
   it("serves kpi and dashboard HTML", async () => {

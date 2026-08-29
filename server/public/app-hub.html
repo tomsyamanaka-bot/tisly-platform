@@ -34,7 +34,9 @@
   <main id="hub-apps-panel" hidden>
     <p id="hub-role-label" class="hub-role-friendly"></p>
     <h2 class="practical-title">📱 今日使うアプリ</h2>
-    <p class="practical-subtitle">現調・見積は大きいカードから開けます</p>
+    <p class="practical-subtitle">
+      現場で使う実用モジュールだけを表示しています
+    </p>
     <p class="hint" id="pwa-icon-hint">📱 ホーム画面アイコンが古い緑のままのときは、一度削除してから <strong>ホーム画面に追加</strong> し直してください（青 TiSLY ロゴ）。</p>
     <div id="hub-practical-grid" class="hub-practical-grid"></div>
     <section id="hub-monitoring-properties" class="hub-monitoring-section" hidden>
@@ -44,18 +46,20 @@
       </p>
       <div id="hub-monitoring-grid" class="hub-monitoring-grid"></div>
     </section>
-    <details id="hub-more-apps" class="hub-more-details">
+    <!-- その他アプリは現場ハブでは非表示（API が空配列） -->
+    <details id="hub-more-apps" class="hub-more-details" hidden>
       <summary>その他のアプリ</summary>
       <div id="hub-app-grid" class="hub-app-grid"></div>
     </details>
+    <!-- 通知・ワークフローは現場ハブから隔離 -->
     <h3 class="hub-workflows-title" id="hub-notif-title" hidden>通知・Push</h3>
     <div id="hub-notif-grid" class="hub-app-grid" hidden></div>
     <h3 class="hub-workflows-title" id="hub-workflow-title" hidden>ワークフロー導線</h3>
     <div id="hub-workflow-grid" class="hub-workflow-grid" hidden></div>
     <p class="hint hub-tv-hint">Google TV は PWA ではなく TV 専用アプリ（<code>/tv/:code</code>）です。</p>
   </main>
-  <!-- 社内オペのみ表示（顧客ログイン時は非表示） -->
-  <div id="ops-panels-wrap" hidden>
+  <!-- 社内 Deploy/監査 — /app メイン一覧では常時非表示（DOM のみ残置） -->
+  <div id="ops-panels-wrap" hidden aria-hidden="true">
   <section id="rehearsal-summary-card" class="card rehearsal-summary-card">
     <h2>Deployment Summary</h2>
     <p class="hint">Phase 1581–1620 Production Deployment Rehearsal</p>
@@ -122,7 +126,7 @@
     <button type="button" class="btn btn-secondary" id="btn-publish-audit-refresh">再読み込み</button>
   </section>
   </div>
-  <footer id="app-version-footer" class="app-version-footer" aria-label="ビルド情報">
+  <footer id="app-version-footer" class="app-version-footer" aria-label="ビルド情報" hidden>
     <span class="version-label">TiSLY RC2</span>
     <span id="version-build">Build —</span>
     <span id="version-commit">Commit —</span>

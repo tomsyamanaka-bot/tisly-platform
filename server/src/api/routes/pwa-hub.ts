@@ -2,26 +2,16 @@ import { Router } from "express";
 import type { AuthedRequest } from "../../auth/auth-middleware.js";
 import { requireAuth } from "../../auth/auth-middleware.js";
 import {
-  buildHubCardsFiltered,
-  buildPracticalHubCardsFiltered,
+  buildFieldHubPracticalCards,
   canAccessPwa,
   type PwaAppId,
   PWA_APP_CATALOG,
-  showOpsPanelsForRole,
 } from "../../pwa/pwa-hub.js";
-import {
-  buildHubNotificationLinks,
-  buildHubWorkflowLinks,
-  roleMeetsBusiness,
-} from "../../pwa/hub-insights.js";
-import { buildHubOperations } from "../../toms/hub-operations.js";
+import { roleMeetsBusiness } from "../../pwa/hub-insights.js";
 import { buildPwaPublishAudit } from "../../pwa/pwa-publish-audit.js";
 import { listPropertyPortMappingsV1 } from "../../device/device-port-config-v1.js";
 import { getPropertyByIdV1 } from "../../shared/customer/customer-property-master-v1.js";
-import {
-  hasBusinessModulesV1,
-  isInternalOpsCustomerV1,
-} from "../../tenant/customer-enabled-modules-v1.js";
+import { hasBusinessModulesV1 } from "../../tenant/customer-enabled-modules-v1.js";
 import { getEnabledModulesForCustomerV1 } from "../../tenant/customer-enabled-modules-store-v1.js";
 
 export const pwaHubRouter = Router();
@@ -66,26 +56,14 @@ pwaHubRouter.get("/publish-audit", (_req, res) => {
 pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
   const role = req.admin?.role ?? "viewer";
   const customerCode = (req.admin?.customerCode ?? "TOMS001").toUpperCase();
-  const installerSurveyOptional =
-    process.env.TISLY_INSTALLER_SURVEY_OPTIONAL === "true";
 
   // 顧客コードに紐づく有効モジュールで出し分け
   const enabledModules = getEnabledModulesForCustomerV1(customerCode);
-  const cards = buildHubCardsFiltered(
-    role,
-    customerCode,
-    enabledModules,
-    { installerSurveyOptional }
-  );
-  const practicalApps = buildPracticalHubCardsFiltered(
+  // /app は現場実用カードのみ（内部運用・デプロイ系は非表示）
+  const practicalApps = buildFieldHubPracticalCards(
     role,
     enabledModules
   );
-  const showOps =
-    showOpsPanelsForRole(role, customerCode) &&
-    (enabledModules.includes("*") ||
-      enabledModules.includes("ops_deploy") ||
-      isInternalOpsCustomerV1(customerCode));
   // 社内業務UIは「業務モジュールあり」かつ業務ロールのみ
   const showBusiness =
     hasBusinessModulesV1(enabledModules) && roleMeetsBusiness(role);
@@ -97,18 +75,13 @@ pwaHubRouter.get("/hub", requireAuth("viewer"), (req: AuthedRequest, res) => {
     customerCode,
     enabledModules,
     practicalApps,
-    showOpsPanels: showOps,
+    // Deploy / 監査 / オペレーションは /app から完全隔離
+    showOpsPanels: false,
     showPracticalNav,
-    apps: cards,
-    workflows: showBusiness
-      ? buildHubWorkflowLinks(customerCode, role)
-      : [],
-    notifications: showBusiness
-      ? buildHubNotificationLinks(role)
-      : [],
-    operations: showBusiness
-      ? buildHubOperations(customerCode)
-      : null,
+    apps: [],
+    workflows: [],
+    notifications: [],
+    operations: null,
     monitoredProperties: buildMonitoredProperties(customerCode),
     switcher: Object.values(PWA_APP_CATALOG).map((c) => ({
       id: c.id,

@@ -89,5 +89,7 @@ describe("customer-app-separation-v1 — HTML", () => {
     assert.ok(js.includes("ensurePracticalNav"));
     assert.ok(js.includes("showPracticalNav"));
     assert.ok(js.includes('getElementById("hub-ops-panel")?.remove()'));
+    // 現場ハブでは ops を常時非表示
+    assert.ok(js.includes("Deploy / 監査を常時非表示"));
   });
 });

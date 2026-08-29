@@ -77,86 +77,88 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(es.text.includes("見積待ち一覧"));
   });
 
-  it("surveyor hub includes practicalApps cards", async () => {
+  it("surveyor hub includes field practicalApps only", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
     const apps = res.body.practicalApps || [];
     assert.ok(apps.length >= 6);
+    const ids = apps.map((a: { id: string }) => a.id);
+    assert.ok(ids.includes("schedule_v1"));
+    assert.ok(ids.includes("radar_settings_v1"));
+    assert.ok(ids.includes("voice_hub_v1"));
+    assert.ok(ids.includes("documents_v1"));
+    assert.ok(!ids.includes("survey_v1"));
+    assert.ok(!ids.includes("estimate_v1"));
+    assert.ok(!ids.includes("eco_water_v1"));
+    assert.ok(!ids.includes("knowledge_module_v1"));
+    assert.equal(res.body.showOpsPanels, false);
+    assert.equal(res.body.operations, null);
+    assert.deepEqual(res.body.workflows || [], []);
     const schedule = apps.find((a: { id: string }) => a.id === "schedule_v1");
-    const survey = apps.find((a: { id: string }) => a.id === "survey_v1");
-    const estimate = apps.find((a: { id: string }) => a.id === "estimate_v1");
     assert.equal(schedule?.status, "ready");
-    assert.equal(survey?.status, "ready");
-    assert.equal(estimate?.status, "ready");
-    const work = apps.find((a: { id: string }) => a.id === "work_report");
-    assert.equal(work?.status, "coming_soon");
-    assert.equal(work?.statusLabel, "準備中");
-    const knowledge = apps.find((a: { id: string }) => a.id === "knowledge_module_v1");
-    assert.equal(knowledge?.status, "ready");
-    assert.equal(knowledge?.statusLabel, "使えます");
-    assert.equal(knowledge?.url, "/knowledge-module-v1");
-    const printViewer = apps.find((a: { id: string }) => a.id === "print_model_viewer_v1");
-    assert.equal(printViewer?.status, "ready");
-    assert.equal(printViewer?.url, "/print-model-viewer");
-    const ecoWater = apps.find((a: { id: string }) => a.id === "eco_water_v1");
-    assert.equal(ecoWater?.status, "ready");
-    assert.equal(ecoWater?.url, "/eco-water-v1");
     const voiceHub = apps.find((a: { id: string }) => a.id === "voice_hub_v1");
     assert.equal(voiceHub?.status, "ready");
     assert.equal(voiceHub?.url, "/voice-hub-v1");
     assert.match(String(voiceHub?.label ?? ""), /通話音声/);
   });
 
-  it("installer hub shows install only", async () => {
+  it("installer hub field apps omit legacy catalog cards", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${installerToken}`);
     assert.equal(res.status, 200);
-    const ids = res.body.apps.map((a: { id: string }) => a.id);
-    assert.deepEqual(ids, ["installer"]);
+    assert.deepEqual(res.body.apps || [], []);
+    const ids = (res.body.practicalApps || []).map(
+      (a: { id: string }) => a.id
+    );
+    assert.ok(ids.includes("device_binding_v1"));
+    assert.ok(ids.includes("tisly_home_v1"));
   });
 
-  it("surveyor hub shows survey and business", async () => {
+  it("surveyor hub omits legacy catalog apps from field hub", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${surveyorToken}`);
     assert.equal(res.status, 200);
-    const ids = res.body.apps.map((a: { id: string }) => a.id);
-    assert.deepEqual(ids, ["schedule_v1", "survey_v1", "estimate_v1", "survey", "business"]);
+    assert.deepEqual(res.body.apps || [], []);
+    assert.ok(
+      (res.body.practicalApps || []).some(
+        (a: { id: string }) => a.id === "schedule_v1"
+      )
+    );
   });
 
-  it("admin hub shows all PWAs", async () => {
+  it("admin hub field view hides legacy PWA catalog cards", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${adminToken}`);
     assert.equal(res.status, 200);
-    const ids = res.body.apps.map((a: { id: string }) => a.id);
-    assert.ok(ids.includes("installer"));
-    assert.ok(ids.includes("survey"));
-    assert.ok(ids.includes("pro_remote"));
-    assert.ok(ids.includes("maintenance"));
-    assert.ok(ids.includes("customer_portal"));
-    assert.ok(ids.includes("admin"));
-    assert.ok(ids.includes("business"));
+    assert.deepEqual(res.body.apps || [], []);
+    assert.equal(res.body.showOpsPanels, false);
+    const ids = (res.body.practicalApps || []).map(
+      (a: { id: string }) => a.id
+    );
     assert.ok(ids.includes("schedule_v1"));
-    assert.ok(ids.includes("survey_v1"));
-    assert.ok(ids.includes("estimate_v1"));
-    assert.equal(ids.length, 10);
+    assert.ok(ids.includes("security_floor_v1"));
+    assert.ok(!ids.includes("admin"));
   });
 
-  it("admin hub shows notification menu links", async () => {
+  it("admin hub hides notification menu on field hub", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${adminToken}`);
     assert.equal(res.status, 200);
-    const ids = (res.body.notifications || []).map((n: { id: string }) => n.id);
-    assert.deepEqual(ids, ["notification_center", "push_register", "notification_test"]);
-    const hrefs = (res.body.notifications || []).map((n: { href: string }) => n.href);
-    assert.ok(hrefs.includes("/app/notifications"));
-    assert.ok(hrefs.includes("/app/push"));
-    assert.ok(hrefs.includes("/app/push#notification-test"));
+    assert.deepEqual(res.body.notifications || [], []);
+    const { buildHubNotificationLinks } = await import(
+      "../src/pwa/hub-insights.js"
+    );
+    const links = buildHubNotificationLinks("admin");
+    assert.deepEqual(
+      links.map((n) => n.id),
+      ["notification_center", "push_register", "notification_test"]
+    );
   });
 
   it("installer hub hides notification menu links", async () => {
@@ -226,6 +228,8 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2501-field-hub-clean") ||
+      sw.text.includes("tisly-pwa-v2500-dashboard-compact-3d") ||
       sw.text.includes("tisly-pwa-v2471-security-drum") ||
       sw.text.includes("tisly-pwa-v2470-security-svg") ||
       sw.text.includes("tisly-pwa-v2469-security-light") ||

@@ -191,21 +191,29 @@ describe("customer enabled modules / tenant filter v1", () => {
     assert.equal(hub.body.operations, null);
   });
 
-  it("TOMS001 admin hub still shows ops and business apps", async () => {
+  it("TOMS001 admin hub hides ops and shows field practical apps only", async () => {
     const hub = await request(app)
       .get("/api/pwa/hub")
       .set("Authorization", `Bearer ${tomsAdmin}`);
     assert.equal(hub.status, 200);
-    assert.equal(hub.body.showOpsPanels, true);
+    assert.equal(hub.body.showOpsPanels, false);
     assert.equal(hub.body.showPracticalNav, true);
     assert.ok(
       (hub.body.practicalApps || []).some(
         (a: { id: string }) => a.id === "schedule_v1"
       )
     );
-    assert.ok((hub.body.notifications || []).length > 0);
-    assert.ok(hub.body.operations != null);
-    assert.ok((hub.body.workflows || []).length > 0);
+    assert.deepEqual(hub.body.notifications || [], []);
+    assert.equal(hub.body.operations, null);
+    assert.deepEqual(hub.body.workflows || [], []);
+    assert.deepEqual(hub.body.apps || [], []);
+    const ids = (hub.body.practicalApps || []).map(
+      (a: { id: string }) => a.id
+    );
+    assert.ok(!ids.includes("survey_v1"));
+    assert.ok(!ids.includes("project_dashboard_v1"));
+    assert.ok(ids.includes("radar_settings_v1"));
+    assert.ok(ids.includes("tisly_home_v1"));
   });
 
   it("HOTEL001 without business modules hides ops / workflows / practical nav", async () => {

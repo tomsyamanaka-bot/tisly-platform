@@ -543,6 +543,38 @@ export function buildPracticalHubCardsFiltered(
   return cards.filter((c) => set.has(c.id));
 }
 
+/**
+ * /app 現場向けカード（社内運用・開発カードは含めない）。
+ * 既存 PRACTICAL_PWA_DEFS は削除せず、表示のみこの ID に限定する。
+ */
+export const FIELD_HUB_PRACTICAL_IDS: readonly string[] = [
+  "radar_settings_v1",
+  "demand_security_v1",
+  "tisly_home_v1",
+  "device_binding_v1",
+  "price_cost_master_v1",
+  "security_floor_v1",
+  "voice_hub_v1",
+  "documents_v1",
+  "schedule_v1",
+];
+
+/** App Hub 一覧用 — 現場実用カードのみ・指定順 */
+export function buildFieldHubPracticalCards(
+  role: string,
+  enabledModules?: string[] | null
+): PracticalPwaCard[] {
+  const cards = buildPracticalHubCardsFiltered(role, enabledModules);
+  const order = new Map(
+    FIELD_HUB_PRACTICAL_IDS.map((id, i) => [id, i])
+  );
+  return cards
+    .filter((c) => order.has(c.id))
+    .sort(
+      (a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99)
+    );
+}
+
 /** PWA カタログカードを enabledModules で絞り込み */
 export function buildHubCardsFiltered(
   role: string,

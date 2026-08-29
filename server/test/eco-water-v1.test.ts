@@ -271,7 +271,12 @@ describe("TiSLY Eco-Water v1", () => {
     const hubEco = (hub.body.practicalApps || []).find(
       (a: { id: string }) => a.id === "eco_water_v1"
     );
-    assert.equal(hubEco?.url, "/eco-water-v1");
+    // /app 現場ハブでは Eco-Water を非表示（定義は残す）
+    assert.equal(hubEco, undefined);
+    const defEco = buildPracticalHubCards("surveyor").find(
+      (a) => a.id === "eco_water_v1"
+    );
+    assert.equal(defEco?.url, "/eco-water-v1");
   });
 
   it("does not strip existing practical hub cards", () => {
