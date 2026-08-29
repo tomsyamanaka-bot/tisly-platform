@@ -1674,3 +1674,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | knowledge-module-v1 / knowledge-module-api-v1 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
 
+### Knowledge 防犯DX 赤外線ビーム単管マウント
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 1 件 append |
+| タイトル | 赤外線ビームセンサー用 単管マウント架台＆誤報防止バイザー設計 |
+| Module | knowledge-ir-beam-mount-seed-v1.ts |
+| Mock | MOCK_IR_BEAM_MOUNT_ITEMS |
+| Card | SEC-IR-BEAM-MOUNT-VISOR-001 |
+| 確認 | /knowledge · https://tisly.jp/api/health |

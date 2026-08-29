@@ -79,6 +79,10 @@ const {
   FACTORY_DX_PART2_MODULE_SEED_IDS,
   seedFactoryDxPart2KnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-factory-dx-part2-seed-v1.js");
+const {
+  IR_BEAM_MOUNT_MODULE_SEED_IDS,
+  seedIrBeamMountKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-ir-beam-mount-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -788,6 +792,35 @@ describe("knowledge-module-v1 store", () => {
     const tywrap = getKnowledgeCardV1("FACTORY-TYWRAP-TERMINAL-MOLD-001");
     assert.ok(tywrap);
     assert.ok(tywrap!.tags.includes("#立体モールド"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends IR beam mount seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of IR_BEAM_MOUNT_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-ir-beam-mount-visor-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /単管マウント架台/);
+    assert.ok(item!.tags.includes("#赤外線ビーム"));
+    assert.ok(item!.tags.includes("#誤報防止"));
+    assert.ok(item!.tags.includes("#TiSLY_Security"));
+    assert.match(String(item!.body ?? ""), /ロングサンバイザー/);
+  });
+
+  it("seedIrBeamMountKnowledgeCardsV1 upserts searchable cards", () => {
+    seedIrBeamMountKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("SEC-IR-BEAM-MOUNT-VISOR-001");
+    assert.ok(card);
+    assert.match(card!.title, /誤報防止バイザー/);
+    assert.ok(card!.tags.includes("#単管マウント"));
+    assert.ok(card!.tags.includes("#3Dプリンター"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

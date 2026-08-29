@@ -57,6 +57,10 @@ import {
   FACTORY_DX_PART2_MODULE_SEED_IDS,
   getFactoryDxPart2ModuleSeedItemsV1,
 } from "./knowledge-factory-dx-part2-seed-v1.js";
+import {
+  IR_BEAM_MOUNT_MODULE_SEED_IDS,
+  getIrBeamMountModuleSeedItemsV1,
+} from "./knowledge-ir-beam-mount-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -794,6 +798,49 @@ function mergeFactoryDxPart2Seed(
   return { items: next, changed };
 }
 
+/**
+ * 防犯DX・赤外線ビーム単管マウントを末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeIrBeamMountSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(IR_BEAM_MOUNT_MODULE_SEED_IDS);
+  const seeds = getIrBeamMountModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -840,7 +887,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedParametric = mergeParametric3dSeed(mergedHybrid.items);
   const mergedPart1 = mergeFactoryDxPart1Seed(mergedParametric.items);
   const mergedPart2 = mergeFactoryDxPart2Seed(mergedPart1.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedPart2.items);
+  const mergedIrBeam = mergeIrBeamMountSeed(mergedPart2.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedIrBeam.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -855,6 +903,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedParametric.changed ||
     mergedPart1.changed ||
     mergedPart2.changed ||
+    mergedIrBeam.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

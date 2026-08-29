@@ -111,6 +111,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /端子モールド一体成形/);
     assert.match(mockSrc, /MOCK_FACTORY_DX_PART2_ITEMS/);
     assert.match(mockSrc, /#ELEGOO/);
+    assert.match(mockSrc, /単管マウント架台/);
+    assert.match(mockSrc, /MOCK_IR_BEAM_MOUNT_ITEMS/);
+    assert.match(mockSrc, /#TiSLY_Security/);
   });
 
   it("nav script requires login before loading bundle", () => {
