@@ -80,7 +80,32 @@ describe("Print Models V1 — API", () => {
       assert.match(res.text, /3Dプリント ビューワー/);
       assert.match(res.text, /three\.module\.js/);
       assert.match(res.text, /STLLoader|print-model-viewer-v1\.js/);
+      assert.match(res.text, /id="pmv-btn-back"/);
+      assert.match(res.text, /id="pmv-btn-float-back"/);
+      assert.match(res.text, /戻る/);
     }
+  });
+
+  it("viewer back nav assets use navy fallback to 3d-generator", async () => {
+    const js = await request(app).get(
+      "/print-model-viewer-v1/js/print-model-viewer-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /navigateBack/);
+    assert.match(js.text, /BACK_FALLBACK_URL/);
+    assert.match(js.text, /\/3d-generator/);
+    assert.match(js.text, /history\.back/);
+    assert.match(js.text, /pmv-btn-back/);
+    assert.match(js.text, /pmv-btn-float-back/);
+
+    const css = await request(app).get(
+      "/print-model-viewer-v1/css/print-model-viewer-v1.css"
+    );
+    assert.equal(css.status, 200);
+    assert.match(css.text, /\.pmv-back-btn/);
+    assert.match(css.text, /\.pmv-float-back/);
+    assert.match(css.text, /--pmv-navy|#1e3a8a/i);
+    assert.match(css.text, /min-height:\s*44px/);
   });
 
   it("uploads STL + slice metadata and lists model", async () => {

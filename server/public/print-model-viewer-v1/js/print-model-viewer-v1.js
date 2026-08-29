@@ -8,6 +8,10 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 const params = new URLSearchParams(location.search);
 const $ = (sel) => document.querySelector(sel);
 
+/** 履歴なし時のフォールバック先
+ * （パラメトリック設計画面） */
+const BACK_FALLBACK_URL = "/3d-generator";
+
 /** @type {THREE.WebGLRenderer|null} */
 let renderer = null;
 /** @type {THREE.PerspectiveCamera|null} */
@@ -320,6 +324,10 @@ async function loadModels() {
 }
 
 function bindUi() {
+  const onBack = () => navigateBack();
+  $("#pmv-btn-back")?.addEventListener("click", onBack);
+  $("#pmv-btn-float-back")?.addEventListener("click", onBack);
+
   $("#pmv-btn-reload")?.addEventListener("click", () => {
     loadModels().catch((e) => {
       $("#pmv-list-status").textContent = `読込失敗: ${e.message}`;
@@ -331,6 +339,60 @@ function bindUi() {
   $("#pmv-auto-rotate")?.addEventListener("change", (e) => {
     if (controls) controls.autoRotate = Boolean(e.target.checked);
   });
+}
+
+/**
+ * 同一オリジンの安全な相対パスか
+ * @param {string | null} path
+ */
+function isSafeInternalPath(path) {
+  if (!path || typeof path !== "string") return false;
+  if (!path.startsWith("/") || path.startsWith("//")) return false;
+  if (path.includes("://") || path.includes("\\")) return false;
+  return true;
+}
+
+/**
+ * history.back()、なければ 3Dジェネレータへ
+ */
+function navigateBack() {
+  const from =
+    params.get("from") || params.get("return") || params.get("back");
+  if (isSafeInternalPath(from)) {
+    location.assign(from);
+    return;
+  }
+
+  let sameOriginReferrer = false;
+  if (document.referrer) {
+    try {
+      const ref = new URL(document.referrer);
+      sameOriginReferrer = ref.origin === location.origin;
+      /* ビューワー自身からの循環は避ける */
+      if (
+        sameOriginReferrer &&
+        /print-model-viewer/i.test(ref.pathname)
+      ) {
+        sameOriginReferrer = false;
+      }
+    } catch {
+      sameOriginReferrer = false;
+    }
+  }
+
+  if (sameOriginReferrer && window.history.length > 1) {
+    const here = location.href;
+    history.back();
+    /* 戻らなかった場合のフォールバック */
+    window.setTimeout(() => {
+      if (location.href === here) {
+        location.assign(BACK_FALLBACK_URL);
+      }
+    }, 450);
+    return;
+  }
+
+  location.assign(BACK_FALLBACK_URL);
 }
 
 initScene();

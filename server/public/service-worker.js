@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2505-dim-number-badges";
+const SW_VERSION = "tisly-pwa-v2506-pmv-back-nav";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2505-dim-number-badges
  * tisly-pwa-v2504-print-sketch-lib-cam
  * tisly-pwa-v2503-print-generator-card
  * tisly-pwa-v2502-field-hub-cards-restore
@@ -16,9 +17,9 @@ const SW_VERSION = "tisly-pwa-v2505-dim-number-badges";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2505-dim-number-badges";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2505-dim-number-badges";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2505-dim-number-badges";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2506-pmv-back-nav";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2506-pmv-back-nav";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2506-pmv-back-nav";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -294,6 +295,12 @@ const SHELL_URLS = [
   "/app/3d-generator",
   "/js/features/print-generator/print-generator-v1.js",
   "/css/features/print-generator/print-generator-v1.css",
+  // 3Dプリント ビューワー（戻るナビ追記）
+  "/print-model-viewer",
+  "/print-model-viewer-v1",
+  "/print-model-viewer-v1/index.html",
+  "/print-model-viewer-v1/js/print-model-viewer-v1.js",
+  "/print-model-viewer-v1/css/print-model-viewer-v1.css",
   "/customer-view-v1",
   "/customer-view-v1.html",
   "/app/customer-view",

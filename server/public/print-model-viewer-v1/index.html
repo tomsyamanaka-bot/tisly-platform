@@ -19,10 +19,21 @@
 </head>
 <body class="pmv-body">
   <header class="pmv-header">
-    <div class="pmv-brand">
-      <p class="pmv-eyebrow">TiSLY · AIものづくり</p>
-      <h1>3Dプリント ビューワー</h1>
-      <p id="pmv-subtitle" class="pmv-muted">STL とスライス概要をリアルタイム表示</p>
+    <div class="pmv-header-left">
+      <button
+        type="button"
+        class="pmv-back-btn"
+        id="pmv-btn-back"
+        aria-label="前の画面へ戻る"
+      >
+        <span class="pmv-back-icon" aria-hidden="true">←</span>
+        <span>戻る</span>
+      </button>
+      <div class="pmv-brand">
+        <p class="pmv-eyebrow">TiSLY · AIものづくり</p>
+        <h1>3Dプリント ビューワー</h1>
+        <p id="pmv-subtitle" class="pmv-muted">STL とスライス概要をリアルタイム表示</p>
+      </div>
     </div>
     <div class="pmv-header-actions">
       <a class="pmv-btn secondary" href="/app">App Hub</a>
@@ -39,6 +50,16 @@
 
     <section class="pmv-viewer-panel" aria-label="3Dビュー">
       <div id="pmv-canvas-wrap" class="pmv-canvas-wrap">
+        <!-- 操作中でも即戻れるフロート戻る -->
+        <button
+          type="button"
+          class="pmv-float-back"
+          id="pmv-btn-float-back"
+          aria-label="戻る"
+          title="戻る"
+        >
+          <span aria-hidden="true">←</span>
+        </button>
         <div id="pmv-viewer-empty" class="pmv-viewer-empty">モデルを選択してください</div>
         <div id="pmv-viewer-loading" class="pmv-viewer-loading" hidden>STL を読み込み中…</div>
       </div>

@@ -1706,3 +1706,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 連動 | ホバー/ドラッグ中は対象バッジ・寸法線をシアンハイライト |
 | SW | tisly-pwa-v2505-dim-number-badges |
 | 確認 | /3d-generator · https://tisly.jp/api/health |
+
+### 3Dプリント ビューワー 戻るナビ
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存ダークUIは維持し、戻るボタンのみ navy で追記 |
+| ヘッダー | ← 戻る（44px・history.back / fallback /3d-generator） |
+| キャンバス | 左上半透明フロート ← |
+| SW | tisly-pwa-v2506-pmv-back-nav |
+| 確認 | /print-model-viewer · https://tisly.jp/api/health |

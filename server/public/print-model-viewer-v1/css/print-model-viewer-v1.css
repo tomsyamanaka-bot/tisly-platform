@@ -10,6 +10,8 @@
   --pmv-accent: #38bdf8;
   --pmv-accent-2: #22c55e;
   --pmv-warn: #f59e0b;
+  --pmv-navy: #1e3a8a;
+  --pmv-slate: #1e293b;
   --pmv-radius: 14px;
   --pmv-font: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
 }
@@ -42,12 +44,60 @@ body {
   align-items: flex-start;
   gap: 1rem;
   padding: 1rem 1.25rem;
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--pmv-border);
   background: rgba(11, 18, 32, 0.85);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.pmv-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ヘッダー戻る：navy×白・44px以上 */
+.pmv-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.55rem 0.95rem;
+  margin: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: var(--pmv-navy);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.92rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  transition: filter 0.12s, box-shadow 0.12s, background 0.12s;
+}
+
+.pmv-back-btn:hover,
+.pmv-back-btn:focus-visible {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.28);
+  outline: none;
+}
+
+.pmv-back-btn:active {
+  background: var(--pmv-slate);
+}
+
+.pmv-back-icon {
+  font-size: 1.05rem;
+  font-weight: 900;
 }
 
 .pmv-eyebrow {
@@ -191,6 +241,43 @@ body {
       transparent 31px,
       rgba(148, 163, 184, 0.04) 32px
     );
+}
+
+/* キャンバス左上の半透明フロート戻る */
+.pmv-float-back {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(30, 58, 138, 0.72);
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(2, 6, 23, 0.45);
+  transition: background 0.12s, transform 0.12s;
+}
+
+.pmv-float-back:hover,
+.pmv-float-back:focus-visible {
+  background: rgba(30, 58, 138, 0.92);
+  outline: none;
+  transform: scale(1.04);
+}
+
+.pmv-float-back:active {
+  background: rgba(30, 41, 59, 0.95);
 }
 
 .pmv-canvas-wrap canvas {
