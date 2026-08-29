@@ -63,6 +63,10 @@ const {
   REVOPOINT_SCAN_MODULE_SEED_IDS,
   seedRevopointScanKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-revopoint-scan-seed-v1.js");
+const {
+  HYBRID_3D_STORE_MODULE_SEED_IDS,
+  seedHybrid3dStoreKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-hybrid-3d-store-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -609,6 +613,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /リバースエンジニアリング/);
     assert.ok(card!.tags.includes("#ThreeJS"));
     assert.ok(card!.tags.includes("#現場DX"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends hybrid 3D store seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of HYBRID_3D_STORE_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-3d-hybrid-store-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /ハイブリッド保存設計/);
+    assert.ok(item!.tags.includes("#QNAP"));
+    assert.ok(item!.tags.includes("#IndexedDB"));
+    assert.ok(item!.tags.includes("#データ保存"));
+    assert.match(String(item!.body ?? ""), /3 層保存/);
+  });
+
+  it("seedHybrid3dStoreKnowledgeCardsV1 upserts searchable cards", () => {
+    seedHybrid3dStoreKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-3D-HYBRID-STORE-001");
+    assert.ok(card);
+    assert.match(card!.title, /QNAP\/IndexedDB/);
+    assert.ok(card!.tags.includes("#ThreeJS"));
+    assert.ok(card!.tags.includes("#TiSLY_Factory"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

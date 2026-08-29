@@ -93,6 +93,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /Revopoint MINI 2/);
     assert.match(mockSrc, /MOCK_REVOPOINT_SCAN_ITEMS/);
     assert.match(mockSrc, /#リバースエンジニアリング/);
+    assert.match(mockSrc, /ハイブリッド保存設計/);
+    assert.match(mockSrc, /MOCK_HYBRID_3D_STORE_ITEMS/);
+    assert.match(mockSrc, /#IndexedDB/);
   });
 
   it("nav script requires login before loading bundle", () => {

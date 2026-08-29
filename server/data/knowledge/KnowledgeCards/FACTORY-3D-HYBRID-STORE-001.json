@@ -1,0 +1,20 @@
+{
+  "id": "FACTORY-3D-HYBRID-STORE-001",
+  "title": "【製造DX】PWA 3Dモジュール運用フローとQNAP/IndexedDBハイブリッド保存設計",
+  "category": "IOT関連",
+  "tags": [
+    "#3Dプリンター",
+    "#QNAP",
+    "#IndexedDB",
+    "#ThreeJS",
+    "#データ保存",
+    "#TiSLY_Factory",
+    "#PWA"
+  ],
+  "summary": "方眼紙AI生成・Revopointスキャン・パラメトリック調整の3DデータをPWA（Three.js）で一元プレビュー。\n端末内IndexedDB（オフライン対応）、ConoHa VPS（Webメタ共有）、\n社内QNAP NAS（大容量点群・マスターSTL保管）の3層保存で低コスト・超高速運用を実現。\n\n【一元プレビュー】\n方眼紙 AI 生成・Revopoint スキャン・パラメトリック\n調整の 3D データを PWA（Three.js）で同一ビューアー\nに載せる。白ベース×navy で現場でも寸法確認できる。\n\n【3 層保存】\n1) IndexedDB — 端末内キャッシュ・オフライン編集\n2) ConoHa VPS — Web メタ（案件 ID・版・サムネ）共有\n3) 社内 QNAP NAS — 大容量点群・マスター STL 保管\n\n【運用効果】\n回線とストレージコストを抑えつつ、現場は高速プレビュー、\n事務所はマスター資産を NAS で保全するハイブリッド運用。",
+  "files": [],
+  "updatedAt": "2026-08-29",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【一元プレビュー】\n方眼紙 AI 生成・Revopoint スキャン・パラメトリック\n調整の 3D データを PWA（Three.js）で同一ビューアー\nに載せる。白ベース×navy で現場でも寸法確認できる。\n\n【3 層保存】\n1) IndexedDB — 端末内キャッシュ・オフライン編集\n2) ConoHa VPS — Web メタ（案件 ID・版・サムネ）共有\n3) 社内 QNAP NAS — 大容量点群・マスター STL 保管\n\n【運用効果】\n回線とストレージコストを抑えつつ、現場は高速プレビュー、\n事務所はマスター資産を NAS で保全するハイブリッド運用。"
+}

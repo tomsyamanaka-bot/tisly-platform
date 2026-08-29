@@ -1621,3 +1621,16 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | テスト | knowledge-module-v1 / knowledge-module-api-v1 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
 
+### Knowledge 製造DX 3Dハイブリッド保存
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存カード・配列は削除せず、末尾に 1 件 append |
+| タイトル | 【製造DX】PWA 3Dモジュール運用フローとQNAP/IndexedDBハイブリッド保存設計 |
+| Module | module-items.json 末尾追記 · knowledge-hybrid-3d-store-seed-v1.ts |
+| Mock | MOCK_HYBRID_3D_STORE_ITEMS |
+| Card | FACTORY-3D-HYBRID-STORE-001 |
+| タグ | #3Dプリンター #QNAP #IndexedDB #ThreeJS #データ保存 #TiSLY_Factory #PWA |
+| テスト | knowledge-module-v1 / knowledge-module-api-v1 |
+| 確認 | /knowledge · https://tisly.jp/api/health |
+

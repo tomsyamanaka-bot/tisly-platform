@@ -895,3 +895,54 @@ export const MOCK_REVOPOINT_SCAN_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX・3Dハイブリッド保存（末尾追記） */
+export const HYBRID_3D_STORE_KNOWLEDGE_TITLES = [
+  "【製造DX】PWA 3Dモジュール運用フローとQNAP/IndexedDBハイブリッド保存設計",
+] as const;
+
+const HYBRID_3D_STORE_CREATED_AT = "2026-08-29T14:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾にハイブリッド保存 1 件を保持。
+ */
+export const MOCK_HYBRID_3D_STORE_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-3d-hybrid-store-001",
+    title:
+      "【製造DX】PWA 3Dモジュール運用フローとQNAP/IndexedDBハイブリッド保存設計",
+    summary: [
+      "方眼紙AI生成・Revopointスキャン・パラメトリック調整の3DデータをPWA（Three.js）で一元プレビュー。",
+      "端末内IndexedDB（オフライン対応）、ConoHa VPS（Webメタ共有）、",
+      "社内QNAP NAS（大容量点群・マスターSTL保管）の3層保存で低コスト・超高速運用を実現。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#QNAP",
+      "#IndexedDB",
+      "#ThreeJS",
+      "#データ保存",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: HYBRID_3D_STORE_CREATED_AT,
+    body: [
+      "【一元プレビュー】",
+      "方眼紙 AI 生成・Revopoint スキャン・パラメトリック",
+      "調整の 3D データを PWA（Three.js）で同一ビューアー",
+      "に載せる。白ベース×navy で現場でも寸法確認できる。",
+      "",
+      "【3 層保存】",
+      "1) IndexedDB — 端末内キャッシュ・オフライン編集",
+      "2) ConoHa VPS — Web メタ（案件 ID・版・サムネ）共有",
+      "3) 社内 QNAP NAS — 大容量点群・マスター STL 保管",
+      "",
+      "【運用効果】",
+      "回線とストレージコストを抑えつつ、現場は高速プレビュー、",
+      "事務所はマスター資産を NAS で保全するハイブリッド運用。",
+    ].join("\n"),
+  },
+];
