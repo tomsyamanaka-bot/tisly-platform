@@ -157,11 +157,52 @@
   height: 100% !important;
 }
 
+/* CSS2D 寸法番号オーバーレイ（ビルボード） */
+.pg-dim-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.pg-dim-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--pg-navy);
+  font-size: 0.85rem;
+  font-weight: 900;
+  line-height: 1;
+  border: 1.5px solid var(--pg-navy);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+  transform: translate(-50%, -50%);
+  user-select: none;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s,
+    transform 0.12s, border-color 0.12s;
+}
+
+.pg-dim-badge.is-active {
+  background: var(--pg-accent);
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.35),
+    0 0 16px rgba(14, 165, 233, 0.75),
+    0 4px 12px rgba(15, 23, 42, 0.2);
+  transform: translate(-50%, -50%) scale(1.18);
+}
+
 .pg-viewer-hint {
   position: absolute;
   left: 12px;
   bottom: 10px;
-  z-index: 2;
+  z-index: 4;
   margin: 0;
   padding: 4px 8px;
   border-radius: 999px;
@@ -177,14 +218,57 @@
   gap: 14px;
 }
 
+.pg-field {
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.pg-field.is-active {
+  border-color: var(--pg-accent);
+  background: rgba(14, 165, 233, 0.08);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
+}
+
 .pg-field label {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   font-weight: 700;
   font-size: 0.9rem;
   margin-bottom: 6px;
+}
+
+.pg-field-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* スライダー見出しの丸数字バッジ（navy×白） */
+.pg-dim-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--pg-navy);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(30, 58, 138, 0.35);
+}
+
+.pg-field.is-active .pg-dim-index {
+  background: var(--pg-accent);
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.65);
 }
 
 .pg-field-value {
@@ -196,6 +280,10 @@
   width: 100%;
   accent-color: var(--pg-navy);
   min-height: 28px;
+}
+
+.pg-field.is-active .pg-range {
+  accent-color: var(--pg-accent);
 }
 
 .pg-sketch-row {

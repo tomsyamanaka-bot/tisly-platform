@@ -1695,3 +1695,14 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Mock | MOCK_RJ45_BEAM_HOUSING_ITEMS |
 | Card | SEC-RJ45-BEAM-HOUSING-001 |
 | 確認 | /knowledge · https://tisly.jp/api/health |
+
+### 3D寸法ナンバリングバッジ連動（print-generator）
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存テンプレ・寸法配列は削除せず、UI/3D オーバーレイを追加 |
+| スライダー | navy×白の丸数字バッジ（①②③…）を見出しに自動付与 |
+| 3D | CSS2DRenderer ビルボード + 寸法ガイド線 |
+| 連動 | ホバー/ドラッグ中は対象バッジ・寸法線をシアンハイライト |
+| SW | tisly-pwa-v2505-dim-number-badges |
+| 確認 | /3d-generator · https://tisly.jp/api/health |

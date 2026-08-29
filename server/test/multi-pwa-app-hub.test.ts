@@ -151,6 +151,36 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(html.includes('id="pg-sketch-input"'), false);
   });
 
+  it("3d-generator 寸法ナンバリング連動アセット", async () => {
+    const page = await request(app).get("/3d-generator");
+    assert.equal(page.status, 200);
+    assert.match(page.text, /①〜④を動かすと3D番号も連動/);
+
+    const js = await request(app).get(
+      "/js/features/print-generator/print-generator-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /CSS2DRenderer/);
+    assert.match(js.text, /CSS2DObject/);
+    assert.match(js.text, /circledNumber/);
+    assert.match(js.text, /pg-dim-index/);
+    assert.match(js.text, /pg-dim-badge/);
+    assert.match(js.text, /setActiveDimKey/);
+    assert.match(js.text, /rebuildDimGuides/);
+    assert.match(js.text, /buildDimGuides/);
+    assert.ok(js.text.includes("底辺"));
+    assert.ok(js.text.includes("立上り"));
+
+    const css = await request(app).get(
+      "/css/features/print-generator/print-generator-v1.css"
+    );
+    assert.equal(css.status, 200);
+    assert.match(css.text, /\.pg-dim-index/);
+    assert.match(css.text, /\.pg-dim-badge/);
+    assert.match(css.text, /\.pg-dim-badge\.is-active/);
+    assert.match(css.text, /#1e3a8a|--pg-navy/);
+  });
+
   it("installer hub field apps omit legacy catalog cards", async () => {
     const res = await request(app)
       .get("/api/pwa/hub")
@@ -275,6 +305,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2505-dim-number-badges") ||
       sw.text.includes("tisly-pwa-v2504-print-sketch-lib-cam") ||
       sw.text.includes("tisly-pwa-v2503-print-generator-card") ||
       sw.text.includes("tisly-pwa-v2502-field-hub-cards-restore") ||

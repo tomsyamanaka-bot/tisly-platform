@@ -5,6 +5,10 @@
  */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+  CSS2DRenderer,
+  CSS2DObject,
+} from "three/addons/renderers/CSS2DRenderer.js";
 
 /** @typedef {{ id: string, label: string, desc: string, defaults: Record<string, number>, ranges: Record<string, {min:number,max:number,step:number,label:string}> }} PrintTemplate */
 
@@ -97,10 +101,46 @@ let renderer = null;
 let controls = null;
 /** @type {THREE.Group | null} */
 let meshGroup = null;
+/** @type {THREE.Group | null} */
+let dimGuideGroup = null;
+/** @type {CSS2DRenderer | null} */
+let labelRenderer = null;
 /** @type {string | null} */
 let sketchDataUrl = null;
+/** 操作中の寸法キー（ハイライト連動） */
+/** @type {string | null} */
+let activeDimKey = null;
+/** スライダー操作中フラグ */
+let dimDragging = false;
+
+const DIM_LINE_COLOR = 0x64748b;
+const DIM_LINE_ACTIVE = 0x0ea5e9;
+const DIM_PAD = 7;
 
 const $ = (sel) => document.querySelector(sel);
+
+/**
+ * 1始まりインデックスを丸数字へ
+ * （①〜⑳、超過時は数字）
+ * @param {number} n
+ */
+function circledNumber(n) {
+  if (n >= 1 && n <= 20) return String.fromCharCode(0x245f + n);
+  return String(n);
+}
+
+/** @param {PrintTemplate} tpl */
+function dimKeysInOrder(tpl) {
+  return Object.keys(tpl.ranges);
+}
+
+/**
+ * 寸法キーの表示番号（1始まり）
+ * @param {string} key
+ */
+function getDimIndex(key) {
+  return dimKeysInOrder(activeTpl).indexOf(key) + 1;
+}
 
 function initViewer() {
   const wrap = $("#pg-canvas-wrap");
@@ -119,6 +159,12 @@ function initViewer() {
   renderer.setSize(w, h, false);
   wrap.appendChild(renderer.domElement);
 
+  /* 寸法番号は CSS2D で常にカメラ向き */
+  labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(w, h);
+  labelRenderer.domElement.className = "pg-dim-labels";
+  wrap.appendChild(labelRenderer.domElement);
+
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 10, 0);
@@ -134,10 +180,12 @@ function initViewer() {
 
   meshGroup = new THREE.Group();
   scene.add(meshGroup);
+  dimGuideGroup = new THREE.Group();
+  scene.add(dimGuideGroup);
 
   window.addEventListener("resize", onResize);
   animate();
-  rebuildMesh();
+  rebuildMesh({ frameCamera: true });
 }
 
 function onResize() {
@@ -148,12 +196,16 @@ function onResize() {
   camera.aspect = w / Math.max(h, 1);
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
+  labelRenderer?.setSize(w, h);
 }
 
 function animate() {
   requestAnimationFrame(animate);
   controls?.update();
-  if (renderer && scene && camera) renderer.render(scene, camera);
+  if (renderer && scene && camera) {
+    renderer.render(scene, camera);
+    labelRenderer?.render(scene, camera);
+  }
 }
 
 /**
@@ -292,7 +344,274 @@ function trisToGeometry(tris) {
   return geo;
 }
 
-function rebuildMesh() {
+/**
+ * テンプレ寸法のガイド線端点を算出
+ * @param {string} tplId
+ * @param {Record<string, number>} p
+ * @returns {{ key: string, index: number, p0: number[], p1: number[], labelAt: number[] }[]}
+ */
+function buildDimGuides(tplId, p) {
+  /** @type {{ key: string, index: number, p0: number[], p1: number[], labelAt: number[] }[]} */
+  const guides = [];
+  const add = (key, p0, p1, labelAt) => {
+    if (!activeTpl.ranges[key]) return;
+    const index = getDimIndex(key);
+    if (index < 1) return;
+    const mid = labelAt || [
+      (p0[0] + p1[0]) / 2,
+      (p0[1] + p1[1]) / 2,
+      (p0[2] + p1[2]) / 2,
+    ];
+    guides.push({ key, index, p0, p1, labelAt: mid });
+  };
+
+  if (tplId === "din_rail_bracket") {
+    const w = p.width;
+    const d = p.depth;
+    const h = p.height;
+    const t = p.thickness;
+    add(
+      "width",
+      [-w / 2, 0, d / 2 + DIM_PAD],
+      [w / 2, 0, d / 2 + DIM_PAD],
+      [0, 2, d / 2 + DIM_PAD + 2]
+    );
+    add(
+      "depth",
+      [w / 2 + DIM_PAD, 0, -d / 2],
+      [w / 2 + DIM_PAD, 0, d / 2],
+      [w / 2 + DIM_PAD + 2, 2, 0]
+    );
+    add(
+      "height",
+      [w / 2 + DIM_PAD, 0, -d / 2 + t / 2],
+      [w / 2 + DIM_PAD, h, -d / 2 + t / 2],
+      [w / 2 + DIM_PAD + 2, h / 2, -d / 2 + t / 2]
+    );
+    add(
+      "thickness",
+      [w / 2 + DIM_PAD, 0, d / 2],
+      [w / 2 + DIM_PAD, t, d / 2],
+      [w / 2 + DIM_PAD + 2, t / 2, d / 2]
+    );
+    add(
+      "hole",
+      [-w / 4, t + 1, 0],
+      [-w / 4, t + 1 + Math.max(p.hole, 3), 0],
+      [-w / 4, t + 4, DIM_PAD]
+    );
+  } else if (tplId === "iot_box") {
+    const w = p.width;
+    const d = p.depth;
+    const h = p.height;
+    const t = p.wall;
+    add(
+      "width",
+      [-w / 2, 0, d / 2 + DIM_PAD],
+      [w / 2, 0, d / 2 + DIM_PAD],
+      [0, 2, d / 2 + DIM_PAD + 2]
+    );
+    add(
+      "depth",
+      [w / 2 + DIM_PAD, 0, -d / 2],
+      [w / 2 + DIM_PAD, 0, d / 2],
+      [w / 2 + DIM_PAD + 2, 2, 0]
+    );
+    add(
+      "height",
+      [w / 2 + DIM_PAD, 0, 0],
+      [w / 2 + DIM_PAD, h, 0],
+      [w / 2 + DIM_PAD + 2, h / 2, 0]
+    );
+    add(
+      "wall",
+      [w / 2, h / 2, d / 2 + DIM_PAD],
+      [w / 2 - t, h / 2, d / 2 + DIM_PAD],
+      [w / 2 - t / 2, h / 2 + 2, d / 2 + DIM_PAD + 2]
+    );
+    add(
+      "lip",
+      [0, h - p.lip, d / 2 + DIM_PAD],
+      [0, h, d / 2 + DIM_PAD],
+      [0, h - p.lip / 2, d / 2 + DIM_PAD + 2]
+    );
+  } else if (tplId === "camera_mount") {
+    const pw = p.plateW;
+    const ph = p.plateH;
+    const pt = p.plateT;
+    add(
+      "plateW",
+      [-pw / 2, 0, ph / 2 + DIM_PAD],
+      [pw / 2, 0, ph / 2 + DIM_PAD],
+      [0, 2, ph / 2 + DIM_PAD + 2]
+    );
+    add(
+      "plateH",
+      [pw / 2 + DIM_PAD, 0, -ph / 2],
+      [pw / 2 + DIM_PAD, 0, ph / 2],
+      [pw / 2 + DIM_PAD + 2, 2, 0]
+    );
+    add(
+      "plateT",
+      [pw / 2 + DIM_PAD, 0, ph / 2],
+      [pw / 2 + DIM_PAD, pt, ph / 2],
+      [pw / 2 + DIM_PAD + 2, pt / 2, ph / 2]
+    );
+    add(
+      "armLen",
+      [p.armW / 2 + DIM_PAD, pt, ph / 2 - p.armW / 2],
+      [p.armW / 2 + DIM_PAD, pt + p.armLen, ph / 2 - p.armW / 2],
+      [p.armW / 2 + DIM_PAD + 2, pt + p.armLen / 2, ph / 2 - p.armW / 2]
+    );
+    add(
+      "armW",
+      [-p.armW / 2, pt + p.armLen / 2, ph / 2 + DIM_PAD],
+      [p.armW / 2, pt + p.armLen / 2, ph / 2 + DIM_PAD],
+      [0, pt + p.armLen / 2 + 2, ph / 2 + DIM_PAD + 2]
+    );
+  } else {
+    /* センサLブラケット: ①底辺 ②立上り ③幅 ④板厚 ⑤穴径 */
+    const base = p.base;
+    const upright = p.upright;
+    const w = p.width;
+    const t = p.thickness;
+    add(
+      "base",
+      [w / 2 + DIM_PAD, 0, -base / 2],
+      [w / 2 + DIM_PAD, 0, base / 2],
+      [w / 2 + DIM_PAD + 3, 3, 0]
+    );
+    add(
+      "upright",
+      [w / 2 + DIM_PAD, t, -base / 2 + t / 2],
+      [w / 2 + DIM_PAD, t + upright, -base / 2 + t / 2],
+      [w / 2 + DIM_PAD + 3, t + upright / 2, -base / 2 + t / 2]
+    );
+    add(
+      "width",
+      [-w / 2, 0, base / 2 + DIM_PAD],
+      [w / 2, 0, base / 2 + DIM_PAD],
+      [0, 3, base / 2 + DIM_PAD + 3]
+    );
+    add(
+      "thickness",
+      [w / 2 + DIM_PAD, 0, base / 2],
+      [w / 2 + DIM_PAD, t, base / 2],
+      [w / 2 + DIM_PAD + 3, t / 2, base / 2]
+    );
+    add(
+      "hole",
+      [0, t + upright * 0.55, -base / 2 + t + 1],
+      [0, t + upright * 0.55, -base / 2 + t + 1 + Math.max(p.hole, 3)],
+      [DIM_PAD, t + upright * 0.55 + 2, -base / 2 + t + 2]
+    );
+  }
+  return guides;
+}
+
+/** CSS2D / 寸法線グループを全消去 */
+function clearDimGuides() {
+  if (!dimGuideGroup) return;
+  while (dimGuideGroup.children.length) {
+    const c = dimGuideGroup.children.pop();
+    if (!c) continue;
+    if (c.isCSS2DObject && c.element) {
+      c.element.remove();
+    }
+    c.geometry?.dispose?.();
+    if (Array.isArray(c.material)) {
+      c.material.forEach((m) => m.dispose?.());
+    } else {
+      c.material?.dispose?.();
+    }
+  }
+}
+
+/**
+ * 寸法ガイド線 + 丸数字ビルボードを再構築
+ */
+function rebuildDimGuides() {
+  if (!dimGuideGroup) return;
+  clearDimGuides();
+  const guides = buildDimGuides(activeTpl.id, dims);
+  for (const g of guides) {
+    const active = g.key === activeDimKey;
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(...g.p0),
+      new THREE.Vector3(...g.p1),
+    ]);
+    const line = new THREE.Line(
+      geo,
+      new THREE.LineBasicMaterial({
+        color: active ? DIM_LINE_ACTIVE : DIM_LINE_COLOR,
+        transparent: true,
+        opacity: active ? 1 : 0.85,
+      })
+    );
+    line.userData.dimKey = g.key;
+    dimGuideGroup.add(line);
+
+    /* 端点マーカー（視認性） */
+    for (const pt of [g.p0, g.p1]) {
+      const tick = new THREE.Mesh(
+        new THREE.SphereGeometry(active ? 1.1 : 0.7, 8, 8),
+        new THREE.MeshBasicMaterial({
+          color: active ? DIM_LINE_ACTIVE : DIM_LINE_COLOR,
+        })
+      );
+      tick.position.set(pt[0], pt[1], pt[2]);
+      tick.userData.dimKey = g.key;
+      dimGuideGroup.add(tick);
+    }
+
+    const el = document.createElement("div");
+    el.className = `pg-dim-badge${active ? " is-active" : ""}`;
+    el.dataset.dimKey = g.key;
+    el.textContent = circledNumber(g.index);
+    el.setAttribute("aria-label", `${circledNumber(g.index)} ${activeTpl.ranges[g.key]?.label ?? g.key}`);
+    const label = new CSS2DObject(el);
+    label.position.set(g.labelAt[0], g.labelAt[1], g.labelAt[2]);
+    label.userData.dimKey = g.key;
+    dimGuideGroup.add(label);
+  }
+}
+
+/**
+ * スライダー ↔ 3D バッジ／寸法線のハイライト同期
+ * @param {string | null} key
+ */
+function setActiveDimKey(key) {
+  activeDimKey = key;
+  document.querySelectorAll(".pg-field[data-key]").forEach((el) => {
+    el.classList.toggle(
+      "is-active",
+      key != null && el.getAttribute("data-key") === key
+    );
+  });
+  if (!dimGuideGroup) return;
+  dimGuideGroup.traverse((obj) => {
+    const k = obj.userData?.dimKey;
+    if (!k) return;
+    const on = k === key;
+    if (obj.isCSS2DObject && obj.element) {
+      obj.element.classList.toggle("is-active", on);
+    }
+    if (obj.isLine && obj.material) {
+      obj.material.color.setHex(on ? DIM_LINE_ACTIVE : DIM_LINE_COLOR);
+      obj.material.opacity = on ? 1 : 0.85;
+      obj.material.needsUpdate = true;
+    }
+    if (obj.isMesh && obj.material?.color) {
+      obj.material.color.setHex(on ? DIM_LINE_ACTIVE : DIM_LINE_COLOR);
+      obj.scale.setScalar(on ? 1.35 : 1);
+    }
+  });
+}
+
+/**
+ * @param {{ frameCamera?: boolean }} [opts]
+ */
+function rebuildMesh(opts = {}) {
   if (!meshGroup) return;
   while (meshGroup.children.length) {
     const c = meshGroup.children.pop();
@@ -315,7 +634,10 @@ function rebuildMesh() {
   );
   meshGroup.add(edges);
 
-  // カメラをモデル中心へ
+  rebuildDimGuides();
+
+  // カメラは初回・テンプレ切替時のみ
+  if (!opts.frameCamera) return;
   geo.computeBoundingBox();
   const box = geo.boundingBox;
   if (box && camera && controls) {
@@ -403,9 +725,11 @@ function renderTemplates() {
       if (!next) return;
       activeTpl = next;
       dims = { ...next.defaults };
+      activeDimKey = null;
+      dimDragging = false;
       renderTemplates();
       renderSliders();
-      rebuildMesh();
+      rebuildMesh({ frameCamera: true });
     });
   });
 }
@@ -413,14 +737,20 @@ function renderTemplates() {
 function renderSliders() {
   const host = $("#pg-sliders");
   if (!host) return;
-  host.innerHTML = Object.keys(activeTpl.ranges)
-    .map((key) => {
+  const keys = dimKeysInOrder(activeTpl);
+  host.innerHTML = keys
+    .map((key, i) => {
       const r = activeTpl.ranges[key];
       const val = dims[key] ?? activeTpl.defaults[key];
+      const num = circledNumber(i + 1);
+      const active = key === activeDimKey ? " is-active" : "";
       return `
-      <div class="pg-field">
+      <div class="pg-field${active}" data-key="${key}">
         <label for="pg-dim-${key}">
-          <span>${r.label}</span>
+          <span class="pg-field-title">
+            <span class="pg-dim-index" aria-hidden="true">${num}</span>
+            <span>${r.label}</span>
+          </span>
           <span class="pg-field-value" id="pg-val-${key}">${val} mm</span>
         </label>
         <input type="range" class="pg-range" id="pg-dim-${key}"
@@ -429,7 +759,38 @@ function renderSliders() {
       </div>`;
     })
     .join("");
+
+  host.querySelectorAll(".pg-field").forEach((field) => {
+    const key = field.getAttribute("data-key");
+    if (!key) return;
+    field.addEventListener("pointerenter", () => {
+      if (!dimDragging) setActiveDimKey(key);
+    });
+    field.addEventListener("pointerleave", () => {
+      if (!dimDragging) setActiveDimKey(null);
+    });
+  });
+
   host.querySelectorAll(".pg-range").forEach((input) => {
+    input.addEventListener("pointerdown", () => {
+      const key = input.getAttribute("data-key");
+      dimDragging = true;
+      if (key) setActiveDimKey(key);
+    });
+    input.addEventListener("pointerup", () => {
+      dimDragging = false;
+    });
+    input.addEventListener("pointercancel", () => {
+      dimDragging = false;
+      setActiveDimKey(null);
+    });
+    input.addEventListener("focus", () => {
+      const key = input.getAttribute("data-key");
+      if (key) setActiveDimKey(key);
+    });
+    input.addEventListener("blur", () => {
+      if (!dimDragging) setActiveDimKey(null);
+    });
     input.addEventListener("input", () => {
       const key = input.getAttribute("data-key");
       if (!key) return;
@@ -437,6 +798,7 @@ function renderSliders() {
       dims[key] = n;
       const lab = $(`#pg-val-${key}`);
       if (lab) lab.textContent = `${n} mm`;
+      setActiveDimKey(key);
       rebuildMesh();
     });
   });
@@ -545,6 +907,16 @@ function bindUi() {
   $("#pg-stl-btn")?.addEventListener("click", downloadStl);
   $("#pg-ai-extract-btn")?.addEventListener("click", extractDimsFromSketch);
   $("#pg-sketch-clear")?.addEventListener("click", clearSketch);
+
+  /* ドラッグ終了でハイライト解除フラグを戻す */
+  window.addEventListener(
+    "pointerup",
+    () => {
+      if (!dimDragging) return;
+      dimDragging = false;
+    },
+    { passive: true }
+  );
 
   // アルバム選択（capture なし）
   $("#pg-sketch-library")?.addEventListener("change", (ev) => {
