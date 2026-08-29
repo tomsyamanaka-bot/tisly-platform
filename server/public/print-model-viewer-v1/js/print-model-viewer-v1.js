@@ -324,9 +324,7 @@ async function loadModels() {
 }
 
 function bindUi() {
-  const onBack = () => navigateBack();
-  $("#pmv-btn-back")?.addEventListener("click", onBack);
-  $("#pmv-btn-float-back")?.addEventListener("click", onBack);
+  $("#pmv-btn-back")?.addEventListener("click", () => navigateBack());
 
   $("#pmv-btn-reload")?.addEventListener("click", () => {
     loadModels().catch((e) => {

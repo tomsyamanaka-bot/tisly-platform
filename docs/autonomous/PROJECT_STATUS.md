@@ -1716,3 +1716,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | キャンバス | 左上半透明フロート ← |
 | SW | tisly-pwa-v2506-pmv-back-nav |
 | 確認 | /print-model-viewer · https://tisly.jp/api/health |
+
+### 3Dプリント ビューワー ヘッダー横崩れ修正
+
+| 領域 | 内容 |
+|------|------|
+| ナビ | pmv-header-bar で戻る左・操作右の1行 |
+| タイトル | 全幅 + white-space:nowrap（縦1文字崩れ防止） |
+| 削除 | キャンバス上のフロート戻るボタン |
+| SW | tisly-pwa-v2507-pmv-header-fix |
+| 確認 | /print-model-viewer · https://tisly.jp/api/health |

@@ -40,11 +40,10 @@ body {
 
 .pmv-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem;
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--pmv-border);
   background: rgba(11, 18, 32, 0.85);
   backdrop-filter: blur(8px);
@@ -53,32 +52,35 @@ body {
   z-index: 10;
 }
 
-.pmv-header-left {
+/* ナビ1行: 戻る左 · 操作右 */
+.pmv-header-bar {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  min-width: 0;
-  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
 }
 
-/* ヘッダー戻る：navy×白・44px以上 */
+/* 戻る: 幅自動・コンパクト（タップは44px確保） */
 .pmv-back-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  flex-shrink: 0;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
   min-height: 44px;
-  min-width: 44px;
-  padding: 0.55rem 0.95rem;
+  padding: 0.375rem 0.75rem;
   margin: 0;
   border: 1.5px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--pmv-navy);
   color: #ffffff;
   font-weight: 800;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
   transition: filter 0.12s, box-shadow 0.12s, background 0.12s;
@@ -96,33 +98,64 @@ body {
 }
 
 .pmv-back-icon {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 900;
 }
 
+/* タイトルは全幅・横書き固定（1文字縦崩れ防止） */
+.pmv-brand {
+  width: 100%;
+  min-width: 0;
+  display: block;
+}
+
 .pmv-eyebrow {
-  margin: 0 0 0.2rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--pmv-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pmv-header h1 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.05rem, 4.2vw, 1.35rem);
   font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  writing-mode: horizontal-tb;
+  word-break: keep-all;
 }
 
 .pmv-muted {
   color: var(--pmv-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+}
+
+#pmv-subtitle {
+  margin: 0.2rem 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pmv-header-actions {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.pmv-header-actions .pmv-btn {
+  min-height: 44px;
+  padding: 0.375rem 0.85rem;
+  white-space: nowrap;
 }
 
 .pmv-btn {
@@ -241,43 +274,6 @@ body {
       transparent 31px,
       rgba(148, 163, 184, 0.04) 32px
     );
-}
-
-/* キャンバス左上の半透明フロート戻る */
-.pmv-float-back {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  padding: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-  border-radius: 12px;
-  background: rgba(30, 58, 138, 0.72);
-  color: #ffffff;
-  font-size: 1.25rem;
-  font-weight: 900;
-  line-height: 1;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 4px 14px rgba(2, 6, 23, 0.45);
-  transition: background 0.12s, transform 0.12s;
-}
-
-.pmv-float-back:hover,
-.pmv-float-back:focus-visible {
-  background: rgba(30, 58, 138, 0.92);
-  outline: none;
-  transform: scale(1.04);
-}
-
-.pmv-float-back:active {
-  background: rgba(30, 41, 59, 0.95);
 }
 
 .pmv-canvas-wrap canvas {
