@@ -276,13 +276,91 @@ let printTopDown = false;
 /** @type {THREE.Group | null} */
 let partPickGroup = null;
 /** パーツドラッグ中の状態 */
-/** @type {{ primaryKey: string, axisKeys: { x?: string, z?: string }, start: { x: number, z: number }, startDims: Record<string, number> } | null} */
+/** @type {{ primaryKey: string, axisKeys: { x?: string, z?: string }, start: { x: number, z: number }, startDims: Record<string, number>, featureId?: string } | null} */
 let partDragState = null;
+/** アクティブな個別パーツ ID */
+/** @type {string | null} */
+let activePartFeatureId = null;
 /** レイキャスト共用 */
 const partRaycaster = new THREE.Raycaster();
 const partNdc = new THREE.Vector2();
 const partHit = new THREE.Vector3();
 const partDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+/**
+ * パーツ個別調整の定義（追記）
+ * X=左右 / Y=前後（Three.js Z）
+ */
+const PART_FEATURE_DEFS = [
+  {
+    id: "cornerBosses",
+    title: "四隅ネジボス（4箇所）",
+    desc: "固定柱・ボス",
+    templates: ["rp2350_poe_cover", "iot_box"],
+  },
+  {
+    id: "slitLeft",
+    title: "左側端子スリット（CH1〜CH8 リレー側）",
+    desc: "CH側の配線逃げ",
+    templates: ["rp2350_poe_cover"],
+  },
+  {
+    id: "slitRight",
+    title: "右側端子スリット（DI / 電源 / RS485 / PoE側）",
+    desc: "DI・端壁開口",
+    templates: ["rp2350_poe_cover"],
+  },
+  {
+    id: "sideWalls",
+    title: "長手方向の外壁（サイドウォール）",
+    desc: "長辺の外壁本体",
+    templates: ["rp2350_poe_cover", "iot_box"],
+  },
+];
+
+/** @typedef {{ enabled: boolean, offsetX: number, offsetY: number, open: boolean }} PartFeatureState */
+
+/** @type {Record<string, PartFeatureState>} */
+const partFeatureState = Object.fromEntries(
+  PART_FEATURE_DEFS.map((d) => [
+    d.id,
+    { enabled: true, offsetX: 0, offsetY: 0, open: false },
+  ])
+);
+
+/**
+ * パーツが有効か
+ * @param {string} id
+ */
+function isPartFeatureOn(id) {
+  return partFeatureState[id]?.enabled !== false;
+}
+
+/**
+ * パーツ左右オフセット（mm）
+ * @param {string} id
+ */
+function partFeatureOX(id) {
+  return Number(partFeatureState[id]?.offsetX) || 0;
+}
+
+/**
+ * パーツ前後オフセット（mm）
+ * Three.js では Z に対応
+ * @param {string} id
+ */
+function partFeatureOY(id) {
+  return Number(partFeatureState[id]?.offsetY) || 0;
+}
+
+/**
+ * 現テンプレ向けパーツ定義
+ */
+function partFeatureDefsForActiveTpl() {
+  return PART_FEATURE_DEFS.filter((d) =>
+    d.templates.includes(activeTpl.id)
+  );
+}
 
 /** 配線抜き穴プリセット定義 */
 const WIRE_HOLE_PRESETS = {
@@ -488,8 +566,12 @@ function buildTris(tplId, p) {
     const h = p.height;
     const t = p.wall;
     const y0 = basePlateEnabled ? t : 0;
-    const bossOx = Number(p.bossOffsetX) || 0;
-    const bossOz = Number(p.bossOffsetZ) || 0;
+    const bossOx =
+      (Number(p.bossOffsetX) || 0) + partFeatureOX("cornerBosses");
+    const bossOz =
+      (Number(p.bossOffsetZ) || 0) + partFeatureOY("cornerBosses");
+    const wallOx = partFeatureOX("sideWalls");
+    const wallOz = partFeatureOY("sideWalls");
     if (basePlateEnabled) {
       // 底板
       addBox(tris, 0, 0, 0, w, t, d);
@@ -498,11 +580,13 @@ function buildTris(tplId, p) {
        * （天面接地印刷向け） */
       addBox(tris, 0, h - t, 0, w, t, d);
     }
-    // 4壁
-    addBox(tris, 0, y0, -d / 2 + t / 2, w, h - y0, t);
-    addBox(tris, 0, y0, d / 2 - t / 2, w, h - y0, t);
-    addBox(tris, -w / 2 + t / 2, y0, 0, t, h - y0, d - 2 * t);
-    addBox(tris, w / 2 - t / 2, y0, 0, t, h - y0, d - 2 * t);
+    if (isPartFeatureOn("sideWalls")) {
+      // 4壁（個別オフセット）
+      addBox(tris, wallOx, y0, -d / 2 + t / 2 + wallOz, w, h - y0, t);
+      addBox(tris, wallOx, y0, d / 2 - t / 2 + wallOz, w, h - y0, t);
+      addBox(tris, -w / 2 + t / 2 + wallOx, y0, wallOz, t, h - y0, d - 2 * t);
+      addBox(tris, w / 2 - t / 2 + wallOx, y0, wallOz, t, h - y0, d - 2 * t);
+    }
     if (basePlateEnabled) {
       // 蓋リップ（内側段差）
       addBox(
@@ -515,15 +599,17 @@ function buildTris(tplId, p) {
         d - 2 * t
       );
     }
-    /* 四隅固定ボス（オフセット連動） */
-    const bx = w / 2 - t - 6;
-    const bz = d / 2 - t - 6;
-    const bossH = Math.min(h * 0.45, 12);
-    const bossY = basePlateEnabled ? t : y0;
-    addBox(tris, -bx + bossOx, bossY, -bz + bossOz, 8, bossH, 8);
-    addBox(tris, bx + bossOx, bossY, -bz + bossOz, 8, bossH, 8);
-    addBox(tris, -bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
-    addBox(tris, bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
+    if (isPartFeatureOn("cornerBosses")) {
+      /* 四隅固定ボス（オフセット連動） */
+      const bx = w / 2 - t - 6;
+      const bz = d / 2 - t - 6;
+      const bossH = Math.min(h * 0.45, 12);
+      const bossY = basePlateEnabled ? t : y0;
+      addBox(tris, -bx + bossOx, bossY, -bz + bossOz, 8, bossH, 8);
+      addBox(tris, bx + bossOx, bossY, -bz + bossOz, 8, bossH, 8);
+      addBox(tris, -bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
+      addBox(tris, bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
+    }
   } else if (tplId === "rp2350_poe_cover") {
     /* RP2350-POE 実測カバー
      * フランジ耳・ボス・端子逃げ付き */
@@ -538,11 +624,19 @@ function buildTris(tplId, p) {
     const pitch = p.holePitch;
     const ear = Math.max((Wout - Win) / 2, 2);
     const yWall = basePlateEnabled ? t : 0;
-    const bossOx = Number(p.bossOffsetX) || 0;
-    const bossOz = Number(p.bossOffsetZ) || 0;
+    const bossOx =
+      (Number(p.bossOffsetX) || 0) + partFeatureOX("cornerBosses");
+    const bossOz =
+      (Number(p.bossOffsetZ) || 0) + partFeatureOY("cornerBosses");
     const slitOx = Number(p.slitOffsetX) || 0;
     const endOz = Number(p.endOpenOffsetZ) || 0;
     const ribOx = Number(p.ribOffsetX) || 0;
+    const wallOx = partFeatureOX("sideWalls");
+    const wallOz = partFeatureOY("sideWalls");
+    const leftOx = slitOx + partFeatureOX("slitLeft");
+    const leftOz = partFeatureOY("slitLeft");
+    const rightOx = slitOx + partFeatureOX("slitRight");
+    const rightOz = endOz + partFeatureOY("slitRight");
 
     if (basePlateEnabled) {
       // 底板（フランジ耳含む）
@@ -563,69 +657,131 @@ function buildTris(tplId, p) {
       addBox(tris, 0, H - t, 0, L, t, Wout);
     }
 
-    // 長辺壁（CH/DI 逃げスリットで分割）
     const wallSeg = (L - slit * 4) / 5;
-    let xCursor = -L / 2 + slitOx;
-    for (let i = 0; i < 5; i++) {
-      const segL = wallSeg;
-      const cx = xCursor + segL / 2;
-      // -Z 側: CH1〜CH8 側壁セグメント
-      addBox(tris, cx, yWall, -Win / 2 + t / 2, segL, H - yWall, t);
-      // +Z 側: DI1〜DI8 側壁セグメント
-      addBox(tris, cx, yWall, Win / 2 - t / 2, segL, H - yWall, t);
-      xCursor += segL;
-      if (i < 4) {
-        // 配線ガイド（スリット両縁の薄壁）
-        const gx = xCursor + slit / 2;
-        addBox(tris, gx - slit / 2 + 0.6, yWall, -Win / 2 + t / 2, 1.2, H * 0.55, t);
-        addBox(tris, gx + slit / 2 - 0.6, yWall, -Win / 2 + t / 2, 1.2, H * 0.55, t);
-        addBox(tris, gx - slit / 2 + 0.6, yWall, Win / 2 - t / 2, 1.2, H * 0.55, t);
-        addBox(tris, gx + slit / 2 - 0.6, yWall, Win / 2 - t / 2, 1.2, H * 0.55, t);
-        xCursor += slit;
+    const buildSlittedSide = (zSign, ox, oz, withSlits) => {
+      const zBase = (zSign < 0 ? -Win / 2 + t / 2 : Win / 2 - t / 2) + oz + wallOz;
+      if (!withSlits) {
+        addBox(tris, wallOx, yWall, zBase, L, H - yWall, t);
+        return;
+      }
+      let xCursor = -L / 2 + ox + wallOx;
+      for (let i = 0; i < 5; i++) {
+        const segL = wallSeg;
+        const cx = xCursor + segL / 2;
+        addBox(tris, cx, yWall, zBase, segL, H - yWall, t);
+        xCursor += segL;
+        if (i < 4) {
+          const gx = xCursor + slit / 2;
+          addBox(
+            tris,
+            gx - slit / 2 + 0.6,
+            yWall,
+            zBase,
+            1.2,
+            H * 0.55,
+            t
+          );
+          addBox(
+            tris,
+            gx + slit / 2 - 0.6,
+            yWall,
+            zBase,
+            1.2,
+            H * 0.55,
+            t
+          );
+          xCursor += slit;
+        }
+      }
+    };
+
+    if (isPartFeatureOn("sideWalls")) {
+      /* 長辺外壁: スリットOFF時は連続壁 */
+      buildSlittedSide(
+        -1,
+        isPartFeatureOn("slitLeft") ? leftOx : 0,
+        isPartFeatureOn("slitLeft") ? leftOz : 0,
+        isPartFeatureOn("slitLeft")
+      );
+      buildSlittedSide(
+        1,
+        isPartFeatureOn("slitRight") ? rightOx : 0,
+        isPartFeatureOn("slitRight") ? partFeatureOY("slitRight") : 0,
+        isPartFeatureOn("slitRight")
+      );
+    } else if (isPartFeatureOn("slitLeft") || isPartFeatureOn("slitRight")) {
+      /* 壁なしでもスリットガイドのみ残す */
+      if (isPartFeatureOn("slitLeft")) {
+        let xCursor = -L / 2 + leftOx;
+        for (let i = 0; i < 4; i++) {
+          xCursor += wallSeg;
+          const gx = xCursor + slit / 2;
+          const zBase = -Win / 2 + t / 2 + leftOz;
+          addBox(tris, gx - slit / 2 + 0.6, yWall, zBase, 1.2, H * 0.55, t);
+          addBox(tris, gx + slit / 2 - 0.6, yWall, zBase, 1.2, H * 0.55, t);
+          xCursor += slit;
+        }
+      }
+      if (isPartFeatureOn("slitRight")) {
+        let xCursor = -L / 2 + rightOx;
+        for (let i = 0; i < 4; i++) {
+          xCursor += wallSeg;
+          const gx = xCursor + slit / 2;
+          const zBase = Win / 2 - t / 2;
+          addBox(tris, gx - slit / 2 + 0.6, yWall, zBase, 1.2, H * 0.55, t);
+          addBox(tris, gx + slit / 2 - 0.6, yWall, zBase, 1.2, H * 0.55, t);
+          xCursor += slit;
+        }
       }
     }
 
-    // 短辺壁（RS485 / PoE-LAN 開口）
-    const endGap = Math.max(slit * 1.4, 10);
-    const endSeg = (Win - endGap) / 2;
-    // -X: RS485（前後オフセット）
-    addBox(
-      tris,
-      -L / 2 + t / 2,
-      yWall,
-      -Win / 2 + endSeg / 2 + endOz,
-      t,
-      H - yWall,
-      endSeg
-    );
-    addBox(
-      tris,
-      -L / 2 + t / 2,
-      yWall,
-      Win / 2 - endSeg / 2 + endOz,
-      t,
-      H - yWall,
-      endSeg
-    );
-    // +X: PoE-LAN
-    addBox(
-      tris,
-      L / 2 - t / 2,
-      yWall,
-      -Win / 2 + endSeg / 2 + endOz,
-      t,
-      H - yWall,
-      endSeg
-    );
-    addBox(
-      tris,
-      L / 2 - t / 2,
-      yWall,
-      Win / 2 - endSeg / 2 + endOz,
-      t,
-      H - yWall,
-      endSeg
-    );
+    if (isPartFeatureOn("slitRight")) {
+      // 短辺壁（RS485 / PoE-LAN 開口）
+      const endGap = Math.max(slit * 1.4, 10);
+      const endSeg = (Win - endGap) / 2;
+      const eoz = rightOz;
+      const eox = partFeatureOX("slitRight");
+      addBox(
+        tris,
+        -L / 2 + t / 2 + eox,
+        yWall,
+        -Win / 2 + endSeg / 2 + eoz,
+        t,
+        H - yWall,
+        endSeg
+      );
+      addBox(
+        tris,
+        -L / 2 + t / 2 + eox,
+        yWall,
+        Win / 2 - endSeg / 2 + eoz,
+        t,
+        H - yWall,
+        endSeg
+      );
+      addBox(
+        tris,
+        L / 2 - t / 2 + eox,
+        yWall,
+        -Win / 2 + endSeg / 2 + eoz,
+        t,
+        H - yWall,
+        endSeg
+      );
+      addBox(
+        tris,
+        L / 2 - t / 2 + eox,
+        yWall,
+        Win / 2 - endSeg / 2 + eoz,
+        t,
+        H - yWall,
+        endSeg
+      );
+    } else {
+      /* 右側スリット削除時は端壁を塞ぐ */
+      addBox(tris, -L / 2 + t / 2, yWall, 0, t, H - yWall, Win);
+      addBox(tris, L / 2 - t / 2, yWall, 0, t, H - yWall, Win);
+    }
 
     // フランジ耳（取付耳）
     addBox(tris, -L / 4 + ribOx * 0.35, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
@@ -633,13 +789,15 @@ function buildTris(tplId, p) {
     addBox(tris, -L / 4 + ribOx * 0.35, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
     addBox(tris, L / 4 + ribOx * 0.35, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
 
-    // ネジボス（ピッチ＋個別オフセット）
-    const bx = pitch / 2;
-    const bossY = basePlateEnabled ? t : yWall;
-    addBox(tris, -bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
-    addBox(tris, bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
-    addBox(tris, -bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
-    addBox(tris, bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
+    if (isPartFeatureOn("cornerBosses")) {
+      // ネジボス（ピッチ＋個別オフセット）
+      const bx = pitch / 2;
+      const bossY = basePlateEnabled ? t : yWall;
+      addBox(tris, -bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
+      addBox(tris, bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
+      addBox(tris, -bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
+      addBox(tris, bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
+    }
   } else if (tplId === "camera_mount") {
     addBox(tris, 0, 0, 0, p.plateW, p.plateT, p.plateH);
     addBox(
@@ -853,30 +1011,34 @@ function setExplodePct(pct) {
  * @param {number[][]} tris
  * @param {number} color
  * @param {boolean} overlay
+ * @param {string | null} [partFeatureId]
  */
-function addTrisMeshToGroup(group, tris, color, overlay) {
+function addTrisMeshToGroup(group, tris, color, overlay, partFeatureId = null) {
   if (!tris.length) return;
   const geo = trisToGeometry(tris);
+  const active = partFeatureId && partFeatureId === activePartFeatureId;
   const mat = new THREE.MeshStandardMaterial({
-    color,
+    color: active ? 0x0ea5e9 : color,
     metalness: 0.08,
     roughness: 0.45,
     flatShading: true,
-    transparent: overlay,
-    opacity: overlay ? 0.42 : 1,
+    transparent: overlay || !!active,
+    opacity: overlay ? 0.42 : active ? 0.88 : 1,
     depthWrite: !overlay,
   });
-  group.add(new THREE.Mesh(geo, mat));
-  group.add(
-    new THREE.LineSegments(
-      new THREE.EdgesGeometry(geo),
-      new THREE.LineBasicMaterial({
-        color: 0x0ea5e9,
-        transparent: overlay,
-        opacity: overlay ? 0.9 : 1,
-      })
-    )
+  const mesh = new THREE.Mesh(geo, mat);
+  if (partFeatureId) mesh.userData.partFeatureId = partFeatureId;
+  group.add(mesh);
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({
+      color: active ? 0x0284c7 : 0x0ea5e9,
+      transparent: overlay,
+      opacity: overlay ? 0.9 : 1,
+    })
   );
+  if (partFeatureId) edges.userData.partFeatureId = partFeatureId;
+  group.add(edges);
 }
 
 /**
@@ -1385,72 +1547,96 @@ function setDimValueClamped(key, raw, opts = {}) {
  * @param {Record<string, number>} p
  */
 function getPartOffsetHandleDefs(tplId, p) {
-  /** @type {{ id: string, label: string, primaryKey: string, axisKeys: { x?: string, z?: string }, pos: number[] }[]} */
+  /** @type {{ id: string, label: string, featureId: string, pos: number[] }[]} */
   const defs = [];
   if (tplId === "rp2350_poe_cover") {
     const cl = Number(p.clearance) || 0.4;
     const L = p.length + 2 * cl;
     const Win = p.innerWidth + 2 * cl;
     const H = p.depth + cl;
-    const box = Number(p.bossOffsetX) || 0;
-    const boz = Number(p.bossOffsetZ) || 0;
-    const sox = Number(p.slitOffsetX) || 0;
-    const eoz = Number(p.endOpenOffsetZ) || 0;
-    const rox = Number(p.ribOffsetX) || 0;
+    const box =
+      (Number(p.bossOffsetX) || 0) + partFeatureOX("cornerBosses");
+    const boz =
+      (Number(p.bossOffsetZ) || 0) + partFeatureOY("cornerBosses");
     defs.push({
       id: "boss",
       label: "ボス",
-      primaryKey: "bossOffsetX",
-      axisKeys: { x: "bossOffsetX", z: "bossOffsetZ" },
+      featureId: "cornerBosses",
       pos: [box, p.wall + p.bossH * 0.55, -Win * 0.28 + boz],
     });
     defs.push({
-      id: "slit",
-      label: "スリット",
-      primaryKey: "slitOffsetX",
-      axisKeys: { x: "slitOffsetX" },
-      pos: [sox, H * 0.42, -Win / 2 - 2],
+      id: "slitL",
+      label: "CHスリット",
+      featureId: "slitLeft",
+      pos: [
+        (Number(p.slitOffsetX) || 0) + partFeatureOX("slitLeft"),
+        H * 0.42,
+        -Win / 2 - 2 + partFeatureOY("slitLeft"),
+      ],
     });
     defs.push({
-      id: "endOpen",
-      label: "端子開口",
-      primaryKey: "endOpenOffsetZ",
-      axisKeys: { z: "endOpenOffsetZ" },
-      pos: [-L / 2 - 2, H * 0.5, eoz],
+      id: "slitR",
+      label: "DI/PoE",
+      featureId: "slitRight",
+      pos: [
+        -L / 2 - 2 + partFeatureOX("slitRight"),
+        H * 0.5,
+        (Number(p.endOpenOffsetZ) || 0) + partFeatureOY("slitRight"),
+      ],
     });
     defs.push({
-      id: "rib",
-      label: "リブ",
-      primaryKey: "ribOffsetX",
-      axisKeys: { x: "ribOffsetX" },
-      pos: [rox, p.wall + 2, 0],
+      id: "walls",
+      label: "外壁",
+      featureId: "sideWalls",
+      pos: [
+        partFeatureOX("sideWalls"),
+        H * 0.55,
+        Win / 2 + 4 + partFeatureOY("sideWalls"),
+      ],
     });
   } else if (tplId === "iot_box") {
     const w = p.width;
     const d = p.depth;
     const t = p.wall;
-    const box = Number(p.bossOffsetX) || 0;
-    const boz = Number(p.bossOffsetZ) || 0;
+    const box =
+      (Number(p.bossOffsetX) || 0) + partFeatureOX("cornerBosses");
+    const boz =
+      (Number(p.bossOffsetZ) || 0) + partFeatureOY("cornerBosses");
     const bx = w / 2 - t - 6;
     const bz = d / 2 - t - 6;
     defs.push({
       id: "boss",
       label: "ボス",
-      primaryKey: "bossOffsetX",
-      axisKeys: { x: "bossOffsetX", z: "bossOffsetZ" },
+      featureId: "cornerBosses",
       pos: [-bx + box, t + 6, -bz + boz],
+    });
+    defs.push({
+      id: "walls",
+      label: "外壁",
+      featureId: "sideWalls",
+      pos: [
+        partFeatureOX("sideWalls"),
+        p.height * 0.5,
+        d / 2 + 4 + partFeatureOY("sideWalls"),
+      ],
     });
   } else if (tplId === "din_rail_bracket") {
     const rox = Number(p.ribOffsetX) || 0;
     defs.push({
       id: "rib",
       label: "リブ",
+      featureId: "",
       primaryKey: "ribOffsetX",
       axisKeys: { x: "ribOffsetX" },
       pos: [-p.width / 4 + rox, p.thickness + 3, 0],
     });
   }
-  return defs.filter((d) => activeTpl.ranges[d.primaryKey]);
+  return defs.filter((d) => {
+    if (d.featureId) {
+      return partFeatureDefsForActiveTpl().some((x) => x.id === d.featureId);
+    }
+    return !!activeTpl.ranges[d.primaryKey];
+  });
 }
 
 /** パーツ位置ハンドルを再構築 */
@@ -1469,11 +1655,10 @@ function rebuildPartOffsetHandles() {
   }
   const defs = getPartOffsetHandleDefs(activeTpl.id, dims);
   for (const d of defs) {
+    if (d.featureId && !isPartFeatureOn(d.featureId)) continue;
     const active =
-      activeDimKey != null &&
-      (d.axisKeys.x === activeDimKey ||
-        d.axisKeys.z === activeDimKey ||
-        d.primaryKey === activeDimKey);
+      (d.featureId && d.featureId === activePartFeatureId) ||
+      (d.primaryKey && d.primaryKey === activeDimKey);
     const mesh = new THREE.Mesh(
       new THREE.OctahedronGeometry(3.2, 0),
       new THREE.MeshBasicMaterial({
@@ -1484,13 +1669,9 @@ function rebuildPartOffsetHandles() {
       })
     );
     mesh.position.set(d.pos[0], d.pos[1], d.pos[2]);
-    mesh.userData.partOffsetKeys = [
-      d.primaryKey,
-      d.axisKeys.x,
-      d.axisKeys.z,
-    ].filter(Boolean);
-    mesh.userData.partPrimaryKey = d.primaryKey;
-    mesh.userData.partAxisKeys = d.axisKeys;
+    mesh.userData.partFeatureId = d.featureId || null;
+    mesh.userData.partPrimaryKey = d.primaryKey || null;
+    mesh.userData.partAxisKeys = d.axisKeys || null;
     mesh.renderOrder = 20;
     partPickGroup.add(mesh);
 
@@ -1503,15 +1684,249 @@ function rebuildPartOffsetHandles() {
     el.addEventListener("pointerdown", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      beginPartOffsetDrag(ev, d.primaryKey, d.axisKeys);
+      if (d.featureId) {
+        beginPartFeatureDrag(ev, d.featureId);
+      } else if (d.primaryKey) {
+        beginPartOffsetDrag(ev, d.primaryKey, d.axisKeys || {});
+      }
     });
     const label = new CSS2DObject(el);
     label.position.set(d.pos[0], d.pos[1] + 5, d.pos[2]);
-    label.userData.partOffsetKeys = mesh.userData.partOffsetKeys;
+    label.userData.partFeatureId = d.featureId || null;
     partPickGroup.add(label);
   }
   /* 印刷向きに合わせてハンドルも連動 */
   partPickGroup.rotation.x = printTopDown ? Math.PI : 0;
+}
+
+/**
+ * オフセット値を ±20 / 0.1 刻みへ丸め
+ * @param {number} raw
+ */
+function clampPartFeatureOffset(raw) {
+  let n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  n = Math.min(20, Math.max(-20, n));
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * パーツオフセット設定
+ * @param {string} id
+ * @param {"offsetX"|"offsetY"} axis
+ * @param {number} raw
+ * @param {{ rebuild?: boolean }} [opts]
+ */
+function setPartFeatureOffset(id, axis, raw, opts = {}) {
+  const st = partFeatureState[id];
+  if (!st) return;
+  st[axis] = clampPartFeatureOffset(raw);
+  syncPartFeatureInputs(id);
+  if (opts.rebuild !== false) rebuildMesh();
+}
+
+/**
+ * パーツ削除／復旧
+ * @param {string} id
+ */
+function togglePartFeatureEnabled(id) {
+  const st = partFeatureState[id];
+  if (!st) return;
+  st.enabled = !st.enabled;
+  st.open = true;
+  activePartFeatureId = id;
+  renderPartFeaturePanel();
+  rebuildMesh();
+}
+
+/**
+ * カード入力 UI を同期
+ * @param {string} id
+ */
+function syncPartFeatureInputs(id) {
+  const st = partFeatureState[id];
+  if (!st) return;
+  const xRange = /** @type {HTMLInputElement | null} */ (
+    $(`#pg-pf-x-${id}`)
+  );
+  const yRange = /** @type {HTMLInputElement | null} */ (
+    $(`#pg-pf-y-${id}`)
+  );
+  const xNum = /** @type {HTMLInputElement | null} */ (
+    $(`#pg-pf-xv-${id}`)
+  );
+  const yNum = /** @type {HTMLInputElement | null} */ (
+    $(`#pg-pf-yv-${id}`)
+  );
+  if (xRange) xRange.value = String(st.offsetX);
+  if (yRange) yRange.value = String(st.offsetY);
+  if (xNum) xNum.value = String(st.offsetX);
+  if (yNum) yNum.value = String(st.offsetY);
+}
+
+/**
+ * パーツカードへフォーカス
+ * @param {string} id
+ */
+function focusPartFeatureCard(id) {
+  if (!partFeatureState[id]) return;
+  activePartFeatureId = id;
+  partFeatureState[id].open = true;
+  renderPartFeaturePanel();
+  const card = document.querySelector(
+    `.pg-part-feature-item[data-part-id="${id}"]`
+  );
+  if (!card) return;
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.add("is-focus-flash");
+  window.setTimeout(() => card.classList.remove("is-focus-flash"), 1600);
+}
+
+/** パーツ個別調整パネル描画 */
+function renderPartFeaturePanel() {
+  const host = $("#pg-part-feature-list");
+  const section = $("#pg-part-feature-section");
+  if (!host) return;
+  const defs = partFeatureDefsForActiveTpl();
+  if (section) section.hidden = defs.length === 0;
+  if (!defs.length) {
+    host.innerHTML =
+      '<p class="pg-part-feature-empty">このテンプレでは個別パーツ調整はありません</p>';
+    return;
+  }
+  host.innerHTML = defs
+    .map((d) => {
+      const st = partFeatureState[d.id];
+      const active = d.id === activePartFeatureId ? " is-active" : "";
+      const off = st.enabled ? "" : " is-off";
+      const open = st.open || d.id === activePartFeatureId ? " is-open" : "";
+      return `
+      <article
+        class="pg-part-feature-item${active}${off}${open}"
+        data-part-id="${d.id}"
+        id="pg-part-feature-${d.id}"
+      >
+        <div class="pg-part-feature-head" data-toggle="${d.id}">
+          <div>
+            <span class="pg-part-feature-title">${d.title}</span>
+            <span class="pg-part-feature-desc">${d.desc}</span>
+          </div>
+          <button
+            type="button"
+            class="pg-btn pg-btn-secondary pg-part-del-btn"
+            data-del="${d.id}"
+            aria-pressed="${st.enabled ? "false" : "true"}"
+          >
+            ${st.enabled ? "🗑️ 削除" : "↩️ 復旧"}
+          </button>
+        </div>
+        <div class="pg-part-feature-body">
+          <div class="pg-part-feature-axis">
+            <label for="pg-pf-x-${d.id}">
+              <span>左右位置（X Offset）</span>
+              <span class="pg-field-value-wrap">
+                <input
+                  type="number"
+                  class="pg-num-input"
+                  id="pg-pf-xv-${d.id}"
+                  data-part="${d.id}"
+                  data-axis="offsetX"
+                  min="-20"
+                  max="20"
+                  step="0.1"
+                  value="${st.offsetX}"
+                  inputmode="decimal"
+                />
+                <span class="pg-num-unit">mm</span>
+              </span>
+            </label>
+            <input
+              type="range"
+              class="pg-range"
+              id="pg-pf-x-${d.id}"
+              data-part="${d.id}"
+              data-axis="offsetX"
+              min="-20"
+              max="20"
+              step="0.1"
+              value="${st.offsetX}"
+            />
+          </div>
+          <div class="pg-part-feature-axis">
+            <label for="pg-pf-y-${d.id}">
+              <span>前後位置（Y Offset）</span>
+              <span class="pg-field-value-wrap">
+                <input
+                  type="number"
+                  class="pg-num-input"
+                  id="pg-pf-yv-${d.id}"
+                  data-part="${d.id}"
+                  data-axis="offsetY"
+                  min="-20"
+                  max="20"
+                  step="0.1"
+                  value="${st.offsetY}"
+                  inputmode="decimal"
+                />
+                <span class="pg-num-unit">mm</span>
+              </span>
+            </label>
+            <input
+              type="range"
+              class="pg-range"
+              id="pg-pf-y-${d.id}"
+              data-part="${d.id}"
+              data-axis="offsetY"
+              min="-20"
+              max="20"
+              step="0.1"
+              value="${st.offsetY}"
+            />
+          </div>
+        </div>
+      </article>`;
+    })
+    .join("");
+
+  host.querySelectorAll("[data-toggle]").forEach((el) => {
+    el.addEventListener("click", (ev) => {
+      if (ev.target.closest("[data-del]")) return;
+      const id = el.getAttribute("data-toggle");
+      if (!id || !partFeatureState[id]) return;
+      partFeatureState[id].open = !partFeatureState[id].open;
+      activePartFeatureId = id;
+      renderPartFeaturePanel();
+    });
+  });
+  host.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const id = btn.getAttribute("data-del");
+      if (id) togglePartFeatureEnabled(id);
+    });
+  });
+  host.querySelectorAll("input[data-part][data-axis]").forEach((input) => {
+    const id = input.getAttribute("data-part");
+    const axis = /** @type {"offsetX"|"offsetY"} */ (
+      input.getAttribute("data-axis")
+    );
+    if (!id || !axis) return;
+    const apply = () => {
+      activePartFeatureId = id;
+      partFeatureState[id].open = true;
+      setPartFeatureOffset(id, axis, /** @type {HTMLInputElement} */ (input).value);
+      document
+        .querySelectorAll(".pg-part-feature-item")
+        .forEach((card) => {
+          card.classList.toggle(
+            "is-active",
+            card.getAttribute("data-part-id") === id
+          );
+        });
+    };
+    input.addEventListener("input", apply);
+    input.addEventListener("change", apply);
+  });
 }
 
 /**
@@ -1539,7 +1954,7 @@ function intersectDragPlane(ev, el) {
 }
 
 /**
- * パーツオフセットのドラッグ開始
+ * パーツオフセットのドラッグ開始（寸法キー）
  * @param {PointerEvent} ev
  * @param {string} primaryKey
  * @param {{ x?: string, z?: string }} axisKeys
@@ -1560,6 +1975,28 @@ function beginPartOffsetDrag(ev, primaryKey, axisKeys) {
 }
 
 /**
+ * 個別パーツのドラッグ開始
+ * @param {PointerEvent} ev
+ * @param {string} featureId
+ */
+function beginPartFeatureDrag(ev, featureId) {
+  const canvas = renderer?.domElement;
+  if (!canvas || !partFeatureState[featureId]) return;
+  focusPartFeatureCard(featureId);
+  const hit = intersectDragPlane(ev, canvas);
+  const st = partFeatureState[featureId];
+  partDragState = {
+    primaryKey: "",
+    featureId,
+    axisKeys: {},
+    start: { x: hit?.x ?? 0, z: hit?.z ?? 0 },
+    startDims: { offsetX: st.offsetX, offsetY: st.offsetY },
+  };
+  if (controls) controls.enabled = false;
+  dimDragging = true;
+}
+
+/**
  * キャンバス上のパーツピック／ドラッグ
  * @param {HTMLElement} wrap
  */
@@ -1568,18 +2005,28 @@ function bindPartOffsetPointerEvents(wrap) {
   if (!canvas || !wrap) return;
 
   const onDown = (ev) => {
-    if (!partPickGroup || !camera) return;
+    if (!camera) return;
     pointerToNdc(ev, canvas);
     partRaycaster.setFromCamera(partNdc, camera);
-    const hits = partRaycaster.intersectObjects(partPickGroup.children, false);
-    const meshHit = hits.find((h) => h.object?.userData?.partPrimaryKey);
+    const pickRoots = [];
+    if (partPickGroup) pickRoots.push(partPickGroup);
+    if (partShell) pickRoots.push(partShell);
+    const hits = partRaycaster.intersectObjects(pickRoots, true);
+    const meshHit = hits.find(
+      (h) =>
+        h.object?.userData?.partFeatureId || h.object?.userData?.partPrimaryKey
+    );
     if (!meshHit) return;
     const obj = meshHit.object;
-    beginPartOffsetDrag(
-      ev,
-      obj.userData.partPrimaryKey,
-      obj.userData.partAxisKeys || {}
-    );
+    if (obj.userData.partFeatureId) {
+      beginPartFeatureDrag(ev, obj.userData.partFeatureId);
+    } else if (obj.userData.partPrimaryKey) {
+      beginPartOffsetDrag(
+        ev,
+        obj.userData.partPrimaryKey,
+        obj.userData.partAxisKeys || {}
+      );
+    }
     ev.preventDefault();
   };
 
@@ -1589,6 +2036,24 @@ function bindPartOffsetPointerEvents(wrap) {
     if (!hit) return;
     const dx = hit.x - partDragState.start.x;
     const dz = hit.z - partDragState.start.z;
+    if (partDragState.featureId) {
+      const id = partDragState.featureId;
+      setPartFeatureOffset(
+        id,
+        "offsetX",
+        (partDragState.startDims.offsetX ?? 0) + dx,
+        { rebuild: false }
+      );
+      setPartFeatureOffset(
+        id,
+        "offsetY",
+        (partDragState.startDims.offsetY ?? 0) + dz,
+        { rebuild: false }
+      );
+      rebuildMesh();
+      ev.preventDefault();
+      return;
+    }
     const { axisKeys, startDims } = partDragState;
     if (axisKeys.x) {
       setDimValueClamped(axisKeys.x, (startDims[axisKeys.x] ?? 0) + dx, {
@@ -1836,8 +2301,10 @@ function renderTemplates() {
       dims = { ...next.defaults };
       activeDimKey = null;
       dimDragging = false;
+      activePartFeatureId = null;
       renderTemplates();
       renderSliders();
+      renderPartFeaturePanel();
       rebuildMesh({ frameCamera: true });
     });
   });
@@ -2691,5 +3158,6 @@ function bindUi() {
 
 renderTemplates();
 renderSliders();
+renderPartFeaturePanel();
 bindUi();
 initViewer();

@@ -196,6 +196,8 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(page.text, /id="pg-base-plate-btn"/);
     assert.match(page.text, /id="pg-print-orient-btn"/);
     assert.match(page.text, /パーツ構成・印刷向き/);
+    assert.match(page.text, /id="pg-part-feature-section"/);
+    assert.match(page.text, /パーツ個別調整・削除\/復元/);
 
     const js = await request(app).get(
       "/js/features/print-generator/print-generator-v1.js"
@@ -215,6 +217,15 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(js.text, /rebuildPartOffsetHandles/);
     assert.match(js.text, /beginPartOffsetDrag/);
     assert.match(js.text, /setDimValueClamped/);
+    assert.match(js.text, /PART_FEATURE_DEFS/);
+    assert.match(js.text, /partFeatureState/);
+    assert.match(js.text, /togglePartFeatureEnabled/);
+    assert.match(js.text, /focusPartFeatureCard/);
+    assert.match(js.text, /beginPartFeatureDrag/);
+    assert.match(js.text, /renderPartFeaturePanel/);
+    assert.match(js.text, /cornerBosses/);
+    assert.match(js.text, /slitLeft/);
+    assert.match(js.text, /sideWalls/);
 
     const css = await request(app).get(
       "/css/features/print-generator/print-generator-v1.css"
@@ -223,6 +234,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(css.text, /\.pg-num-input/);
     assert.match(css.text, /is-focus-flash/);
     assert.match(css.text, /\.pg-part-pick-badge/);
+    assert.match(css.text, /\.pg-part-feature-item/);
   });
 
   it("3d-generator AI prompt script wires speech and API", async () => {

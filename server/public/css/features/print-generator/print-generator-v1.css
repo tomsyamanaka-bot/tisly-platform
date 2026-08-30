@@ -236,6 +236,100 @@
   cursor: grabbing;
 }
 
+/* パーツ個別調整カード */
+.pg-part-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-part-feature-item {
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+}
+
+.pg-part-feature-item.is-active {
+  border-color: #0ea5e9;
+  background: #f0f9ff;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25);
+}
+
+.pg-part-feature-item.is-off {
+  opacity: 0.72;
+  background: #f8fafc;
+}
+
+.pg-part-feature-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pg-part-feature-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--pg-navy);
+  line-height: 1.35;
+}
+
+.pg-part-feature-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--pg-muted);
+}
+
+.pg-part-feature-body {
+  display: none;
+  padding: 0 12px 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pg-part-feature-item.is-open .pg-part-feature-body {
+  display: block;
+}
+
+.pg-part-feature-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 8px;
+}
+
+.pg-part-feature-axis {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pg-part-feature-axis label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.pg-part-feature-axis .pg-range {
+  width: 100%;
+}
+
+.pg-part-feature-empty {
+  font-size: 0.82rem;
+  color: var(--pg-muted);
+  margin: 0;
+}
+
 .pg-viewer-hint {
   position: absolute;
   left: 12px;
@@ -352,6 +446,11 @@
   outline-offset: 2px;
   background: #f0f9ff;
   border-radius: 12px;
+}
+
+.pg-part-feature-item.is-focus-flash {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
 }
 
 .pg-part-compose-row {
