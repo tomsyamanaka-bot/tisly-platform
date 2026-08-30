@@ -95,6 +95,10 @@ const {
   HOME_INTERCOM_MODULE_SEED_IDS,
   seedHomeIntercomKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-home-intercom-seed-v1.js");
+const {
+  TEXT_TO_3D_MODULE_SEED_IDS,
+  seedTextTo3dKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-text-to-3d-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -921,6 +925,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /スマートホーム施工/);
     assert.ok(card!.tags.includes("#電気錠解錠"));
     assert.ok(card!.tags.includes("#RP2350"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends Text-to-3D seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of TEXT_TO_3D_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-factory-text-to-3d-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /自然言語・音声プロンプト/);
+    assert.ok(item!.tags.includes("#TextTo3D"));
+    assert.ok(item!.tags.includes("#音声入力"));
+    assert.ok(item!.tags.includes("#TiSLY_Factory"));
+    assert.match(String(item!.body ?? ""), /Web Speech API/);
+  });
+
+  it("seedTextTo3dKnowledgeCardsV1 upserts searchable cards", () => {
+    seedTextTo3dKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-TEXT-TO-3D-001");
+    assert.ok(card);
+    assert.match(card!.title, /STLオンデマンド生成/);
+    assert.ok(card!.tags.includes("#3Dプリンター"));
+    assert.ok(card!.tags.includes("#PWA"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

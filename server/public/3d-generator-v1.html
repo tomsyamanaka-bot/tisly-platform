@@ -41,6 +41,42 @@
       <div class="pg-tpl-grid" id="pg-tpl-grid" role="listbox" aria-label="テンプレート一覧"></div>
     </section>
 
+    <!--
+      自然言語・音声で寸法指示
+      （テンプレートとプレビューの間）
+    -->
+    <section class="pg-card pg-ai-prompt-card" aria-label="AIプロンプト">
+      <p class="pg-card-label">💬 AIに言葉で指示して3D生成</p>
+      <label class="pg-ai-prompt-label" for="pg-ai-prompt">
+        寸法・形状を日本語で入力
+      </label>
+      <textarea
+        id="pg-ai-prompt"
+        class="pg-ai-prompt"
+        rows="3"
+        placeholder="例: 幅50mm、高さ30mm、M5のビス穴を2箇所あけたL字ステー"
+      ></textarea>
+      <div class="pg-ai-prompt-row">
+        <button
+          type="button"
+          class="pg-btn pg-btn-secondary"
+          id="pg-ai-voice-btn"
+          aria-pressed="false"
+        >
+          🎙️ 音声入力
+        </button>
+        <button
+          type="button"
+          class="pg-btn pg-btn-primary pg-btn-lg pg-ai-generate-btn"
+          id="pg-ai-generate-btn"
+        >
+          🚀 AIで3D生成・パラメータ更新
+        </button>
+      </div>
+      <p id="pg-ai-prompt-status" class="pg-hint" role="status"></p>
+      <div id="pg-ai-feature-flags" class="pg-ai-features" hidden></div>
+    </section>
+
     <section class="pg-layout">
       <div class="pg-card pg-viewer-card" aria-label="3Dプレビュー">
         <p class="pg-card-label">3Dプレビュー</p>

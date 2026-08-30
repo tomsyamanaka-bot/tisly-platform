@@ -18,13 +18,14 @@ const TEMPLATES = [
     id: "din_rail_bracket",
     label: "DINレールブラケット",
     desc: "盤内・センサ取付",
-    defaults: { width: 35, depth: 22, height: 18, thickness: 2.5, hole: 4.2 },
+    defaults: { width: 35, depth: 22, height: 18, thickness: 2.5, hole: 4.2, holePitch: 25 },
     ranges: {
       width: { min: 20, max: 80, step: 0.5, label: "幅 W" },
       depth: { min: 12, max: 50, step: 0.5, label: "奥行 D" },
       height: { min: 10, max: 40, step: 0.5, label: "高さ H" },
       thickness: { min: 1.5, max: 5, step: 0.1, label: "板厚 t" },
       hole: { min: 3, max: 6, step: 0.1, label: "穴径 Ø" },
+      holePitch: { min: 10, max: 60, step: 0.5, label: "穴ピッチ" },
     },
   },
   {
@@ -37,6 +38,7 @@ const TEMPLATES = [
       height: 35,
       wall: 2.2,
       lip: 1.5,
+      holePitch: 30,
     },
     ranges: {
       width: { min: 40, max: 160, step: 1, label: "外寸 W" },
@@ -44,6 +46,7 @@ const TEMPLATES = [
       height: { min: 20, max: 80, step: 1, label: "外寸 H" },
       wall: { min: 1.5, max: 4, step: 0.1, label: "壁厚" },
       lip: { min: 0.8, max: 3, step: 0.1, label: "蓋リップ" },
+      holePitch: { min: 10, max: 80, step: 0.5, label: "穴ピッチ" },
     },
   },
   {
@@ -56,6 +59,7 @@ const TEMPLATES = [
       plateT: 3,
       armLen: 28,
       armW: 12,
+      holePitch: 25,
     },
     ranges: {
       plateW: { min: 30, max: 100, step: 1, label: "プレート幅" },
@@ -63,6 +67,7 @@ const TEMPLATES = [
       plateT: { min: 2, max: 6, step: 0.1, label: "プレート厚" },
       armLen: { min: 15, max: 60, step: 1, label: "アーム長" },
       armW: { min: 8, max: 24, step: 0.5, label: "アーム幅" },
+      holePitch: { min: 10, max: 80, step: 0.5, label: "穴ピッチ" },
     },
   },
   {
@@ -75,6 +80,7 @@ const TEMPLATES = [
       width: 20,
       thickness: 3,
       hole: 3.5,
+      holePitch: 20,
     },
     ranges: {
       base: { min: 20, max: 80, step: 1, label: "底辺" },
@@ -82,6 +88,7 @@ const TEMPLATES = [
       width: { min: 12, max: 40, step: 0.5, label: "幅" },
       thickness: { min: 1.5, max: 5, step: 0.1, label: "板厚" },
       hole: { min: 2.5, max: 6, step: 0.1, label: "穴径 Ø" },
+      holePitch: { min: 10, max: 60, step: 0.5, label: "穴ピッチ" },
     },
   },
 ];
@@ -112,6 +119,11 @@ let sketchDataUrl = null;
 let activeDimKey = null;
 /** スライダー操作中フラグ */
 let dimDragging = false;
+/** Web Speech 認識インスタンス */
+/** @type {SpeechRecognition | null} */
+let speechRec = null;
+/** 音声入力トグル中 */
+let voiceListening = false;
 
 const DIM_LINE_COLOR = 0x64748b;
 const DIM_LINE_ACTIVE = 0x0ea5e9;
@@ -903,10 +915,218 @@ function extractDimsFromSketch() {
   img.src = sketchDataUrl;
 }
 
+/**
+ * 特殊加工フラグをチップ表示
+ * @param {Record<string, unknown> | null | undefined} features
+ */
+function renderFeatureFlags(features) {
+  const host = $("#pg-ai-feature-flags");
+  if (!host) return;
+  if (!features) {
+    host.hidden = true;
+    host.innerHTML = "";
+    return;
+  }
+  const chips = [];
+  if (features.tubeGroove) chips.push("単管R溝");
+  if (features.insertNut) chips.push("インサートナット");
+  if (features.packingGroove) chips.push("パッキン溝");
+  if (features.cornerFillet) chips.push("角R面取り");
+  if (Number(features.holeCount) > 0) {
+    chips.push(`穴 ${features.holeCount} 箇所`);
+  }
+  if (!chips.length) {
+    host.hidden = true;
+    host.innerHTML = "";
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = chips
+    .map((c) => `<span class="pg-ai-chip">${c}</span>`)
+    .join("");
+}
+
+/**
+ * API 結果の params をスライダーへ反映
+ * @param {string} templateId
+ * @param {Record<string, number>} params
+ */
+function applyParsedParams(templateId, params) {
+  const next = TEMPLATES.find((t) => t.id === templateId);
+  if (next && next.id !== activeTpl.id) {
+    activeTpl = next;
+    dims = { ...next.defaults };
+  }
+  for (const [key, value] of Object.entries(params || {})) {
+    if (!activeTpl.ranges[key]) continue;
+    const r = activeTpl.ranges[key];
+    dims[key] = Math.min(r.max, Math.max(r.min, Number(value)));
+  }
+  activeDimKey = null;
+  dimDragging = false;
+  renderTemplates();
+  renderSliders();
+  rebuildMesh({ frameCamera: true });
+}
+
+/**
+ * 自然言語プロンプトで 3D 生成
+ */
+async function generateFromPrompt() {
+  const input = $("#pg-ai-prompt");
+  const status = $("#pg-ai-prompt-status");
+  const btn = $("#pg-ai-generate-btn");
+  const prompt = String(input?.value || "").trim();
+  if (!prompt) {
+    if (status) {
+      status.textContent =
+        "先にテキストを入力するか、音声入力してください";
+      status.classList.add("is-warn");
+      status.classList.remove("is-ok");
+    }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (status) {
+    status.textContent = "AI が寸法を解析中…";
+    status.classList.remove("is-warn", "is-ok");
+  }
+  try {
+    const res = await fetch("/api/print-generator/v1/prompt-parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || "parse_failed");
+    }
+    applyParsedParams(data.templateId, data.params || {});
+    renderFeatureFlags(data.features);
+    if (status) {
+      const via = data.provider === "gemini" ? "Gemini" : "ルール";
+      status.textContent =
+        `生成完了（${via}）: ${data.summary || ""} — STL / ビューワーへ直結可`;
+      status.classList.add("is-ok");
+      status.classList.remove("is-warn");
+    }
+    // 印刷ビューワーリンクにテンプレ情報を付与
+    const link = $("#pg-viewer-link");
+    if (link) {
+      link.href =
+        `/print-model-viewer?from=/3d-generator&tpl=${encodeURIComponent(
+          data.templateId || ""
+        )}`;
+    }
+  } catch (err) {
+    if (status) {
+      status.textContent =
+        `生成に失敗しました: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
+      status.classList.add("is-warn");
+      status.classList.remove("is-ok");
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/** SpeechRecognition コンストラクタ取得 */
+function getSpeechRecognitionCtor() {
+  const w = window;
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+}
+
+/** 音声入力の開始／停止トグル */
+function toggleVoiceInput() {
+  const status = $("#pg-ai-prompt-status");
+  const btn = $("#pg-ai-voice-btn");
+  const Ctor = getSpeechRecognitionCtor();
+  if (!Ctor) {
+    if (status) {
+      status.textContent =
+        "このブラウザは音声入力に未対応です（Chrome推奨）";
+      status.classList.add("is-warn");
+    }
+    return;
+  }
+  if (voiceListening && speechRec) {
+    try {
+      speechRec.stop();
+    } catch {
+      /* ignore */
+    }
+    voiceListening = false;
+    if (btn) {
+      btn.classList.remove("is-listening");
+      btn.setAttribute("aria-pressed", "false");
+      btn.textContent = "🎙️ 音声入力";
+    }
+    return;
+  }
+  speechRec = new Ctor();
+  speechRec.lang = "ja-JP";
+  speechRec.interimResults = true;
+  speechRec.continuous = false;
+  speechRec.onstart = () => {
+    voiceListening = true;
+    if (btn) {
+      btn.classList.add("is-listening");
+      btn.setAttribute("aria-pressed", "true");
+      btn.textContent = "⏹ 録音停止";
+    }
+    if (status) {
+      status.textContent = "聞いています… 寸法を話してください";
+      status.classList.remove("is-warn", "is-ok");
+    }
+  };
+  speechRec.onresult = (ev) => {
+    let transcript = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      transcript += ev.results[i][0].transcript;
+    }
+    const input = $("#pg-ai-prompt");
+    if (input && transcript) {
+      input.value = transcript.trim();
+    }
+  };
+  speechRec.onerror = () => {
+    voiceListening = false;
+    if (btn) {
+      btn.classList.remove("is-listening");
+      btn.setAttribute("aria-pressed", "false");
+      btn.textContent = "🎙️ 音声入力";
+    }
+    if (status) {
+      status.textContent = "音声認識エラー — テキスト入力も利用できます";
+      status.classList.add("is-warn");
+    }
+  };
+  speechRec.onend = () => {
+    voiceListening = false;
+    if (btn) {
+      btn.classList.remove("is-listening");
+      btn.setAttribute("aria-pressed", "false");
+      btn.textContent = "🎙️ 音声入力";
+    }
+  };
+  try {
+    speechRec.start();
+  } catch {
+    if (status) {
+      status.textContent = "音声入力を開始できませんでした";
+      status.classList.add("is-warn");
+    }
+  }
+}
+
 function bindUi() {
   $("#pg-stl-btn")?.addEventListener("click", downloadStl);
   $("#pg-ai-extract-btn")?.addEventListener("click", extractDimsFromSketch);
   $("#pg-sketch-clear")?.addEventListener("click", clearSketch);
+  $("#pg-ai-generate-btn")?.addEventListener("click", generateFromPrompt);
+  $("#pg-ai-voice-btn")?.addEventListener("click", toggleVoiceInput);
 
   /* ドラッグ終了でハイライト解除フラグを戻す */
   window.addEventListener(

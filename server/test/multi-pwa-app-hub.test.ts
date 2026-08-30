@@ -131,6 +131,37 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(res.text.includes("3Dプリンター作成"));
     assert.ok(res.text.includes("print-generator-v1"));
     assert.ok(res.text.includes("ワンタップ STL"));
+    assert.match(res.text, /AIに言葉で指示して3D生成/);
+    assert.match(res.text, /id="pg-ai-prompt"/);
+    assert.match(res.text, /id="pg-ai-voice-btn"/);
+    assert.match(res.text, /id="pg-ai-generate-btn"/);
+  });
+
+  it("3d-generator AI prompt script wires speech and API", async () => {
+    const js = await request(app).get(
+      "/js/features/print-generator/print-generator-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /generateFromPrompt/);
+    assert.match(js.text, /toggleVoiceInput/);
+    assert.match(js.text, /\/api\/print-generator\/v1\/prompt-parse/);
+    assert.match(js.text, /SpeechRecognition|webkitSpeechRecognition/);
+    assert.match(js.text, /applyParsedParams/);
+    assert.match(js.text, /holePitch/);
+  });
+
+  it("POST /api/print-generator/v1/prompt-parse extracts dims", async () => {
+    const res = await request(app)
+      .post("/api/print-generator/v1/prompt-parse")
+      .send({
+        prompt: "幅50mm、高さ30mm、M5のビス穴を2箇所あけたL字ステー",
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.templateId, "sensor_l_bracket");
+    assert.equal(res.body.params.base, 50);
+    assert.equal(res.body.params.upright, 30);
+    assert.ok(res.body.params.hole >= 5);
   });
 
   it("3d-generator 方眼紙はライブラリとカメラを分離", async () => {
@@ -305,6 +336,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2511-text-to-3d-prompt") ||
       sw.text.includes("tisly-pwa-v2510-home-intercom-link") ||
       sw.text.includes("tisly-pwa-v2509-smart-intercom") ||
       sw.text.includes("tisly-pwa-v2507-pmv-header-fix") ||

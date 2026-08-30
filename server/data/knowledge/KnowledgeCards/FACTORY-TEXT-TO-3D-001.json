@@ -1,0 +1,19 @@
+{
+  "id": "FACTORY-TEXT-TO-3D-001",
+  "title": "【製造DX】自然言語・音声プロンプトからの即時3Dモデリング＆STLオンデマンド生成",
+  "category": "IOT関連",
+  "tags": [
+    "#3Dプリンター",
+    "#TextTo3D",
+    "#音声入力",
+    "#現場DX",
+    "#TiSLY_Factory",
+    "#PWA"
+  ],
+  "summary": "現場から音声やテキストで寸法・形状を指示するだけで、\nAIがパラメータとCSGコードを抽出してThree.jsプレビューを\nリアルタイム更新。CADスキル不要でオンデマンド3Dプリントを完結。\n\n【入力】\n現場スマホの PWA から、テキストまたは Web Speech API\n音声で寸法・形状を指示する。\n\n【AI 変換】\nGemini（またはルールパーサ）が基本形状・①〜⑥寸法・\n特殊加工（単管R／インサート／パッキン溝／角R）を JSON 抽出。\n\n【連動】\nパラメトリックスライダーを自動更新し、Three.js プレビューを\n即再描画。ワンタップ STL と印刷ビューワーへ直結する。",
+  "files": [],
+  "updatedAt": "2026-08-30",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【入力】\n現場スマホの PWA から、テキストまたは Web Speech API\n音声で寸法・形状を指示する。\n\n【AI 変換】\nGemini（またはルールパーサ）が基本形状・①〜⑥寸法・\n特殊加工（単管R／インサート／パッキン溝／角R）を JSON 抽出。\n\n【連動】\nパラメトリックスライダーを自動更新し、Three.js プレビューを\n即再描画。ワンタップ STL と印刷ビューワーへ直結する。"
+}

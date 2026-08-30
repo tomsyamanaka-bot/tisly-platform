@@ -120,6 +120,7 @@ import { knowledgeV1Router } from "./api/routes/knowledge-v1.js";
 import { voiceCallSummaryV1Router } from "./api/routes/voice-call-summary-v1.js";
 import { tislyMonitoringV1Router } from "./api/routes/tisly-monitoring-v1.js";
 import { printModelsV1Router } from "./api/routes/print-models-v1.js";
+import { printGeneratorV1Router } from "./api/routes/print-generator-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
 import { registerPwaLegacyRedirects } from "./pwa/pwa-legacy-redirects.js";
 import { customerPortalV1Router } from "./api/routes/customer-portal-v1.js";
@@ -216,6 +217,8 @@ export function createApp(): express.Application {
   app.use("/api/knowledge", knowledgeV1Router);
   app.use("/api/monitoring/v1", tislyMonitoringV1Router);
   app.use("/api/print-models/v1", printModelsV1Router);
+  // 自然言語→3Dパラメータ（追記）
+  app.use("/api/print-generator/v1", printGeneratorV1Router);
   app.use("/api/ai-estimate-engine/v1", aiEstimateEngineV1Router);
   app.use("/api/customer-portal/v1", customerPortalV1Router);
   app.use("/api/project-automation/v1", projectAutomationV1Router);

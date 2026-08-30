@@ -1748,3 +1748,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Knowledge | HOME-INTERCOM-TD-SM5030-001 append |
 | SW | tisly-pwa-v2510-home-intercom-link |
 | 確認 | /home-v1 · https://tisly.jp/api/health |
+
+### Text-to-3D 自然言語・音声プロンプト
+
+| 領域 | 内容 |
+|------|------|
+| UI | 3d-generator に AIプロンプトカード（音声+生成） |
+| API | POST /api/print-generator/v1/prompt-parse |
+| Knowledge | FACTORY-TEXT-TO-3D-001 append |
+| SW | tisly-pwa-v2511-text-to-3d-prompt |
+| 確認 | /3d-generator · https://tisly.jp/api/health |

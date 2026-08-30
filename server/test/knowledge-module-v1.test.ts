@@ -123,6 +123,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /TiSLY HOME統合仕様/);
     assert.match(mockSrc, /MOCK_HOME_INTERCOM_ITEMS/);
     assert.match(mockSrc, /#TiSLY_HOME/);
+    assert.match(mockSrc, /自然言語・音声プロンプト/);
+    assert.match(mockSrc, /MOCK_TEXT_TO_3D_ITEMS/);
+    assert.match(mockSrc, /#TextTo3D/);
   });
 
   it("nav script requires login before loading bundle", () => {

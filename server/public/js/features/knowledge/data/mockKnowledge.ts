@@ -1495,3 +1495,51 @@ export const MOCK_HOME_INTERCOM_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX・自然言語/音声 Text-to-3D（末尾追記） */
+export const TEXT_TO_3D_KNOWLEDGE_TITLES = [
+  "【製造DX】自然言語・音声プロンプトからの即時3Dモデリング＆STLオンデマンド生成",
+] as const;
+
+const TEXT_TO_3D_CREATED_AT = "2026-08-30T09:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に Text-to-3D 1 件を保持。
+ */
+export const MOCK_TEXT_TO_3D_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-factory-text-to-3d-001",
+    title:
+      "【製造DX】自然言語・音声プロンプトからの即時3Dモデリング＆STLオンデマンド生成",
+    summary: [
+      "現場から音声やテキストで寸法・形状を指示するだけで、",
+      "AIがパラメータとCSGコードを抽出してThree.jsプレビューを",
+      "リアルタイム更新。CADスキル不要でオンデマンド3Dプリントを完結。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#TextTo3D",
+      "#音声入力",
+      "#現場DX",
+      "#TiSLY_Factory",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: TEXT_TO_3D_CREATED_AT,
+    body: [
+      "【入力】",
+      "現場スマホの PWA から、テキストまたは Web Speech API",
+      "音声で寸法・形状を指示する。",
+      "",
+      "【AI 変換】",
+      "Gemini（またはルールパーサ）が基本形状・①〜⑥寸法・",
+      "特殊加工（単管R／インサート／パッキン溝／角R）を JSON 抽出。",
+      "",
+      "【連動】",
+      "パラメトリックスライダーを自動更新し、Three.js プレビューを",
+      "即再描画。ワンタップ STL と印刷ビューワーへ直結する。",
+    ].join("\n"),
+  },
+];

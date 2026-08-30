@@ -397,3 +397,92 @@
   color: #b45309;
   font-weight: 700;
 }
+
+/* ── AI プロンプトカード（追記） ── */
+.pg-ai-prompt-card {
+  border-color: #c7d2fe;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.pg-ai-prompt-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--pg-muted);
+}
+
+.pg-ai-prompt {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--pg-line);
+  border-radius: 12px;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--pg-ink);
+  background: #fff;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.pg-ai-prompt:focus {
+  outline: 2px solid rgba(30, 58, 138, 0.35);
+  border-color: var(--pg-navy);
+}
+
+.pg-ai-prompt-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: stretch;
+}
+
+.pg-ai-prompt-row .pg-btn-secondary {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+.pg-ai-generate-btn {
+  flex: 1 1 220px;
+  margin-bottom: 0;
+}
+
+.pg-btn.is-listening {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+  animation: pg-voice-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pg-voice-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(185, 28, 28, 0);
+  }
+}
+
+.pg-ai-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pg-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: var(--pg-navy);
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1px solid #c7d2fe;
+}

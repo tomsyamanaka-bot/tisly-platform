@@ -1,7 +1,54 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-29T13:19:48.115Z",
+  "updatedAt": "2026-08-30T08:04:28.102Z",
   "entries": [
+    {
+      "id": "FACTORY-TEXT-TO-3D-001",
+      "title": "【製造DX】自然言語・音声プロンプトからの即時3Dモデリング＆STLオンデマンド生成",
+      "category": "IOT関連",
+      "tags": [
+        "#3Dプリンター",
+        "#TextTo3D",
+        "#音声入力",
+        "#現場DX",
+        "#TiSLY_Factory",
+        "#PWA"
+      ],
+      "summary": "現場から音声やテキストで寸法・形状を指示するだけで、\nAIがパラメータとCSGコードを抽出してThree.jsプレビューを\nリアルタイム更新。CADスキル不要でオンデマンド3Dプリントを完結。\n\n【入力】\n現場スマホの PWA から、テキストまたは Web Speech API\n音声で寸法・形状を指示する。\n\n【AI 変換】\nGemini（またはルールパーサ）が基本形状・①〜⑥寸法・\n特殊加工（単管R／インサート／パッキン溝／角R）を JSON 抽出。\n\n【連動】\nパラメトリックスライダーを自動更新し、Three.js プレビューを\n即再描画。ワンタップ STL と印刷ビューワーへ直結する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
+    },
+    {
+      "id": "HOME-INTERCOM-TD-SM5030-001",
+      "title": "【スマートホーム施工】アイリス製Wi-Fiドアホン（TD-SM5030CT-BSH）× RP2350 TiSLY HOME統合仕様",
+      "category": "防犯カメラ",
+      "tags": [
+        "#TiSLY_HOME",
+        "#インターホン連携",
+        "#電気錠解錠",
+        "#RP2350",
+        "#TD-SM5030CT-BSH"
+      ],
+      "summary": "呼出信号のPWAポップアップ通知、HomeLinkアプリ呼び出し連携、\nRP2350内蔵リレーCH1による電気錠遠隔解錠の連動仕様。\n\n【PWA ポップアップ通知】\n呼出信号を検知し、TiSLY HOME（白×navy）へ\nリアルタイムの来客ポップアップを表示する。\n\n【HomeLink 連携】\nワンタップで HomeLink アプリ（homelink://）を起動し、\n玄関ドアホンとの通話応答を開始する。\n\n【RP2350 CH1 解錠】\n内蔵リレー CH1 を約 1 秒キックし、\n電気錠を遠隔解錠。HOME-JP-ITABASHI-LIVE と一元管理する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
+    },
+    {
+      "id": "SEC-SMART-INTERCOM-TD-SM5030-001",
+      "title": "【施工DX】スマートインターホン（TD-SM5030CT-BSH）PWA応答・電気錠遠隔解錠連携仕様",
+      "category": "防犯カメラ",
+      "tags": [
+        "#スマートドアホン",
+        "#PWA来客応答",
+        "#電気錠解錠",
+        "#RP2350",
+        "#リレー連動",
+        "#TiSLY_Security"
+      ],
+      "summary": "アイリスオーヤマ製Wi-Fiドアホン（TD-SM5030CT-BSH）の呼出移報信号を親機（RP2350）のDI端子またはクラウドAPIで検知。\nTiSLY PWA（白ベース×navy UI）上へリアルタイムに来客ポップアップを表示し、ワンタップ通話起動リンク（HomeLink連携）および内蔵リレー（CH1）によるスマート電気錠の遠隔解錠操作を一元提供。\n\n【呼出検知】\nアイリスオーヤマ TD-SM5030CT-BSH の呼出移報を\n親機 RP2350 の DI 端子またはクラウド API で検知する。\n\n【PWA 来客応答】\n白ベース×navy の TiSLY PWA にリアルタイムポップアップを表示。\nワンタップで HomeLink（homelink://）通話を起動する。\n\n【電気錠遠隔解錠】\n内蔵リレー CH1 を約 1 秒キックし、\nスマート電気錠を遠隔解錠。設計・施工・月額監視を一元化する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
+    },
     {
       "id": "FACTORY-3D-HYBRID-STORE-001",
       "title": "【製造DX】PWA 3Dモジュール運用フローとQNAP/IndexedDBハイブリッド保存設計",
@@ -1840,37 +1887,6 @@
       "summary": "配線例 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
       "updatedAt": "2026-06-20",
       "sourceType": "rp-template"
-    },
-    {
-      "id": "SEC-SMART-INTERCOM-TD-SM5030-001",
-      "title": "【施工DX】スマートインターホン（TD-SM5030CT-BSH）PWA応答・電気錠遠隔解錠連携仕様",
-      "category": "防犯カメラ",
-      "tags": [
-        "#スマートドアホン",
-        "#PWA来客応答",
-        "#電気錠解錠",
-        "#RP2350",
-        "#リレー連動",
-        "#TiSLY_Security"
-      ],
-      "summary": "アイリスオーヤマ製Wi-Fiドアホン（TD-SM5030CT-BSH）の呼出移報信号を親機（RP2350）のDI端子またはクラウドAPIで検知。\nTiSLY PWA（白ベース×navy UI）上へリアルタイムに来客ポップアップを表示し、ワンタップ通話起動リンク（HomeLink連携）および内蔵リレー（CH1）によるスマート電気錠の遠隔解錠操作を一元提供。\n\n【呼出検知】\nアイリスオーヤマ TD-SM5030CT-BSH の呼出移報を\n親機 RP2350 の DI 端子またはクラウド API で検知する。\n\n【PWA 来客応答】\n白ベース×navy の TiSLY PWA にリアルタイムポップアップを表示。\nワンタップで HomeLink（homelink://）通話を起動する。\n\n【電気錠遠隔解錠】\n内蔵リレー CH1 を約 1 秒キックし、\nスマート電気錠を遠隔解錠。設計・施工・月額監視を一元化する。",
-      "updatedAt": "2026-08-30",
-      "sourceType": "manual"
-    },
-    {
-      "id": "HOME-INTERCOM-TD-SM5030-001",
-      "title": "【スマートホーム施工】アイリス製Wi-Fiドアホン（TD-SM5030CT-BSH）× RP2350 TiSLY HOME統合仕様",
-      "category": "防犯カメラ",
-      "tags": [
-        "#TiSLY_HOME",
-        "#インターホン連携",
-        "#電気錠解錠",
-        "#RP2350",
-        "#TD-SM5030CT-BSH"
-      ],
-      "summary": "呼出信号のPWAポップアップ通知、HomeLinkアプリ呼び出し連携、\nRP2350内蔵リレーCH1による電気錠遠隔解錠の連動仕様。\n\n【PWA ポップアップ通知】\n呼出信号を検知し、TiSLY HOME（白×navy）へ\nリアルタイムの来客ポップアップを表示する。\n\n【HomeLink 連携】\nワンタップで HomeLink アプリ（homelink://）を起動し、\n玄関ドアホンとの通話応答を開始する。\n\n【RP2350 CH1 解錠】\n内蔵リレー CH1 を約 1 秒キックし、\n電気錠を遠隔解錠。HOME-JP-ITABASHI-LIVE と一元管理する。",
-      "updatedAt": "2026-08-30",
-      "sourceType": "manual"
     }
   ]
 }
