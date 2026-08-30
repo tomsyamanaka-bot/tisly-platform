@@ -465,6 +465,54 @@
       </div>
     </div>
 
+    <!-- 玄関インターホン連携（TD-SM5030 × RP2350） -->
+    <section class="hm-card hm-intercom-link" id="hm-intercom-link">
+      <p class="hm-card-label">
+        🔔 玄関インターホン連携（TD-SM5030CT-BSH × RP2350 / HomeLink）
+      </p>
+      <p class="hm-device-note" id="hm-intercom-link-note">
+        HOME-JP-ITABASHI-LIVE · 白ベース×navy
+      </p>
+      <div class="hm-intercom-link-status-row">
+        <span class="hm-intercom-link-status-label">来客ステータス</span>
+        <span
+          id="hm-intercom-link-badge"
+          class="hm-intercom-link-badge is-idle"
+          role="status"
+          >待機中</span
+        >
+      </div>
+      <div class="hm-intercom-link-actions">
+        <a
+          class="hm-intercom-link-answer"
+          id="hm-intercom-link-answer"
+          href="homelink://answer"
+          role="button"
+        >
+          通話に応答する（アプリ起動）
+        </a>
+        <label class="hm-intercom-link-arm">
+          <input type="checkbox" id="hm-intercom-link-arm" />
+          <span>解錠を許可（誤タップ防止）</span>
+        </label>
+        <button
+          type="button"
+          class="hm-intercom-link-unlock"
+          id="hm-intercom-link-unlock"
+          disabled
+        >
+          電気錠を解錠（リレー CH1・1秒）
+        </button>
+        <button
+          type="button"
+          class="hm-intercom-link-sim"
+          id="hm-intercom-link-sim"
+        >
+          呼出シミュレーション
+        </button>
+      </div>
+    </section>
+
     <!-- 動作ログ（直近10件 + 詳細モーダル） -->
     <section class="hm-card">
       <p class="hm-card-label">📜 アクティビティタイムライン（直近10件）</p>
@@ -516,6 +564,7 @@
   <div class="hm-toast" id="hm-toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/js/features/home/home-customer-v1.js?v=2493"></script>
+  <script type="module" src="/js/features/home/home-intercom-link-v1.js?v=2510"></script>
   <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2493"></script>
 </body>
 </html>

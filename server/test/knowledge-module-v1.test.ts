@@ -120,6 +120,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /TD-SM5030CT-BSH/);
     assert.match(mockSrc, /MOCK_SMART_INTERCOM_ITEMS/);
     assert.match(mockSrc, /#スマートドアホン/);
+    assert.match(mockSrc, /TiSLY HOME統合仕様/);
+    assert.match(mockSrc, /MOCK_HOME_INTERCOM_ITEMS/);
+    assert.match(mockSrc, /#TiSLY_HOME/);
   });
 
   it("nav script requires login before loading bundle", () => {

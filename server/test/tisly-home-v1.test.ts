@@ -556,6 +556,10 @@ describe("tisly-home-v1", () => {
     assert.match(operatorHtml, /data-target="lock"/);
     // スマートインターホン
     assert.match(operatorHtml, /id="hm-intercom-card"/);
+    assert.match(operatorHtml, /id="hm-intercom-link"/);
+    assert.match(operatorHtml, /玄関インターホン連携/);
+    assert.match(operatorHtml, /hm-intercom-link-arm/);
+    assert.match(operatorHtml, /home-intercom-link-v1\.js\?v=2510/);
     assert.match(operatorHtml, /id="hm-ring-popup"/);
     assert.match(operatorHtml, /data-action="answer"/);
     assert.match(operatorHtml, /data-action="auto_response"/);
@@ -570,6 +574,8 @@ describe("tisly-home-v1", () => {
     assert.match(customerHtml, /data-hqs-mode="customer"/);
     assert.match(customerHtml, /おうちの設備/);
     assert.match(customerHtml, /id="hm-intercom-card"/);
+    assert.match(customerHtml, /id="hm-intercom-link"/);
+    assert.match(customerHtml, /home-intercom-link-v1\.js\?v=2510/);
     assert.match(customerHtml, /id="hm-ring-popup"/);
     // お客様 UI に技術語を出さない
     assert.doesNotMatch(customerHtml, /SwitchBot/);

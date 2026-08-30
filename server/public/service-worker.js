@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2509-smart-intercom";
+const SW_VERSION = "tisly-pwa-v2510-home-intercom-link";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2509-smart-intercom
  * tisly-pwa-v2507-pmv-header-fix
  * tisly-pwa-v2506-pmv-back-nav
  * tisly-pwa-v2505-dim-number-badges
@@ -19,9 +20,9 @@ const SW_VERSION = "tisly-pwa-v2509-smart-intercom";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2509-smart-intercom";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2509-smart-intercom";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2509-smart-intercom";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2510-home-intercom-link";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2510-home-intercom-link";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2510-home-intercom-link";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -255,6 +256,7 @@ const SHELL_URLS = [
   "/customer/home",
   "/js/features/home/home-shared-v1.js",
   "/js/features/home/home-operator-v1.js",
+  "/js/features/home/home-intercom-link-v1.js",
   "/js/features/home/home-customer-v1.js",
   "/js/features/home/home-quick-switch-v1.js",
   "/js/features/home/home-tiles-v1.js",

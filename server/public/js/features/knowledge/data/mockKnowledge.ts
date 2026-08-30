@@ -1449,3 +1449,49 @@ export const MOCK_SMART_INTERCOM_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** スマートホーム施工・HOME インターホン統合（末尾追記） */
+export const HOME_INTERCOM_KNOWLEDGE_TITLES = [
+  "【スマートホーム施工】アイリス製Wi-Fiドアホン（TD-SM5030CT-BSH）× RP2350 TiSLY HOME統合仕様",
+] as const;
+
+const HOME_INTERCOM_CREATED_AT = "2026-08-30T08:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に HOME 統合 1 件を保持。
+ */
+export const MOCK_HOME_INTERCOM_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-home-intercom-td-sm5030-001",
+    title:
+      "【スマートホーム施工】アイリス製Wi-Fiドアホン（TD-SM5030CT-BSH）× RP2350 TiSLY HOME統合仕様",
+    summary: [
+      "呼出信号のPWAポップアップ通知、HomeLinkアプリ呼び出し連携、",
+      "RP2350内蔵リレーCH1による電気錠遠隔解錠の連動仕様。",
+    ].join("\n"),
+    genre: "セキュリティー",
+    tags: [
+      "#TiSLY_HOME",
+      "#インターホン連携",
+      "#電気錠解錠",
+      "#RP2350",
+      "#TD-SM5030CT-BSH",
+    ],
+    pdf_url: null,
+    createdAt: HOME_INTERCOM_CREATED_AT,
+    body: [
+      "【PWA ポップアップ通知】",
+      "呼出信号を検知し、TiSLY HOME（白×navy）へ",
+      "リアルタイムの来客ポップアップを表示する。",
+      "",
+      "【HomeLink 連携】",
+      "ワンタップで HomeLink アプリ（homelink://）を起動し、",
+      "玄関ドアホンとの通話応答を開始する。",
+      "",
+      "【RP2350 CH1 解錠】",
+      "内蔵リレー CH1 を約 1 秒キックし、",
+      "電気錠を遠隔解錠。HOME-JP-ITABASHI-LIVE と一元管理する。",
+    ].join("\n"),
+  },
+];

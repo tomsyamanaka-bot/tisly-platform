@@ -1856,6 +1856,21 @@
       "summary": "アイリスオーヤマ製Wi-Fiドアホン（TD-SM5030CT-BSH）の呼出移報信号を親機（RP2350）のDI端子またはクラウドAPIで検知。\nTiSLY PWA（白ベース×navy UI）上へリアルタイムに来客ポップアップを表示し、ワンタップ通話起動リンク（HomeLink連携）および内蔵リレー（CH1）によるスマート電気錠の遠隔解錠操作を一元提供。\n\n【呼出検知】\nアイリスオーヤマ TD-SM5030CT-BSH の呼出移報を\n親機 RP2350 の DI 端子またはクラウド API で検知する。\n\n【PWA 来客応答】\n白ベース×navy の TiSLY PWA にリアルタイムポップアップを表示。\nワンタップで HomeLink（homelink://）通話を起動する。\n\n【電気錠遠隔解錠】\n内蔵リレー CH1 を約 1 秒キックし、\nスマート電気錠を遠隔解錠。設計・施工・月額監視を一元化する。",
       "updatedAt": "2026-08-30",
       "sourceType": "manual"
+    },
+    {
+      "id": "HOME-INTERCOM-TD-SM5030-001",
+      "title": "【スマートホーム施工】アイリス製Wi-Fiドアホン（TD-SM5030CT-BSH）× RP2350 TiSLY HOME統合仕様",
+      "category": "防犯カメラ",
+      "tags": [
+        "#TiSLY_HOME",
+        "#インターホン連携",
+        "#電気錠解錠",
+        "#RP2350",
+        "#TD-SM5030CT-BSH"
+      ],
+      "summary": "呼出信号のPWAポップアップ通知、HomeLinkアプリ呼び出し連携、\nRP2350内蔵リレーCH1による電気錠遠隔解錠の連動仕様。\n\n【PWA ポップアップ通知】\n呼出信号を検知し、TiSLY HOME（白×navy）へ\nリアルタイムの来客ポップアップを表示する。\n\n【HomeLink 連携】\nワンタップで HomeLink アプリ（homelink://）を起動し、\n玄関ドアホンとの通話応答を開始する。\n\n【RP2350 CH1 解錠】\n内蔵リレー CH1 を約 1 秒キックし、\n電気錠を遠隔解錠。HOME-JP-ITABASHI-LIVE と一元管理する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
     }
   ]
 }

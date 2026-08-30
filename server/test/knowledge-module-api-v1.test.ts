@@ -91,6 +91,10 @@ const {
   SMART_INTERCOM_MODULE_SEED_IDS,
   seedSmartIntercomKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-smart-intercom-seed-v1.js");
+const {
+  HOME_INTERCOM_MODULE_SEED_IDS,
+  seedHomeIntercomKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-home-intercom-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -888,6 +892,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /電気錠遠隔解錠/);
     assert.ok(card!.tags.includes("#PWA来客応答"));
     assert.ok(card!.tags.includes("#リレー連動"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends HOME intercom seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of HOME_INTERCOM_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-home-intercom-td-sm5030-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /TiSLY HOME統合仕様/);
+    assert.ok(item!.tags.includes("#TiSLY_HOME"));
+    assert.ok(item!.tags.includes("#インターホン連携"));
+    assert.ok(item!.tags.includes("#TD-SM5030CT-BSH"));
+    assert.match(String(item!.body ?? ""), /HomeLink/);
+  });
+
+  it("seedHomeIntercomKnowledgeCardsV1 upserts searchable cards", () => {
+    seedHomeIntercomKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("HOME-INTERCOM-TD-SM5030-001");
+    assert.ok(card);
+    assert.match(card!.title, /スマートホーム施工/);
+    assert.ok(card!.tags.includes("#電気錠解錠"));
+    assert.ok(card!.tags.includes("#RP2350"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

@@ -1738,3 +1738,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | UI | security-v1 sf-intercom-link（呼出/応答/CH1解錠） |
 | SW | tisly-pwa-v2509-smart-intercom |
 | 確認 | /security-v1 · /knowledge · https://tisly.jp/api/health |
+
+### HOME 玄関インターホン連携 正式配置
+
+| 領域 | 内容 |
+|------|------|
+| UI | home-v1 / home-customer に hm-intercom-link 追記 |
+| JS | home-intercom-link-v1.js（CH1解錠・HomeLink・シミュレーション） |
+| Knowledge | HOME-INTERCOM-TD-SM5030-001 append |
+| SW | tisly-pwa-v2510-home-intercom-link |
+| 確認 | /home-v1 · https://tisly.jp/api/health |

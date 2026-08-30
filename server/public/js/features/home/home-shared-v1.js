@@ -786,6 +786,18 @@ export function updateRingPopup(d) {
 
   popup.classList.add("is-visible");
   notifyRing(d);
+  try {
+    window.dispatchEvent(
+      new CustomEvent("tisly:intercom-ring", {
+        detail: {
+          message: `玄関インターホン呼出（${d.displayName || d.siteId}）`,
+          siteId: d.siteId,
+        },
+      })
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
 /** PWA 通知・バイブレーション（許可済みのときだけ） */

@@ -553,5 +553,21 @@
     ],
     "pdf_url": null,
     "createdAt": "2026-08-30T07:00:00.000Z"
+  },
+  {
+    "id": "kn-seed-home-intercom-td-sm5030-001",
+    "title": "【スマートホーム施工】アイリス製Wi-Fiドアホン（TD-SM5030CT-BSH）× RP2350 TiSLY HOME統合仕様",
+    "summary": "呼出信号のPWAポップアップ通知、HomeLinkアプリ呼び出し連携、\nRP2350内蔵リレーCH1による電気錠遠隔解錠の連動仕様。",
+    "body": "【PWA ポップアップ通知】\n呼出信号を検知し、TiSLY HOME（白×navy）へ\nリアルタイムの来客ポップアップを表示する。\n\n【HomeLink 連携】\nワンタップで HomeLink アプリ（homelink://）を起動し、\n玄関ドアホンとの通話応答を開始する。\n\n【RP2350 CH1 解錠】\n内蔵リレー CH1 を約 1 秒キックし、\n電気錠を遠隔解錠。HOME-JP-ITABASHI-LIVE と一元管理する。",
+    "genre": "セキュリティー",
+    "tags": [
+      "#TiSLY_HOME",
+      "#インターホン連携",
+      "#電気錠解錠",
+      "#RP2350",
+      "#TD-SM5030CT-BSH"
+    ],
+    "pdf_url": null,
+    "createdAt": "2026-08-30T08:00:00.000Z"
   }
 ]
