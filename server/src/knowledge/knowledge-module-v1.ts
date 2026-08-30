@@ -65,6 +65,10 @@ import {
   RJ45_BEAM_HOUSING_MODULE_SEED_IDS,
   getRj45BeamHousingModuleSeedItemsV1,
 } from "./knowledge-rj45-beam-housing-seed-v1.js";
+import {
+  SMART_INTERCOM_MODULE_SEED_IDS,
+  getSmartIntercomModuleSeedItemsV1,
+} from "./knowledge-smart-intercom-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -888,6 +892,49 @@ function mergeRj45BeamHousingSeed(
   return { items: next, changed };
 }
 
+/**
+ * 施工DX・スマートインターホンを末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeSmartIntercomSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(SMART_INTERCOM_MODULE_SEED_IDS);
+  const seeds = getSmartIntercomModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -936,7 +983,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedPart2 = mergeFactoryDxPart2Seed(mergedPart1.items);
   const mergedIrBeam = mergeIrBeamMountSeed(mergedPart2.items);
   const mergedRj45Housing = mergeRj45BeamHousingSeed(mergedIrBeam.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedRj45Housing.items);
+  const mergedIntercom = mergeSmartIntercomSeed(mergedRj45Housing.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedIntercom.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -953,6 +1001,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedPart2.changed ||
     mergedIrBeam.changed ||
     mergedRj45Housing.changed ||
+    mergedIntercom.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

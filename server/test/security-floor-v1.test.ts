@@ -349,11 +349,16 @@ describe("security-floor-v1", () => {
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
     assert.match(html, /security-floor-remote-config-v1\.js\?v=2508/);
+    assert.match(html, /security-floor-intercom-v1\.js\?v=2509/);
+    assert.match(html, /sf-intercom-link/);
+    assert.match(html, /玄関インターホン連携/);
+    assert.match(html, /sf-intercom-unlock-arm/);
+    assert.match(html, /呼出シミュレーション/);
     assert.match(html, /security-floor-push-v1\.js\?v=2508/);
     assert.match(html, /security-floor-light-v1\.js\?v=2508/);
     assert.match(html, /security-floor-operator-v1\.js\?v=2508/);
     assert.match(html, /security-floor-iso3d-v1\.js\?v=2508/);
-    assert.match(html, /security-floor-v1\.css\?v=2508/);
+    assert.match(html, /security-floor-v1\.css\?v=2509/);
     assert.match(html, /sf-brand-logo/);
     assert.match(html, /tisly-shield-logo-128\.png/);
     assert.match(html, /icons\/icon-128\.png\?v=2508/);

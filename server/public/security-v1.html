@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>板橋自宅 (HOME-JP-ITABASHI-LIVE) · TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2508" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2509" />
   <script type="importmap">
   {
     "imports": {
@@ -235,6 +235,51 @@
           </button>
           <button type="button" class="sf-manual-light-btn" id="sf-light-all-off">
             全消灯
+          </button>
+        </div>
+      </section>
+
+      <section class="sf-card sf-intercom-link" id="sf-intercom-link">
+        <p class="sf-card-label">🔔 玄関インターホン連携</p>
+        <p class="sf-remote-target" id="sf-intercom-link-note">
+          TD-SM5030CT-BSH × RP2350 / HomeLink
+        </p>
+        <div class="sf-intercom-status-row">
+          <span class="sf-intercom-status-label">来客ステータス</span>
+          <span
+            id="sf-intercom-status-badge"
+            class="sf-intercom-status-badge is-idle"
+            role="status"
+            >待機中</span
+          >
+        </div>
+        <div class="sf-intercom-actions" id="sf-intercom-link-actions">
+          <a
+            class="sf-intercom-answer-btn"
+            id="sf-intercom-answer"
+            href="homelink://answer"
+            role="button"
+          >
+            通話に応答する（アプリ起動）
+          </a>
+          <label class="sf-intercom-arm">
+            <input type="checkbox" id="sf-intercom-unlock-arm" />
+            <span>解錠を許可（誤タップ防止）</span>
+          </label>
+          <button
+            type="button"
+            class="sf-intercom-unlock-btn"
+            id="sf-intercom-unlock"
+            disabled
+          >
+            電気錠を解錠（リレー CH1・1秒）
+          </button>
+          <button
+            type="button"
+            class="sf-intercom-sim-btn"
+            id="sf-intercom-sim-ring"
+          >
+            呼出シミュレーション
           </button>
         </div>
       </section>
@@ -535,6 +580,7 @@
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2508"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2508"></script>
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2508"></script>
+  <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2509"></script>
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2508"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2508"></script>
   <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2508"></script>

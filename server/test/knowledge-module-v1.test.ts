@@ -117,6 +117,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /RJ45ビームセンサーハウジング/);
     assert.match(mockSrc, /MOCK_RJ45_BEAM_HOUSING_ITEMS/);
     assert.match(mockSrc, /#自社ブランド化/);
+    assert.match(mockSrc, /TD-SM5030CT-BSH/);
+    assert.match(mockSrc, /MOCK_SMART_INTERCOM_ITEMS/);
+    assert.match(mockSrc, /#スマートドアホン/);
   });
 
   it("nav script requires login before loading bundle", () => {

@@ -2250,3 +2250,143 @@
 .sf-toast.is-visible {
   transform: translateX(-50%) translateY(0);
 }
+
+/* 玄関インターホン連携カード（末尾追記） */
+.sf-intercom-link {
+  margin-bottom: 12px;
+}
+
+.sf-intercom-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+
+.sf-intercom-status-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--sf-ink, #0f172a);
+}
+
+.sf-intercom-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sf-intercom-status-badge.is-idle {
+  background: #dcfce7;
+  color: #166534;
+  border: 1.5px solid #86efac;
+}
+
+.sf-intercom-status-badge.is-ringing {
+  background: var(--sf-navy, #1e3a8a);
+  color: #fff;
+  border: 1.5px solid #1e3a8a;
+  animation: sf-intercom-blink 1s ease-in-out infinite;
+}
+
+@keyframes sf-intercom-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(30, 58, 138, 0.45);
+  }
+  50% {
+    opacity: 0.72;
+    box-shadow: 0 0 0 6px rgba(30, 58, 138, 0);
+  }
+}
+
+.sf-intercom-link.is-ringing {
+  border-color: var(--sf-navy, #1e3a8a);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.12);
+}
+
+.sf-intercom-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.sf-intercom-answer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--sf-navy, #1e3a8a);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.92rem;
+  text-decoration: none;
+  text-align: center;
+  border: none;
+  cursor: pointer;
+}
+
+.sf-intercom-arm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--sf-ink, #0f172a);
+  cursor: pointer;
+}
+
+.sf-intercom-arm input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--sf-navy, #1e3a8a);
+}
+
+.sf-intercom-unlock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--sf-navy, #1e3a8a);
+  background: #fff;
+  color: var(--sf-navy, #1e3a8a);
+  font-weight: 800;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.sf-intercom-unlock-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sf-intercom-unlock-btn.is-armed {
+  background: var(--sf-navy, #1e3a8a);
+  color: #fff;
+}
+
+.sf-intercom-sim-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1.5px dashed #94a3b8;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}

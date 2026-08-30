@@ -1726,3 +1726,15 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 削除 | キャンバス上のフロート戻るボタン |
 | SW | tisly-pwa-v2507-pmv-header-fix |
 | 確認 | /print-model-viewer · https://tisly.jp/api/health |
+
+### Knowledge 施工DX スマートインターホン + Security UI
+
+| 領域 | 内容 |
+|------|------|
+| 方針 | 既存ナレッジは削除せず末尾に 1 件 append |
+| Card | SEC-SMART-INTERCOM-TD-SM5030-001 |
+| Module | knowledge-smart-intercom-seed-v1.ts |
+| Mock | MOCK_SMART_INTERCOM_ITEMS |
+| UI | security-v1 sf-intercom-link（呼出/応答/CH1解錠） |
+| SW | tisly-pwa-v2509-smart-intercom |
+| 確認 | /security-v1 · /knowledge · https://tisly.jp/api/health |

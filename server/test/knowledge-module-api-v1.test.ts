@@ -87,6 +87,10 @@ const {
   RJ45_BEAM_HOUSING_MODULE_SEED_IDS,
   seedRj45BeamHousingKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-rj45-beam-housing-seed-v1.js");
+const {
+  SMART_INTERCOM_MODULE_SEED_IDS,
+  seedSmartIntercomKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-smart-intercom-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -855,6 +859,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /ポール＆壁面両対応/);
     assert.ok(card!.tags.includes("#ビームセンサー"));
     assert.ok(card!.tags.includes("#単管マウント"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends smart intercom seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of SMART_INTERCOM_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-smart-intercom-td-sm5030-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /TD-SM5030CT-BSH/);
+    assert.ok(item!.tags.includes("#スマートドアホン"));
+    assert.ok(item!.tags.includes("#電気錠解錠"));
+    assert.ok(item!.tags.includes("#RP2350"));
+    assert.match(String(item!.body ?? ""), /HomeLink/);
+  });
+
+  it("seedSmartIntercomKnowledgeCardsV1 upserts searchable cards", () => {
+    seedSmartIntercomKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("SEC-SMART-INTERCOM-TD-SM5030-001");
+    assert.ok(card);
+    assert.match(card!.title, /電気錠遠隔解錠/);
+    assert.ok(card!.tags.includes("#PWA来客応答"));
+    assert.ok(card!.tags.includes("#リレー連動"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

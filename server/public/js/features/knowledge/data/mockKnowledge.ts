@@ -1402,3 +1402,50 @@ export const MOCK_RJ45_BEAM_HOUSING_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 施工DX・スマートインターホン（末尾追記） */
+export const SMART_INTERCOM_KNOWLEDGE_TITLES = [
+  "【施工DX】スマートインターホン（TD-SM5030CT-BSH）PWA応答・電気錠遠隔解錠連携仕様",
+] as const;
+
+const SMART_INTERCOM_CREATED_AT = "2026-08-30T07:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に施工DX 1 件を保持。
+ */
+export const MOCK_SMART_INTERCOM_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-smart-intercom-td-sm5030-001",
+    title:
+      "【施工DX】スマートインターホン（TD-SM5030CT-BSH）PWA応答・電気錠遠隔解錠連携仕様",
+    summary: [
+      "アイリスオーヤマ製Wi-Fiドアホン（TD-SM5030CT-BSH）の呼出移報信号を親機（RP2350）のDI端子またはクラウドAPIで検知。",
+      "TiSLY PWA（白ベース×navy UI）上へリアルタイムに来客ポップアップを表示し、ワンタップ通話起動リンク（HomeLink連携）および内蔵リレー（CH1）によるスマート電気錠の遠隔解錠操作を一元提供。",
+    ].join("\n"),
+    genre: "セキュリティー",
+    tags: [
+      "#スマートドアホン",
+      "#PWA来客応答",
+      "#電気錠解錠",
+      "#RP2350",
+      "#リレー連動",
+      "#TiSLY_Security",
+    ],
+    pdf_url: null,
+    createdAt: SMART_INTERCOM_CREATED_AT,
+    body: [
+      "【呼出検知】",
+      "アイリスオーヤマ TD-SM5030CT-BSH の呼出移報を",
+      "親機 RP2350 の DI 端子またはクラウド API で検知する。",
+      "",
+      "【PWA 来客応答】",
+      "白ベース×navy の TiSLY PWA にリアルタイムポップアップを表示。",
+      "ワンタップで HomeLink（homelink://）通話を起動する。",
+      "",
+      "【電気錠遠隔解錠】",
+      "内蔵リレー CH1 を約 1 秒キックし、",
+      "スマート電気錠を遠隔解錠。設計・施工・月額監視を一元化する。",
+    ].join("\n"),
+  },
+];
