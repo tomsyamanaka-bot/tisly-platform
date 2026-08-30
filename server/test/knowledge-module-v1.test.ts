@@ -126,6 +126,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /自然言語・音声プロンプト/);
     assert.match(mockSrc, /MOCK_TEXT_TO_3D_ITEMS/);
     assert.match(mockSrc, /#TextTo3D/);
+    assert.match(mockSrc, /マルチアングル方眼紙/);
+    assert.match(mockSrc, /MOCK_MULTI_ANGLE_SKETCH_ITEMS/);
+    assert.match(mockSrc, /#GeminiVision/);
   });
 
   it("nav script requires login before loading bundle", () => {

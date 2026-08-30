@@ -1543,3 +1543,50 @@ export const MOCK_TEXT_TO_3D_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** 製造DX・マルチアングル方眼紙 Vision（末尾追記） */
+export const MULTI_ANGLE_SKETCH_KNOWLEDGE_TITLES = [
+  "【製造DX】マルチアングル方眼紙スケッチによるGemini Vision高精度3D寸法抽出",
+] as const;
+
+const MULTI_ANGLE_SKETCH_CREATED_AT = "2026-08-30T10:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾にマルチアングル 1 件を保持。
+ */
+export const MOCK_MULTI_ANGLE_SKETCH_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-factory-multi-angle-sketch-001",
+    title:
+      "【製造DX】マルチアングル方眼紙スケッチによるGemini Vision高精度3D寸法抽出",
+    summary: [
+      "正面・側面・ナナメの複数枚スケッチからAIが立体形状と寸法を相互検証。",
+      "1枚撮影時のパース歪みを排除し、ミリ単位のパラメータ抽出精度を劇的に向上。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#3Dプリンター",
+      "#GeminiVision",
+      "#三面図認識",
+      "#マルチアングル",
+      "#現場DX",
+      "#PWA",
+    ],
+    pdf_url: null,
+    createdAt: MULTI_ANGLE_SKETCH_CREATED_AT,
+    body: [
+      "【撮影】",
+      "正面・側面・上（または斜め）を最大4枚まで PWA に登録。",
+      "サムネイル右上の ✕ で差し替え可能。",
+      "",
+      "【Gemini Vision】",
+      "全画像を一括送信し、三面図として幅・奥行・高さ・板厚・",
+      "穴径・穴ピッチを相互検証。1枚時のパース歪みを補正する。",
+      "",
+      "【連動】",
+      "抽出結果はパラメトリックスライダーと Three.js プレビューへ",
+      "即時反映し、STL オンデマンドへ直結する。",
+    ].join("\n"),
+  },
+];

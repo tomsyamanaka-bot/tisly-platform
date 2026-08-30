@@ -99,6 +99,10 @@ const {
   TEXT_TO_3D_MODULE_SEED_IDS,
   seedTextTo3dKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-text-to-3d-seed-v1.js");
+const {
+  MULTI_ANGLE_SKETCH_MODULE_SEED_IDS,
+  seedMultiAngleSketchKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-multi-angle-sketch-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -953,6 +957,35 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card);
     assert.match(card!.title, /STLオンデマンド生成/);
     assert.ok(card!.tags.includes("#3Dプリンター"));
+    assert.ok(card!.tags.includes("#PWA"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends multi-angle sketch seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of MULTI_ANGLE_SKETCH_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-factory-multi-angle-sketch-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /マルチアングル方眼紙/);
+    assert.ok(item!.tags.includes("#GeminiVision"));
+    assert.ok(item!.tags.includes("#三面図認識"));
+    assert.ok(item!.tags.includes("#マルチアングル"));
+    assert.match(String(item!.body ?? ""), /最大4枚/);
+  });
+
+  it("seedMultiAngleSketchKnowledgeCardsV1 upserts searchable cards", () => {
+    seedMultiAngleSketchKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-MULTI-ANGLE-SKETCH-001");
+    assert.ok(card);
+    assert.match(card!.title, /高精度3D寸法抽出/);
+    assert.ok(card!.tags.includes("#現場DX"));
     assert.ok(card!.tags.includes("#PWA"));
   });
 

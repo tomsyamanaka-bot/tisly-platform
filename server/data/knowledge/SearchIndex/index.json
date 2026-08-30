@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-30T08:04:28.102Z",
+  "updatedAt": "2026-08-30T09:01:15.437Z",
   "entries": [
     {
       "id": "FACTORY-TEXT-TO-3D-001",
@@ -1887,6 +1887,21 @@
       "summary": "配線例 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
       "updatedAt": "2026-06-20",
       "sourceType": "rp-template"
+    },
+    {
+      "id": "FACTORY-MULTI-ANGLE-SKETCH-001",
+      "title": "【製造DX】マルチアングル方眼紙スケッチによるGemini Vision高精度3D寸法抽出",
+      "category": "IOT関連",
+      "tags": [
+        "#3Dプリンター",
+        "#GeminiVision",
+        "#三面図認識",
+        "#マルチアングル",
+        "#現場DX",
+        "#PWA"
+      ],
+      "updatedAt": "2026-08-30",
+      "summarySnippet": "正面・側面・ナナメの複数枚スケッチからAIが立体形状と寸法を相互検証。\n1枚撮影時のパース歪みを排除し、ミリ単位のパラメータ抽出精度を劇的に向上。"
     }
   ]
 }

@@ -28,6 +28,7 @@ import { seedRj45BeamHousingKnowledgeCardsV1 } from "./knowledge-rj45-beam-housi
 import { seedSmartIntercomKnowledgeCardsV1 } from "./knowledge-smart-intercom-seed-v1.js";
 import { seedHomeIntercomKnowledgeCardsV1 } from "./knowledge-home-intercom-seed-v1.js";
 import { seedTextTo3dKnowledgeCardsV1 } from "./knowledge-text-to-3d-seed-v1.js";
+import { seedMultiAngleSketchKnowledgeCardsV1 } from "./knowledge-multi-angle-sketch-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -172,6 +173,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   smartIntercomCreated: number;
   homeIntercomCreated: number;
   textTo3dCreated: number;
+  multiAngleSketchCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -193,6 +195,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const smartIntercom = seedSmartIntercomKnowledgeCardsV1();
   const homeIntercom = seedHomeIntercomKnowledgeCardsV1();
   const textTo3d = seedTextTo3dKnowledgeCardsV1();
+  const multiAngleSketch = seedMultiAngleSketchKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -214,5 +217,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     smartIntercomCreated: smartIntercom.length,
     homeIntercomCreated: homeIntercom.length,
     textTo3dCreated: textTo3d.length,
+    multiAngleSketchCreated: multiAngleSketch.length,
   };
 }

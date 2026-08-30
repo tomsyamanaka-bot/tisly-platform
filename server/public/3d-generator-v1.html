@@ -94,22 +94,26 @@
 
         <section class="pg-card" aria-label="方眼紙スケッチ">
           <p class="pg-card-label">方眼紙スケッチ・AI寸法抽出</p>
+          <p class="pg-sketch-guide">
+            💡 正面・側面・上からの複数枚を撮影すると、厚みや穴位置の認識精度が大幅に向上します（最大4枚）
+          </p>
           <!--
-            ライブラリ選択とカメラ撮影を分離。
-            capture はカメラ入力のみに付与する。
+            ライブラリは multiple 可。
+            カメラは1枚ずつ追加撮影。
           -->
           <div class="pg-sketch-row">
             <label class="pg-btn pg-btn-secondary pg-file-label" for="pg-sketch-library">
-              写真から選ぶ
+              写真から選ぶ（複数可）
               <input
                 type="file"
                 id="pg-sketch-library"
                 accept="image/*"
+                multiple
                 hidden
               />
             </label>
             <label class="pg-btn pg-btn-secondary pg-file-label" for="pg-sketch-camera">
-              カメラで撮影
+              カメラで撮影（追加）
               <input
                 type="file"
                 id="pg-sketch-camera"
@@ -124,17 +128,19 @@
           </div>
           <div id="pg-sketch-preview" class="pg-sketch-preview" hidden>
             <div class="pg-sketch-preview-head">
-              <span class="pg-sketch-preview-label">選択中のスケッチ</span>
+              <span class="pg-sketch-preview-label" id="pg-sketch-count-label">
+                選択中のスケッチ（0/4）
+              </span>
               <button
                 type="button"
                 class="pg-btn pg-btn-ghost pg-sketch-clear"
                 id="pg-sketch-clear"
-                aria-label="スケッチを削除"
+                aria-label="スケッチを全削除"
               >
-                削除
+                全削除
               </button>
             </div>
-            <img id="pg-sketch-img" alt="方眼紙スケッチ" />
+            <div id="pg-sketch-thumbs" class="pg-sketch-thumbs" role="list"></div>
           </div>
           <p id="pg-ai-status" class="pg-hint" role="status"></p>
         </section>

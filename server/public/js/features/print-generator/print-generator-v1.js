@@ -112,8 +112,10 @@ let meshGroup = null;
 let dimGuideGroup = null;
 /** @type {CSS2DRenderer | null} */
 let labelRenderer = null;
-/** @type {string | null} */
-let sketchDataUrl = null;
+/** 方眼紙スケッチ（最大4枚） */
+/** @type {{ id: string, dataUrl: string, width: number, height: number }[]} */
+let sketchImages = [];
+const SKETCH_MAX = 4;
 /** 操作中の寸法キー（ハイライト連動） */
 /** @type {string | null} */
 let activeDimKey = null;
@@ -817,54 +819,159 @@ function renderSliders() {
 }
 
 /**
- * 方眼紙画像をプレビューへ反映
- * @param {File} file
+ * サムネイル一覧を描画
  */
-function applySketchFile(file) {
-  if (!file || !/^image\//i.test(file.type || "")) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    sketchDataUrl = String(reader.result || "");
-    const prev = $("#pg-sketch-preview");
-    const img = $("#pg-sketch-img");
-    if (img) img.src = sketchDataUrl;
-    if (prev) prev.hidden = false;
-    const status = $("#pg-ai-status");
-    if (status) {
-      status.textContent =
-        "スケッチ読込済 — 「AI寸法抽出」を押してください";
-      status.classList.remove("is-warn", "is-ok");
-    }
-  };
-  reader.readAsDataURL(file);
+function renderSketchThumbs() {
+  const host = $("#pg-sketch-thumbs");
+  const prev = $("#pg-sketch-preview");
+  const label = $("#pg-sketch-count-label");
+  if (label) {
+    label.textContent = `選択中のスケッチ（${sketchImages.length}/${SKETCH_MAX}）`;
+  }
+  if (!host) return;
+  if (!sketchImages.length) {
+    host.innerHTML = "";
+    if (prev) prev.hidden = true;
+    return;
+  }
+  if (prev) prev.hidden = false;
+  host.innerHTML = sketchImages
+    .map(
+      (s, i) => `
+    <div class="pg-sketch-thumb" role="listitem" data-id="${s.id}">
+      <img src="${s.dataUrl}" alt="スケッチ${i + 1}" />
+      <span class="pg-sketch-thumb-idx">${i + 1}</span>
+      <button
+        type="button"
+        class="pg-sketch-thumb-remove"
+        data-remove-id="${s.id}"
+        aria-label="スケッチ${i + 1}を削除"
+      >✕</button>
+    </div>`
+    )
+    .join("");
+  host.querySelectorAll("[data-remove-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-remove-id");
+      if (!id) return;
+      removeSketchById(id);
+    });
+  });
 }
 
-/** 選択中スケッチをクリア */
+/**
+ * 1枚削除
+ * @param {string} id
+ */
+function removeSketchById(id) {
+  sketchImages = sketchImages.filter((s) => s.id !== id);
+  renderSketchThumbs();
+  const status = $("#pg-ai-status");
+  if (status) {
+    status.textContent = sketchImages.length
+      ? `スケッチ ${sketchImages.length} 枚 — 「AI寸法抽出」で高精度抽出`
+      : "スケッチを削除しました";
+    status.classList.remove("is-warn", "is-ok");
+  }
+}
+
+/**
+ * File → dataURL + 寸法メタ
+ * @param {File} file
+ * @returns {Promise<{ id: string, dataUrl: string, width: number, height: number } | null>}
+ */
+function readSketchFile(file) {
+  return new Promise((resolve) => {
+    if (!file || !/^image\//i.test(file.type || "")) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const img = new Image();
+      img.onload = () => {
+        resolve({
+          id: `sk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          dataUrl,
+          width: img.naturalWidth || 800,
+          height: img.naturalHeight || 600,
+        });
+      };
+      img.onerror = () => {
+        resolve({
+          id: `sk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          dataUrl,
+          width: 800,
+          height: 600,
+        });
+      };
+      img.src = dataUrl;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * 複数ファイルを末尾追記（上限4）
+ * @param {FileList | File[]} fileList
+ */
+async function addSketchFiles(fileList) {
+  const files = Array.from(fileList || []).filter((f) =>
+    /^image\//i.test(f.type || "")
+  );
+  if (!files.length) return;
+  const status = $("#pg-ai-status");
+  const room = SKETCH_MAX - sketchImages.length;
+  if (room <= 0) {
+    if (status) {
+      status.textContent = `最大 ${SKETCH_MAX} 枚までです。不要な写真を ✕ で削除してください`;
+      status.classList.add("is-warn");
+      status.classList.remove("is-ok");
+    }
+    return;
+  }
+  const take = files.slice(0, room);
+  const loaded = [];
+  for (const f of take) {
+    const item = await readSketchFile(f);
+    if (item) loaded.push(item);
+  }
+  sketchImages = [...sketchImages, ...loaded].slice(0, SKETCH_MAX);
+  renderSketchThumbs();
+  if (status) {
+    const skipped = files.length - take.length;
+    status.textContent = skipped
+      ? `${sketchImages.length} 枚登録（上限超過分はスキップ）`
+      : `${sketchImages.length} 枚登録済 — 「AI寸法抽出」を押してください`;
+    status.classList.remove("is-warn", "is-ok");
+  }
+}
+
+/** 選択中スケッチを全クリア */
 function clearSketch() {
-  sketchDataUrl = null;
-  const prev = $("#pg-sketch-preview");
-  const img = $("#pg-sketch-img");
-  if (img) img.removeAttribute("src");
-  if (prev) prev.hidden = true;
-  // input value を空にして同一ファイル再選択を許可
+  sketchImages = [];
+  renderSketchThumbs();
   const lib = $("#pg-sketch-library");
   const cam = $("#pg-sketch-camera");
   if (lib) lib.value = "";
   if (cam) cam.value = "";
   const status = $("#pg-ai-status");
   if (status) {
-    status.textContent = "スケッチを削除しました";
+    status.textContent = "スケッチを全削除しました";
     status.classList.remove("is-warn", "is-ok");
   }
 }
 
 /**
- * 方眼紙画像から概寸を推定
- * （現場即時用ヒューリスティック）
+ * 方眼紙（複数アングル）から寸法抽出
+ * Gemini Vision API → 失敗時はローカル推定
  */
-function extractDimsFromSketch() {
+async function extractDimsFromSketch() {
   const status = $("#pg-ai-status");
-  if (!sketchDataUrl) {
+  const btn = $("#pg-ai-extract-btn");
+  if (!sketchImages.length) {
     if (status) {
       status.textContent =
         "先に「写真から選ぶ」または「カメラで撮影」してください";
@@ -873,46 +980,88 @@ function extractDimsFromSketch() {
     }
     return;
   }
-  const img = new Image();
-  img.onload = () => {
-    // 短辺≈40mm 方眼想定でスケール
-    const short = Math.min(img.naturalWidth, img.naturalHeight);
-    const long = Math.max(img.naturalWidth, img.naturalHeight);
-    const mmPerPx = 40 / Math.max(short * 0.55, 1);
-    const estW = Math.round(long * mmPerPx * 0.42);
-    const estD = Math.round(short * mmPerPx * 0.38);
-    const estH = Math.round((estW + estD) / 6);
-
-    const keys = Object.keys(activeTpl.ranges);
-    const apply = (key, value) => {
-      if (!activeTpl.ranges[key]) return;
-      const r = activeTpl.ranges[key];
-      dims[key] = Math.min(r.max, Math.max(r.min, value));
-    };
-    if (keys.includes("width")) apply("width", estW);
-    if (keys.includes("plateW")) apply("plateW", estW);
-    if (keys.includes("base")) apply("base", estW);
-    if (keys.includes("depth")) apply("depth", estD);
-    if (keys.includes("plateH")) apply("plateH", estD);
-    if (keys.includes("height")) apply("height", Math.max(estH, 15));
-    if (keys.includes("upright")) apply("upright", Math.max(estH, 15));
-
-    renderSliders();
-    rebuildMesh();
+  if (btn) btn.disabled = true;
+  if (status) {
+    status.textContent = `AI寸法抽出中（${sketchImages.length}枚・三面図整合）…`;
+    status.classList.remove("is-warn", "is-ok");
+  }
+  try {
+    const res = await fetch("/api/print-generator/v1/sketch-extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        images: sketchImages.map((s) => ({ dataUrl: s.dataUrl })),
+        imageMetas: sketchImages.map((s) => ({
+          width: s.width,
+          height: s.height,
+        })),
+        hintText: activeTpl?.label || "",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || "extract_failed");
+    }
+    applyParsedParams(data.templateId, data.params || {});
+    renderFeatureFlags(data.features);
     if (status) {
+      const via = data.provider === "gemini" ? "Gemini Vision" : "ルール";
       status.textContent =
-        `AI寸法抽出: 約 W${estW} × D${estD} × H${estH} mm（スライダーへ反映）`;
+        `抽出完了（${via}・${sketchImages.length}枚）: ${data.summary || ""}`;
       status.classList.add("is-ok");
       status.classList.remove("is-warn");
     }
-  };
-  img.onerror = () => {
+  } catch (err) {
+    // API 失敗時はローカル平均でフォールバック
+    fallbackLocalMultiSketchEstimate();
     if (status) {
-      status.textContent = "画像の読込に失敗しました";
+      status.textContent =
+        `オフライン推定に切替: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
       status.classList.add("is-warn");
+      status.classList.remove("is-ok");
     }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/** API 無し時の複数枚平均推定 */
+function fallbackLocalMultiSketchEstimate() {
+  let sumW = 0;
+  let sumD = 0;
+  let sumH = 0;
+  for (const s of sketchImages) {
+    const short = Math.min(s.width, s.height);
+    const long = Math.max(s.width, s.height);
+    const mmPerPx = 40 / Math.max(short * 0.55, 1);
+    sumW += long * mmPerPx * 0.42;
+    sumD += short * mmPerPx * 0.38;
+    sumH += (long * mmPerPx * 0.42 + short * mmPerPx * 0.38) / 6;
+  }
+  const n = Math.max(sketchImages.length, 1);
+  const estW = Math.round(sumW / n);
+  const estD = Math.round(sumD / n);
+  const estH = Math.max(15, Math.round(sumH / n));
+  const keys = Object.keys(activeTpl.ranges);
+  const apply = (key, value) => {
+    if (!activeTpl.ranges[key]) return;
+    const r = activeTpl.ranges[key];
+    dims[key] = Math.min(r.max, Math.max(r.min, value));
   };
-  img.src = sketchDataUrl;
+  if (keys.includes("width")) apply("width", estW);
+  if (keys.includes("plateW")) apply("plateW", estW);
+  if (keys.includes("base")) apply("base", estW);
+  if (keys.includes("depth")) apply("depth", estD);
+  if (keys.includes("plateH")) apply("plateH", estD);
+  if (keys.includes("height")) apply("height", estH);
+  if (keys.includes("upright")) apply("upright", estH);
+  if (keys.includes("thickness") && n >= 2) apply("thickness", 3);
+  if (keys.includes("hole") && n >= 2) apply("hole", 4.5);
+  if (keys.includes("holePitch") && n >= 2) apply("holePitch", 22);
+  renderSliders();
+  rebuildMesh();
 }
 
 /**
@@ -1138,18 +1287,20 @@ function bindUi() {
     { passive: true }
   );
 
-  // アルバム選択（capture なし）
+  // アルバム選択（multiple 対応）
   $("#pg-sketch-library")?.addEventListener("change", (ev) => {
-    const file = ev.target?.files?.[0];
-    if (!file) return;
-    applySketchFile(file);
+    const files = ev.target?.files;
+    if (!files?.length) return;
+    void addSketchFiles(files);
+    ev.target.value = "";
   });
 
-  // 現場カメラ（capture=environment）
+  // 現場カメラ（1枚ずつ追加）
   $("#pg-sketch-camera")?.addEventListener("change", (ev) => {
-    const file = ev.target?.files?.[0];
-    if (!file) return;
-    applySketchFile(file);
+    const files = ev.target?.files;
+    if (!files?.length) return;
+    void addSketchFiles(files);
+    ev.target.value = "";
   });
 }
 

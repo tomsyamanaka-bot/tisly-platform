@@ -174,12 +174,52 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(html, /id="pg-sketch-library"/);
     assert.match(html, /id="pg-sketch-camera"[^>]*capture="environment"/);
     assert.match(html, /id="pg-sketch-clear"/);
+    assert.match(html, /id="pg-sketch-thumbs"/);
+    assert.match(html, /\bmultiple\b/);
+    assert.match(html, /正面・側面・上からの複数枚/);
     // ライブラリ側に capture が付いていないこと
     const libraryBlock = html.match(/id="pg-sketch-library"[^>]*>/)?.[0];
     assert.ok(libraryBlock);
     assert.equal(libraryBlock.includes("capture"), false);
-    // 旧・単一 input は残さない
+    // 旧・単一 input / 単一 img は残さない
     assert.equal(html.includes('id="pg-sketch-input"'), false);
+    assert.equal(html.includes('id="pg-sketch-img"'), false);
+  });
+
+  it("3d-generator マルチスケッチ抽出スクリプト", async () => {
+    const js = await request(app).get(
+      "/js/features/print-generator/print-generator-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /SKETCH_MAX\s*=\s*4/);
+    assert.match(js.text, /addSketchFiles/);
+    assert.match(js.text, /removeSketchById/);
+    assert.match(js.text, /\/api\/print-generator\/v1\/sketch-extract/);
+    assert.match(js.text, /pg-sketch-thumb-remove/);
+    assert.match(js.text, /fallbackLocalMultiSketchEstimate/);
+  });
+
+  it("POST /api/print-generator/v1/sketch-extract accepts multi images", async () => {
+    const tiny = Buffer.from("x".repeat(48)).toString("base64");
+    const res = await request(app)
+      .post("/api/print-generator/v1/sketch-extract")
+      .send({
+        images: [
+          { dataUrl: `data:image/png;base64,${tiny}` },
+          { dataUrl: `data:image/png;base64,${tiny}ab` },
+        ],
+        imageMetas: [
+          { width: 900, height: 600 },
+          { width: 700, height: 700 },
+        ],
+        hintText: "L字ステー",
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.imageCount, 2);
+    assert.equal(res.body.maxImages, 4);
+    assert.ok(res.body.params);
+    assert.ok(Object.keys(res.body.params).length > 0);
   });
 
   it("3d-generator 寸法ナンバリング連動アセット", async () => {
@@ -336,6 +376,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2512-multi-angle-sketch") ||
       sw.text.includes("tisly-pwa-v2511-text-to-3d-prompt") ||
       sw.text.includes("tisly-pwa-v2510-home-intercom-link") ||
       sw.text.includes("tisly-pwa-v2509-smart-intercom") ||

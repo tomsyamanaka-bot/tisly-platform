@@ -1758,3 +1758,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Knowledge | FACTORY-TEXT-TO-3D-001 append |
 | SW | tisly-pwa-v2511-text-to-3d-prompt |
 | 確認 | /3d-generator · https://tisly.jp/api/health |
+
+### マルチアングル方眼紙 Vision 抽出
+
+| 領域 | 内容 |
+|------|------|
+| UI | 最大4枚サムネ・✕削除・ガイド文言 |
+| API | POST /api/print-generator/v1/sketch-extract |
+| Knowledge | FACTORY-MULTI-ANGLE-SKETCH-001 append |
+| SW | tisly-pwa-v2512-multi-angle-sketch |
+| 確認 | /3d-generator · https://tisly.jp/api/health |
