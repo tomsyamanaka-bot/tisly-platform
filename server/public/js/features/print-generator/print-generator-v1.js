@@ -187,6 +187,39 @@ let dimDragging = false;
 let speechRec = null;
 /** 音声入力トグル中 */
 let voiceListening = false;
+/** 配線・通線抜き穴プリセット */
+let wireHolePreset = "none";
+/** 取り付け座プリセット */
+let mountSeatPreset = "screw";
+/** 分解スライダー 0〜100 */
+let explodePct = 0;
+/** 爆発図パートグループ */
+/** @type {THREE.Group | null} */
+let partShell = null;
+/** @type {THREE.Group | null} */
+let partBoard = null;
+/** @type {THREE.Group | null} */
+let partCover = null;
+/** @type {THREE.Group | null} */
+let partFasteners = null;
+
+/** 配線抜き穴プリセット定義 */
+const WIRE_HOLE_PRESETS = {
+  none: { holeMm: 0, knockout: false, label: "なし" },
+  rj45: { holeMm: 16, knockout: false, label: "RJ45 LAN" },
+  vvf20_3c: { holeMm: 12, knockout: false, label: "VVF2.0-3C" },
+  pf16: { holeMm: 22, knockout: false, label: "PF16管コネクタ" },
+  pg9: { holeMm: 15.2, knockout: false, label: "PG9防水グランド" },
+  ko04: { holeMm: 20, knockout: true, label: "0.4mm薄肉ノックアウト" },
+};
+
+/** 取付座プリセット定義 */
+const MOUNT_SEAT_PRESETS = {
+  screw: { kind: "screw", dia: 4.2, label: "標準ビス穴" },
+  din35: { kind: "din", dia: 35, label: "35mm DINレール爪" },
+  mag10: { kind: "mag", dia: 10, label: "φ10mmマグネット" },
+  mag15: { kind: "mag", dia: 15, label: "φ15mmマグネット" },
+};
 
 const DIM_LINE_COLOR = 0x64748b;
 const DIM_LINE_ACTIVE = 0x0ea5e9;
@@ -498,6 +531,230 @@ function buildTris(tplId, p) {
     );
   }
   return tris;
+}
+
+/**
+ * テンプレ外寸の概算バウンディング
+ * @param {string} tplId
+ * @param {Record<string, number>} p
+ */
+function approxBounds(tplId, p) {
+  if (tplId === "iot_box") {
+    return { w: p.width, h: p.height, d: p.depth };
+  }
+  if (tplId === "rp2350_poe_cover") {
+    const cl = Number(p.clearance) || 0.4;
+    return {
+      w: p.length + 2 * cl,
+      h: p.depth + cl,
+      d: p.outerWidth + 2 * cl,
+    };
+  }
+  if (tplId === "din_rail_bracket") {
+    return { w: p.width, h: p.height, d: p.depth };
+  }
+  if (tplId === "camera_mount") {
+    return { w: p.plateW, h: p.plateT + p.armLen, d: p.plateH };
+  }
+  return { w: p.width || 40, h: (p.thickness || 3) + (p.upright || 30), d: p.base || 40 };
+}
+
+/**
+ * 配線穴・取付座のフィーチャ三角形を追記
+ * （開口ガイド・薄肉KO・DIN爪・マグネット）
+ * @param {number[][]} tris
+ * @param {string} tplId
+ * @param {Record<string, number>} p
+ */
+function appendFieldFeatureTris(tris, tplId, p) {
+  const b = approxBounds(tplId, p);
+  const wire = WIRE_HOLE_PRESETS[wireHolePreset] || WIRE_HOLE_PRESETS.none;
+  const mount = MOUNT_SEAT_PRESETS[mountSeatPreset] || MOUNT_SEAT_PRESETS.screw;
+
+  if (wire.holeMm > 0) {
+    const r = wire.holeMm / 2;
+    const cx = b.w * 0.28;
+    const cy = Math.max(b.h * 0.45, r + 2);
+    const sideZ = b.d / 2;
+    if (wire.knockout) {
+      /* 0.4mm 薄肉ノックアウト板 */
+      addBox(tris, cx, cy - r * 0.2, sideZ - 0.2, r * 2.1, r * 2.1, 0.4);
+      addBox(tris, -cx, cy - r * 0.2, -sideZ + 0.2, r * 2.1, r * 2.1, 0.4);
+    } else {
+      /* 開口カラー（外付けリング相当） */
+      const ringT = 1.6;
+      const ringH = Math.min(r * 0.55, 4);
+      addBox(tris, cx, cy, sideZ + ringT / 2, r * 2 + 2, ringH, ringT);
+      addBox(tris, cx, cy, sideZ + ringT / 2, r * 0.55, ringH * 0.5, ringT * 0.5);
+      addBox(tris, 0, 1.2, -sideZ * 0.15, r * 1.8, 0.8, r * 1.8);
+    }
+  }
+
+  if (mount.kind === "screw") {
+    const pitch = p.holePitch || 30;
+    const hx = Math.min(pitch / 2, b.w * 0.35);
+    addBox(tris, -hx, 0.8, -b.d / 2 + 1.5, 6, 1.2, 6);
+    addBox(tris, hx, 0.8, -b.d / 2 + 1.5, 6, 1.2, 6);
+  } else if (mount.kind === "din") {
+    /* 35mm DIN レール爪（背面） */
+    const clawW = 12;
+    const clawH = 4;
+    addBox(tris, -18, b.h * 0.35, -b.d / 2 - 2, clawW, clawH, 4);
+    addBox(tris, 18, b.h * 0.35, -b.d / 2 - 2, clawW, clawH, 4);
+    addBox(tris, 0, b.h * 0.2, -b.d / 2 - 1.5, 40, 2.2, 3);
+  } else if (mount.kind === "mag") {
+    const dia = mount.dia || 10;
+    const pocket = dia + 0.4;
+    addBox(tris, -b.w * 0.22, 1.5, -b.d / 2 + 1.2, pocket, 2.2, pocket);
+    addBox(tris, b.w * 0.22, 1.5, -b.d / 2 + 1.2, pocket, 2.2, pocket);
+    addBox(tris, -b.w * 0.22, 0.6, -b.d / 2 + 1.2, dia * 0.7, 0.8, dia * 0.7);
+    addBox(tris, b.w * 0.22, 0.6, -b.d / 2 + 1.2, dia * 0.7, 0.8, dia * 0.7);
+  }
+}
+
+/**
+ * 三角形リストの符号付き体積（mm³）
+ * @param {number[][]} tris
+ */
+function signedVolumeMm3(tris) {
+  let vol = 0;
+  for (const t of tris) {
+    const [a, b, c] = t;
+    vol +=
+      a[0] * (b[1] * c[2] - b[2] * c[1]) +
+      a[1] * (b[2] * c[0] - b[0] * c[2]) +
+      a[2] * (b[0] * c[1] - b[1] * c[0]);
+  }
+  return Math.abs(vol) / 6;
+}
+
+/**
+ * PLA-CF コスト・K2 Plus 時間の概算
+ * @param {number[][]} tris
+ * @param {string} tplId
+ * @param {Record<string, number>} p
+ */
+function estimatePrintCostV1(tris, tplId, p) {
+  let vol = signedVolumeMm3(tris);
+  if (!Number.isFinite(vol) || vol < 50) {
+    const b = approxBounds(tplId, p);
+    vol = b.w * b.h * b.d * 0.18;
+  }
+  const density = 1.28;
+  const infill = 0.4;
+  const grams = Math.max(1, (vol / 1000) * density * (0.35 + infill * 0.65));
+  const yen = Math.round(grams * 9);
+  const minutes = Math.max(8, Math.round(grams * 2.65 + vol / 8000));
+  let orient = "XY底面（安定優先）";
+  if (tplId === "din_rail_bracket" || mountSeatPreset === "din35") {
+    orient = "YZ側面（DIN爪強度優先）";
+  } else if (tplId === "sensor_l_bracket") {
+    orient = "XZ立上り（穴真円優先）";
+  }
+  return {
+    grams: Math.round(grams * 10) / 10,
+    yen,
+    minutes,
+    infillPct: 40,
+    orient,
+  };
+}
+
+/**
+ * コストバナーを更新
+ * @param {number[][]} tris
+ */
+function updateCostBanner(tris) {
+  const est = estimatePrintCostV1(tris, activeTpl.id, dims);
+  const g = $("#pg-cost-grams");
+  const t = $("#pg-cost-time");
+  const i = $("#pg-cost-infill");
+  if (g) {
+    g.textContent = `PLA-CF使用量: ${est.grams}g (原価 約${est.yen}円)`;
+  }
+  if (t) {
+    t.textContent = `K2 Plus想定印刷時間: 約${est.minutes}分`;
+  }
+  if (i) {
+    i.textContent = `推奨インフィル: ${est.infillPct}% / 推奨積層方向: ${est.orient}`;
+  }
+}
+
+/**
+ * 爆発図オフセットを適用
+ */
+function applyExplodeOffsets() {
+  const t = explodePct / 100;
+  if (partShell) partShell.position.set(0, 0, 0);
+  if (partBoard) partBoard.position.set(0, 8 * t, 18 * t);
+  if (partCover) partCover.position.set(0, 22 * t, -12 * t);
+  if (partFasteners) partFasteners.position.set(28 * t, 14 * t, 8 * t);
+}
+
+/**
+ * 分解スライダー UI 同期
+ * @param {number} pct
+ */
+function setExplodePct(pct) {
+  explodePct = Math.max(0, Math.min(100, Number(pct) || 0));
+  const lab = $("#pg-explode-val");
+  if (lab) lab.textContent = `${Math.round(explodePct)}%`;
+  applyExplodeOffsets();
+}
+
+/**
+ * メッシュグループへジオメトリ追加
+ * @param {THREE.Group} group
+ * @param {number[][]} tris
+ * @param {number} color
+ * @param {boolean} overlay
+ */
+function addTrisMeshToGroup(group, tris, color, overlay) {
+  if (!tris.length) return;
+  const geo = trisToGeometry(tris);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    metalness: 0.08,
+    roughness: 0.45,
+    flatShading: true,
+    transparent: overlay,
+    opacity: overlay ? 0.42 : 1,
+    depthWrite: !overlay,
+  });
+  group.add(new THREE.Mesh(geo, mat));
+  group.add(
+    new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({
+        color: 0x0ea5e9,
+        transparent: overlay,
+        opacity: overlay ? 0.9 : 1,
+      })
+    )
+  );
+}
+
+/**
+ * 爆発図用の基板・カバー・ネジプロキシ
+ * @param {string} tplId
+ * @param {Record<string, number>} p
+ */
+function buildExplodeProxyTris(tplId, p) {
+  const b = approxBounds(tplId, p);
+  /** @type {number[][]} */
+  const board = [];
+  /** @type {number[][]} */
+  const cover = [];
+  /** @type {number[][]} */
+  const fast = [];
+  addBox(board, 0, Math.max(2, b.h * 0.25), 0, b.w * 0.72, 1.6, b.d * 0.55);
+  addBox(cover, 0, b.h * 0.85, 0, b.w * 0.9, 1.2, b.d * 0.85);
+  const pitch = p.holePitch || 30;
+  addBox(fast, -pitch / 2, b.h * 0.4, -b.d * 0.2, 3.5, 6, 3.5);
+  addBox(fast, pitch / 2, b.h * 0.4, -b.d * 0.2, 3.5, 6, 3.5);
+  addBox(fast, -pitch / 2, b.h * 0.4, b.d * 0.2, 4.5, 3, 4.5);
+  addBox(fast, pitch / 2, b.h * 0.4, b.d * 0.2, 4.5, 3, 4.5);
+  return { board, cover, fast };
 }
 
 function trisToGeometry(tris) {
@@ -841,44 +1098,44 @@ function rebuildMesh(opts = {}) {
   if (!meshGroup) return;
   while (meshGroup.children.length) {
     const c = meshGroup.children.pop();
-    c?.geometry?.dispose?.();
-    if (Array.isArray(c?.material)) {
-      c.material.forEach((m) => m.dispose?.());
-    } else {
-      c?.material?.dispose?.();
-    }
+    c?.traverse?.((obj) => {
+      obj.geometry?.dispose?.();
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach((m) => m.dispose?.());
+      } else {
+        obj.material?.dispose?.();
+      }
+    });
   }
-  const tris = buildTris(activeTpl.id, dims);
-  const geo = trisToGeometry(tris);
+  const shellTris = buildTris(activeTpl.id, dims);
+  appendFieldFeatureTris(shellTris, activeTpl.id, dims);
+  const proxies = buildExplodeProxyTris(activeTpl.id, dims);
   const overlay = scanLoaded && scanOverlayOn;
-  const mat = new THREE.MeshStandardMaterial({
-    color: overlay ? 0x1e3a8a : 0x1e3a8a,
-    metalness: 0.08,
-    roughness: 0.45,
-    flatShading: true,
-    transparent: overlay,
-    opacity: overlay ? 0.42 : 1,
-    depthWrite: !overlay,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  meshGroup.add(mesh);
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo),
-    new THREE.LineBasicMaterial({
-      color: 0x0ea5e9,
-      transparent: overlay,
-      opacity: overlay ? 0.9 : 1,
-    })
-  );
-  meshGroup.add(edges);
+
+  partShell = new THREE.Group();
+  partBoard = new THREE.Group();
+  partCover = new THREE.Group();
+  partFasteners = new THREE.Group();
+  addTrisMeshToGroup(partShell, shellTris, 0x1e3a8a, overlay);
+  addTrisMeshToGroup(partBoard, proxies.board, 0x16a34a, false);
+  addTrisMeshToGroup(partCover, proxies.cover, 0x0ea5e9, false);
+  addTrisMeshToGroup(partFasteners, proxies.fast, 0xb45309, false);
+  meshGroup.add(partShell);
+  meshGroup.add(partBoard);
+  meshGroup.add(partCover);
+  meshGroup.add(partFasteners);
+  applyExplodeOffsets();
 
   rebuildDimGuides();
   updateScanInterferenceStatus();
+  updateCostBanner(shellTris);
 
   // カメラは初回・テンプレ切替時のみ
   if (!opts.frameCamera) return;
+  const geo = trisToGeometry(shellTris);
   geo.computeBoundingBox();
   const box = geo.boundingBox;
+  geo.dispose();
   if (box && camera && controls) {
     const size = new THREE.Vector3();
     box.getSize(size);
@@ -926,6 +1183,7 @@ function trisToAsciiStl(name, tris) {
 
 function downloadStl() {
   const tris = buildTris(activeTpl.id, dims);
+  appendFieldFeatureTris(tris, activeTpl.id, dims);
   const stl = trisToAsciiStl(activeTpl.id, tris);
   const blob = new Blob([stl], { type: "model/stl" });
   const url = URL.createObjectURL(blob);
@@ -1701,6 +1959,17 @@ function bindUi() {
     if (!files?.length) return;
     void loadScanFile(files[0]);
     ev.target.value = "";
+  });
+  $("#pg-wire-hole")?.addEventListener("change", (ev) => {
+    wireHolePreset = String(ev.target?.value || "none");
+    rebuildMesh();
+  });
+  $("#pg-mount-seat")?.addEventListener("change", (ev) => {
+    mountSeatPreset = String(ev.target?.value || "screw");
+    rebuildMesh();
+  });
+  $("#pg-explode")?.addEventListener("input", (ev) => {
+    setExplodePct(Number(ev.target?.value || 0));
   });
 
   /* ドラッグ終了でハイライト解除フラグを戻す */

@@ -42,6 +42,37 @@
     </section>
 
     <!--
+      配線抜き穴・取付座のワンタッチ
+      現場特化オプションパネル
+    -->
+    <section class="pg-card pg-field-opt-card" aria-label="現場特化オプション">
+      <p class="pg-card-label">現場特化オプション</p>
+      <div class="pg-field-opt-grid">
+        <label class="pg-field-opt" for="pg-wire-hole">
+          <span class="pg-field-opt-title">① 配線・通線抜き穴</span>
+          <select id="pg-wire-hole" class="pg-select">
+            <option value="none">なし</option>
+            <option value="rj45">RJ45 LAN</option>
+            <option value="vvf20_3c">VVF2.0-3C</option>
+            <option value="pf16">PF16管コネクタ</option>
+            <option value="pg9">PG9防水グランド</option>
+            <option value="ko04">0.4mm薄肉ノックアウト</option>
+          </select>
+        </label>
+        <label class="pg-field-opt" for="pg-mount-seat">
+          <span class="pg-field-opt-title">② 取り付け座</span>
+          <select id="pg-mount-seat" class="pg-select">
+            <option value="screw">標準ビス穴</option>
+            <option value="din35">35mm DINレール爪（背面）</option>
+            <option value="mag10">φ10mmマグネット圧入ポケット</option>
+            <option value="mag15">φ15mmマグネット圧入ポケット</option>
+          </select>
+        </label>
+      </div>
+      <p class="pg-hint">選択すると側面・背面に開口／爪／ポケットを自動付与します</p>
+    </section>
+
+    <!--
       自然言語・音声で寸法指示
       （テンプレートとプレビューの間）
     -->
@@ -80,8 +111,28 @@
     <section class="pg-layout">
       <div class="pg-card pg-viewer-card" aria-label="3Dプレビュー">
         <p class="pg-card-label">3Dプレビュー</p>
+        <div id="pg-cost-banner" class="pg-cost-banner" role="status" aria-live="polite">
+          <span id="pg-cost-grams">PLA-CF使用量: —</span>
+          <span id="pg-cost-time">K2 Plus想定印刷時間: —</span>
+          <span id="pg-cost-infill">推奨インフィル: 40% / 推奨積層方向: XY底面</span>
+        </div>
         <div id="pg-canvas-wrap" class="pg-canvas-wrap">
           <div id="pg-viewer-hint" class="pg-viewer-hint">①〜④を動かすと3D番号も連動</div>
+        </div>
+        <div class="pg-explode-row">
+          <label class="pg-explode-label" for="pg-explode">
+            🧩 分解・結合スライダー
+            <span id="pg-explode-val">0%</span>
+          </label>
+          <input
+            type="range"
+            id="pg-explode"
+            class="pg-range pg-explode-range"
+            min="0"
+            max="100"
+            step="1"
+            value="0"
+          />
         </div>
         <p class="pg-hint">ドラッグで回転 · ピンチ/ホイールでズーム</p>
       </div>

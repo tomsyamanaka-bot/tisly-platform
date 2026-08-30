@@ -159,6 +159,37 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(js.text, /PoE-LAN/);
   });
 
+  it("3d-generator field options cost banner and explode slider", async () => {
+    const page = await request(app).get("/3d-generator");
+    assert.equal(page.status, 200);
+    assert.match(page.text, /現場特化オプション/);
+    assert.match(page.text, /id="pg-wire-hole"/);
+    assert.match(page.text, /RJ45 LAN/);
+    assert.match(page.text, /VVF2\.0-3C/);
+    assert.match(page.text, /PF16管コネクタ/);
+    assert.match(page.text, /PG9防水グランド/);
+    assert.match(page.text, /0\.4mm薄肉ノックアウト/);
+    assert.match(page.text, /id="pg-mount-seat"/);
+    assert.match(page.text, /35mm DINレール爪/);
+    assert.match(page.text, /φ10mmマグネット/);
+    assert.match(page.text, /id="pg-cost-banner"/);
+    assert.match(page.text, /id="pg-explode"/);
+    assert.match(page.text, /分解・結合スライダー/);
+
+    const js = await request(app).get(
+      "/js/features/print-generator/print-generator-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /WIRE_HOLE_PRESETS/);
+    assert.match(js.text, /MOUNT_SEAT_PRESETS/);
+    assert.match(js.text, /appendFieldFeatureTris/);
+    assert.match(js.text, /estimatePrintCostV1/);
+    assert.match(js.text, /updateCostBanner/);
+    assert.match(js.text, /setExplodePct/);
+    assert.match(js.text, /buildExplodeProxyTris/);
+    assert.match(js.text, /partShell/);
+  });
+
   it("3d-generator AI prompt script wires speech and API", async () => {
     const js = await request(app).get(
       "/js/features/print-generator/print-generator-v1.js"

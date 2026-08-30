@@ -85,6 +85,10 @@ import {
   RP2350_COVER_MODULE_SEED_IDS,
   getRp2350CoverModuleSeedItemsV1,
 } from "./knowledge-rp2350-cover-seed-v1.js";
+import {
+  FIELD_DX_3D_MODULE_SEED_IDS,
+  getFieldDx3dModuleSeedItemsV1,
+} from "./knowledge-field-dx-3d-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -866,6 +870,49 @@ function mergeRp2350CoverSeed(
 }
 
 /**
+ * 電工DX統合3Dジェネレーターを末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergeFieldDx3dSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(FIELD_DX_3D_MODULE_SEED_IDS);
+  const seeds = getFieldDx3dModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
+/**
  * 防犯DX・赤外線ビーム単管マウントを末尾追記。
  * 既存行は削除せず、未登録 ID のみ append する。
  */
@@ -1176,7 +1223,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedTextTo3d = mergeTextTo3dSeed(mergedHomeIntercom.items);
   const mergedMultiAngle = mergeMultiAngleSketchSeed(mergedTextTo3d.items);
   const mergedRp2350Cover = mergeRp2350CoverSeed(mergedMultiAngle.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedRp2350Cover.items);
+  const mergedFieldDx3d = mergeFieldDx3dSeed(mergedRp2350Cover.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedFieldDx3d.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -1198,6 +1246,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedTextTo3d.changed ||
     mergedMultiAngle.changed ||
     mergedRp2350Cover.changed ||
+    mergedFieldDx3d.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

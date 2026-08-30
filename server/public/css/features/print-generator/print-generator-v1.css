@@ -605,3 +605,86 @@
   border-color: #a5b4fc;
   color: var(--pg-navy);
 }
+
+/* 現場特化オプション */
+.pg-field-opt-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .pg-field-opt-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pg-field-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pg-field-opt-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--pg-navy);
+}
+
+.pg-select {
+  min-height: 44px;
+  border: 1px solid var(--pg-line);
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pg-ink);
+  background: #fff;
+}
+
+.pg-select:focus {
+  outline: 2px solid var(--pg-navy);
+  outline-offset: 1px;
+}
+
+/* コスト試算バナー */
+.pg-cost-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.pg-cost-banner > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: var(--pg-navy);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+/* 分解・結合スライダー */
+.pg-explode-row {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--pg-line);
+}
+
+.pg-explode-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--pg-navy);
+  margin-bottom: 6px;
+}
+
+.pg-explode-range {
+  width: 100%;
+}

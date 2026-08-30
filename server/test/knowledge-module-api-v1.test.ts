@@ -107,6 +107,10 @@ const {
   RP2350_COVER_MODULE_SEED_IDS,
   seedRp2350CoverKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-rp2350-cover-seed-v1.js");
+const {
+  FIELD_DX_3D_MODULE_SEED_IDS,
+  seedFieldDx3dKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-field-dx-3d-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1021,6 +1025,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /スキャン結合モデリング/);
     assert.ok(card!.tags.includes("#3Dプリンター"));
     assert.ok(card!.tags.includes("#TiSLY_Factory"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends field DX 3D unified seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of FIELD_DX_3D_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-field-dx-3d-unified-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /電工パーツ自動抜き穴/);
+    assert.ok(item!.tags.includes("#電工DX"));
+    assert.ok(item!.tags.includes("#DINレール"));
+    assert.ok(item!.tags.includes("#分解図"));
+    assert.match(String(item!.summary ?? ""), /爆発図/);
+  });
+
+  it("seedFieldDx3dKnowledgeCardsV1 upserts searchable cards", () => {
+    seedFieldDx3dKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-FIELD-DX-3D-UNIFIED-001");
+    assert.ok(card);
+    assert.match(card!.title, /コスト試算・分解図統合/);
+    assert.ok(card!.tags.includes("#原価計算"));
+    assert.ok(card!.tags.includes("#PWA"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
