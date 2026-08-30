@@ -61,6 +61,9 @@ describe("print-prompt-parse-v1", () => {
     assert.equal(r.params.innerWidth, 69.5);
     assert.equal(r.params.bossH, 11.4);
     assert.equal(r.params.clearance, 0.6);
+    assert.equal(r.params.holePitchLong ?? 145, 145);
+    assert.equal(r.params.slitLeftLen ?? 115, 115);
+    assert.equal(r.params.topThickness ?? 2, 2);
   });
 
   it("extracts special features flags", () => {

@@ -288,16 +288,27 @@ export function mapDimsToTemplateParamsV1(
     }
     if (pitch != null) params.holePitch = clamp(pitch, 10, 80);
   } else if (templateId === "rp2350_poe_cover") {
-    /* RP2350 実測ベースへ写像 */
+    /* RP2350 上部カバー実測へ写像 */
     if (w != null) params.length = clamp(w, 140, 180);
     if (d != null) params.outerWidth = clamp(d, 70, 110);
     if (h != null) params.depth = clamp(h, 10, 30);
-    if (t != null) params.wall = clamp(t, 1.5, 4);
-    if (pitch != null) params.holePitch = clamp(pitch, 40, 120);
+    if (t != null) {
+      params.wall = clamp(t, 1.5, 4);
+      params.topThickness = clamp(t, 1.5, 4);
+    }
+    if (pitch != null) {
+      params.holePitch = clamp(pitch, 40, 120);
+      if (pitch >= 100) params.holePitchLong = clamp(pitch, 100, 160);
+    }
     params.clearance = 0.4;
     params.innerWidth = 69.5;
     params.bossH = 11.4;
     params.slitW = 6.5;
+    params.slitH = 6.5;
+    params.slitLeftLen = 115;
+    params.holePitchLong = params.holePitchLong ?? 145;
+    params.holePitch = params.holePitch ?? 70;
+    params.topThickness = params.topThickness ?? 2.0;
   }
 
   if (features.cornerFillet && params.thickness == null && t == null) {

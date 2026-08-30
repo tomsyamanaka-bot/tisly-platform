@@ -125,8 +125,8 @@ const TEMPLATES = [
   },
   {
     id: "rp2350_poe_cover",
-    label: "RP2350-POE用 保護カバー/端子フード",
-    desc: "実測154.2×88.1 · 配線逃げ付き",
+    label: "RP2350-POE用 上部保護カバー",
+    desc: "154.2×88.1 · 天面接地STL対応",
     defaults: {
       length: 154.2,
       outerWidth: 88.1,
@@ -142,6 +142,11 @@ const TEMPLATES = [
       slitOffsetX: 0,
       endOpenOffsetZ: 0,
       ribOffsetX: 0,
+      /* 上部カバー固定プリセット追記 */
+      holePitchLong: 145.0,
+      topThickness: 2.0,
+      slitLeftLen: 115.0,
+      slitH: 6.5,
     },
     ranges: {
       length: { min: 140, max: 180, step: 0.1, label: "全長 L" },
@@ -159,7 +164,7 @@ const TEMPLATES = [
       },
       depth: { min: 10, max: 30, step: 0.1, label: "基準深さ" },
       bossH: { min: 6, max: 18, step: 0.1, label: "ボス高" },
-      wall: { min: 1.5, max: 4, step: 0.1, label: "壁厚" },
+      wall: { min: 1.5, max: 4, step: 0.1, label: "外周壁厚" },
       clearance: {
         min: 0.2,
         max: 1.0,
@@ -170,13 +175,13 @@ const TEMPLATES = [
         min: 4,
         max: 12,
         step: 0.1,
-        label: "配線逃げ幅",
+        label: "右側分割逃げ幅",
       },
       holePitch: {
         min: 40,
         max: 120,
         step: 0.5,
-        label: "ネジ穴ピッチ",
+        label: "短手ネジピッチ",
       },
       /* パーツ個別位置オフセット（追記） */
       bossOffsetX: {
@@ -208,6 +213,31 @@ const TEMPLATES = [
         max: 25,
         step: 0.1,
         label: "リブ左右オフセット",
+      },
+      /* 上部カバー寸法追記 */
+      holePitchLong: {
+        min: 100,
+        max: 160,
+        step: 0.1,
+        label: "長手ネジピッチ",
+      },
+      topThickness: {
+        min: 1.5,
+        max: 4,
+        step: 0.1,
+        label: "天板肉厚",
+      },
+      slitLeftLen: {
+        min: 80,
+        max: 140,
+        step: 0.1,
+        label: "左側スリット長",
+      },
+      slitH: {
+        min: 4,
+        max: 12,
+        step: 0.1,
+        label: "スリット高さ",
       },
     },
   },
@@ -611,17 +641,21 @@ function buildTris(tplId, p) {
       addBox(tris, bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
     }
   } else if (tplId === "rp2350_poe_cover") {
-    /* RP2350-POE 実測カバー
-     * フランジ耳・ボス・端子逃げ付き */
+    /* RP2350-POE 上部保護カバー
+     * 長手145 / 短手70 · 左右スリット */
     const cl = Number(p.clearance) || 0.4;
     const L = p.length + 2 * cl;
     const Wout = p.outerWidth + 2 * cl;
     const Win = p.innerWidth + 2 * cl;
     const H = p.depth + cl;
     const t = p.wall;
+    const topT = Number(p.topThickness) || t;
     const boss = p.bossH;
     const slit = p.slitW;
-    const pitch = p.holePitch;
+    const slitH = Number(p.slitH) || slit;
+    const slitLeftLen = Number(p.slitLeftLen) || 115;
+    const pitchShort = Number(p.holePitch) || 70;
+    const pitchLong = Number(p.holePitchLong) || 145;
     const ear = Math.max((Wout - Win) / 2, 2);
     const yWall = basePlateEnabled ? t : 0;
     const bossOx =
@@ -652,92 +686,121 @@ function buildTris(tplId, p) {
         Math.min(Win * 0.35, 22)
       );
     } else {
-      /* 中空カバー天板
-       * （サポートレス印刷向け） */
-      addBox(tris, 0, H - t, 0, L, t, Wout);
+      /* 中空カバー天板（天面接地用）
+       * 天板肉厚は topThickness */
+      addBox(tris, 0, H - topT, 0, L, topT, Wout);
     }
 
-    const wallSeg = (L - slit * 4) / 5;
-    const buildSlittedSide = (zSign, ox, oz, withSlits) => {
-      const zBase = (zSign < 0 ? -Win / 2 + t / 2 : Win / 2 - t / 2) + oz + wallOz;
-      if (!withSlits) {
+    /**
+     * 左側: リレー8ch開口
+     * 115mm × slitH の窓
+     */
+    const buildLeftRelayWall = () => {
+      const zBase = -Win / 2 + t / 2 + leftOz + wallOz;
+      const openL = Math.min(slitLeftLen, L - 8);
+      const side = Math.max((L - openL) / 2, 2);
+      const sill = Math.max(yWall, 0.8);
+      const openH = Math.min(slitH, H - yWall - 1.2);
+      const headerY = sill + openH;
+      const headerH = Math.max(H - headerY, t);
+      if (!isPartFeatureOn("slitLeft")) {
         addBox(tris, wallOx, yWall, zBase, L, H - yWall, t);
         return;
       }
-      let xCursor = -L / 2 + ox + wallOx;
-      for (let i = 0; i < 5; i++) {
-        const segL = wallSeg;
+      // 開口左右の柱
+      addBox(
+        tris,
+        -L / 2 + side / 2 + leftOx + wallOx,
+        yWall,
+        zBase,
+        side,
+        H - yWall,
+        t
+      );
+      addBox(
+        tris,
+        L / 2 - side / 2 + leftOx + wallOx,
+        yWall,
+        zBase,
+        side,
+        H - yWall,
+        t
+      );
+      // 開口下の敷居
+      addBox(
+        tris,
+        leftOx + wallOx,
+        yWall,
+        zBase,
+        openL,
+        sill - yWall > 0.2 ? sill - yWall : 0.6,
+        t
+      );
+      // 開口上のヘッダ壁
+      addBox(
+        tris,
+        leftOx + wallOx,
+        headerY,
+        zBase,
+        openL,
+        headerH,
+        t
+      );
+    };
+
+    /**
+     * 右側: DI・電源分割開口
+     * ＋端壁は RS485 / PoE
+     */
+    const buildRightSplitWall = () => {
+      const zBase = Win / 2 - t / 2 + wallOz + (isPartFeatureOn("slitRight")
+        ? partFeatureOY("slitRight")
+        : 0);
+      if (!isPartFeatureOn("slitRight")) {
+        addBox(tris, wallOx, yWall, zBase, L, H - yWall, t);
+        return;
+      }
+      /* DI/電源側を4分割開口 */
+      const gaps = 4;
+      const gapW = slit;
+      const solid = (L - gapW * gaps) / (gaps + 1);
+      let xCursor = -L / 2 + rightOx + wallOx;
+      for (let i = 0; i <= gaps; i++) {
+        const segL = solid;
         const cx = xCursor + segL / 2;
         addBox(tris, cx, yWall, zBase, segL, H - yWall, t);
         xCursor += segL;
-        if (i < 4) {
-          const gx = xCursor + slit / 2;
+        if (i < gaps) {
+          const gx = xCursor + gapW / 2;
+          const sill = Math.max(yWall, 0.8);
+          const openH = Math.min(slitH + 2, H - yWall - 1);
+          addBox(tris, gx, yWall, zBase, gapW, sill - yWall > 0.2 ? 0.6 : 0.6, t);
           addBox(
             tris,
-            gx - slit / 2 + 0.6,
-            yWall,
+            gx,
+            sill + openH,
             zBase,
-            1.2,
-            H * 0.55,
+            gapW,
+            Math.max(H - (sill + openH), t),
             t
           );
-          addBox(
-            tris,
-            gx + slit / 2 - 0.6,
-            yWall,
-            zBase,
-            1.2,
-            H * 0.55,
-            t
-          );
-          xCursor += slit;
+          xCursor += gapW;
         }
       }
     };
 
     if (isPartFeatureOn("sideWalls")) {
-      /* 長辺外壁: スリットOFF時は連続壁 */
-      buildSlittedSide(
-        -1,
-        isPartFeatureOn("slitLeft") ? leftOx : 0,
-        isPartFeatureOn("slitLeft") ? leftOz : 0,
-        isPartFeatureOn("slitLeft")
-      );
-      buildSlittedSide(
-        1,
-        isPartFeatureOn("slitRight") ? rightOx : 0,
-        isPartFeatureOn("slitRight") ? partFeatureOY("slitRight") : 0,
-        isPartFeatureOn("slitRight")
-      );
-    } else if (isPartFeatureOn("slitLeft") || isPartFeatureOn("slitRight")) {
-      /* 壁なしでもスリットガイドのみ残す */
-      if (isPartFeatureOn("slitLeft")) {
-        let xCursor = -L / 2 + leftOx;
-        for (let i = 0; i < 4; i++) {
-          xCursor += wallSeg;
-          const gx = xCursor + slit / 2;
-          const zBase = -Win / 2 + t / 2 + leftOz;
-          addBox(tris, gx - slit / 2 + 0.6, yWall, zBase, 1.2, H * 0.55, t);
-          addBox(tris, gx + slit / 2 - 0.6, yWall, zBase, 1.2, H * 0.55, t);
-          xCursor += slit;
-        }
-      }
-      if (isPartFeatureOn("slitRight")) {
-        let xCursor = -L / 2 + rightOx;
-        for (let i = 0; i < 4; i++) {
-          xCursor += wallSeg;
-          const gx = xCursor + slit / 2;
-          const zBase = Win / 2 - t / 2;
-          addBox(tris, gx - slit / 2 + 0.6, yWall, zBase, 1.2, H * 0.55, t);
-          addBox(tris, gx + slit / 2 - 0.6, yWall, zBase, 1.2, H * 0.55, t);
-          xCursor += slit;
-        }
-      }
+      buildLeftRelayWall();
+      buildRightSplitWall();
+    } else if (isPartFeatureOn("slitLeft")) {
+      buildLeftRelayWall();
+    } else if (isPartFeatureOn("slitRight")) {
+      buildRightSplitWall();
     }
 
     if (isPartFeatureOn("slitRight")) {
       // 短辺壁（RS485 / PoE-LAN 開口）
-      const endGap = Math.max(slit * 1.4, 10);
+      const endGap = Math.max(slit * 1.6, 12);
       const endSeg = (Win - endGap) / 2;
       const eoz = rightOz;
       const eox = partFeatureOX("slitRight");
@@ -790,13 +853,15 @@ function buildTris(tplId, p) {
     addBox(tris, L / 4 + ribOx * 0.35, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
 
     if (isPartFeatureOn("cornerBosses")) {
-      // ネジボス（ピッチ＋個別オフセット）
-      const bx = pitch / 2;
+      /* M3用ボス: 長手×短手ピッチ */
+      const bx = pitchLong / 2;
+      const bz = pitchShort / 2;
       const bossY = basePlateEnabled ? t : yWall;
-      addBox(tris, -bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
-      addBox(tris, bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
-      addBox(tris, -bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
-      addBox(tris, bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
+      const bossSz = 8;
+      addBox(tris, -bx + bossOx, bossY, -bz + bossOz, bossSz, boss, bossSz);
+      addBox(tris, bx + bossOx, bossY, -bz + bossOz, bossSz, boss, bossSz);
+      addBox(tris, -bx + bossOx, bossY, bz + bossOz, bossSz, boss, bossSz);
+      addBox(tris, bx + bossOx, bossY, bz + bossOz, bossSz, boss, bossSz);
     }
   } else if (tplId === "camera_mount") {
     addBox(tris, 0, 0, 0, p.plateW, p.plateT, p.plateH);
@@ -1226,9 +1291,21 @@ function buildDimGuides(tplId, p) {
     );
     add(
       "bossH",
-      [-p.holePitch / 2, p.wall, -Win * 0.28],
-      [-p.holePitch / 2, p.wall + p.bossH, -Win * 0.28],
-      [-p.holePitch / 2, p.wall + p.bossH / 2, -Win * 0.28 - DIM_PAD]
+      [
+        -(Number(p.holePitchLong) || 145) / 2,
+        p.wall,
+        -(Number(p.holePitch) || 70) / 2,
+      ],
+      [
+        -(Number(p.holePitchLong) || 145) / 2,
+        p.wall + p.bossH,
+        -(Number(p.holePitch) || 70) / 2,
+      ],
+      [
+        -(Number(p.holePitchLong) || 145) / 2,
+        p.wall + p.bossH / 2,
+        -(Number(p.holePitch) || 70) / 2 - DIM_PAD,
+      ]
     );
     add(
       "clearance",
@@ -1238,32 +1315,58 @@ function buildDimGuides(tplId, p) {
     );
     add(
       "slitW",
-      [-p.slitW / 2, H * 0.4, -Win / 2 - DIM_PAD],
-      [p.slitW / 2, H * 0.4, -Win / 2 - DIM_PAD],
-      [0, H * 0.4 + 2, -Win / 2 - DIM_PAD - 2]
+      [-p.slitW / 2, H * 0.4, Win / 2 + DIM_PAD],
+      [p.slitW / 2, H * 0.4, Win / 2 + DIM_PAD],
+      [0, H * 0.4 + 2, Win / 2 + DIM_PAD + 2]
     );
     add(
       "holePitch",
-      [-p.holePitch / 2, p.wall + 1, Win * 0.28 + DIM_PAD],
-      [p.holePitch / 2, p.wall + 1, Win * 0.28 + DIM_PAD],
-      [0, p.wall + 4, Win * 0.28 + DIM_PAD + 2]
+      [0, p.wall + 1, -(Number(p.holePitch) || 70) / 2],
+      [0, p.wall + 1, (Number(p.holePitch) || 70) / 2],
+      [DIM_PAD, p.wall + 4, 0]
+    );
+    add(
+      "holePitchLong",
+      [-(Number(p.holePitchLong) || 145) / 2, p.wall + 1, 0],
+      [(Number(p.holePitchLong) || 145) / 2, p.wall + 1, 0],
+      [0, p.wall + 4, DIM_PAD]
+    );
+    add(
+      "topThickness",
+      [L / 2 + DIM_PAD, H - (Number(p.topThickness) || p.wall), 0],
+      [L / 2 + DIM_PAD, H, 0],
+      [L / 2 + DIM_PAD + 2, H - (Number(p.topThickness) || p.wall) / 2, 0]
+    );
+    add(
+      "slitLeftLen",
+      [-(Number(p.slitLeftLen) || 115) / 2, H * 0.35, -Win / 2 - DIM_PAD],
+      [(Number(p.slitLeftLen) || 115) / 2, H * 0.35, -Win / 2 - DIM_PAD],
+      [0, H * 0.35 + 2, -Win / 2 - DIM_PAD - 2]
+    );
+    add(
+      "slitH",
+      [-L / 2 + 4, 0.8, -Win / 2 - DIM_PAD],
+      [-L / 2 + 4, 0.8 + (Number(p.slitH) || 6.5), -Win / 2 - DIM_PAD],
+      [-L / 2 + 6, 0.8 + (Number(p.slitH) || 6.5) / 2, -Win / 2 - DIM_PAD]
     );
     const box = Number(p.bossOffsetX) || 0;
     const boz = Number(p.bossOffsetZ) || 0;
     const sox = Number(p.slitOffsetX) || 0;
     const eoz = Number(p.endOpenOffsetZ) || 0;
     const rox = Number(p.ribOffsetX) || 0;
+    const pitchLong = Number(p.holePitchLong) || 145;
+    const pitchShort = Number(p.holePitch) || 70;
     add(
       "bossOffsetX",
-      [-p.holePitch / 2 + box - 5, p.wall + 2, -Win * 0.28 + boz],
-      [-p.holePitch / 2 + box + 5, p.wall + 2, -Win * 0.28 + boz],
-      [-p.holePitch / 2 + box, p.wall + 5, -Win * 0.28 + boz - DIM_PAD]
+      [-pitchLong / 2 + box - 5, p.wall + 2, -pitchShort / 2 + boz],
+      [-pitchLong / 2 + box + 5, p.wall + 2, -pitchShort / 2 + boz],
+      [-pitchLong / 2 + box, p.wall + 5, -pitchShort / 2 + boz - DIM_PAD]
     );
     add(
       "bossOffsetZ",
-      [-p.holePitch / 2 + box, p.wall + 2, -Win * 0.28 + boz - 5],
-      [-p.holePitch / 2 + box, p.wall + 2, -Win * 0.28 + boz + 5],
-      [-p.holePitch / 2 + box - DIM_PAD, p.wall + 5, -Win * 0.28 + boz]
+      [-pitchLong / 2 + box, p.wall + 2, -pitchShort / 2 + boz - 5],
+      [-pitchLong / 2 + box, p.wall + 2, -pitchShort / 2 + boz + 5],
+      [-pitchLong / 2 + box - DIM_PAD, p.wall + 5, -pitchShort / 2 + boz]
     );
     add(
       "slitOffsetX",
@@ -1558,11 +1661,17 @@ function getPartOffsetHandleDefs(tplId, p) {
       (Number(p.bossOffsetX) || 0) + partFeatureOX("cornerBosses");
     const boz =
       (Number(p.bossOffsetZ) || 0) + partFeatureOY("cornerBosses");
+    const pitchLong = Number(p.holePitchLong) || 145;
+    const pitchShort = Number(p.holePitch) || 70;
     defs.push({
       id: "boss",
       label: "ボス",
       featureId: "cornerBosses",
-      pos: [box, p.wall + p.bossH * 0.55, -Win * 0.28 + boz],
+      pos: [
+        -pitchLong / 2 + box,
+        p.wall + p.bossH * 0.55,
+        -pitchShort / 2 + boz,
+      ],
     });
     defs.push({
       id: "slitL",
@@ -2302,9 +2411,16 @@ function renderTemplates() {
       activeDimKey = null;
       dimDragging = false;
       activePartFeatureId = null;
+      /* 上部カバーは天面接地が既定 */
+      if (next.id === "rp2350_poe_cover") {
+        basePlateEnabled = false;
+        printTopDown = true;
+      }
       renderTemplates();
       renderSliders();
       renderPartFeaturePanel();
+      syncBasePlateButton();
+      syncPrintOrientButton();
       rebuildMesh({ frameCamera: true });
     });
   });
@@ -2945,8 +3061,13 @@ function placeScanGeometry(geo, fileName) {
     if (next) {
       activeTpl = next;
       dims = { ...next.defaults };
+      basePlateEnabled = false;
+      printTopDown = true;
       renderTemplates();
       renderSliders();
+      renderPartFeaturePanel();
+      syncBasePlateButton();
+      syncPrintOrientButton();
     }
   }
   rebuildMesh({ frameCamera: true });

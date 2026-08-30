@@ -150,13 +150,19 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(js.text, /88\.1/);
     assert.match(js.text, /69\.5/);
     assert.match(js.text, /11\.4/);
+    assert.match(js.text, /145(?:\.0)?/);
+    assert.match(js.text, /holePitchLong/);
+    assert.match(js.text, /slitLeftLen/);
+    assert.match(js.text, /topThickness/);
     assert.match(js.text, /clearance/);
     assert.match(js.text, /STLLoader/);
     assert.match(js.text, /OBJLoader/);
     assert.match(js.text, /loadScanFile/);
     assert.match(js.text, /updateScanInterferenceStatus/);
-    assert.match(js.text, /CH1/);
+    assert.match(js.text, /CH1|リレー8ch|左側: リレー/);
     assert.match(js.text, /PoE-LAN/);
+    assert.match(js.text, /flipTrisTopDownForPrint/);
+    assert.match(js.text, /上部保護カバー/);
   });
 
   it("3d-generator field options cost banner and explode slider", async () => {
