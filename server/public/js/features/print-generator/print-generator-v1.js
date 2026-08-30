@@ -9,6 +9,8 @@ import {
   CSS2DRenderer,
   CSS2DObject,
 } from "three/addons/renderers/CSS2DRenderer.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 
 /** @typedef {{ id: string, label: string, desc: string, defaults: Record<string, number>, ranges: Record<string, {min:number,max:number,step:number,label:string}> }} PrintTemplate */
 
@@ -91,6 +93,58 @@ const TEMPLATES = [
       holePitch: { min: 10, max: 60, step: 0.5, label: "穴ピッチ" },
     },
   },
+  {
+    id: "rp2350_poe_cover",
+    label: "RP2350-POE用 保護カバー/端子フード",
+    desc: "実測154.2×88.1 · 配線逃げ付き",
+    defaults: {
+      length: 154.2,
+      outerWidth: 88.1,
+      innerWidth: 69.5,
+      depth: 15.5,
+      bossH: 11.4,
+      wall: 2.0,
+      clearance: 0.4,
+      slitW: 6.5,
+      holePitch: 70,
+    },
+    ranges: {
+      length: { min: 140, max: 180, step: 0.1, label: "全長 L" },
+      outerWidth: {
+        min: 70,
+        max: 110,
+        step: 0.1,
+        label: "全幅（耳込）",
+      },
+      innerWidth: {
+        min: 60,
+        max: 85,
+        step: 0.1,
+        label: "内寸幅",
+      },
+      depth: { min: 10, max: 30, step: 0.1, label: "基準深さ" },
+      bossH: { min: 6, max: 18, step: 0.1, label: "ボス高" },
+      wall: { min: 1.5, max: 4, step: 0.1, label: "壁厚" },
+      clearance: {
+        min: 0.2,
+        max: 1.0,
+        step: 0.1,
+        label: "クリアランス",
+      },
+      slitW: {
+        min: 4,
+        max: 12,
+        step: 0.1,
+        label: "配線逃げ幅",
+      },
+      holePitch: {
+        min: 40,
+        max: 120,
+        step: 0.5,
+        label: "ネジ穴ピッチ",
+      },
+    },
+  },
 ];
 
 /** @type {PrintTemplate} */
@@ -112,6 +166,13 @@ let meshGroup = null;
 let dimGuideGroup = null;
 /** @type {CSS2DRenderer | null} */
 let labelRenderer = null;
+/** Revopoint スキャンメッシュ群 */
+/** @type {THREE.Group | null} */
+let scanMeshGroup = null;
+/** スキャン読込済みフラグ */
+let scanLoaded = false;
+/** オーバーレイ表示 ON */
+let scanOverlayOn = true;
 /** 方眼紙スケッチ（最大4枚） */
 /** @type {{ id: string, dataUrl: string, width: number, height: number }[]} */
 let sketchImages = [];
@@ -194,6 +255,8 @@ function initViewer() {
 
   meshGroup = new THREE.Group();
   scene.add(meshGroup);
+  scanMeshGroup = new THREE.Group();
+  scene.add(scanMeshGroup);
   dimGuideGroup = new THREE.Group();
   scene.add(dimGuideGroup);
 
@@ -306,6 +369,101 @@ function buildTris(tplId, p) {
       p.lip,
       d - 2 * t
     );
+  } else if (tplId === "rp2350_poe_cover") {
+    /* RP2350-POE 実測カバー
+     * フランジ耳・ボス・端子逃げ付き */
+    const cl = Number(p.clearance) || 0.4;
+    const L = p.length + 2 * cl;
+    const Wout = p.outerWidth + 2 * cl;
+    const Win = p.innerWidth + 2 * cl;
+    const H = p.depth + cl;
+    const t = p.wall;
+    const boss = p.bossH;
+    const slit = p.slitW;
+    const pitch = p.holePitch;
+    const ear = Math.max((Wout - Win) / 2, 2);
+
+    // 底板（フランジ耳含む）
+    addBox(tris, 0, 0, 0, L, t, Wout);
+    // DIN リップ（底面中央）
+    addBox(tris, 0, t, 0, L * 0.55, t * 0.8, Math.min(Win * 0.35, 22));
+
+    // 長辺壁（CH/DI 逃げスリットで分割）
+    const wallSeg = (L - slit * 4) / 5;
+    let xCursor = -L / 2;
+    for (let i = 0; i < 5; i++) {
+      const segL = wallSeg;
+      const cx = xCursor + segL / 2;
+      // -Z 側: CH1〜CH8 側壁セグメント
+      addBox(tris, cx, t, -Win / 2 + t / 2, segL, H - t, t);
+      // +Z 側: DI1〜DI8 側壁セグメント
+      addBox(tris, cx, t, Win / 2 - t / 2, segL, H - t, t);
+      xCursor += segL;
+      if (i < 4) {
+        // 配線ガイド（スリット両縁の薄壁）
+        const gx = xCursor + slit / 2;
+        addBox(tris, gx - slit / 2 + 0.6, t, -Win / 2 + t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx + slit / 2 - 0.6, t, -Win / 2 + t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx - slit / 2 + 0.6, t, Win / 2 - t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx + slit / 2 - 0.6, t, Win / 2 - t / 2, 1.2, H * 0.55, t);
+        xCursor += slit;
+      }
+    }
+
+    // 短辺壁（RS485 / PoE-LAN 開口）
+    const endGap = Math.max(slit * 1.4, 10);
+    const endSeg = (Win - endGap) / 2;
+    // -X: RS485
+    addBox(
+      tris,
+      -L / 2 + t / 2,
+      t,
+      -Win / 2 + endSeg / 2,
+      t,
+      H - t,
+      endSeg
+    );
+    addBox(
+      tris,
+      -L / 2 + t / 2,
+      t,
+      Win / 2 - endSeg / 2,
+      t,
+      H - t,
+      endSeg
+    );
+    // +X: PoE-LAN
+    addBox(
+      tris,
+      L / 2 - t / 2,
+      t,
+      -Win / 2 + endSeg / 2,
+      t,
+      H - t,
+      endSeg
+    );
+    addBox(
+      tris,
+      L / 2 - t / 2,
+      t,
+      Win / 2 - endSeg / 2,
+      t,
+      H - t,
+      endSeg
+    );
+
+    // フランジ耳（取付耳）
+    addBox(tris, -L / 4, t, -Wout / 2 + ear / 2, L * 0.28, t, ear);
+    addBox(tris, L / 4, t, -Wout / 2 + ear / 2, L * 0.28, t, ear);
+    addBox(tris, -L / 4, t, Wout / 2 - ear / 2, L * 0.28, t, ear);
+    addBox(tris, L / 4, t, Wout / 2 - ear / 2, L * 0.28, t, ear);
+
+    // ネジボス（ピッチ左右）
+    const bx = pitch / 2;
+    addBox(tris, -bx, t, -Win * 0.28, 8, boss, 8);
+    addBox(tris, bx, t, -Win * 0.28, 8, boss, 8);
+    addBox(tris, -bx, t, Win * 0.28, 8, boss, 8);
+    addBox(tris, bx, t, Win * 0.28, 8, boss, 8);
   } else if (tplId === "camera_mount") {
     addBox(tris, 0, 0, 0, p.plateW, p.plateT, p.plateH);
     addBox(
@@ -448,6 +606,60 @@ function buildDimGuides(tplId, p) {
       [0, h - p.lip, d / 2 + DIM_PAD],
       [0, h, d / 2 + DIM_PAD],
       [0, h - p.lip / 2, d / 2 + DIM_PAD + 2]
+    );
+  } else if (tplId === "rp2350_poe_cover") {
+    const cl = Number(p.clearance) || 0.4;
+    const L = p.length + 2 * cl;
+    const Wout = p.outerWidth + 2 * cl;
+    const Win = p.innerWidth + 2 * cl;
+    const H = p.depth + cl;
+    add(
+      "length",
+      [-L / 2, 0, Wout / 2 + DIM_PAD],
+      [L / 2, 0, Wout / 2 + DIM_PAD],
+      [0, 3, Wout / 2 + DIM_PAD + 2]
+    );
+    add(
+      "outerWidth",
+      [L / 2 + DIM_PAD, 0, -Wout / 2],
+      [L / 2 + DIM_PAD, 0, Wout / 2],
+      [L / 2 + DIM_PAD + 2, 3, 0]
+    );
+    add(
+      "innerWidth",
+      [L / 2 + DIM_PAD * 0.4, H / 2, -Win / 2],
+      [L / 2 + DIM_PAD * 0.4, H / 2, Win / 2],
+      [L / 2 + DIM_PAD * 0.4 + 2, H / 2 + 2, 0]
+    );
+    add(
+      "depth",
+      [L / 2 + DIM_PAD, 0, 0],
+      [L / 2 + DIM_PAD, H, 0],
+      [L / 2 + DIM_PAD + 2, H / 2, 0]
+    );
+    add(
+      "bossH",
+      [-p.holePitch / 2, p.wall, -Win * 0.28],
+      [-p.holePitch / 2, p.wall + p.bossH, -Win * 0.28],
+      [-p.holePitch / 2, p.wall + p.bossH / 2, -Win * 0.28 - DIM_PAD]
+    );
+    add(
+      "clearance",
+      [0, H + 1, Win / 2],
+      [0, H + 1 + cl * 4, Win / 2],
+      [0, H + 2 + cl * 2, Win / 2 + DIM_PAD]
+    );
+    add(
+      "slitW",
+      [-p.slitW / 2, H * 0.4, -Win / 2 - DIM_PAD],
+      [p.slitW / 2, H * 0.4, -Win / 2 - DIM_PAD],
+      [0, H * 0.4 + 2, -Win / 2 - DIM_PAD - 2]
+    );
+    add(
+      "holePitch",
+      [-p.holePitch / 2, p.wall + 1, Win * 0.28 + DIM_PAD],
+      [p.holePitch / 2, p.wall + 1, Win * 0.28 + DIM_PAD],
+      [0, p.wall + 4, Win * 0.28 + DIM_PAD + 2]
     );
   } else if (tplId === "camera_mount") {
     const pw = p.plateW;
@@ -630,25 +842,38 @@ function rebuildMesh(opts = {}) {
   while (meshGroup.children.length) {
     const c = meshGroup.children.pop();
     c?.geometry?.dispose?.();
-    c?.material?.dispose?.();
+    if (Array.isArray(c?.material)) {
+      c.material.forEach((m) => m.dispose?.());
+    } else {
+      c?.material?.dispose?.();
+    }
   }
   const tris = buildTris(activeTpl.id, dims);
   const geo = trisToGeometry(tris);
+  const overlay = scanLoaded && scanOverlayOn;
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x1e3a8a,
+    color: overlay ? 0x1e3a8a : 0x1e3a8a,
     metalness: 0.08,
     roughness: 0.45,
     flatShading: true,
+    transparent: overlay,
+    opacity: overlay ? 0.42 : 1,
+    depthWrite: !overlay,
   });
   const mesh = new THREE.Mesh(geo, mat);
   meshGroup.add(mesh);
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(geo),
-    new THREE.LineBasicMaterial({ color: 0x0ea5e9 })
+    new THREE.LineBasicMaterial({
+      color: 0x0ea5e9,
+      transparent: overlay,
+      opacity: overlay ? 0.9 : 1,
+    })
   );
   meshGroup.add(edges);
 
   rebuildDimGuides();
+  updateScanInterferenceStatus();
 
   // カメラは初回・テンプレ切替時のみ
   if (!opts.frameCamera) return;
@@ -1187,6 +1412,199 @@ function getSpeechRecognitionCtor() {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
+/**
+ * スキャンメッシュを全消去
+ * @param {{ silent?: boolean }} [opts]
+ */
+function clearScanMesh(opts = {}) {
+  if (!scanMeshGroup) return;
+  while (scanMeshGroup.children.length) {
+    const c = scanMeshGroup.children.pop();
+    c?.traverse?.((obj) => {
+      obj.geometry?.dispose?.();
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach((m) => m.dispose?.());
+      } else {
+        obj.material?.dispose?.();
+      }
+    });
+  }
+  scanLoaded = false;
+  const status = $("#pg-scan-status");
+  if (status && !opts.silent) {
+    status.textContent = "スキャン未読込";
+    status.classList.remove("is-ok", "is-warn", "is-bad");
+  }
+  const nameEl = $("#pg-scan-name");
+  if (nameEl && !opts.silent) nameEl.textContent = "";
+  if (!opts.silent) rebuildMesh();
+}
+
+/**
+ * AABB 干渉ステータス更新
+ * （ネジ穴ピッチ・端子開口の目視補助）
+ */
+function updateScanInterferenceStatus() {
+  const status = $("#pg-scan-status");
+  if (!status || !scanLoaded || !meshGroup || !scanMeshGroup) return;
+  if (!scanOverlayOn) {
+    status.textContent = "オーバーレイ OFF（スキャン非表示）";
+    status.classList.remove("is-ok", "is-warn", "is-bad");
+    return;
+  }
+  const coverBox = new THREE.Box3().setFromObject(meshGroup);
+  const scanBox = new THREE.Box3().setFromObject(scanMeshGroup);
+  if (coverBox.isEmpty() || scanBox.isEmpty()) {
+    status.textContent = "メッシュ境界を計算中…";
+    return;
+  }
+  const coverSize = coverBox.getSize(new THREE.Vector3());
+  const scanSize = scanBox.getSize(new THREE.Vector3());
+  const dx = Math.abs(coverSize.x - scanSize.x);
+  const dz = Math.abs(coverSize.z - scanSize.z);
+  const cl = Number(dims.clearance) || 0.4;
+  const overlap = coverBox.intersectsBox(scanBox);
+  status.classList.remove("is-ok", "is-warn", "is-bad");
+  if (!overlap) {
+    status.textContent =
+      "干渉なし（AABB 非交差）— 位置合わせを確認";
+    status.classList.add("is-warn");
+    return;
+  }
+  if (dx <= cl * 4 && dz <= cl * 4) {
+    status.textContent =
+      `干渉チェック OK（ΔL ${dx.toFixed(1)} / ΔW ${dz.toFixed(1)} mm · CL ${cl}）`;
+    status.classList.add("is-ok");
+  } else if (dx <= 8 && dz <= 8) {
+    status.textContent =
+      `要確認: 寸法差 ΔL ${dx.toFixed(1)} / ΔW ${dz.toFixed(1)} mm — クリアランス調整推奨`;
+    status.classList.add("is-warn");
+  } else {
+    status.textContent =
+      `干渉注意: 寸法差が大きい（ΔL ${dx.toFixed(1)} / ΔW ${dz.toFixed(1)} mm）`;
+    status.classList.add("is-bad");
+  }
+}
+
+/**
+ * 読込ジオメトリをシーンへ配置
+ * @param {THREE.BufferGeometry} geo
+ * @param {string} fileName
+ */
+function placeScanGeometry(geo, fileName) {
+  if (!scanMeshGroup) return;
+  clearScanMesh({ silent: true });
+  geo.computeVertexNormals();
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  if (box) {
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    geo.translate(-center.x, -box.min.y, -center.z);
+  }
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x64748b,
+    metalness: 0.05,
+    roughness: 0.7,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.78,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  scanMeshGroup.add(mesh);
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color: 0x94a3b8, opacity: 0.6, transparent: true })
+  );
+  scanMeshGroup.add(edges);
+  scanLoaded = true;
+  scanOverlayOn = true;
+  const toggle = $("#pg-scan-overlay-toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", "true");
+    toggle.textContent = "オーバーレイ ON";
+  }
+  const nameEl = $("#pg-scan-name");
+  if (nameEl) nameEl.textContent = fileName || "scan";
+  /* RP2350 テンプレへ自動切替（未選択時） */
+  if (activeTpl.id !== "rp2350_poe_cover") {
+    const next = TEMPLATES.find((t) => t.id === "rp2350_poe_cover");
+    if (next) {
+      activeTpl = next;
+      dims = { ...next.defaults };
+      renderTemplates();
+      renderSliders();
+    }
+  }
+  rebuildMesh({ frameCamera: true });
+  const status = $("#pg-scan-status");
+  if (status) {
+    status.textContent = `スキャン読込: ${fileName}`;
+    status.classList.add("is-ok");
+    status.classList.remove("is-warn", "is-bad");
+  }
+  updateScanInterferenceStatus();
+}
+
+/**
+ * Revopoint STL/OBJ 読込
+ * @param {File} file
+ */
+async function loadScanFile(file) {
+  const status = $("#pg-scan-status");
+  if (!file) return;
+  const name = file.name || "scan";
+  const lower = name.toLowerCase();
+  if (status) {
+    status.textContent = `読込中… ${name}`;
+    status.classList.remove("is-ok", "is-warn", "is-bad");
+  }
+  try {
+    if (lower.endsWith(".stl")) {
+      const buf = await file.arrayBuffer();
+      const geo = new STLLoader().parse(buf);
+      placeScanGeometry(geo, name);
+      return;
+    }
+    if (lower.endsWith(".obj")) {
+      const text = await file.text();
+      const obj = new OBJLoader().parse(text);
+      const geos = [];
+      obj.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          geos.push(child.geometry.clone());
+        }
+      });
+      if (!geos.length) throw new Error("OBJ にメッシュがありません");
+      const merged = geos[0];
+      if (geos.length > 1) {
+        /* 先頭ジオメトリを代表表示 */
+      }
+      placeScanGeometry(merged, name);
+      return;
+    }
+    throw new Error("対応形式は STL / OBJ のみです");
+  } catch (err) {
+    if (status) {
+      status.textContent =
+        `読込失敗: ${err instanceof Error ? err.message : String(err)}`;
+      status.classList.add("is-warn");
+    }
+  }
+}
+
+/** オーバーレイ表示トグル */
+function toggleScanOverlay() {
+  scanOverlayOn = !scanOverlayOn;
+  if (scanMeshGroup) scanMeshGroup.visible = scanOverlayOn;
+  const toggle = $("#pg-scan-overlay-toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", scanOverlayOn ? "true" : "false");
+    toggle.textContent = scanOverlayOn ? "オーバーレイ ON" : "オーバーレイ OFF";
+  }
+  rebuildMesh();
+}
+
 /** 音声入力の開始／停止トグル */
 function toggleVoiceInput() {
   const status = $("#pg-ai-prompt-status");
@@ -1276,6 +1694,14 @@ function bindUi() {
   $("#pg-sketch-clear")?.addEventListener("click", clearSketch);
   $("#pg-ai-generate-btn")?.addEventListener("click", generateFromPrompt);
   $("#pg-ai-voice-btn")?.addEventListener("click", toggleVoiceInput);
+  $("#pg-scan-clear")?.addEventListener("click", () => clearScanMesh());
+  $("#pg-scan-overlay-toggle")?.addEventListener("click", toggleScanOverlay);
+  $("#pg-scan-input")?.addEventListener("change", (ev) => {
+    const files = ev.target?.files;
+    if (!files?.length) return;
+    void loadScanFile(files[0]);
+    ev.target.value = "";
+  });
 
   /* ドラッグ終了でハイライト解除フラグを戻す */
   window.addEventListener(

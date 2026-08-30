@@ -1,0 +1,12 @@
+{
+  "id": "FACTORY-RP2350-POE-COVER-SCAN-001",
+  "title": "【製造DX】RP2350-POE実測寸法ベースの3Dプリント専用カバー＆スキャン結合モデリング",
+  "category": "IOT関連",
+  "tags": ["#RP2350", "#3Dプリンター", "#Revopoint", "#実測モデリング", "#現場DX", "#TiSLY_Factory", "#PWA"],
+  "summary": "Waveshare RP2350ボードの実測値（154.2×88.1×15.5mm、内寸69.5mm）をテンプレート化。\nRevopoint MINI 2のスキャンデータと重ね合わせて配線逃げ・端子開口・DINマウント付き\nカスタムカバーを即座にSTL出力。\n\n【実測テンプレート】\nWaveshare RP2350-POE 実測値をプリセット化。\n全長 154.2mm · 全幅（フランジ耳）88.1mm ·\n内寸幅 69.5mm · 深さ 15.5mm · ボス高 11.4mm。\n\n【端子逃げ】\nCH1〜CH8 / DI1〜DI8 / RS485 / PoE-LAN の\n配線逃げスリットと開口ガイドを自動生成する。\n\n【スキャン結合】\nRevopoint MINI 2 の STL/OBJ を半透明オーバーレイ。\nネジ穴ピッチ・端子開口の干渉をブラウザで確認し、\nクリアランス +0.2〜+1.0mm 調整後に STL 出力する。",
+  "files": [],
+  "updatedAt": "2026-08-30",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【実測テンプレート】\nWaveshare RP2350-POE 実測値をプリセット化。\n全長 154.2mm · 全幅（フランジ耳）88.1mm ·\n内寸幅 69.5mm · 深さ 15.5mm · ボス高 11.4mm。\n\n【端子逃げ】\nCH1〜CH8 / DI1〜DI8 / RS485 / PoE-LAN の\n配線逃げスリットと開口ガイドを自動生成する。\n\n【スキャン結合】\nRevopoint MINI 2 の STL/OBJ を半透明オーバーレイ。\nネジ穴ピッチ・端子開口の干渉をブラウザで確認し、\nクリアランス +0.2〜+1.0mm 調整後に STL 出力する。"
+}

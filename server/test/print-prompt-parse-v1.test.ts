@@ -42,6 +42,27 @@ describe("print-prompt-parse-v1", () => {
     );
   });
 
+  it("detects RP2350 cover and maps measured defaults", () => {
+    assert.equal(
+      detectShapeFromTextV1("RP2350-POE用 保護カバー クリアランス+0.5mm"),
+      "rp2350_cover"
+    );
+    assert.equal(
+      mapShapeToTemplateIdV1("rp2350_cover"),
+      "rp2350_poe_cover"
+    );
+    const r = parsePrintPromptRuleBasedV1(
+      "RP2350 端子フード クリアランス +0.6mm"
+    );
+    assert.equal(r.templateId, "rp2350_poe_cover");
+    assert.equal(r.params.length, 154.2);
+    assert.equal(r.params.outerWidth, 88.1);
+    assert.equal(r.params.depth, 15.5);
+    assert.equal(r.params.innerWidth, 69.5);
+    assert.equal(r.params.bossH, 11.4);
+    assert.equal(r.params.clearance, 0.6);
+  });
+
   it("extracts special features flags", () => {
     const r = parsePrintPromptRuleBasedV1(
       "単管R溝とインサートナット、角R面取りのL字"

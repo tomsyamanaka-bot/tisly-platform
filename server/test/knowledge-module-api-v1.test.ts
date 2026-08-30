@@ -103,6 +103,10 @@ const {
   MULTI_ANGLE_SKETCH_MODULE_SEED_IDS,
   seedMultiAngleSketchKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-multi-angle-sketch-seed-v1.js");
+const {
+  RP2350_COVER_MODULE_SEED_IDS,
+  seedRp2350CoverKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-rp2350-cover-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -987,6 +991,36 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /高精度3D寸法抽出/);
     assert.ok(card!.tags.includes("#現場DX"));
     assert.ok(card!.tags.includes("#PWA"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends RP2350 cover scan seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of RP2350_COVER_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-rp2350-poe-cover-scan-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /RP2350-POE実測寸法/);
+    assert.ok(item!.tags.includes("#RP2350"));
+    assert.ok(item!.tags.includes("#Revopoint"));
+    assert.ok(item!.tags.includes("#実測モデリング"));
+    assert.match(String(item!.summary ?? ""), /154\.2/);
+    assert.match(String(item!.body ?? ""), /クリアランス/);
+  });
+
+  it("seedRp2350CoverKnowledgeCardsV1 upserts searchable cards", () => {
+    seedRp2350CoverKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-RP2350-POE-COVER-SCAN-001");
+    assert.ok(card);
+    assert.match(card!.title, /スキャン結合モデリング/);
+    assert.ok(card!.tags.includes("#3Dプリンター"));
+    assert.ok(card!.tags.includes("#TiSLY_Factory"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

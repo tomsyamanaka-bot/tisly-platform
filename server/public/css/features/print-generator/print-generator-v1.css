@@ -92,7 +92,13 @@
 
 @media (min-width: 720px) {
   .pg-tpl-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 980px) {
+  .pg-tpl-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -564,4 +570,38 @@
   font-size: 0.78rem;
   font-weight: 800;
   border: 1px solid #c7d2fe;
+}
+
+/* Revopoint スキャン重ね合わせ */
+.pg-scan-card .pg-sketch-row {
+  margin-top: 4px;
+}
+
+.pg-scan-name {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--pg-navy);
+  word-break: break-all;
+}
+
+#pg-scan-status.is-ok {
+  color: var(--pg-ok);
+  font-weight: 700;
+}
+
+#pg-scan-status.is-warn {
+  color: #b45309;
+  font-weight: 700;
+}
+
+#pg-scan-status.is-bad {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+#pg-scan-overlay-toggle[aria-pressed="true"] {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  color: var(--pg-navy);
 }

@@ -31,7 +31,7 @@ const VISION_PROMPT = [
   "説明や Markdown は出さず、JSON のみ返す。",
   "単位は mm。不明な数値は null。",
   "shape は次のいずれか:",
-  "l_bracket | u_channel | box | plate | mount | din_rail",
+  "l_bracket | u_channel | box | plate | mount | din_rail | rp2350_cover",
   "出力形式:",
   "{",
   '  "shape": "l_bracket",',
@@ -82,6 +82,9 @@ function normalizeShape(raw: unknown): PrintShapeIdV1 {
   if (s === "plate") return "plate";
   if (s === "mount" || s === "camera_mount") return "mount";
   if (s === "din_rail" || s === "din") return "din_rail";
+  if (s === "rp2350_cover" || s === "rp2350" || s === "poe_cover") {
+    return "rp2350_cover";
+  }
   return "l_bracket";
 }
 

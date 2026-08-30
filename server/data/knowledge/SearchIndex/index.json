@@ -1,7 +1,40 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-30T09:01:15.437Z",
+  "updatedAt": "2026-08-30T09:38:32.427Z",
   "entries": [
+    {
+      "id": "FACTORY-MULTI-ANGLE-SKETCH-001",
+      "title": "【製造DX】マルチアングル方眼紙スケッチによるGemini Vision高精度3D寸法抽出",
+      "category": "IOT関連",
+      "tags": [
+        "#3Dプリンター",
+        "#GeminiVision",
+        "#三面図認識",
+        "#マルチアングル",
+        "#現場DX",
+        "#PWA"
+      ],
+      "summary": "正面・側面・ナナメの複数枚スケッチからAIが立体形状と寸法を相互検証。\n1枚撮影時のパース歪みを排除し、ミリ単位のパラメータ抽出精度を劇的に向上。\n\n【撮影】\n正面・側面・上（または斜め）を最大4枚まで PWA に登録。\nサムネイル右上の ✕ で差し替え可能。\n\n【Gemini Vision】\n全画像を一括送信し、三面図として幅・奥行・高さ・板厚・\n穴径・穴ピッチを相互検証。1枚時のパース歪みを補正する。\n\n【連動】\n抽出結果はパラメトリックスライダーと Three.js プレビューへ\n即時反映し、STL オンデマンドへ直結する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
+    },
+    {
+      "id": "FACTORY-RP2350-POE-COVER-SCAN-001",
+      "title": "【製造DX】RP2350-POE実測寸法ベースの3Dプリント専用カバー＆スキャン結合モデリング",
+      "category": "IOT関連",
+      "tags": [
+        "#RP2350",
+        "#3Dプリンター",
+        "#Revopoint",
+        "#実測モデリング",
+        "#現場DX",
+        "#TiSLY_Factory",
+        "#PWA"
+      ],
+      "summary": "Waveshare RP2350ボードの実測値（154.2×88.1×15.5mm、内寸69.5mm）をテンプレート化。\nRevopoint MINI 2のスキャンデータと重ね合わせて配線逃げ・端子開口・DINマウント付き\nカスタムカバーを即座にSTL出力。\n\n【実測テンプレート】\nWaveshare RP2350-POE 実測値をプリセット化。\n全長 154.2mm · 全幅（フランジ耳）88.1mm ·\n内寸幅 69.5mm · 深さ 15.5mm · ボス高 11.4mm。\n\n【端子逃げ】\nCH1〜CH8 / DI1〜DI8 / RS485 / PoE-LAN の\n配線逃げスリットと開口ガイドを自動生成する。\n\n【スキャン結合】\nRevopoint MINI 2 の STL/OBJ を半透明オーバーレイ。\nネジ穴ピッチ・端子開口の干渉をブラウザで確認し、\nクリアランス +0.2〜+1.0mm 調整後に STL 出力する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
+    },
     {
       "id": "FACTORY-TEXT-TO-3D-001",
       "title": "【製造DX】自然言語・音声プロンプトからの即時3Dモデリング＆STLオンデマンド生成",
@@ -1887,21 +1920,6 @@
       "summary": "配線例 の配線・設定・回路図ナレッジ。RP2350 / ESP 系テンプレート。",
       "updatedAt": "2026-06-20",
       "sourceType": "rp-template"
-    },
-    {
-      "id": "FACTORY-MULTI-ANGLE-SKETCH-001",
-      "title": "【製造DX】マルチアングル方眼紙スケッチによるGemini Vision高精度3D寸法抽出",
-      "category": "IOT関連",
-      "tags": [
-        "#3Dプリンター",
-        "#GeminiVision",
-        "#三面図認識",
-        "#マルチアングル",
-        "#現場DX",
-        "#PWA"
-      ],
-      "updatedAt": "2026-08-30",
-      "summarySnippet": "正面・側面・ナナメの複数枚スケッチからAIが立体形状と寸法を相互検証。\n1枚撮影時のパース歪みを排除し、ミリ単位のパラメータ抽出精度を劇的に向上。"
     }
   ]
 }

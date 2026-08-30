@@ -135,6 +135,28 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(res.text, /id="pg-ai-prompt"/);
     assert.match(res.text, /id="pg-ai-voice-btn"/);
     assert.match(res.text, /id="pg-ai-generate-btn"/);
+    assert.match(res.text, /Revopoint スキャン重ね合わせ/);
+    assert.match(res.text, /id="pg-scan-input"/);
+    assert.match(res.text, /id="pg-scan-overlay-toggle"/);
+  });
+
+  it("3d-generator includes RP2350 cover template and scan overlay", async () => {
+    const js = await request(app).get(
+      "/js/features/print-generator/print-generator-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /rp2350_poe_cover/);
+    assert.match(js.text, /154\.2/);
+    assert.match(js.text, /88\.1/);
+    assert.match(js.text, /69\.5/);
+    assert.match(js.text, /11\.4/);
+    assert.match(js.text, /clearance/);
+    assert.match(js.text, /STLLoader/);
+    assert.match(js.text, /OBJLoader/);
+    assert.match(js.text, /loadScanFile/);
+    assert.match(js.text, /updateScanInterferenceStatus/);
+    assert.match(js.text, /CH1/);
+    assert.match(js.text, /PoE-LAN/);
   });
 
   it("3d-generator AI prompt script wires speech and API", async () => {

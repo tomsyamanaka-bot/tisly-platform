@@ -13,13 +13,15 @@ export type PrintShapeIdV1 =
   | "box"
   | "plate"
   | "mount"
-  | "din_rail";
+  | "din_rail"
+  | "rp2350_cover";
 
 export type PrintTemplateIdV1 =
   | "din_rail_bracket"
   | "iot_box"
   | "camera_mount"
-  | "sensor_l_bracket";
+  | "sensor_l_bracket"
+  | "rp2350_poe_cover";
 
 export interface PrintPromptFeaturesV1 {
   tubeGroove: boolean;
@@ -76,7 +78,7 @@ const EXTRACT_PROMPT = [
   "説明や Markdown は出さず、JSON のみ返す。",
   "単位は mm。不明な数値は null。",
   "shape は次のいずれか:",
-  "l_bracket | u_channel | box | plate | mount | din_rail",
+  "l_bracket | u_channel | box | plate | mount | din_rail | rp2350_cover",
   "features は boolean と holeCount(number)。",
   "出力形式:",
   "{",
@@ -133,6 +135,8 @@ export function mapShapeToTemplateIdV1(
     case "plate":
     case "mount":
       return "camera_mount";
+    case "rp2350_cover":
+      return "rp2350_poe_cover";
     default:
       return "sensor_l_bracket";
   }
@@ -140,6 +144,13 @@ export function mapShapeToTemplateIdV1(
 
 export function detectShapeFromTextV1(text: string): PrintShapeIdV1 {
   const t = text.toLowerCase();
+  if (
+    /rp2350|アールピー\s*2350|poe.?カバー|端子フード|保護カバー.?ベース/.test(
+      t
+    )
+  ) {
+    return "rp2350_cover";
+  }
   if (/din|ディーアイエヌ|レールブラケット/.test(t)) return "din_rail";
   if (/コの字|ｕ字|u字|channel|チャンネル/.test(t)) return "u_channel";
   if (/ボックス|筐体|ケース|enclosure|box/.test(t)) return "box";
@@ -276,6 +287,17 @@ export function mapDimsToTemplateParamsV1(
       params.armW = clamp(Math.max(hole * 2.2, 8), 8, 24);
     }
     if (pitch != null) params.holePitch = clamp(pitch, 10, 80);
+  } else if (templateId === "rp2350_poe_cover") {
+    /* RP2350 実測ベースへ写像 */
+    if (w != null) params.length = clamp(w, 140, 180);
+    if (d != null) params.outerWidth = clamp(d, 70, 110);
+    if (h != null) params.depth = clamp(h, 10, 30);
+    if (t != null) params.wall = clamp(t, 1.5, 4);
+    if (pitch != null) params.holePitch = clamp(pitch, 40, 120);
+    params.clearance = 0.4;
+    params.innerWidth = 69.5;
+    params.bossH = 11.4;
+    params.slitW = 6.5;
   }
 
   if (features.cornerFillet && params.thickness == null && t == null) {
@@ -327,6 +349,13 @@ function normalizeShape(raw: unknown): PrintShapeIdV1 {
   if (s === "plate") return "plate";
   if (s === "mount" || s === "camera_mount") return "mount";
   if (s === "din_rail" || s === "din") return "din_rail";
+  if (
+    s === "rp2350_cover" ||
+    s === "rp2350" ||
+    s === "poe_cover"
+  ) {
+    return "rp2350_cover";
+  }
   return "l_bracket";
 }
 
@@ -368,6 +397,20 @@ export function parsePrintPromptRuleBasedV1(
     }
   }
   const params = mapDimsToTemplateParamsV1(templateId, dims, features);
+  if (templateId === "rp2350_poe_cover") {
+    const cl = text.match(
+      /クリアランス\s*[+]?\s*([0-9]+(?:\.[0-9]+)?)\s*mm|[+](0\.[2-9]|1\.0)\s*mm/
+    );
+    if (cl) {
+      const n = Number(cl[1] || cl[2]);
+      if (Number.isFinite(n)) {
+        params.clearance = clamp(n, 0.2, 1.0);
+      }
+    }
+    if (params.length == null) params.length = 154.2;
+    if (params.outerWidth == null) params.outerWidth = 88.1;
+    if (params.depth == null) params.depth = 15.5;
+  }
   return {
     ok: true,
     provider: "rule_based",

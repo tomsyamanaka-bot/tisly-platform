@@ -145,6 +145,42 @@
           <p id="pg-ai-status" class="pg-hint" role="status"></p>
         </section>
 
+        <!--
+          Revopoint MINI 2 スキャンと
+          生成カバーの干渉オーバーレイ
+        -->
+        <section class="pg-card pg-scan-card" aria-label="3Dスキャン重ね合わせ">
+          <p class="pg-card-label">Revopoint スキャン重ね合わせ</p>
+          <p class="pg-sketch-guide">
+            RP2350 実機の STL/OBJ を取り込み、生成カバーを半透明オーバーレイ。
+            ネジ穴ピッチ・端子開口の干渉を目視確認できます。
+          </p>
+          <div class="pg-sketch-row">
+            <label class="pg-btn pg-btn-secondary pg-file-label" for="pg-scan-input">
+              STL/OBJ を取り込む
+              <input
+                type="file"
+                id="pg-scan-input"
+                accept=".stl,.obj,model/stl,model/obj,application/octet-stream"
+                hidden
+              />
+            </label>
+            <button
+              type="button"
+              class="pg-btn pg-btn-secondary"
+              id="pg-scan-overlay-toggle"
+              aria-pressed="true"
+            >
+              オーバーレイ ON
+            </button>
+            <button type="button" class="pg-btn pg-btn-ghost" id="pg-scan-clear">
+              スキャン削除
+            </button>
+          </div>
+          <p class="pg-scan-name" id="pg-scan-name"></p>
+          <p id="pg-scan-status" class="pg-hint" role="status">スキャン未読込</p>
+        </section>
+
         <section class="pg-card pg-actions" aria-label="出力">
           <button type="button" class="pg-btn pg-btn-primary pg-btn-lg" id="pg-stl-btn">
             ワンタップ STL ダウンロード
