@@ -20,7 +20,15 @@ const TEMPLATES = [
     id: "din_rail_bracket",
     label: "DINレールブラケット",
     desc: "盤内・センサ取付",
-    defaults: { width: 35, depth: 22, height: 18, thickness: 2.5, hole: 4.2, holePitch: 25 },
+    defaults: {
+      width: 35,
+      depth: 22,
+      height: 18,
+      thickness: 2.5,
+      hole: 4.2,
+      holePitch: 25,
+      ribOffsetX: 0,
+    },
     ranges: {
       width: { min: 20, max: 80, step: 0.5, label: "幅 W" },
       depth: { min: 12, max: 50, step: 0.5, label: "奥行 D" },
@@ -28,6 +36,13 @@ const TEMPLATES = [
       thickness: { min: 1.5, max: 5, step: 0.1, label: "板厚 t" },
       hole: { min: 3, max: 6, step: 0.1, label: "穴径 Ø" },
       holePitch: { min: 10, max: 60, step: 0.5, label: "穴ピッチ" },
+      /* リブ左右位置（追記） */
+      ribOffsetX: {
+        min: -15,
+        max: 15,
+        step: 0.1,
+        label: "リブ左右オフセット",
+      },
     },
   },
   {
@@ -41,6 +56,8 @@ const TEMPLATES = [
       wall: 2.2,
       lip: 1.5,
       holePitch: 30,
+      bossOffsetX: 0,
+      bossOffsetZ: 0,
     },
     ranges: {
       width: { min: 40, max: 160, step: 1, label: "外寸 W" },
@@ -49,6 +66,19 @@ const TEMPLATES = [
       wall: { min: 1.5, max: 4, step: 0.1, label: "壁厚" },
       lip: { min: 0.8, max: 3, step: 0.1, label: "蓋リップ" },
       holePitch: { min: 10, max: 80, step: 0.5, label: "穴ピッチ" },
+      /* 四隅ボス位置の微調整（追記） */
+      bossOffsetX: {
+        min: -20,
+        max: 20,
+        step: 0.1,
+        label: "ボス左右オフセット",
+      },
+      bossOffsetZ: {
+        min: -20,
+        max: 20,
+        step: 0.1,
+        label: "ボス前後オフセット",
+      },
     },
   },
   {
@@ -107,6 +137,11 @@ const TEMPLATES = [
       clearance: 0.4,
       slitW: 6.5,
       holePitch: 70,
+      bossOffsetX: 0,
+      bossOffsetZ: 0,
+      slitOffsetX: 0,
+      endOpenOffsetZ: 0,
+      ribOffsetX: 0,
     },
     ranges: {
       length: { min: 140, max: 180, step: 0.1, label: "全長 L" },
@@ -142,6 +177,37 @@ const TEMPLATES = [
         max: 120,
         step: 0.5,
         label: "ネジ穴ピッチ",
+      },
+      /* パーツ個別位置オフセット（追記） */
+      bossOffsetX: {
+        min: -20,
+        max: 20,
+        step: 0.1,
+        label: "ボス左右オフセット",
+      },
+      bossOffsetZ: {
+        min: -20,
+        max: 20,
+        step: 0.1,
+        label: "ボス前後オフセット",
+      },
+      slitOffsetX: {
+        min: -25,
+        max: 25,
+        step: 0.1,
+        label: "端子スリット左右",
+      },
+      endOpenOffsetZ: {
+        min: -20,
+        max: 20,
+        step: 0.1,
+        label: "端子開口前後",
+      },
+      ribOffsetX: {
+        min: -25,
+        max: 25,
+        step: 0.1,
+        label: "リブ左右オフセット",
       },
     },
   },
@@ -206,6 +272,17 @@ let partFasteners = null;
 let basePlateEnabled = true;
 /** 天面接地（印刷向き反転） */
 let printTopDown = false;
+/** パーツ位置ピック用グループ */
+/** @type {THREE.Group | null} */
+let partPickGroup = null;
+/** パーツドラッグ中の状態 */
+/** @type {{ primaryKey: string, axisKeys: { x?: string, z?: string }, start: { x: number, z: number }, startDims: Record<string, number> } | null} */
+let partDragState = null;
+/** レイキャスト共用 */
+const partRaycaster = new THREE.Raycaster();
+const partNdc = new THREE.Vector2();
+const partHit = new THREE.Vector3();
+const partDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
 /** 配線抜き穴プリセット定義 */
 const WIRE_HOLE_PRESETS = {
@@ -296,6 +373,10 @@ function initViewer() {
   scene.add(scanMeshGroup);
   dimGuideGroup = new THREE.Group();
   scene.add(dimGuideGroup);
+  partPickGroup = new THREE.Group();
+  scene.add(partPickGroup);
+
+  bindPartOffsetPointerEvents(wrap);
 
   window.addEventListener("resize", onResize);
   animate();
@@ -372,6 +453,7 @@ function buildTris(tplId, p) {
   const tris = [];
   if (tplId === "din_rail_bracket") {
     // 底面プレート + 立上り壁 + 簡易ボス
+    const ribOx = Number(p.ribOffsetX) || 0;
     addBox(tris, 0, 0, 0, p.width, p.thickness, p.depth);
     addBox(
       tris,
@@ -382,14 +464,32 @@ function buildTris(tplId, p) {
       p.height - p.thickness,
       p.thickness
     );
-    addBox(tris, -p.width / 4, p.thickness, 0, p.width / 3, p.thickness * 1.2, p.depth * 0.55);
-    addBox(tris, p.width / 4, p.thickness, 0, p.width / 3, p.thickness * 1.2, p.depth * 0.55);
+    addBox(
+      tris,
+      -p.width / 4 + ribOx,
+      p.thickness,
+      0,
+      p.width / 3,
+      p.thickness * 1.2,
+      p.depth * 0.55
+    );
+    addBox(
+      tris,
+      p.width / 4 + ribOx,
+      p.thickness,
+      0,
+      p.width / 3,
+      p.thickness * 1.2,
+      p.depth * 0.55
+    );
   } else if (tplId === "iot_box") {
     const w = p.width;
     const d = p.depth;
     const h = p.height;
     const t = p.wall;
     const y0 = basePlateEnabled ? t : 0;
+    const bossOx = Number(p.bossOffsetX) || 0;
+    const bossOz = Number(p.bossOffsetZ) || 0;
     if (basePlateEnabled) {
       // 底板
       addBox(tris, 0, 0, 0, w, t, d);
@@ -415,6 +515,15 @@ function buildTris(tplId, p) {
         d - 2 * t
       );
     }
+    /* 四隅固定ボス（オフセット連動） */
+    const bx = w / 2 - t - 6;
+    const bz = d / 2 - t - 6;
+    const bossH = Math.min(h * 0.45, 12);
+    const bossY = basePlateEnabled ? t : y0;
+    addBox(tris, -bx + bossOx, bossY, -bz + bossOz, 8, bossH, 8);
+    addBox(tris, bx + bossOx, bossY, -bz + bossOz, 8, bossH, 8);
+    addBox(tris, -bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
+    addBox(tris, bx + bossOx, bossY, bz + bossOz, 8, bossH, 8);
   } else if (tplId === "rp2350_poe_cover") {
     /* RP2350-POE 実測カバー
      * フランジ耳・ボス・端子逃げ付き */
@@ -429,12 +538,25 @@ function buildTris(tplId, p) {
     const pitch = p.holePitch;
     const ear = Math.max((Wout - Win) / 2, 2);
     const yWall = basePlateEnabled ? t : 0;
+    const bossOx = Number(p.bossOffsetX) || 0;
+    const bossOz = Number(p.bossOffsetZ) || 0;
+    const slitOx = Number(p.slitOffsetX) || 0;
+    const endOz = Number(p.endOpenOffsetZ) || 0;
+    const ribOx = Number(p.ribOffsetX) || 0;
 
     if (basePlateEnabled) {
       // 底板（フランジ耳含む）
       addBox(tris, 0, 0, 0, L, t, Wout);
-      // DIN リップ（底面中央）
-      addBox(tris, 0, t, 0, L * 0.55, t * 0.8, Math.min(Win * 0.35, 22));
+      // DIN リップ（底面中央・左右オフセット）
+      addBox(
+        tris,
+        ribOx,
+        t,
+        0,
+        L * 0.55,
+        t * 0.8,
+        Math.min(Win * 0.35, 22)
+      );
     } else {
       /* 中空カバー天板
        * （サポートレス印刷向け） */
@@ -443,7 +565,7 @@ function buildTris(tplId, p) {
 
     // 長辺壁（CH/DI 逃げスリットで分割）
     const wallSeg = (L - slit * 4) / 5;
-    let xCursor = -L / 2;
+    let xCursor = -L / 2 + slitOx;
     for (let i = 0; i < 5; i++) {
       const segL = wallSeg;
       const cx = xCursor + segL / 2;
@@ -466,12 +588,12 @@ function buildTris(tplId, p) {
     // 短辺壁（RS485 / PoE-LAN 開口）
     const endGap = Math.max(slit * 1.4, 10);
     const endSeg = (Win - endGap) / 2;
-    // -X: RS485
+    // -X: RS485（前後オフセット）
     addBox(
       tris,
       -L / 2 + t / 2,
       yWall,
-      -Win / 2 + endSeg / 2,
+      -Win / 2 + endSeg / 2 + endOz,
       t,
       H - yWall,
       endSeg
@@ -480,7 +602,7 @@ function buildTris(tplId, p) {
       tris,
       -L / 2 + t / 2,
       yWall,
-      Win / 2 - endSeg / 2,
+      Win / 2 - endSeg / 2 + endOz,
       t,
       H - yWall,
       endSeg
@@ -490,7 +612,7 @@ function buildTris(tplId, p) {
       tris,
       L / 2 - t / 2,
       yWall,
-      -Win / 2 + endSeg / 2,
+      -Win / 2 + endSeg / 2 + endOz,
       t,
       H - yWall,
       endSeg
@@ -499,25 +621,25 @@ function buildTris(tplId, p) {
       tris,
       L / 2 - t / 2,
       yWall,
-      Win / 2 - endSeg / 2,
+      Win / 2 - endSeg / 2 + endOz,
       t,
       H - yWall,
       endSeg
     );
 
     // フランジ耳（取付耳）
-    addBox(tris, -L / 4, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
-    addBox(tris, L / 4, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
-    addBox(tris, -L / 4, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
-    addBox(tris, L / 4, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
+    addBox(tris, -L / 4 + ribOx * 0.35, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
+    addBox(tris, L / 4 + ribOx * 0.35, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
+    addBox(tris, -L / 4 + ribOx * 0.35, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
+    addBox(tris, L / 4 + ribOx * 0.35, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
 
-    // ネジボス（ピッチ左右）
+    // ネジボス（ピッチ＋個別オフセット）
     const bx = pitch / 2;
     const bossY = basePlateEnabled ? t : yWall;
-    addBox(tris, -bx, bossY, -Win * 0.28, 8, boss, 8);
-    addBox(tris, bx, bossY, -Win * 0.28, 8, boss, 8);
-    addBox(tris, -bx, bossY, Win * 0.28, 8, boss, 8);
-    addBox(tris, bx, bossY, Win * 0.28, 8, boss, 8);
+    addBox(tris, -bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
+    addBox(tris, bx + bossOx, bossY, -Win * 0.28 + bossOz, 8, boss, 8);
+    addBox(tris, -bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
+    addBox(tris, bx + bossOx, bossY, Win * 0.28 + bossOz, 8, boss, 8);
   } else if (tplId === "camera_mount") {
     addBox(tris, 0, 0, 0, p.plateW, p.plateT, p.plateH);
     addBox(
@@ -614,8 +736,10 @@ function appendFieldFeatureTris(tris, tplId, p) {
   if (mount.kind === "screw") {
     const pitch = p.holePitch || 30;
     const hx = Math.min(pitch / 2, b.w * 0.35);
-    addBox(tris, -hx, 0.8, -b.d / 2 + 1.5, 6, 1.2, 6);
-    addBox(tris, hx, 0.8, -b.d / 2 + 1.5, 6, 1.2, 6);
+    const ox = Number(p.bossOffsetX) || 0;
+    const oz = Number(p.bossOffsetZ) || 0;
+    addBox(tris, -hx + ox, 0.8, -b.d / 2 + 1.5 + oz, 6, 1.2, 6);
+    addBox(tris, hx + ox, 0.8, -b.d / 2 + 1.5 + oz, 6, 1.2, 6);
   } else if (mount.kind === "din") {
     /* 35mm DIN レール爪（背面） */
     const clawW = 12;
@@ -850,6 +974,13 @@ function buildDimGuides(tplId, p) {
       [-w / 4, t + 1 + Math.max(p.hole, 3), 0],
       [-w / 4, t + 4, DIM_PAD]
     );
+    const rox = Number(p.ribOffsetX) || 0;
+    add(
+      "ribOffsetX",
+      [-w / 4 + rox - 4, t + 2, 0],
+      [-w / 4 + rox + 4, t + 2, 0],
+      [-w / 4 + rox, t + 5, DIM_PAD]
+    );
   } else if (tplId === "iot_box") {
     const w = p.width;
     const d = p.depth;
@@ -884,6 +1015,22 @@ function buildDimGuides(tplId, p) {
       [0, h - p.lip, d / 2 + DIM_PAD],
       [0, h, d / 2 + DIM_PAD],
       [0, h - p.lip / 2, d / 2 + DIM_PAD + 2]
+    );
+    const box = Number(p.bossOffsetX) || 0;
+    const boz = Number(p.bossOffsetZ) || 0;
+    const bx = w / 2 - t - 6;
+    const bz = d / 2 - t - 6;
+    add(
+      "bossOffsetX",
+      [-bx + box - 4, t + 4, -bz + boz],
+      [-bx + box + 4, t + 4, -bz + boz],
+      [-bx + box, t + 7, -bz + boz - DIM_PAD]
+    );
+    add(
+      "bossOffsetZ",
+      [-bx + box, t + 4, -bz + boz - 4],
+      [-bx + box, t + 4, -bz + boz + 4],
+      [-bx + box - DIM_PAD, t + 7, -bz + boz]
     );
   } else if (tplId === "rp2350_poe_cover") {
     const cl = Number(p.clearance) || 0.4;
@@ -938,6 +1085,41 @@ function buildDimGuides(tplId, p) {
       [-p.holePitch / 2, p.wall + 1, Win * 0.28 + DIM_PAD],
       [p.holePitch / 2, p.wall + 1, Win * 0.28 + DIM_PAD],
       [0, p.wall + 4, Win * 0.28 + DIM_PAD + 2]
+    );
+    const box = Number(p.bossOffsetX) || 0;
+    const boz = Number(p.bossOffsetZ) || 0;
+    const sox = Number(p.slitOffsetX) || 0;
+    const eoz = Number(p.endOpenOffsetZ) || 0;
+    const rox = Number(p.ribOffsetX) || 0;
+    add(
+      "bossOffsetX",
+      [-p.holePitch / 2 + box - 5, p.wall + 2, -Win * 0.28 + boz],
+      [-p.holePitch / 2 + box + 5, p.wall + 2, -Win * 0.28 + boz],
+      [-p.holePitch / 2 + box, p.wall + 5, -Win * 0.28 + boz - DIM_PAD]
+    );
+    add(
+      "bossOffsetZ",
+      [-p.holePitch / 2 + box, p.wall + 2, -Win * 0.28 + boz - 5],
+      [-p.holePitch / 2 + box, p.wall + 2, -Win * 0.28 + boz + 5],
+      [-p.holePitch / 2 + box - DIM_PAD, p.wall + 5, -Win * 0.28 + boz]
+    );
+    add(
+      "slitOffsetX",
+      [sox - p.slitW / 2, H * 0.45, -Win / 2 - DIM_PAD],
+      [sox + p.slitW / 2, H * 0.45, -Win / 2 - DIM_PAD],
+      [sox, H * 0.45 + 2, -Win / 2 - DIM_PAD - 2]
+    );
+    add(
+      "endOpenOffsetZ",
+      [-L / 2 - DIM_PAD, H * 0.5, eoz - 4],
+      [-L / 2 - DIM_PAD, H * 0.5, eoz + 4],
+      [-L / 2 - DIM_PAD - 2, H * 0.5 + 2, eoz]
+    );
+    add(
+      "ribOffsetX",
+      [rox - 6, p.wall + 1, 0],
+      [rox + 6, p.wall + 1, 0],
+      [rox, p.wall + 4, DIM_PAD]
     );
   } else if (tplId === "camera_mount") {
     const pw = p.plateW;
@@ -1151,6 +1333,288 @@ function setActiveDimKey(key) {
       obj.scale.setScalar(on ? 1.35 : 1);
     }
   });
+  if (partPickGroup) {
+    partPickGroup.traverse((obj) => {
+      const keys = obj.userData?.partOffsetKeys;
+      if (!keys || !Array.isArray(keys)) return;
+      const on = key != null && keys.includes(key);
+      if (obj.isCSS2DObject && obj.element) {
+        obj.element.classList.toggle("is-active", on);
+      }
+      if (obj.isMesh && obj.material?.color) {
+        obj.material.color.setHex(on ? 0x0ea5e9 : 0x1e3a8a);
+        obj.material.opacity = on ? 0.95 : 0.72;
+        obj.scale.setScalar(on ? 1.25 : 1);
+      }
+    });
+  }
+}
+
+/**
+ * 寸法値をレンジ内へ丸めて設定
+ * @param {string} key
+ * @param {number} raw
+ * @param {{ syncUi?: boolean, rebuild?: boolean }} [opts]
+ */
+function setDimValueClamped(key, raw, opts = {}) {
+  const r = activeTpl.ranges[key];
+  if (!r) return false;
+  let n = Number(raw);
+  if (!Number.isFinite(n)) return false;
+  n = Math.min(r.max, Math.max(r.min, n));
+  const steps = Math.round((n - r.min) / r.step);
+  n = Math.round((r.min + steps * r.step) * 1000) / 1000;
+  dims[key] = n;
+  if (opts.syncUi !== false) {
+    const range = /** @type {HTMLInputElement | null} */ (
+      $(`#pg-dim-${key}`)
+    );
+    const numIn = /** @type {HTMLInputElement | null} */ (
+      $(`#pg-val-${key}`)
+    );
+    if (range) range.value = String(n);
+    if (numIn) numIn.value = String(n);
+  }
+  if (opts.rebuild !== false) rebuildMesh();
+  return true;
+}
+
+/**
+ * テンプレ別のパーツピック定義
+ * @param {string} tplId
+ * @param {Record<string, number>} p
+ */
+function getPartOffsetHandleDefs(tplId, p) {
+  /** @type {{ id: string, label: string, primaryKey: string, axisKeys: { x?: string, z?: string }, pos: number[] }[]} */
+  const defs = [];
+  if (tplId === "rp2350_poe_cover") {
+    const cl = Number(p.clearance) || 0.4;
+    const L = p.length + 2 * cl;
+    const Win = p.innerWidth + 2 * cl;
+    const H = p.depth + cl;
+    const box = Number(p.bossOffsetX) || 0;
+    const boz = Number(p.bossOffsetZ) || 0;
+    const sox = Number(p.slitOffsetX) || 0;
+    const eoz = Number(p.endOpenOffsetZ) || 0;
+    const rox = Number(p.ribOffsetX) || 0;
+    defs.push({
+      id: "boss",
+      label: "ボス",
+      primaryKey: "bossOffsetX",
+      axisKeys: { x: "bossOffsetX", z: "bossOffsetZ" },
+      pos: [box, p.wall + p.bossH * 0.55, -Win * 0.28 + boz],
+    });
+    defs.push({
+      id: "slit",
+      label: "スリット",
+      primaryKey: "slitOffsetX",
+      axisKeys: { x: "slitOffsetX" },
+      pos: [sox, H * 0.42, -Win / 2 - 2],
+    });
+    defs.push({
+      id: "endOpen",
+      label: "端子開口",
+      primaryKey: "endOpenOffsetZ",
+      axisKeys: { z: "endOpenOffsetZ" },
+      pos: [-L / 2 - 2, H * 0.5, eoz],
+    });
+    defs.push({
+      id: "rib",
+      label: "リブ",
+      primaryKey: "ribOffsetX",
+      axisKeys: { x: "ribOffsetX" },
+      pos: [rox, p.wall + 2, 0],
+    });
+  } else if (tplId === "iot_box") {
+    const w = p.width;
+    const d = p.depth;
+    const t = p.wall;
+    const box = Number(p.bossOffsetX) || 0;
+    const boz = Number(p.bossOffsetZ) || 0;
+    const bx = w / 2 - t - 6;
+    const bz = d / 2 - t - 6;
+    defs.push({
+      id: "boss",
+      label: "ボス",
+      primaryKey: "bossOffsetX",
+      axisKeys: { x: "bossOffsetX", z: "bossOffsetZ" },
+      pos: [-bx + box, t + 6, -bz + boz],
+    });
+  } else if (tplId === "din_rail_bracket") {
+    const rox = Number(p.ribOffsetX) || 0;
+    defs.push({
+      id: "rib",
+      label: "リブ",
+      primaryKey: "ribOffsetX",
+      axisKeys: { x: "ribOffsetX" },
+      pos: [-p.width / 4 + rox, p.thickness + 3, 0],
+    });
+  }
+  return defs.filter((d) => activeTpl.ranges[d.primaryKey]);
+}
+
+/** パーツ位置ハンドルを再構築 */
+function rebuildPartOffsetHandles() {
+  if (!partPickGroup) return;
+  while (partPickGroup.children.length) {
+    const c = partPickGroup.children.pop();
+    if (!c) continue;
+    if (c.isCSS2DObject && c.element) c.element.remove();
+    c.geometry?.dispose?.();
+    if (Array.isArray(c.material)) {
+      c.material.forEach((m) => m.dispose?.());
+    } else {
+      c.material?.dispose?.();
+    }
+  }
+  const defs = getPartOffsetHandleDefs(activeTpl.id, dims);
+  for (const d of defs) {
+    const active =
+      activeDimKey != null &&
+      (d.axisKeys.x === activeDimKey ||
+        d.axisKeys.z === activeDimKey ||
+        d.primaryKey === activeDimKey);
+    const mesh = new THREE.Mesh(
+      new THREE.OctahedronGeometry(3.2, 0),
+      new THREE.MeshBasicMaterial({
+        color: active ? 0x0ea5e9 : 0x1e3a8a,
+        transparent: true,
+        opacity: active ? 0.95 : 0.72,
+        depthTest: false,
+      })
+    );
+    mesh.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    mesh.userData.partOffsetKeys = [
+      d.primaryKey,
+      d.axisKeys.x,
+      d.axisKeys.z,
+    ].filter(Boolean);
+    mesh.userData.partPrimaryKey = d.primaryKey;
+    mesh.userData.partAxisKeys = d.axisKeys;
+    mesh.renderOrder = 20;
+    partPickGroup.add(mesh);
+
+    const el = document.createElement("div");
+    el.className = `pg-part-pick-badge${active ? " is-active" : ""}`;
+    el.textContent = d.label;
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", `${d.label}位置を調整`);
+    el.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      beginPartOffsetDrag(ev, d.primaryKey, d.axisKeys);
+    });
+    const label = new CSS2DObject(el);
+    label.position.set(d.pos[0], d.pos[1] + 5, d.pos[2]);
+    label.userData.partOffsetKeys = mesh.userData.partOffsetKeys;
+    partPickGroup.add(label);
+  }
+  /* 印刷向きに合わせてハンドルも連動 */
+  partPickGroup.rotation.x = printTopDown ? Math.PI : 0;
+}
+
+/**
+ * ポインタ座標 → NDC
+ * @param {PointerEvent} ev
+ * @param {HTMLElement} el
+ */
+function pointerToNdc(ev, el) {
+  const rect = el.getBoundingClientRect();
+  partNdc.x = ((ev.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+  partNdc.y = -((ev.clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1;
+}
+
+/**
+ * Y=0 平面との交点
+ * @param {PointerEvent} ev
+ * @param {HTMLElement} el
+ */
+function intersectDragPlane(ev, el) {
+  if (!camera) return null;
+  pointerToNdc(ev, el);
+  partRaycaster.setFromCamera(partNdc, camera);
+  const ok = partRaycaster.ray.intersectPlane(partDragPlane, partHit);
+  return ok ? partHit.clone() : null;
+}
+
+/**
+ * パーツオフセットのドラッグ開始
+ * @param {PointerEvent} ev
+ * @param {string} primaryKey
+ * @param {{ x?: string, z?: string }} axisKeys
+ */
+function beginPartOffsetDrag(ev, primaryKey, axisKeys) {
+  const canvas = renderer?.domElement;
+  if (!canvas) return;
+  focusDimField(primaryKey);
+  const hit = intersectDragPlane(ev, canvas);
+  partDragState = {
+    primaryKey,
+    axisKeys: { ...axisKeys },
+    start: { x: hit?.x ?? 0, z: hit?.z ?? 0 },
+    startDims: { ...dims },
+  };
+  if (controls) controls.enabled = false;
+  dimDragging = true;
+}
+
+/**
+ * キャンバス上のパーツピック／ドラッグ
+ * @param {HTMLElement} wrap
+ */
+function bindPartOffsetPointerEvents(wrap) {
+  const canvas = renderer?.domElement;
+  if (!canvas || !wrap) return;
+
+  const onDown = (ev) => {
+    if (!partPickGroup || !camera) return;
+    pointerToNdc(ev, canvas);
+    partRaycaster.setFromCamera(partNdc, camera);
+    const hits = partRaycaster.intersectObjects(partPickGroup.children, false);
+    const meshHit = hits.find((h) => h.object?.userData?.partPrimaryKey);
+    if (!meshHit) return;
+    const obj = meshHit.object;
+    beginPartOffsetDrag(
+      ev,
+      obj.userData.partPrimaryKey,
+      obj.userData.partAxisKeys || {}
+    );
+    ev.preventDefault();
+  };
+
+  const onMove = (ev) => {
+    if (!partDragState) return;
+    const hit = intersectDragPlane(ev, canvas);
+    if (!hit) return;
+    const dx = hit.x - partDragState.start.x;
+    const dz = hit.z - partDragState.start.z;
+    const { axisKeys, startDims } = partDragState;
+    if (axisKeys.x) {
+      setDimValueClamped(axisKeys.x, (startDims[axisKeys.x] ?? 0) + dx, {
+        rebuild: false,
+      });
+    }
+    if (axisKeys.z) {
+      setDimValueClamped(axisKeys.z, (startDims[axisKeys.z] ?? 0) + dz, {
+        rebuild: false,
+      });
+    }
+    rebuildMesh();
+    ev.preventDefault();
+  };
+
+  const onUp = () => {
+    if (!partDragState) return;
+    partDragState = null;
+    dimDragging = false;
+    if (controls) controls.enabled = true;
+  };
+
+  canvas.addEventListener("pointerdown", onDown);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
 }
 
 /**
@@ -1190,6 +1654,7 @@ function rebuildMesh(opts = {}) {
   applyPrintOrientationPreview();
 
   rebuildDimGuides();
+  rebuildPartOffsetHandles();
   updateScanInterferenceStatus();
   updateCostBanner(shellTris);
   syncBasePlateButton();
@@ -1271,6 +1736,9 @@ function flipTrisTopDownForPrint(tris) {
 function applyPrintOrientationPreview() {
   if (!meshGroup) return;
   meshGroup.rotation.x = printTopDown ? Math.PI : 0;
+  if (partPickGroup) {
+    partPickGroup.rotation.x = printTopDown ? Math.PI : 0;
+  }
 }
 
 /**

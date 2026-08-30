@@ -115,6 +115,10 @@ const {
   TOP_DOWN_ORIENT_MODULE_SEED_IDS,
   seedTopDownOrientKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-top-down-orient-seed-v1.js");
+const {
+  PART_OFFSET_ORIENT_MODULE_SEED_IDS,
+  seedPartOffsetOrientKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-part-offset-orient-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1085,6 +1089,34 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card);
     assert.match(card!.title, /サポートレスSTL/);
     assert.ok(card!.tags.includes("#造形強度"));
+    assert.ok(card!.tags.includes("#TiSLY_Factory"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends part-offset orient seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of PART_OFFSET_ORIENT_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-part-offset-orient-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /パーツ個別オフセット調整/);
+    assert.ok(item!.tags.includes("#位置調整"));
+    assert.ok(item!.tags.includes("#パラメトリック設計"));
+    assert.match(String(item!.summary ?? ""), /ミリ単位/);
+  });
+
+  it("seedPartOffsetOrientKnowledgeCardsV1 upserts searchable cards", () => {
+    seedPartOffsetOrientKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-PART-OFFSET-TOPDOWN-001");
+    assert.ok(card);
+    assert.match(card!.title, /天面接地サポートレスSTL/);
+    assert.ok(card!.tags.includes("#サポートレス"));
     assert.ok(card!.tags.includes("#TiSLY_Factory"));
   });
 

@@ -32,6 +32,7 @@ import { seedMultiAngleSketchKnowledgeCardsV1 } from "./knowledge-multi-angle-sk
 import { seedRp2350CoverKnowledgeCardsV1 } from "./knowledge-rp2350-cover-seed-v1.js";
 import { seedFieldDx3dKnowledgeCardsV1 } from "./knowledge-field-dx-3d-seed-v1.js";
 import { seedTopDownOrientKnowledgeCardsV1 } from "./knowledge-top-down-orient-seed-v1.js";
+import { seedPartOffsetOrientKnowledgeCardsV1 } from "./knowledge-part-offset-orient-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -180,6 +181,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   rp2350CoverCreated: number;
   fieldDx3dCreated: number;
   topDownOrientCreated: number;
+  partOffsetOrientCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -205,6 +207,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const rp2350Cover = seedRp2350CoverKnowledgeCardsV1();
   const fieldDx3d = seedFieldDx3dKnowledgeCardsV1();
   const topDownOrient = seedTopDownOrientKnowledgeCardsV1();
+  const partOffsetOrient = seedPartOffsetOrientKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -230,5 +233,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     rp2350CoverCreated: rp2350Cover.length,
     fieldDx3dCreated: fieldDx3d.length,
     topDownOrientCreated: topDownOrient.length,
+    partOffsetOrientCreated: partOffsetOrient.length,
   };
 }

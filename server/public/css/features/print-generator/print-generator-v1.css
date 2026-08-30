@@ -206,6 +206,36 @@
   transform: translate(-50%, -50%) scale(1.18);
 }
 
+/* パーツ位置ピック（ボス／スリット等） */
+.pg-part-pick-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--pg-navy);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  border: 1.5px solid var(--pg-navy);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+  transform: translate(-50%, -50%);
+  user-select: none;
+  cursor: grab;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.pg-part-pick-badge.is-active {
+  background: #e0f2fe;
+  border-color: #0ea5e9;
+  color: #0c4a6e;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+  cursor: grabbing;
+}
+
 .pg-viewer-hint {
   position: absolute;
   left: 12px;

@@ -209,6 +209,12 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(js.text, /flipTrisTopDownForPrint/);
     assert.match(js.text, /focusDimField/);
     assert.match(js.text, /togglePrintOrientation/);
+    assert.match(js.text, /bossOffsetX/);
+    assert.match(js.text, /slitOffsetX/);
+    assert.match(js.text, /endOpenOffsetZ/);
+    assert.match(js.text, /rebuildPartOffsetHandles/);
+    assert.match(js.text, /beginPartOffsetDrag/);
+    assert.match(js.text, /setDimValueClamped/);
 
     const css = await request(app).get(
       "/css/features/print-generator/print-generator-v1.css"
@@ -216,6 +222,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.equal(css.status, 200);
     assert.match(css.text, /\.pg-num-input/);
     assert.match(css.text, /is-focus-flash/);
+    assert.match(css.text, /\.pg-part-pick-badge/);
   });
 
   it("3d-generator AI prompt script wires speech and API", async () => {
