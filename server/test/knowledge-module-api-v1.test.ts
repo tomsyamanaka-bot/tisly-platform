@@ -111,6 +111,10 @@ const {
   FIELD_DX_3D_MODULE_SEED_IDS,
   seedFieldDx3dKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-field-dx-3d-seed-v1.js");
+const {
+  TOP_DOWN_ORIENT_MODULE_SEED_IDS,
+  seedTopDownOrientKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-top-down-orient-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1054,6 +1058,34 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /コスト試算・分解図統合/);
     assert.ok(card!.tags.includes("#原価計算"));
     assert.ok(card!.tags.includes("#PWA"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends top-down orient seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of TOP_DOWN_ORIENT_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-top-down-orient-stl-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /天面接地オートオリエンテーション/);
+    assert.ok(item!.tags.includes("#サポートレス"));
+    assert.ok(item!.tags.includes("#STL最適化"));
+    assert.match(String(item!.summary ?? ""), /Z=0/);
+  });
+
+  it("seedTopDownOrientKnowledgeCardsV1 upserts searchable cards", () => {
+    seedTopDownOrientKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("FACTORY-TOP-DOWN-ORIENT-STL-001");
+    assert.ok(card);
+    assert.match(card!.title, /サポートレスSTL/);
+    assert.ok(card!.tags.includes("#造形強度"));
+    assert.ok(card!.tags.includes("#TiSLY_Factory"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

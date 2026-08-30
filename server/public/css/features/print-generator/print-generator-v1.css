@@ -190,6 +190,8 @@
     0 0 0 1px rgba(255, 255, 255, 0.6);
   transform: translate(-50%, -50%);
   user-select: none;
+  cursor: pointer;
+  pointer-events: auto;
   transition: background 0.12s, color 0.12s, box-shadow 0.12s,
     transform 0.12s, border-color 0.12s;
 }
@@ -280,6 +282,58 @@
 .pg-field-value {
   color: var(--pg-navy);
   font-variant-numeric: tabular-nums;
+}
+
+.pg-field-value-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pg-num-input {
+  width: 5.2rem;
+  min-height: 36px;
+  border: 1.5px solid var(--pg-line);
+  border-radius: 10px;
+  padding: 0 8px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--pg-navy);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+}
+
+.pg-num-input:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 1px;
+  border-color: #0ea5e9;
+}
+
+.pg-num-unit {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--pg-muted);
+}
+
+.pg-field.is-active,
+.pg-field.is-focus-flash {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+  background: #f0f9ff;
+  border-radius: 12px;
+}
+
+.pg-part-compose-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#pg-print-orient-btn.is-top-down {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  color: var(--pg-navy);
 }
 
 .pg-range {

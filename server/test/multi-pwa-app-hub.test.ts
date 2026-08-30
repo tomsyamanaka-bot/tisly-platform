@@ -190,6 +190,34 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.match(js.text, /partShell/);
   });
 
+  it("3d-generator number input base plate and top-down STL", async () => {
+    const page = await request(app).get("/3d-generator");
+    assert.equal(page.status, 200);
+    assert.match(page.text, /id="pg-base-plate-btn"/);
+    assert.match(page.text, /id="pg-print-orient-btn"/);
+    assert.match(page.text, /パーツ構成・印刷向き/);
+
+    const js = await request(app).get(
+      "/js/features/print-generator/print-generator-v1.js"
+    );
+    assert.equal(js.status, 200);
+    assert.match(js.text, /pg-num-input/);
+    assert.match(js.text, /type="number"/);
+    assert.match(js.text, /basePlateEnabled/);
+    assert.match(js.text, /toggleBasePlate/);
+    assert.match(js.text, /printTopDown/);
+    assert.match(js.text, /flipTrisTopDownForPrint/);
+    assert.match(js.text, /focusDimField/);
+    assert.match(js.text, /togglePrintOrientation/);
+
+    const css = await request(app).get(
+      "/css/features/print-generator/print-generator-v1.css"
+    );
+    assert.equal(css.status, 200);
+    assert.match(css.text, /\.pg-num-input/);
+    assert.match(css.text, /is-focus-flash/);
+  });
+
   it("3d-generator AI prompt script wires speech and API", async () => {
     const js = await request(app).get(
       "/js/features/print-generator/print-generator-v1.js"

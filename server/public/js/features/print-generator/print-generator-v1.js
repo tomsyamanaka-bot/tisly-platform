@@ -202,6 +202,10 @@ let partBoard = null;
 let partCover = null;
 /** @type {THREE.Group | null} */
 let partFasteners = null;
+/** 底板メッシュを含めるか */
+let basePlateEnabled = true;
+/** 天面接地（印刷向き反転） */
+let printTopDown = false;
 
 /** 配線抜き穴プリセット定義 */
 const WIRE_HOLE_PRESETS = {
@@ -385,23 +389,32 @@ function buildTris(tplId, p) {
     const d = p.depth;
     const h = p.height;
     const t = p.wall;
-    // 底板
-    addBox(tris, 0, 0, 0, w, t, d);
+    const y0 = basePlateEnabled ? t : 0;
+    if (basePlateEnabled) {
+      // 底板
+      addBox(tris, 0, 0, 0, w, t, d);
+    } else {
+      /* 中空カバー: 天板を付与
+       * （天面接地印刷向け） */
+      addBox(tris, 0, h - t, 0, w, t, d);
+    }
     // 4壁
-    addBox(tris, 0, t, -d / 2 + t / 2, w, h - t, t);
-    addBox(tris, 0, t, d / 2 - t / 2, w, h - t, t);
-    addBox(tris, -w / 2 + t / 2, t, 0, t, h - t, d - 2 * t);
-    addBox(tris, w / 2 - t / 2, t, 0, t, h - t, d - 2 * t);
-    // 蓋リップ（内側段差）
-    addBox(
-      tris,
-      0,
-      h - p.lip,
-      0,
-      w - 2 * t,
-      p.lip,
-      d - 2 * t
-    );
+    addBox(tris, 0, y0, -d / 2 + t / 2, w, h - y0, t);
+    addBox(tris, 0, y0, d / 2 - t / 2, w, h - y0, t);
+    addBox(tris, -w / 2 + t / 2, y0, 0, t, h - y0, d - 2 * t);
+    addBox(tris, w / 2 - t / 2, y0, 0, t, h - y0, d - 2 * t);
+    if (basePlateEnabled) {
+      // 蓋リップ（内側段差）
+      addBox(
+        tris,
+        0,
+        h - p.lip,
+        0,
+        w - 2 * t,
+        p.lip,
+        d - 2 * t
+      );
+    }
   } else if (tplId === "rp2350_poe_cover") {
     /* RP2350-POE 実測カバー
      * フランジ耳・ボス・端子逃げ付き */
@@ -415,11 +428,18 @@ function buildTris(tplId, p) {
     const slit = p.slitW;
     const pitch = p.holePitch;
     const ear = Math.max((Wout - Win) / 2, 2);
+    const yWall = basePlateEnabled ? t : 0;
 
-    // 底板（フランジ耳含む）
-    addBox(tris, 0, 0, 0, L, t, Wout);
-    // DIN リップ（底面中央）
-    addBox(tris, 0, t, 0, L * 0.55, t * 0.8, Math.min(Win * 0.35, 22));
+    if (basePlateEnabled) {
+      // 底板（フランジ耳含む）
+      addBox(tris, 0, 0, 0, L, t, Wout);
+      // DIN リップ（底面中央）
+      addBox(tris, 0, t, 0, L * 0.55, t * 0.8, Math.min(Win * 0.35, 22));
+    } else {
+      /* 中空カバー天板
+       * （サポートレス印刷向け） */
+      addBox(tris, 0, H - t, 0, L, t, Wout);
+    }
 
     // 長辺壁（CH/DI 逃げスリットで分割）
     const wallSeg = (L - slit * 4) / 5;
@@ -428,17 +448,17 @@ function buildTris(tplId, p) {
       const segL = wallSeg;
       const cx = xCursor + segL / 2;
       // -Z 側: CH1〜CH8 側壁セグメント
-      addBox(tris, cx, t, -Win / 2 + t / 2, segL, H - t, t);
+      addBox(tris, cx, yWall, -Win / 2 + t / 2, segL, H - yWall, t);
       // +Z 側: DI1〜DI8 側壁セグメント
-      addBox(tris, cx, t, Win / 2 - t / 2, segL, H - t, t);
+      addBox(tris, cx, yWall, Win / 2 - t / 2, segL, H - yWall, t);
       xCursor += segL;
       if (i < 4) {
         // 配線ガイド（スリット両縁の薄壁）
         const gx = xCursor + slit / 2;
-        addBox(tris, gx - slit / 2 + 0.6, t, -Win / 2 + t / 2, 1.2, H * 0.55, t);
-        addBox(tris, gx + slit / 2 - 0.6, t, -Win / 2 + t / 2, 1.2, H * 0.55, t);
-        addBox(tris, gx - slit / 2 + 0.6, t, Win / 2 - t / 2, 1.2, H * 0.55, t);
-        addBox(tris, gx + slit / 2 - 0.6, t, Win / 2 - t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx - slit / 2 + 0.6, yWall, -Win / 2 + t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx + slit / 2 - 0.6, yWall, -Win / 2 + t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx - slit / 2 + 0.6, yWall, Win / 2 - t / 2, 1.2, H * 0.55, t);
+        addBox(tris, gx + slit / 2 - 0.6, yWall, Win / 2 - t / 2, 1.2, H * 0.55, t);
         xCursor += slit;
       }
     }
@@ -450,53 +470,54 @@ function buildTris(tplId, p) {
     addBox(
       tris,
       -L / 2 + t / 2,
-      t,
+      yWall,
       -Win / 2 + endSeg / 2,
       t,
-      H - t,
+      H - yWall,
       endSeg
     );
     addBox(
       tris,
       -L / 2 + t / 2,
-      t,
+      yWall,
       Win / 2 - endSeg / 2,
       t,
-      H - t,
+      H - yWall,
       endSeg
     );
     // +X: PoE-LAN
     addBox(
       tris,
       L / 2 - t / 2,
-      t,
+      yWall,
       -Win / 2 + endSeg / 2,
       t,
-      H - t,
+      H - yWall,
       endSeg
     );
     addBox(
       tris,
       L / 2 - t / 2,
-      t,
+      yWall,
       Win / 2 - endSeg / 2,
       t,
-      H - t,
+      H - yWall,
       endSeg
     );
 
     // フランジ耳（取付耳）
-    addBox(tris, -L / 4, t, -Wout / 2 + ear / 2, L * 0.28, t, ear);
-    addBox(tris, L / 4, t, -Wout / 2 + ear / 2, L * 0.28, t, ear);
-    addBox(tris, -L / 4, t, Wout / 2 - ear / 2, L * 0.28, t, ear);
-    addBox(tris, L / 4, t, Wout / 2 - ear / 2, L * 0.28, t, ear);
+    addBox(tris, -L / 4, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
+    addBox(tris, L / 4, yWall, -Wout / 2 + ear / 2, L * 0.28, t, ear);
+    addBox(tris, -L / 4, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
+    addBox(tris, L / 4, yWall, Wout / 2 - ear / 2, L * 0.28, t, ear);
 
     // ネジボス（ピッチ左右）
     const bx = pitch / 2;
-    addBox(tris, -bx, t, -Win * 0.28, 8, boss, 8);
-    addBox(tris, bx, t, -Win * 0.28, 8, boss, 8);
-    addBox(tris, -bx, t, Win * 0.28, 8, boss, 8);
-    addBox(tris, bx, t, Win * 0.28, 8, boss, 8);
+    const bossY = basePlateEnabled ? t : yWall;
+    addBox(tris, -bx, bossY, -Win * 0.28, 8, boss, 8);
+    addBox(tris, bx, bossY, -Win * 0.28, 8, boss, 8);
+    addBox(tris, -bx, bossY, Win * 0.28, 8, boss, 8);
+    addBox(tris, bx, bossY, Win * 0.28, 8, boss, 8);
   } else if (tplId === "camera_mount") {
     addBox(tris, 0, 0, 0, p.plateW, p.plateT, p.plateH);
     addBox(
@@ -1051,11 +1072,52 @@ function rebuildDimGuides() {
     el.className = `pg-dim-badge${active ? " is-active" : ""}`;
     el.dataset.dimKey = g.key;
     el.textContent = circledNumber(g.index);
-    el.setAttribute("aria-label", `${circledNumber(g.index)} ${activeTpl.ranges[g.key]?.label ?? g.key}`);
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute(
+      "aria-label",
+      `${circledNumber(g.index)} ${activeTpl.ranges[g.key]?.label ?? g.key}`
+    );
+    el.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      focusDimField(g.key);
+    });
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      focusDimField(g.key);
+    });
     const label = new CSS2DObject(el);
     label.position.set(g.labelAt[0], g.labelAt[1], g.labelAt[2]);
     label.userData.dimKey = g.key;
     dimGuideGroup.add(label);
+  }
+}
+
+/**
+ * 3D 丸数字タップ → パラメータ行へ
+ * スムーズスクロール＋水色ハイライト
+ * @param {string} key
+ */
+function focusDimField(key) {
+  setActiveDimKey(key);
+  const field = document.querySelector(`.pg-field[data-key="${key}"]`);
+  if (!field) return;
+  field.scrollIntoView({ behavior: "smooth", block: "center" });
+  field.classList.add("is-focus-flash");
+  window.setTimeout(() => {
+    field.classList.remove("is-focus-flash");
+  }, 1600);
+  const num = /** @type {HTMLInputElement | null} */ (
+    field.querySelector(".pg-num-input")
+  );
+  if (num) {
+    try {
+      num.focus({ preventScroll: true });
+    } catch {
+      num.focus();
+    }
   }
 }
 
@@ -1125,10 +1187,13 @@ function rebuildMesh(opts = {}) {
   meshGroup.add(partCover);
   meshGroup.add(partFasteners);
   applyExplodeOffsets();
+  applyPrintOrientationPreview();
 
   rebuildDimGuides();
   updateScanInterferenceStatus();
   updateCostBanner(shellTris);
+  syncBasePlateButton();
+  syncPrintOrientButton();
 
   // カメラは初回・テンプレ切替時のみ
   if (!opts.frameCamera) return;
@@ -1181,21 +1246,100 @@ function trisToAsciiStl(name, tris) {
   return out;
 }
 
+/**
+ * 天面をビルドプレート（Y=0）へ
+ * 接地させるため Y 軸反転
+ * @param {number[][]} tris
+ * @returns {number[][]}
+ */
+function flipTrisTopDownForPrint(tris) {
+  let maxY = -Infinity;
+  for (const t of tris) {
+    for (const p of t) {
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  if (!Number.isFinite(maxY)) return tris;
+  return tris.map((face) =>
+    face.map((p) => [p[0], maxY - p[1], -p[2]])
+  );
+}
+
+/**
+ * プレビューの印刷向きを反映
+ */
+function applyPrintOrientationPreview() {
+  if (!meshGroup) return;
+  meshGroup.rotation.x = printTopDown ? Math.PI : 0;
+}
+
+/**
+ * 底板ボタン表示を同期
+ */
+function syncBasePlateButton() {
+  const btn = $("#pg-base-plate-btn");
+  if (!btn) return;
+  btn.textContent = basePlateEnabled ? "🗑️ 底板を削除" : "↩️ 底板を復旧";
+  btn.setAttribute("aria-pressed", basePlateEnabled ? "false" : "true");
+}
+
+/**
+ * 印刷向きトグル表示を同期
+ */
+function syncPrintOrientButton() {
+  const btn = $("#pg-print-orient-btn");
+  if (!btn) return;
+  btn.textContent = printTopDown
+    ? "🔄 印刷向き: 天面接地"
+    : "🔄 印刷向き: 正立";
+  btn.setAttribute("aria-pressed", printTopDown ? "true" : "false");
+  btn.classList.toggle("is-top-down", printTopDown);
+}
+
+/**
+ * 底板の削除／復旧
+ */
+function toggleBasePlate() {
+  basePlateEnabled = !basePlateEnabled;
+  if (!basePlateEnabled && !printTopDown) {
+    /* 中空カバーは天面接地が最適 */
+    printTopDown = true;
+  }
+  syncBasePlateButton();
+  syncPrintOrientButton();
+  rebuildMesh();
+}
+
+/**
+ * 印刷向き（正立／天面接地）切替
+ */
+function togglePrintOrientation() {
+  printTopDown = !printTopDown;
+  syncPrintOrientButton();
+  applyPrintOrientationPreview();
+}
+
 function downloadStl() {
-  const tris = buildTris(activeTpl.id, dims);
+  let tris = buildTris(activeTpl.id, dims);
   appendFieldFeatureTris(tris, activeTpl.id, dims);
-  const stl = trisToAsciiStl(activeTpl.id, tris);
+  const orientTag = printTopDown ? "topdown" : "upright";
+  if (printTopDown) {
+    tris = flipTrisTopDownForPrint(tris);
+  }
+  const stl = trisToAsciiStl(`${activeTpl.id}_${orientTag}`, tris);
   const blob = new Blob([stl], { type: "model/stl" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `tisly_${activeTpl.id}_${stamp}.stl`;
+  a.download = `tisly_${activeTpl.id}_${orientTag}_${stamp}.stl`;
   a.click();
   URL.revokeObjectURL(url);
   const el = $("#pg-export-status");
   if (el) {
-    el.textContent = `STL を保存しました（${tris.length} 三角形）`;
+    el.textContent = printTopDown
+      ? `天面接地 STL を保存（${tris.length} 三角形）`
+      : `STL を保存しました（${tris.length} 三角形）`;
     el.classList.add("is-ok");
     el.classList.remove("is-warn");
   }
@@ -1242,13 +1386,27 @@ function renderSliders() {
       const num = circledNumber(i + 1);
       const active = key === activeDimKey ? " is-active" : "";
       return `
-      <div class="pg-field${active}" data-key="${key}">
+      <div class="pg-field${active}" data-key="${key}" id="pg-field-${key}">
         <label for="pg-dim-${key}">
           <span class="pg-field-title">
             <span class="pg-dim-index" aria-hidden="true">${num}</span>
             <span>${r.label}</span>
           </span>
-          <span class="pg-field-value" id="pg-val-${key}">${val} mm</span>
+          <span class="pg-field-value-wrap">
+            <input
+              type="number"
+              class="pg-num-input"
+              id="pg-val-${key}"
+              data-key="${key}"
+              min="${r.min}"
+              max="${r.max}"
+              step="${r.step}"
+              value="${val}"
+              inputmode="decimal"
+              aria-label="${r.label} 数値入力"
+            />
+            <span class="pg-num-unit">mm</span>
+          </span>
         </label>
         <input type="range" class="pg-range" id="pg-dim-${key}"
           min="${r.min}" max="${r.max}" step="${r.step}" value="${val}"
@@ -1267,6 +1425,38 @@ function renderSliders() {
       if (!dimDragging) setActiveDimKey(null);
     });
   });
+
+  /**
+   * 寸法値をクランプして反映
+   * @param {string} key
+   * @param {number} raw
+   */
+  const applyDimValue = (key, raw) => {
+    const r = activeTpl.ranges[key];
+    if (!r) return;
+    let n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    n = Math.min(r.max, Math.max(r.min, n));
+    /* step に合わせて丸め */
+    const steps = Math.round((n - r.min) / r.step);
+    n = Math.round((r.min + steps * r.step) * 1000) / 1000;
+    dims[key] = n;
+    const range = /** @type {HTMLInputElement | null} */ (
+      $(`#pg-dim-${key}`)
+    );
+    const numIn = /** @type {HTMLInputElement | null} */ (
+      $(`#pg-val-${key}`)
+    );
+    if (range) range.value = String(n);
+    if (numIn && document.activeElement !== numIn) {
+      numIn.value = String(n);
+    } else if (numIn && Number(numIn.value) !== n) {
+      /* 入力中はクランプ後のみ同期 */
+      numIn.value = String(n);
+    }
+    setActiveDimKey(key);
+    rebuildMesh();
+  };
 
   host.querySelectorAll(".pg-range").forEach((input) => {
     input.addEventListener("pointerdown", () => {
@@ -1293,8 +1483,38 @@ function renderSliders() {
       if (!key) return;
       const n = Number(input.value);
       dims[key] = n;
-      const lab = $(`#pg-val-${key}`);
-      if (lab) lab.textContent = `${n} mm`;
+      const numIn = /** @type {HTMLInputElement | null} */ (
+        $(`#pg-val-${key}`)
+      );
+      if (numIn) numIn.value = String(n);
+      setActiveDimKey(key);
+      rebuildMesh();
+    });
+  });
+
+  host.querySelectorAll(".pg-num-input").forEach((input) => {
+    input.addEventListener("focus", () => {
+      const key = input.getAttribute("data-key");
+      if (key) setActiveDimKey(key);
+    });
+    input.addEventListener("change", () => {
+      const key = input.getAttribute("data-key");
+      if (!key) return;
+      applyDimValue(key, input.value);
+    });
+    input.addEventListener("input", () => {
+      const key = input.getAttribute("data-key");
+      if (!key) return;
+      const n = Number(input.value);
+      if (!Number.isFinite(n)) return;
+      const r = activeTpl.ranges[key];
+      if (!r) return;
+      if (n < r.min || n > r.max) return;
+      dims[key] = n;
+      const range = /** @type {HTMLInputElement | null} */ (
+        $(`#pg-dim-${key}`)
+      );
+      if (range) range.value = String(n);
       setActiveDimKey(key);
       rebuildMesh();
     });
@@ -1971,6 +2191,8 @@ function bindUi() {
   $("#pg-explode")?.addEventListener("input", (ev) => {
     setExplodePct(Number(ev.target?.value || 0));
   });
+  $("#pg-base-plate-btn")?.addEventListener("click", toggleBasePlate);
+  $("#pg-print-orient-btn")?.addEventListener("click", togglePrintOrientation);
 
   /* ドラッグ終了でハイライト解除フラグを戻す */
   window.addEventListener(
