@@ -55,7 +55,7 @@ export const CUSTOMER_HOME_CARDS_V1 = [
   {
     id: "home_security",
     emoji: "🛡️",
-    label: "ホームセキュリティ",
+    label: "TiSLY Security",
     path: "/customer/security",
   },
   // ミリ波レーダー見守り（追記 — 既存カードは変更しない）
@@ -76,18 +76,18 @@ export const CUSTOMER_HOME_CARD_MODULE_MAP_V1: Record<
   string,
   string | null
 > = {
-  camera: null,
+  camera: "camera_preview_v1",
   alerts: null,
   notifications: null,
   documents: null,
   maintenance: null,
   contact: null,
-  eco_water: "eco_water_v1",
-  gas_monitor: "gas_monitor_v1",
-  demand_security: "demand_security_v1",
+  eco_water: "equipment_monitor_v1",
+  gas_monitor: "equipment_monitor_v1",
+  demand_security: "equipment_monitor_v1",
   tisly_home: "tisly_home_v1",
   home_security: "security_floor_v1",
-  radar_watch: "radar_settings_v1",
+  radar_watch: "equipment_monitor_v1",
 };
 
 /** 契約モジュールに基づき顧客ホームカードを表示するか */

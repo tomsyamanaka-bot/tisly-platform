@@ -42,7 +42,7 @@ import type {
   CustomerPortalLandingV1,
   CustomerProjectViewV1,
 } from "./customer-view-model-v1.js";
-import { getEnabledModulesForCustomerV1 } from "../../tenant/customer-enabled-modules-store-v1.js";
+import { getCustomerPortalModulesV1 } from "./customer-portal-modules-v1.js";
 import {
   normalizeCustomerTenantCodeV1,
   resolveCustomerTenantProfileV1,
@@ -66,7 +66,7 @@ export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
       ref: "",
       contact: buildContactFromMasterV1(code),
       // 契約モジュールで IoT カードを絞る
-      enabledModules: getEnabledModulesForCustomerV1(code),
+      enabledModules: getCustomerPortalModulesV1(code),
     });
     return { home, demoProjects: [] };
   }
@@ -77,7 +77,7 @@ export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
     ref: primary.ref,
     contact: buildContactFromMasterV1(primary.customerCode),
     notifications: listCustomerNotificationsForHomeV1(primary.customerCode),
-    enabledModules: getEnabledModulesForCustomerV1(primary.customerCode),
+    enabledModules: getCustomerPortalModulesV1(primary.customerCode),
   });
 
   const projects = listProjectListItemsForCustomerV1(primary.customerCode).map((p) => {
@@ -116,7 +116,7 @@ export function buildCustomerSessionHomeV1(
     ref,
     contact: buildContactFromMasterV1(code),
     notifications: listCustomerNotificationsForHomeV1(code),
-    enabledModules: getEnabledModulesForCustomerV1(code),
+    enabledModules: getCustomerPortalModulesV1(code),
   });
 }
 
@@ -323,7 +323,7 @@ export function buildCustomerHomeByShareIdV1(
     contact: buildContactFromMasterV1(customerCode),
     notifications: listCustomerNotificationsForHomeV1(customerCode),
     // 物件の顧客コードで契約機能のみ表示
-    enabledModules: getEnabledModulesForCustomerV1(customerCode),
+    enabledModules: getCustomerPortalModulesV1(customerCode),
   });
 }
 

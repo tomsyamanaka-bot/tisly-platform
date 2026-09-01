@@ -307,6 +307,7 @@ customerPortalV1Router.post(
         password: String(body.password ?? ""),
         plan: body.plan,
         enabledModules: body.enabledModules,
+        portalCardToggles: body.portalCardToggles,
         bindings: body.bindings,
         actorLabel: req.admin?.username ?? "customer-master-v1",
       });
@@ -329,6 +330,7 @@ customerPortalV1Router.patch(
         customerName: body.customerName,
         plan: body.plan,
         enabledModules: body.enabledModules,
+        portalCardToggles: body.portalCardToggles,
         bindings: body.bindings,
         actorLabel: req.admin?.username ?? "customer-master-v1",
       });

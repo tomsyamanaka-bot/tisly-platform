@@ -18,7 +18,6 @@ import {
 import type { CustomerPlan } from "../../customer/types.js";
 import { getDatabase } from "../../db/database.js";
 import {
-  MODULE_CATALOG_V1,
   normalizeModuleIdListV1,
 } from "../../tenant/customer-enabled-modules-v1.js";
 import {
@@ -35,6 +34,14 @@ import {
   upsertCustomerTenantBindingsV1,
 } from "./customer-tenant-bindings-v1.js";
 import { resolveCustomerTenantProfileV1 } from "./customer-tenant-profile-v1.js";
+import {
+  buildModulesFromPortalTogglesV1,
+  defaultPortalModulesForNewCustomerV1,
+  getCustomerPortalModulesV1,
+  listPortalCardTogglesAdminV1,
+  parsePortalCardTogglesV1,
+  type PortalCardToggleIdV1,
+} from "./customer-portal-modules-v1.js";
 
 export interface CustomerAccountUserV1 {
   id: string;
@@ -50,6 +57,8 @@ export interface CustomerAccountRowV1 {
   plan: string;
   status: string;
   enabledModules: string[];
+  portalModules: string[];
+  portalCardToggles: Record<PortalCardToggleIdV1, boolean>;
   users: CustomerAccountUserV1[];
   bindings: ReturnType<typeof getCustomerTenantBindingsV1>;
   tenantProfile: ReturnType<typeof resolveCustomerTenantProfileV1>;
@@ -81,6 +90,11 @@ export function listCustomerAccountsAdminV1(opts?: {
       plan: c.plan,
       status: c.status,
       enabledModules: getEnabledModulesForCustomerV1(code),
+      portalModules: getCustomerPortalModulesV1(code),
+      portalCardToggles: parsePortalCardTogglesV1(
+        getCustomerPortalModulesV1(code),
+        code
+      ),
       users,
       bindings: getCustomerTenantBindingsV1(code),
       tenantProfile: resolveCustomerTenantProfileV1(code),
@@ -96,6 +110,7 @@ export function createCustomerAccountAdminV1(input: {
   password: string;
   plan?: CustomerPlan;
   enabledModules?: string[];
+  portalCardToggles?: Partial<Record<PortalCardToggleIdV1, boolean>>;
   bindings?: Partial<ReturnType<typeof getCustomerTenantBindingsV1>>;
   actorLabel?: string;
 }): CustomerAccountRowV1 {
@@ -143,13 +158,11 @@ export function createCustomerAccountAdminV1(input: {
     )
     .run(userId, customerId, username, hash);
 
-  const modules = normalizeModuleIdListV1(
-    input.enabledModules ?? [
-      "tisly_home_v1",
-      "security_floor_v1",
-      "customer_portal",
-    ]
-  );
+  const modules = input.portalCardToggles
+    ? buildModulesFromPortalTogglesV1(input.portalCardToggles)
+    : normalizeModuleIdListV1(
+        input.enabledModules ?? defaultPortalModulesForNewCustomerV1()
+      );
   upsertEnabledModulesV1({
     customerCode: code,
     enabledModules: modules,
@@ -185,6 +198,7 @@ export function updateCustomerAccountAdminV1(input: {
   customerName?: string;
   plan?: CustomerPlan;
   enabledModules?: string[];
+  portalCardToggles?: Partial<Record<PortalCardToggleIdV1, boolean>>;
   bindings?: Partial<ReturnType<typeof getCustomerTenantBindingsV1>>;
   actorLabel?: string;
 }): CustomerAccountRowV1 {
@@ -212,10 +226,13 @@ export function updateCustomerAccountAdminV1(input: {
     }
   }
 
-  if (input.enabledModules?.length) {
+  if (input.portalCardToggles || input.enabledModules?.length) {
+    const modules = input.portalCardToggles
+      ? buildModulesFromPortalTogglesV1(input.portalCardToggles)
+      : normalizeModuleIdListV1(input.enabledModules!);
     upsertEnabledModulesV1({
       customerCode: code,
-      enabledModules: normalizeModuleIdListV1(input.enabledModules),
+      enabledModules: modules,
       updatedBy: input.actorLabel ?? "customer-master-v1",
     });
   }
@@ -297,7 +314,5 @@ export function addCustomerUserAdminV1(input: {
 }
 
 export function listModuleCatalogAdminV1() {
-  return MODULE_CATALOG_V1.filter((m) =>
-    ["iot", "portal"].includes(m.category)
-  );
+  return listPortalCardTogglesAdminV1();
 }

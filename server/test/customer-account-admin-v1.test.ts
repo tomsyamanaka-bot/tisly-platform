@@ -84,7 +84,8 @@ describe("customer account admin + camera preview v1", () => {
       .get("/api/customer-portal/v1/admin/accounts/modules")
       .set("Authorization", `Bearer ${tomsAdmin}`);
     assert.equal(res.status, 200);
-    assert.ok(res.body.modules?.length >= 3);
+    assert.equal(res.body.modules?.length, 4);
+    assert.ok(res.body.modules.some((m: { id: string }) => m.id === "security_floor_v1"));
   });
 
   it("lists camera previews per tenant", () => {

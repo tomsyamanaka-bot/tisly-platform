@@ -110,6 +110,41 @@ body.cm-v1 {
   font-size: 0.95rem;
 }
 
+.cm-toggle-list {
+  display: grid;
+  gap: 10px;
+}
+
+.cm-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.cm-toggle-row input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cm-navy);
+}
+
+.cm-toggle-row strong {
+  display: block;
+  color: var(--cm-navy);
+}
+
+.cm-toggle-row small {
+  display: block;
+  color: var(--cm-muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
 .cm-module-grid {
   display: flex;
   flex-wrap: wrap;

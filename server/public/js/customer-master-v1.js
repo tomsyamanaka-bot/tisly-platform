@@ -54,34 +54,38 @@ async function apiSend(method, path, body) {
   return data;
 }
 
-function renderModuleChips(selected = [], namePrefix = "modules") {
+function renderPortalToggles(toggles = {}, namePrefix = "portalToggle") {
   return modulesCache
     .map((m) => {
-      const on = selected.includes(m.id);
-      return `<label class="cm-module-chip ${on ? "is-on" : ""}">
-        <input type="checkbox" name="${namePrefix}" value="${escapeHtml(m.id)}" ${on ? "checked" : ""} hidden />
-        ${escapeHtml(m.label || m.id)}
+      const defaultOn = m.defaultOn ?? false;
+      const on =
+        toggles[m.id] !== undefined ? Boolean(toggles[m.id]) : defaultOn;
+      return `<label class="cm-toggle-row">
+        <input type="checkbox" name="${namePrefix}" value="${escapeHtml(m.id)}" ${on ? "checked" : ""} />
+        <span>
+          <strong>${escapeHtml(m.label || m.id)}</strong>
+          <small>${escapeHtml(m.description || "")}</small>
+        </span>
       </label>`;
     })
     .join("");
 }
 
-function wireModuleChips(root) {
-  root.querySelectorAll(".cm-module-chip").forEach((chip) => {
-    chip.addEventListener("click", (e) => {
-      if (e.target.tagName === "INPUT") return;
-      const cb = chip.querySelector('input[type="checkbox"]');
-      if (!cb) return;
-      cb.checked = !cb.checked;
-      chip.classList.toggle("is-on", cb.checked);
-    });
+function collectPortalToggles(form) {
+  const toggles = {};
+  modulesCache.forEach((m) => {
+    toggles[m.id] = Boolean(
+      form.querySelector(`input[name="portalToggle"][value="${m.id}"]`)?.checked
+    );
   });
+  return toggles;
 }
 
-function collectModules(form) {
-  return [...form.querySelectorAll('input[name="modules"]:checked')].map(
-    (el) => el.value
-  );
+function formatPortalToggleSummary(toggles = {}) {
+  return modulesCache
+    .filter((m) => toggles[m.id])
+    .map((m) => m.label || m.id)
+    .join(" · ");
 }
 
 function showNewForm() {
@@ -94,8 +98,9 @@ function showNewForm() {
       <label>ログインID<input name="username" required placeholder="例: toyoshima001.owner" /></label>
       <label>初期パスワード<input name="password" type="password" required minlength="8" /></label>
       <fieldset>
-        <legend>契約モジュール</legend>
-        <div class="cm-module-grid">${renderModuleChips(["tisly_home_v1", "security_floor_v1", "customer_portal"])}</div>
+        <legend>顧客画面（/customer）カード表示</legend>
+        <p class="cm-muted">TOMS のみ変更可。保存後すぐ /customer に反映されます。</p>
+        <div class="cm-toggle-list">${renderPortalToggles({})}</div>
       </fieldset>
       <label>RP2350 母屋 ID<input name="rp2350MainId" placeholder="rp2350-xxx-main-01" /></label>
       <label>RP2350 はなれ ID<input name="rp2350DetachedId" placeholder="任意" /></label>
@@ -106,7 +111,6 @@ function showNewForm() {
         <button type="button" class="cm-btn" id="cm-cancel-new">キャンセル</button>
       </div>
     </form>`;
-  wireModuleChips(formPanel);
   document.getElementById("cm-cancel-new")?.addEventListener("click", () => {
     formPanel.hidden = true;
   });
@@ -119,7 +123,7 @@ function showNewForm() {
         customerName: fd.get("customerName"),
         username: fd.get("username"),
         password: fd.get("password"),
-        enabledModules: collectModules(e.target),
+        portalCardToggles: collectPortalToggles(e.target),
         bindings: {
           rp2350MainId: fd.get("rp2350MainId") || null,
           rp2350DetachedId: fd.get("rp2350DetachedId") || null,
@@ -145,8 +149,9 @@ function showEditForm(account) {
       <label>顧客名<input name="customerName" value="${escapeHtml(account.customerName)}" /></label>
       <label>契約プラン<input name="plan" value="${escapeHtml(account.plan)}" /></label>
       <fieldset>
-        <legend>契約モジュール</legend>
-        <div class="cm-module-grid">${renderModuleChips(account.enabledModules || [])}</div>
+        <legend>顧客画面（/customer）カード表示</legend>
+        <p class="cm-muted">TiSLY Security 既定 ON · TiSLY HOME 既定 OFF</p>
+        <div class="cm-toggle-list">${renderPortalToggles(account.portalCardToggles || {})}</div>
       </fieldset>
       <label>RP2350 母屋 ID<input name="rp2350MainId" value="${escapeHtml(b.rp2350MainId || "")}" /></label>
       <label>RP2350 はなれ ID<input name="rp2350DetachedId" value="${escapeHtml(b.rp2350DetachedId || "")}" /></label>
@@ -161,7 +166,6 @@ function showEditForm(account) {
         <button type="button" class="cm-btn" id="cm-cancel-edit">キャンセル</button>
       </div>
     </form>`;
-  wireModuleChips(formPanel);
   document.getElementById("cm-cancel-edit")?.addEventListener("click", () => {
     formPanel.hidden = true;
   });
@@ -173,7 +177,7 @@ function showEditForm(account) {
       await apiSend("PATCH", `/api/customer-portal/v1/admin/accounts/${encodeURIComponent(code)}`, {
         customerName: fd.get("customerName"),
         plan: fd.get("plan"),
-        enabledModules: collectModules(e.target),
+        portalCardToggles: collectPortalToggles(e.target),
         bindings: {
           rp2350MainId: fd.get("rp2350MainId") || null,
           rp2350DetachedId: fd.get("rp2350DetachedId") || null,
@@ -209,7 +213,7 @@ function renderList(accounts) {
       const users = (a.users || [])
         .map((u) => `${escapeHtml(u.username)} (${escapeHtml(u.role)})`)
         .join(" · ");
-      const mods = (a.enabledModules || []).slice(0, 6).join(", ");
+      const mods = formatPortalToggleSummary(a.portalCardToggles || {});
       const b = a.bindings || {};
       return `
         <article class="cm-card" data-code="${escapeHtml(a.customerCode)}">
@@ -223,7 +227,7 @@ function renderList(accounts) {
           <p class="cm-users">👤 ${users || "—"}</p>
           <p class="cm-bindings">📡 RP2350: ${escapeHtml(b.rp2350MainId || "—")} / NVR: ${escapeHtml(b.nvrLabel || "—")}</p>
           <p class="cm-bindings">📷 RTSP: ${escapeHtml(b.nvrRtspBase || "—")} · デバイス ${a.deviceCount ?? 0} 件</p>
-          <p class="cm-muted">モジュール: ${escapeHtml(mods)}${(a.enabledModules?.length || 0) > 6 ? "…" : ""}</p>
+          <p class="cm-muted">表示カード: ${escapeHtml(mods || "—")}</p>
           <div class="cm-actions">
             <button type="button" class="cm-btn primary cm-edit-btn">編集</button>
             <a class="cm-btn" href="https://tisly.jp/customer" target="_blank" rel="noopener">顧客入口</a>

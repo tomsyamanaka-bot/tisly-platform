@@ -176,6 +176,20 @@ export const MODULE_CATALOG_V1: ModuleCatalogEntryV1[] = [
     description: "契約・現場・通知",
     category: "portal",
   },
+  // ライブカメラプレビュー（追記）
+  {
+    id: "camera_preview_v1",
+    label: "ライブカメラプレビュー",
+    description: "H.View RTSP / WebRTC プレビュー",
+    category: "portal",
+  },
+  // その他設備監視（追記）
+  {
+    id: "equipment_monitor_v1",
+    label: "その他設備監視",
+    description: "水質・ガス・電気・レーダー",
+    category: "iot",
+  },
   {
     id: "ops_deploy",
     label: "Deploy / 本番診断",
