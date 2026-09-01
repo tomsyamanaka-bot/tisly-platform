@@ -101,12 +101,21 @@ export const SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1 =
 export const SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1 =
   "HOME-JP-ITABASHI-LIVE";
 
+/** 豊島邸 Security Floor サイト ID */
+export const SECURITY_FLOOR_TOSHIMA_SITE_ID_V1 =
+  "SEC-JP-TOSHIMA-001";
+
+/** 豊島邸 HOME / propertyId */
+export const SECURITY_FLOOR_TOSHIMA_PROPERTY_ID_V1 =
+  "HOME-JP-TOSHIMA";
+
 /**
- * UI 物件セレクタに出す ID（板橋のみ固定）。
+ * UI 物件セレクタに出す ID。
  * カタログ本体のデモ物件は削除しない。
  */
 export const SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1 = [
   SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
+  SECURITY_FLOOR_TOSHIMA_SITE_ID_V1,
 ] as const;
 
 /** UI 初期選択（板橋自宅） */
@@ -1416,10 +1425,214 @@ function enrichAerialPerimeterSitesV1(): void {
   }
 }
 
+/** 豊島邸をカタログ末尾に追記（既存物件は変更しない） */
+function ensureToshimaSecuritySiteV1(): void {
+  if (
+    SECURITY_FLOOR_SITES_V1.some(
+      (s) => s.id === SECURITY_FLOOR_TOSHIMA_SITE_ID_V1
+    )
+  ) {
+    return;
+  }
+  const propertyId = SECURITY_FLOOR_TOSHIMA_PROPERTY_ID_V1;
+  const site: SecuritySiteV1 = {
+    id: SECURITY_FLOOR_TOSHIMA_SITE_ID_V1,
+    tenantId: "tenant_toms_jp",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "home",
+    displayName: "豊島邸（Toshima Residence）",
+    addressLabel: "茨城県",
+    planCode: "home_security_std",
+    planStatus: "active",
+    monthlyFee: 4400,
+    propertyId,
+    floors: [
+      { id: "outdoor", label: "敷地・母屋/はなれ", enabled: true },
+      { id: "1f", label: "1F", enabled: false },
+      { id: "2f", label: "2F", enabled: false },
+    ],
+    rooms: [
+      {
+        id: "tm-out-main",
+        floorId: "outdoor",
+        label: "母屋（Main House）",
+        x: 8,
+        y: 20,
+        w: 38,
+        h: 36,
+        propertyId,
+      },
+      {
+        id: "tm-out-detached",
+        floorId: "outdoor",
+        label: "はなれ（Detached）",
+        x: 54,
+        y: 24,
+        w: 36,
+        h: 32,
+        propertyId,
+      },
+      {
+        id: "tm-out-road",
+        floorId: "outdoor",
+        label: "道路側",
+        x: 52,
+        y: 4,
+        w: 38,
+        h: 16,
+        propertyId,
+      },
+      {
+        id: "tm-out-path",
+        floorId: "outdoor",
+        label: "通路側",
+        x: 8,
+        y: 60,
+        w: 82,
+        h: 14,
+        propertyId,
+      },
+    ],
+    sensors: [
+      {
+        id: "tm-main-di1",
+        floorId: "outdoor",
+        roomId: "tm-out-main",
+        kind: "mmwave",
+        label: "母屋 遠近ビーム DI1",
+        customerLabel: "母屋 遠近センサー",
+        x: 20,
+        y: 32,
+        state: "normal",
+        deviceId: "RP2350-MAIN-DI1",
+        propertyId,
+      },
+      {
+        id: "tm-main-di2",
+        floorId: "outdoor",
+        roomId: "tm-out-main",
+        kind: "mmwave",
+        label: "母屋 遠近ビーム DI2",
+        customerLabel: "母屋 遠近センサー",
+        x: 32,
+        y: 38,
+        state: "normal",
+        deviceId: "RP2350-MAIN-DI2",
+        propertyId,
+      },
+      {
+        id: "tm-main-do1",
+        floorId: "outdoor",
+        roomId: "tm-out-main",
+        kind: "light",
+        label: "母屋 100V ライト1 (DO1)",
+        customerLabel: "母屋 防犯ライト1",
+        x: 18,
+        y: 28,
+        state: "normal",
+        deviceId: "RP2350-MAIN-DO1",
+        propertyId,
+      },
+      {
+        id: "tm-main-do2",
+        floorId: "outdoor",
+        roomId: "tm-out-main",
+        kind: "light",
+        label: "母屋 100V ライト2 (DO2)",
+        customerLabel: "母屋 防犯ライト2",
+        x: 28,
+        y: 28,
+        state: "normal",
+        deviceId: "RP2350-MAIN-DO2",
+        propertyId,
+      },
+      {
+        id: "tm-main-do3",
+        floorId: "outdoor",
+        roomId: "tm-out-main",
+        kind: "panel",
+        label: "母屋 24V パトライト (DO3)",
+        customerLabel: "母屋 パトライト",
+        x: 24,
+        y: 42,
+        state: "normal",
+        deviceId: "RP2350-MAIN-DO3",
+        propertyId,
+      },
+      {
+        id: "tm-det-di1",
+        floorId: "outdoor",
+        roomId: "tm-out-road",
+        kind: "mmwave",
+        label: "はなれ 道路側 DI1",
+        customerLabel: "はなれ 道路側センサー",
+        x: 68,
+        y: 10,
+        state: "normal",
+        deviceId: "RP2350-DET-DI1",
+        propertyId,
+      },
+      {
+        id: "tm-det-di2",
+        floorId: "outdoor",
+        roomId: "tm-out-path",
+        kind: "mmwave",
+        label: "はなれ 通路側 DI2",
+        customerLabel: "はなれ 通路側センサー",
+        x: 48,
+        y: 66,
+        state: "normal",
+        deviceId: "RP2350-DET-DI2",
+        propertyId,
+      },
+      {
+        id: "tm-det-do1",
+        floorId: "outdoor",
+        roomId: "tm-out-detached",
+        kind: "light",
+        label: "はなれ 100V ライト (DO1)",
+        customerLabel: "はなれ 防犯ライト",
+        x: 68,
+        y: 36,
+        state: "normal",
+        deviceId: "RP2350-DET-DO1",
+        propertyId,
+      },
+      {
+        id: "tm-det-do2",
+        floorId: "outdoor",
+        roomId: "tm-out-detached",
+        kind: "panel",
+        label: "はなれ 24V パトライト (DO2)",
+        customerLabel: "はなれ パトライト",
+        x: 72,
+        y: 44,
+        state: "normal",
+        deviceId: "RP2350-DET-DO2",
+        propertyId,
+      },
+    ],
+    guardMode: "away",
+    notes: [
+      "母屋: 8CH RP2350 — 遠近ビーム連動で DO1/DO2 点灯",
+      "はなれ: 6CH RP2350 — 道路/通路センサーでライト+パトライト",
+      "24h Push 通知 / 夜間ライトスケジュール独立",
+    ],
+    lightingOn: 0,
+    lightingTotal: 5,
+    energyKw: 1.45,
+    energyMaxKw: 6,
+    networkMs: 10,
+  };
+  SECURITY_FLOOR_SITES_V1.push(site);
+}
+
 enrichExistingSitesForSocV1();
 enrichItabashiDiSensorsV1();
 enrichAerialPerimeterSitesV1();
 ensureItabashiPropertyScopeV1();
+ensureToshimaSecuritySiteV1();
 
 type SocSensorListenerV1 = (
   site: SecuritySiteV1,

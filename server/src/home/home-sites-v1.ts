@@ -290,6 +290,9 @@ export interface HomeSiteV1 {
 /** 板橋自宅（実機）の固定 ID — 既存配列は改変しない */
 export const HOME_ITABASHI_LIVE_SITE_ID_V1 = "HOME-JP-ITABASHI-LIVE";
 
+/** 豊島邸 Security 物件 ID — 末尾追記のみ */
+export const HOME_JP_TOSHIMA_SITE_ID_V1 = "HOME-JP-TOSHIMA";
+
 export const HOME_DEFAULT_SITE_ID_V1 = "HOME-JP-TSUKUBA-001";
 
 /**
@@ -973,6 +976,103 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
       "実機: Waveshare RP2350-POE-ETH-8DI-8RO",
       "風呂は SwitchBot Bot「風呂 自動」press（失敗時は RP2350 DO CH1）",
       "SwitchBot: ロック / エアコン / シーリング / 温湿度 / TV / 加湿器 / スリー電源",
+    ],
+  },
+  // 豊島邸 Security（母屋 + はなれ）— 既存物件は変更しない
+  {
+    id: "HOME-JP-TOSHIMA",
+    tenantId: "tenant_toms_jp",
+    customerCode: "TOSHIMA001",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "live_home",
+    displayName: "豊島邸（Toshima Residence）",
+    addressLabel: "茨城県",
+    voltageSpec: "単相3線 100V / 200V",
+    hotWaterSpec: "給湯リモコン（監視対象外）",
+    planCode: "home_live",
+    planStatus: "active",
+    monthlyFee: 4400,
+    operationMode: "live",
+    deviceBoardLabel:
+      "母屋: RP2350 8CH / はなれ: RP2350 6CH",
+    ct: {
+      deviceKey: "ct-main",
+      label: "分電盤 主幹CT",
+      controlChannel: "rp2350_ct",
+      mainCurrentA: 8.6,
+      mainCapacityA: 60,
+      powerW: 1450,
+      contractDemandKw: 6,
+      warnThresholdA: 45,
+      alertThresholdA: 54,
+      peakCutActive: false,
+      solarGenerationW: 0,
+      circuits: [
+        {
+          id: "c1",
+          label: "母屋 防犯ライト回路",
+          voltage: 100,
+          currentA: 2.1,
+          on: false,
+          peakCutTarget: false,
+        },
+        {
+          id: "c2",
+          label: "はなれ 防犯ライト回路",
+          voltage: 100,
+          currentA: 1.8,
+          on: false,
+          peakCutTarget: false,
+        },
+      ],
+      hourlyCurrentA: [
+        6, 5, 5, 5, 6, 8, 10, 12, 11, 10, 9, 8,
+        9, 8, 8, 9, 11, 14, 13, 12, 10, 8, 7, 6,
+      ],
+    },
+    bath: {
+      deviceKey: "bath-remote",
+      label: "風呂リモコン",
+      controlChannel: "jema_ha",
+      setTempC: 42,
+      currentTempC: 0,
+      fillState: "idle",
+      fillPercent: 0,
+      autoFill: false,
+      reheating: false,
+      keepWarm: false,
+      jemaTerminal: "HA端子",
+      relayPort: "—",
+      linkState: "standby",
+    },
+    aircons: [],
+    lock: {
+      deviceKey: "lock-entrance",
+      label: "玄関 スマートロック",
+      controlChannel: "nfc_lock",
+      locked: true,
+      doorOpen: false,
+      batteryPercent: 90,
+      accessLog: [],
+    },
+    intercom: {
+      deviceKey: "intercom-entrance",
+      label: "玄関 スマートインターホン",
+      controlChannel: "intercom_sip",
+      state: "idle",
+      lastVisitAt: null,
+      streamKind: "mock",
+      streamUrl: "",
+      snapshotUrl: "",
+      autoResponseMessage: "ただいま手が離せません。",
+      unlockLinkEnabled: false,
+      visitors: [],
+    },
+    notes: [
+      "母屋: RP2350 8CH — DI1/DI2 遠近ビーム、DO1/DO2 100V ライト、DO3 パトライト",
+      "はなれ: RP2350 6CH — DI1 道路側 / DI2 通路側、DO1 100V / DO2 パトライト",
+      "24h 通知と夜間ライト点灯スケジュールは独立判定",
     ],
   },
 ];

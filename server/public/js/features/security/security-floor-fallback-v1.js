@@ -8,7 +8,10 @@
 export const FALLBACK_DEFAULT_SITE_ID = "SEC-JP-ITABASHI-LIVE";
 
 /** UI セレクタに出す物件 ID（デモはカタログに残す） */
-export const UI_VISIBLE_SITE_IDS = ["SEC-JP-ITABASHI-LIVE"];
+export const UI_VISIBLE_SITE_IDS = [
+  "SEC-JP-ITABASHI-LIVE",
+  "SEC-JP-TOSHIMA-001",
+];
 
 /** 板橋自宅の HOME / RP2350 propertyId */
 export const ITABASHI_PROPERTY_ID = "HOME-JP-ITABASHI-LIVE";
@@ -493,8 +496,15 @@ function itabashiSite() {
 }
 
 export function listFallbackSites() {
-  // UI は板橋自宅のみ表示（デモ定義は残す）
+  // UI 表示用（デモ定義は listFallbackCatalogSites に残す）
   return [
+    {
+      id: "SEC-JP-TOSHIMA-001",
+      siteId: "SEC-JP-TOSHIMA-001",
+      displayName: "豊島邸（Toshima Residence）",
+      countryCode: "JP",
+      propertyId: "HOME-JP-TOSHIMA",
+    },
     {
       id: "SEC-JP-ITABASHI-LIVE",
       siteId: "SEC-JP-ITABASHI-LIVE",
@@ -524,6 +534,12 @@ export function listFallbackCatalogSites() {
       id: "SEC-JP-TSUKUBA-001",
       siteId: "SEC-JP-TSUKUBA-001",
       displayName: "つくばモデルハウス",
+      countryCode: "JP",
+    },
+    {
+      id: "SEC-JP-TOSHIMA-001",
+      siteId: "SEC-JP-TOSHIMA-001",
+      displayName: "豊島邸（Toshima Residence）",
       countryCode: "JP",
     },
   ];

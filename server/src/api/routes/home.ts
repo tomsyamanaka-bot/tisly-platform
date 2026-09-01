@@ -91,6 +91,14 @@ import {
   processHomeSecurityEventV1,
 } from "../../home/home-security-notify-v1.js";
 import {
+  applyToshimaManualControlV1,
+  buildToshimaSecurityDashboardV1,
+  HOME_JP_TOSHIMA_SITE_ID_V1,
+  isToshimaSecuritySiteIdV1,
+  processToshimaSecurityEventV1,
+  SEC_JP_TOSHIMA_SITE_ID_V1,
+} from "../../home/home-toshima-security-v1.js";
+import {
   buildSwitchBotHomeStatusV1,
   listSwitchBotDevicesV1,
 } from "../../home/switchbot_client.js";
@@ -783,4 +791,93 @@ homeRouter.get("/activity-timeline", (req, res) => {
   const limit = Number(req.query.limit ?? 50);
   const timeline = buildHomeActivityTimelineV1({ siteId, limit });
   res.json({ ok: true, timeline });
+});
+
+/** 豊島邸 Security ダッシュボード */
+homeRouter.get("/toshima/dashboard", (req, res) => {
+  const siteId = String(req.query.siteId ?? SEC_JP_TOSHIMA_SITE_ID_V1).trim();
+  if (!isToshimaSecuritySiteIdV1(siteId)) {
+    res.status(404).json({ ok: false, error: "豊島邸サイトではありません" });
+    return;
+  }
+  res.json({
+    ok: true,
+    dashboard: buildToshimaSecurityDashboardV1(siteId),
+  });
+});
+
+/** 豊島邸 DI 検知イベント */
+homeRouter.post("/toshima/event", async (req, res) => {
+  const siteId = String(
+    req.body?.siteId ?? HOME_JP_TOSHIMA_SITE_ID_V1
+  ).trim();
+  const building = String(req.body?.building ?? "").trim();
+  if (building !== "main" && building !== "detached") {
+    res.status(400).json({
+      ok: false,
+      error: "building must be main or detached",
+    });
+    return;
+  }
+  const di = Number(req.body?.di);
+  if (di !== 1 && di !== 2) {
+    res.status(400).json({ ok: false, error: "di must be 1 or 2" });
+    return;
+  }
+  try {
+    const result = await processToshimaSecurityEventV1({
+      siteId,
+      building: building as "main" | "detached",
+      di,
+      deviceId: req.body?.deviceId as string | undefined,
+    });
+    res.json({
+      ...result,
+      ok: true,
+      dashboard: buildToshimaSecurityDashboardV1(siteId),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/** 豊島邸 手動 DO 操作 */
+homeRouter.post("/toshima/control", (req, res) => {
+  const siteId = String(
+    req.body?.siteId ?? HOME_JP_TOSHIMA_SITE_ID_V1
+  ).trim();
+  const building = String(req.body?.building ?? "").trim();
+  if (building !== "main" && building !== "detached") {
+    res.status(400).json({
+      ok: false,
+      error: "building must be main or detached",
+    });
+    return;
+  }
+  const action = String(req.body?.action ?? "").trim();
+  const result = applyToshimaManualControlV1({
+    siteId,
+    building: building as "main" | "detached",
+    action: action as
+      | "do1_on"
+      | "do1_off"
+      | "do2_on"
+      | "do2_off"
+      | "do3_on"
+      | "do3_off"
+      | "patlite_test",
+    actor: String(req.body?.actor ?? "app"),
+  });
+  if (!result.ok) {
+    res.status(400).json({ ok: false, error: "未対応の操作です" });
+    return;
+  }
+  res.json({
+    ok: true,
+    building: result.state,
+    dashboard: buildToshimaSecurityDashboardV1(siteId),
+  });
 });
