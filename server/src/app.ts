@@ -124,6 +124,7 @@ import { printGeneratorV1Router } from "./api/routes/print-generator-v1.js";
 import { aiEstimateEngineV1Router } from "./api/routes/ai-estimate-engine-v1.js";
 import { registerPwaLegacyRedirects } from "./pwa/pwa-legacy-redirects.js";
 import { customerPortalV1Router } from "./api/routes/customer-portal-v1.js";
+import { cameraPreviewV1Router } from "./api/routes/camera-preview-v1.js";
 import { isCustomerReservedSegmentV1 } from "./shared/routes/tisly-routes-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -221,6 +222,7 @@ export function createApp(): express.Application {
   app.use("/api/print-generator/v1", printGeneratorV1Router);
   app.use("/api/ai-estimate-engine/v1", aiEstimateEngineV1Router);
   app.use("/api/customer-portal/v1", customerPortalV1Router);
+  app.use("/api/camera-preview/v1", cameraPreviewV1Router);
   app.use("/api/project-automation/v1", projectAutomationV1Router);
   app.use("/api/business", businessRouter);
   app.use("/api/toms", tomsRouter);
@@ -685,6 +687,12 @@ export function createApp(): express.Application {
   });
   app.get("/customer-admin-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-admin-v1.html"));
+  });
+  app.get("/app/customer-master-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-master-v1.html"));
+  });
+  app.get("/customer-master-v1", (_req, res) => {
+    res.sendFile(path.join(publicDir, "customer-master-v1.html"));
   });
   app.get("/customer-view-v1", (_req, res) => {
     res.sendFile(path.join(publicDir, "customer-view-v1.html"));

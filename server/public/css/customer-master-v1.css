@@ -1,0 +1,206 @@
+/* 顧客アカウント管理 v1 — 白×ネイビー */
+:root {
+  --cm-navy: #1e3a8a;
+  --cm-navy-dark: #0f172a;
+  --cm-bg: #f8fafc;
+  --cm-border: #e2e8f0;
+  --cm-text: #0f172a;
+  --cm-muted: #64748b;
+  --cm-ok: #15803d;
+  --cm-warn: #ea580c;
+  --cm-danger: #dc2626;
+}
+
+body.cm-v1 {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--cm-bg);
+  color: var(--cm-text);
+}
+
+.cm-header {
+  background: var(--cm-navy);
+  color: #fff;
+  padding: 16px;
+}
+
+.cm-header h1 {
+  margin: 8px 0 4px;
+  font-size: 1.25rem;
+}
+
+.cm-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.85rem;
+}
+
+.cm-back {
+  color: #bfdbfe;
+  font-size: 0.85rem;
+}
+
+.cm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--cm-border);
+}
+
+.cm-toolbar input {
+  flex: 1;
+  min-width: 160px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.cm-btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.cm-btn.primary {
+  background: var(--cm-navy);
+  color: #fff;
+  border-color: var(--cm-navy);
+}
+
+.cm-main {
+  padding: 16px;
+}
+
+.cm-panel {
+  background: #fff;
+  border: 1px solid var(--cm-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.cm-panel h2 {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  color: var(--cm-navy);
+}
+
+.cm-form {
+  display: grid;
+  gap: 10px;
+}
+
+.cm-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cm-form input,
+.cm-form select {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.cm-module-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cm-module-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.cm-module-chip.is-on {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: var(--cm-navy);
+}
+
+.cm-card {
+  background: #fff;
+  border: 1px solid var(--cm-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.cm-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cm-code {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  color: var(--cm-navy);
+}
+
+.cm-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background: #dcfce7;
+  color: var(--cm-ok);
+}
+
+.cm-users {
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+.cm-bindings {
+  font-size: 0.8rem;
+  color: var(--cm-muted);
+  margin: 8px 0;
+}
+
+.cm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cm-muted {
+  color: var(--cm-muted);
+}
+
+.cm-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--cm-navy);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  z-index: 9999;
+}
+
+@media (max-width: 640px) {
+  .cm-card-head {
+    flex-direction: column;
+  }
+}

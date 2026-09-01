@@ -9,6 +9,9 @@ import {
   findHighlightKey,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, setCustomerReturnUrl } from "./customer-nav-v1.js";
+import {
+  openCustomerCameraPreview,
+} from "./camera-webrtc-viewer-v1.js";
 
 const main = document.getElementById("main-content");
 const shareId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[2] || "");
@@ -86,6 +89,10 @@ async function load() {
   `;
 
   wireContactButton(data);
+
+  if (view === "camera") {
+    openCustomerCameraPreview().catch(() => {});
+  }
 
   if (data.activeAlert) {
     requestAnimationFrame(() => {

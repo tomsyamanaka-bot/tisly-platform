@@ -30,6 +30,8 @@ export const TISLY_INTERNAL_ROUTES_V1: TislyRouteEntryV1[] = [
   { path: "/project-mgmt-detail-v1", label: "案件詳細", zone: "internal" },
   { path: "/document-center-v1", label: "書類センター", zone: "internal" },
   { path: "/customer-admin-v1", label: "Customer Master管理", zone: "internal" },
+  { path: "/app/customer-master-v1", label: "顧客アカウント・権限管理", zone: "internal" },
+  { path: "/customer-master-v1", label: "顧客アカウント・権限管理", zone: "internal" },
   { path: "/customer-view-v1", label: "顧客を見る", zone: "internal" },
   { path: "/eco-water-v1", label: "Eco-Water 排水中和", zone: "internal" },
   { path: "/app/eco-water", label: "Eco-Water (App)", zone: "internal" },

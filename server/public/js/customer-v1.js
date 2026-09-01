@@ -14,6 +14,10 @@ import {
   isLoggedIn,
   loginCustomer,
 } from "./customer-tenant-session-v1.js";
+import {
+  openCustomerCameraPreview,
+  isCameraNavHref,
+} from "./camera-webrtc-viewer-v1.js";
 
 const main = document.getElementById("main-content");
 
@@ -113,8 +117,16 @@ function renderHome(data) {
   bindCustomerNavLinks();
   document.querySelectorAll(".cv-big-card").forEach((el) => {
     el.addEventListener("click", (e) => {
+      const href = el.getAttribute("href") || "";
+      if (isCameraNavHref(href)) {
+        e.preventDefault();
+        openCustomerCameraPreview().catch((err) => {
+          navigateCustomer(href);
+        });
+        return;
+      }
       e.preventDefault();
-      navigateCustomer(el.getAttribute("href"));
+      navigateCustomer(href);
     });
   });
   document.getElementById("cv-logout-btn")?.addEventListener("click", () => {

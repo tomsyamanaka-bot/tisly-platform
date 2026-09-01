@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import fs from "fs";
 import {
   buildCustomerPortalLandingV1,
@@ -32,6 +32,15 @@ import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import {
   resolveCustomerTenantProfileV1,
 } from "../../shared/customer/customer-tenant-profile-v1.js";
+import {
+  addCustomerUserAdminV1,
+  createCustomerAccountAdminV1,
+  listCustomerAccountsAdminV1,
+  listModuleCatalogAdminV1,
+  resetCustomerUserPasswordAdminV1,
+  updateCustomerAccountAdminV1,
+} from "../../shared/customer/customer-account-admin-v1.js";
+import { isInternalOpsCustomerV1 } from "../../tenant/customer-enabled-modules-v1.js";
 
 export const customerPortalV1Router = Router();
 
@@ -232,6 +241,142 @@ customerPortalV1Router.post("/admin/upload", (req, res) => {
     res.status(400).json({ status: "error", error: (e as Error).message });
   }
 });
+
+/** 社内 Customer Master — 権限チェック */
+function assertInternalOpsAdmin(
+  req: AuthedRequest,
+  res: Response
+): boolean {
+  const self = String(req.admin?.customerCode ?? "").toUpperCase();
+  if (!isInternalOpsCustomerV1(self)) {
+    res.status(403).json({
+      status: "error",
+      error: "社内管理者のみ利用できます",
+    });
+    return false;
+  }
+  const role = req.admin?.role ?? "viewer";
+  if (!["admin", "super_admin", "owner"].includes(role)) {
+    res.status(403).json({
+      status: "error",
+      error: "管理者権限が必要です",
+    });
+    return false;
+  }
+  return true;
+}
+
+customerPortalV1Router.get(
+  "/admin/accounts",
+  requireAuth("admin"),
+  (req: AuthedRequest, res) => {
+    if (!assertInternalOpsAdmin(req, res)) return;
+    const q = String(req.query.customerCode ?? "").trim();
+    res.json({
+      status: "ok",
+      accounts: listCustomerAccountsAdminV1(
+        q ? { customerCode: q } : undefined
+      ),
+    });
+  }
+);
+
+customerPortalV1Router.get(
+  "/admin/accounts/modules",
+  requireAuth("admin"),
+  (req: AuthedRequest, res) => {
+    if (!assertInternalOpsAdmin(req, res)) return;
+    res.json({
+      status: "ok",
+      modules: listModuleCatalogAdminV1(),
+    });
+  }
+);
+
+customerPortalV1Router.post(
+  "/admin/accounts",
+  requireAuth("admin"),
+  (req: AuthedRequest, res) => {
+    if (!assertInternalOpsAdmin(req, res)) return;
+    try {
+      const body = req.body ?? {};
+      const row = createCustomerAccountAdminV1({
+        customerCode: String(body.customerCode ?? ""),
+        customerName: String(body.customerName ?? ""),
+        username: String(body.username ?? ""),
+        password: String(body.password ?? ""),
+        plan: body.plan,
+        enabledModules: body.enabledModules,
+        bindings: body.bindings,
+        actorLabel: req.admin?.username ?? "customer-master-v1",
+      });
+      res.status(201).json({ status: "ok", account: row });
+    } catch (e) {
+      res.status(400).json({ status: "error", error: (e as Error).message });
+    }
+  }
+);
+
+customerPortalV1Router.patch(
+  "/admin/accounts/:customerCode",
+  requireAuth("admin"),
+  (req: AuthedRequest, res) => {
+    if (!assertInternalOpsAdmin(req, res)) return;
+    try {
+      const body = req.body ?? {};
+      const row = updateCustomerAccountAdminV1({
+        customerCode: String(req.params.customerCode),
+        customerName: body.customerName,
+        plan: body.plan,
+        enabledModules: body.enabledModules,
+        bindings: body.bindings,
+        actorLabel: req.admin?.username ?? "customer-master-v1",
+      });
+      res.json({ status: "ok", account: row });
+    } catch (e) {
+      res.status(400).json({ status: "error", error: (e as Error).message });
+    }
+  }
+);
+
+customerPortalV1Router.post(
+  "/admin/accounts/:customerCode/password",
+  requireAuth("admin"),
+  (req: AuthedRequest, res) => {
+    if (!assertInternalOpsAdmin(req, res)) return;
+    try {
+      const body = req.body ?? {};
+      const result = resetCustomerUserPasswordAdminV1({
+        customerCode: String(req.params.customerCode),
+        username: String(body.username ?? ""),
+        password: String(body.password ?? ""),
+      });
+      res.json({ status: "ok", ...result });
+    } catch (e) {
+      res.status(400).json({ status: "error", error: (e as Error).message });
+    }
+  }
+);
+
+customerPortalV1Router.post(
+  "/admin/accounts/:customerCode/users",
+  requireAuth("admin"),
+  (req: AuthedRequest, res) => {
+    if (!assertInternalOpsAdmin(req, res)) return;
+    try {
+      const body = req.body ?? {};
+      const user = addCustomerUserAdminV1({
+        customerCode: String(req.params.customerCode),
+        username: String(body.username ?? ""),
+        password: String(body.password ?? ""),
+        role: body.role,
+      });
+      res.status(201).json({ status: "ok", user });
+    } catch (e) {
+      res.status(400).json({ status: "error", error: (e as Error).message });
+    }
+  }
+);
 
 customerPortalV1Router.get("/route-contract", (_req, res) => {
   res.json({

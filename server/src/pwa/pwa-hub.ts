@@ -521,6 +521,27 @@ const PRACTICAL_PWA_DEFS: Array<
       "super_admin",
     ],
   },
+  // 顧客アカウント・権限管理（追記 — 社内 TOMS001 専用）
+  {
+    id: "customer_master_v1",
+    label: "顧客アカウント管理",
+    subtitle: "ログインID/PASS・契約モジュール・デバイス紐付け",
+    icon: "🔐",
+    features: [
+      "顧客新規登録",
+      "モジュール切替",
+      "RP2350/NVR紐付け",
+      "PW再発行",
+    ],
+    href: "/app/customer-master-v1",
+    themeColor: "#1e3a8a",
+    readyRoles: [
+      "manager",
+      "owner",
+      "admin",
+      "super_admin",
+    ],
+  },
 ];
 
 export function buildPracticalHubCards(role: string): PracticalPwaCard[] {
@@ -591,6 +612,7 @@ export const FIELD_HUB_PRACTICAL_IDS: readonly string[] = [
   "documents_v1",
   "project_dashboard_v1",
   "schedule_v1",
+  "customer_master_v1",
 ];
 
 /** App Hub 一覧用 — 現場実用カードのみ・指定順 */
