@@ -898,6 +898,66 @@
   color: #d9534f;
 }
 
+/* ---------- PWA Push bar (App Hub header) ---------- */
+.hub-push-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(30, 58, 138, 0.22);
+  border-radius: 12px;
+  background: #ffffff;
+}
+.hub-push-btn {
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.hub-push-btn.is-outline {
+  color: #1e3a8a;
+  background: #ffffff;
+  border-color: #1e3a8a;
+}
+.hub-push-btn.is-test {
+  color: #1e3a8a;
+  background: #eff6ff;
+  border-color: rgba(30, 58, 138, 0.35);
+}
+.hub-push-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.hub-push-registered {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hub-push-badge.is-ok {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid rgba(22, 163, 74, 0.45);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+.hub-push-status {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
 .btn-secondary {
   background: #21262d;
   color: #e6edf3;

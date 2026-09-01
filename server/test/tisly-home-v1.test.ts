@@ -565,6 +565,9 @@ describe("tisly-home-v1", () => {
     assert.match(operatorHtml, /data-action="auto_response"/);
     assert.match(operatorHtml, /data-action="unlock_door"/);
     assert.match(operatorHtml, /id="hm-switchbot-badge"/);
+    assert.match(operatorHtml, /id="hm-push-register"/);
+    assert.match(operatorHtml, /プッシュ通知を有効化する/);
+    assert.match(operatorHtml, /id="hm-push-test"/);
 
     const customerHtml = fs.readFileSync(
       path.join(publicDir, "home-customer-v1.html"),
@@ -722,6 +725,8 @@ describe("tisly-home-v1", () => {
       assert.match(html, /hm-bath-pulse-status/, page);
       assert.match(html, /id="hm-aircon-list"/, page);
       assert.match(html, /id="hm-lock-toggle"/, page);
+      assert.match(html, /id="hm-push-register"/, page);
+      assert.match(html, /id="hm-push-test"/, page);
       assert.match(html, /id="hm-intercom-visitors"/, page);
     }
 

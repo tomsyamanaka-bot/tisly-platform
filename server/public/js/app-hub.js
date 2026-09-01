@@ -2,6 +2,7 @@ import { initPracticalNav } from "./tisly-practical-nav.js";
 import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyLoginError } from "./tisly-friendly-errors.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
+import { bindTislyPushBarV1 } from "./tisly-pwa-push-bar-v1.js";
 
 const TOKEN_KEY = "tisly_token";
 
@@ -703,6 +704,24 @@ async function loadHubApps() {
   document.getElementById("hub-ops-panel")?.remove();
   // 社内下部ナビは業務ロールのみ
   ensurePracticalNav(data.showPracticalNav === true);
+  bindHubPushBarV1();
+}
+
+function showHubToast(message) {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 3200);
+}
+
+function bindHubPushBarV1() {
+  bindTislyPushBarV1({
+    prefix: "hub",
+    userId: "home-security",
+    showToast: showHubToast,
+    getSiteId: () => "HOME-JP-ITABASHI-LIVE",
+  });
 }
 
 /** 顧客ログイン時は実務下部ナビを破棄 */

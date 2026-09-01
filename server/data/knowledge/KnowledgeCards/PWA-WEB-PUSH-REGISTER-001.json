@@ -1,0 +1,18 @@
+{
+  "id": "PWA-WEB-PUSH-REGISTER-001",
+  "title": "【PWA機能】Web Push通知登録ボタン・Service Worker購読フロー復旧仕様",
+  "category": "IOT関連",
+  "tags": [
+    "#PWA",
+    "#WebPush",
+    "#通知登録",
+    "#ServiceWorker",
+    "#TiSLY_HOME"
+  ],
+  "summary": "PWAカード一覧画面からのワンタップ通知許諾、\nVAPID公開鍵連携、来客・防犯アラートの\nバックグラウンド受信仕様。\n\n【PWA カード一覧ヘッダー UI】\n未登録: 🔕「プッシュ通知を有効化する」（navy 枠）。\n登録済: 🔔「通知受信中（登録済み）」＋テスト送信。\n\n【購読フロー】\nService Worker 登録 → VAPID 公開鍵取得 →\nNotification.requestPermission → PushManager.subscribe →\nPOST /api/notifications/subscribe（userId=home-security）。\n\n【テスト通知】\nPOST /api/security-floor/v1/test-notify で\n玄関インターホン呼出・ミリ波検知の模擬Pushを送信。\n\n【配置画面】\nApp Hub（/app）カード一覧上部 · TiSLY HOME · 各拠点PWA。\niOS はホーム画面追加した PWA のみ Web Push 対応。",
+  "files": [],
+  "updatedAt": "2026-09-01",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【PWA カード一覧ヘッダー UI】\n未登録: 🔕「プッシュ通知を有効化する」（navy 枠）。\n登録済: 🔔「通知受信中（登録済み）」＋テスト送信。\n\n【購読フロー】\nService Worker 登録 → VAPID 公開鍵取得 →\nNotification.requestPermission → PushManager.subscribe →\nPOST /api/notifications/subscribe（userId=home-security）。\n\n【テスト通知】\nPOST /api/security-floor/v1/test-notify で\n玄関インターホン呼出・ミリ波検知の模擬Pushを送信。\n\n【配置画面】\nApp Hub（/app）カード一覧上部 · TiSLY HOME · 各拠点PWA。\niOS はホーム画面追加した PWA のみ Web Push 対応。"
+}

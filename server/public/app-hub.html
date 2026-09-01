@@ -37,6 +37,25 @@
     <p class="practical-subtitle">
       3Dフロア・Security・HOME・現場ツールをワンタップで開けます
     </p>
+    <!-- PWA Web Push 購読（カード一覧ヘッダー） -->
+    <section class="hub-push-bar" id="hub-push-bar" aria-label="プッシュ通知">
+      <button
+        type="button"
+        class="hub-push-btn is-outline"
+        id="hub-push-register"
+      >
+        🔕 プッシュ通知を有効化する
+      </button>
+      <div class="hub-push-registered" id="hub-push-registered" hidden>
+        <span class="hub-push-badge is-ok" id="hub-push-badge">
+          🔔 通知受信中（登録済み）
+        </span>
+        <button type="button" class="hub-push-btn is-test" id="hub-push-test">
+          テスト通知を送る
+        </button>
+      </div>
+      <p class="hub-push-status" id="hub-push-status" role="status"></p>
+    </section>
     <p class="hint" id="pwa-icon-hint">📱 ホーム画面アイコンが古い緑のままのときは、一度削除してから <strong>ホーム画面に追加</strong> し直してください（青 TiSLY ロゴ）。</p>
     <div id="hub-practical-grid" class="hub-practical-grid"></div>
     <section id="hub-monitoring-properties" class="hub-monitoring-section" hidden>

@@ -97,6 +97,10 @@ import {
   PART_OFFSET_ORIENT_MODULE_SEED_IDS,
   getPartOffsetOrientModuleSeedItemsV1,
 } from "./knowledge-part-offset-orient-seed-v1.js";
+import {
+  PWA_WEB_PUSH_MODULE_SEED_IDS,
+  getPwaWebPushModuleSeedItemsV1,
+} from "./knowledge-pwa-push-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -1264,6 +1268,49 @@ function mergePartOffsetOrientSeed(
   return { items: next, changed };
 }
 
+/**
+ * PWA Web Push 通知登録バー復旧ナレッジを末尾追記。
+ * 既存行は削除せず、未登録 ID のみ append する。
+ */
+function mergePwaWebPushSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(PWA_WEB_PUSH_MODULE_SEED_IDS);
+  const seeds = getPwaWebPushModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -1320,7 +1367,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedFieldDx3d = mergeFieldDx3dSeed(mergedRp2350Cover.items);
   const mergedTopDown = mergeTopDownOrientSeed(mergedFieldDx3d.items);
   const mergedPartOffset = mergePartOffsetOrientSeed(mergedTopDown.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedPartOffset.items);
+  const mergedPwaPush = mergePwaWebPushSeed(mergedPartOffset.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedPwaPush.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -1345,6 +1393,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedFieldDx3d.changed ||
     mergedTopDown.changed ||
     mergedPartOffset.changed ||
+    mergedPwaPush.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

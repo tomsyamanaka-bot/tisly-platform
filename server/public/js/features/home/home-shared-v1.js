@@ -6,6 +6,8 @@
  * すべて null ガードする。
  */
 
+import { bindTislyPushBarV1 } from "../../tisly-pwa-push-bar-v1.js";
+
 export const HOME_API_V1 = "/api/home/v1";
 
 export function escapeHtml(value) {
@@ -1503,221 +1505,16 @@ export function bindHomeSecurityUiV1(getSiteId, getActor, onSceneDone) {
   bindHomeWebPushUiV1();
 }
 
-function setHomePushStatus(text, ok) {
-  const el = byId("hm-push-status");
-  if (!el) return;
-  el.textContent = text;
-  el.style.color = ok === true ? "#166534" : ok === false ? "#b91c1c" : "";
-}
-
-function setHomePushDebug(text) {
-  const el = byId("hm-push-debug");
-  if (!el) return;
-  el.textContent = text || "debug: —";
-}
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr;
-}
-
-function describePushEndpoint(endpoint) {
-  if (!endpoint) return { host: "—", tail: "—", apple: false };
-  let host = "—";
-  try {
-    host = new URL(endpoint).host;
-  } catch {
-    /* ignore */
-  }
-  const apple =
-    /web\.push\.apple\.com/i.test(endpoint) || /apple/i.test(host);
-  const tail =
-    endpoint.length > 40 ? endpoint.slice(-40) : endpoint;
-  return { host, tail, apple };
-}
-
-async function refreshHomePushStatusV1() {
-  const perm =
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported";
-  const standalone =
-    window.matchMedia("(display-mode: standalone)").matches ||
-    Boolean(/** @type {{ standalone?: boolean }} */ (navigator).standalone);
-
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    setHomePushStatus("この端末は Web Push 非対応（iOS はホーム画面追加が必要）", false);
-    setHomePushDebug(
-      `debug: permission=${perm} · standalone=${standalone ? "yes" : "no"} · PushManager=no`
-    );
-    return;
-  }
-  try {
-    const reg = await navigator.serviceWorker.getRegistration("/");
-    if (!reg?.pushManager) {
-      setHomePushStatus("Service Worker 未登録", false);
-      setHomePushDebug(
-        `debug: permission=${perm} · standalone=${standalone ? "yes" : "no"} · SW=none`
-      );
-      return;
-    }
-    const sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      setHomePushStatus("Push 未登録 — 「再登録・購読」を押してください", false);
-      setHomePushDebug(
-        `debug: permission=${perm} · standalone=${standalone ? "yes" : "no"} · subscription=none`
-      );
-      return;
-    }
-    const ep = describePushEndpoint(sub.endpoint || "");
-    setHomePushStatus(
-      perm === "granted"
-        ? `登録済み · 通知許可OK${ep.apple ? " · APNs" : ""}`
-        : `登録済み · 許可=${perm}`,
-      perm === "granted"
-    );
-    setHomePushDebug(
-      `debug: permission=${perm} · host=${ep.host} · appleAPNs=${ep.apple ? "yes" : "no"} · endpoint…${ep.tail}`
-    );
-  } catch (err) {
-    setHomePushStatus(err.message || String(err), false);
-    setHomePushDebug(`debug: permission=${perm} · error=${err.message || err}`);
-  }
-}
-
-/**
- * @param {{ forceResubscribe?: boolean }} [opts]
- */
-async function registerHomeWebPushV1(opts = {}) {
-  const forceResubscribe = !!opts.forceResubscribe;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    throw new Error("Web Push 非対応（iOS はホーム画面に追加した PWA から）");
-  }
-  const vapidRes = await fetch("/api/notifications/vapid-public-key");
-  const vapidData = await vapidRes.json();
-  if (!vapidRes.ok || !vapidData.publicKey) {
-    throw new Error("VAPID 未設定 — サーバーで npm run vapid:setup");
-  }
-  const reg = await navigator.serviceWorker.register("/service-worker.js");
-  await navigator.serviceWorker.ready;
-
-  if (forceResubscribe) {
-    const existing = await reg.pushManager.getSubscription();
-    if (existing) {
-      try {
-        await existing.unsubscribe();
-      } catch (err) {
-        console.warn("[home-push] unsubscribe failed:", err);
-      }
-    }
-  }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") throw new Error(`通知が許可されていません (permission=${permission})`);
-
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey),
-  });
-  const json = sub.toJSON();
-  if (!json?.endpoint || !json?.keys?.p256dh || !json?.keys?.auth) {
-    throw new Error("購読エンドポイント取得失敗（keys/endpoint なし）");
-  }
-  const res = await fetch("/api/notifications/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: "home-security",
-      subscription: { endpoint: json.endpoint, keys: json.keys },
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `登録失敗 (${res.status})`);
-  const ep = describePushEndpoint(json.endpoint);
-  data._debug = {
-    permission,
-    endpointHost: ep.host,
-    appleAPNs: ep.apple,
-    endpointTail: ep.tail,
-    tokenId: data.tokenId,
-  };
-  return data;
-}
-
-async function testHomeWebPushV1() {
-  const siteId =
-    new URLSearchParams(location.search).get("siteId") ||
-    byId("hm-site-select")?.value ||
-    "";
-  const res = await fetch("/api/security-floor/v1/test-notify", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ siteId: siteId || "HOME-JP-ITABASHI-LIVE" }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `送信失敗 (${res.status})`);
-  if (data.push && data.push.success === false) {
-    const detail =
-      data.push.hint ||
-      data.push.error ||
-      (Array.isArray(data.push.attempts) && data.push.attempts.length
-        ? data.push.attempts
-            .map((a) => `${a.statusLabel}${a.error ? `: ${a.error}` : ""}`)
-            .join(" / ")
-        : null) ||
-      "Push 送信失敗";
-    const count =
-      typeof data.push.subscriptionCount === "number"
-        ? ` (subs=${data.push.subscriptionCount})`
-        : "";
-    throw new Error(`${detail}${count}`);
-  }
-  return data;
-}
-
 function bindHomeWebPushUiV1() {
-  byId("hm-push-register")?.addEventListener("click", async () => {
-    try {
-      await registerHomeWebPushV1({ forceResubscribe: false });
-      showToast("Push 登録完了");
-      await refreshHomePushStatusV1();
-    } catch (err) {
-      showToast(err.message || String(err));
-      setHomePushStatus(err.message || String(err), false);
-      await refreshHomePushStatusV1();
-    }
+  bindTislyPushBarV1({
+    prefix: "hm",
+    userId: "home-security",
+    showToast,
+    getSiteId: () =>
+      new URLSearchParams(location.search).get("siteId") ||
+      byId("hm-site-select")?.value ||
+      "",
   });
-  byId("hm-push-reregister")?.addEventListener("click", async () => {
-    try {
-      const data = await registerHomeWebPushV1({ forceResubscribe: true });
-      const d = data._debug || {};
-      showToast(
-        `再登録完了 · permission=${d.permission || "?"} · …${d.endpointTail || "ok"}`
-      );
-      await refreshHomePushStatusV1();
-    } catch (err) {
-      showToast(err.message || String(err));
-      setHomePushStatus(err.message || String(err), false);
-      await refreshHomePushStatusV1();
-    }
-  });
-  byId("hm-push-test")?.addEventListener("click", async () => {
-    try {
-      const data = await testHomeWebPushV1();
-      const sent = data.push?.sent;
-      const attempted = data.push?.attempted;
-      showToast(
-        typeof sent === "number" && typeof attempted === "number"
-          ? `通知テスト送信 OK (${sent}/${attempted})`
-          : "通知テストを送信しました"
-      );
-    } catch (err) {
-      showToast(err.message || String(err));
-    }
-  });
-  void refreshHomePushStatusV1();
 }
 
 /** 防犯パネルをまとめて更新（Security 画面側。HOME からはタイムラインのみ） */

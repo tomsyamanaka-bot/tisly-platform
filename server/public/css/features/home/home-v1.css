@@ -346,6 +346,54 @@
   border-color: rgba(37, 99, 235, 0.4);
 }
 
+/* ---------- PWA Push bar（ヘッダー） ---------- */
+.hm-push-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(30, 58, 138, 0.22);
+  border-radius: 12px;
+  background: #ffffff;
+}
+.hm-push-btn {
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 900;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.hm-push-btn.is-outline {
+  color: var(--hm-navy, #1e3a8a);
+  background: #ffffff;
+  border-color: var(--hm-navy, #1e3a8a);
+}
+.hm-push-btn.is-test {
+  color: var(--hm-navy, #1e3a8a);
+  background: #eff6ff;
+  border-color: rgba(30, 58, 138, 0.35);
+}
+.hm-push-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.hm-push-registered {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hm-push-status {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--hm-muted, #64748b);
+}
+
 .hm-badge-mute {
   background: #f1f5f9;
   color: var(--hm-muted);

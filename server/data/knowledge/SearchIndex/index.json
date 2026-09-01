@@ -1,7 +1,22 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-30T19:02:12.302Z",
+  "updatedAt": "2026-09-01T05:37:57.882Z",
   "entries": [
+    {
+      "id": "PWA-WEB-PUSH-REGISTER-001",
+      "title": "【PWA機能】Web Push通知登録ボタン・Service Worker購読フロー復旧仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#PWA",
+        "#WebPush",
+        "#通知登録",
+        "#ServiceWorker",
+        "#TiSLY_HOME"
+      ],
+      "summary": "PWAカード一覧画面からのワンタップ通知許諾、\nVAPID公開鍵連携、来客・防犯アラートの\nバックグラウンド受信仕様。\n\n【PWA カード一覧ヘッダー UI】\n未登録: 🔕「プッシュ通知を有効化する」（navy 枠）。\n登録済: 🔔「通知受信中（登録済み）」＋テスト送信。\n\n【購読フロー】\nService Worker 登録 → VAPID 公開鍵取得 →\nNotification.requestPermission → PushManager.subscribe →\nPOST /api/notifications/subscribe（userId=home-security）。\n\n【テスト通知】\nPOST /api/security-floor/v1/test-notify で\n玄関インターホン呼出・ミリ波検知の模擬Pushを送信。\n\n【配置画面】\nApp Hub（/app）カード一覧上部 · TiSLY HOME · 各拠点PWA。\niOS はホーム画面追加した PWA のみ Web Push 対応。",
+      "updatedAt": "2026-09-01",
+      "sourceType": "manual"
+    },
     {
       "id": "FACTORY-FIELD-DX-3D-UNIFIED-001",
       "title": "【製造DX】電工パーツ自動抜き穴・DIN固定座・コスト試算・分解図統合3Dジェネレーター",
@@ -36,6 +51,22 @@
       "sourceType": "manual"
     },
     {
+      "id": "FACTORY-PART-OFFSET-TOPDOWN-001",
+      "title": "【製造DX】筐体パーツ個別オフセット調整＆天面接地サポートレスSTL出力",
+      "category": "IOT関連",
+      "tags": [
+        "#3Dプリンター",
+        "#パラメトリック設計",
+        "#位置調整",
+        "#サポートレス",
+        "#TiSLY_Factory",
+        "#PWA"
+      ],
+      "summary": "筐体内部の固定柱（ボス）や端子スリットの位置を左右・前後にミリ単位で個別オフセット調整可能に。\n天面接地反転出力と組み合わせ、現物合わせの微調整からサポートレス印刷までを完全自動化。\n\n【位置オフセット】\n固定ボス・端子スリット・リブを左右／前後に\n±0.1mm 単位で個別オフセットできる。\n\n【3D連動】\nビュー上のパーツバッジをタップ／ドラッグし、\n現物合わせの微調整をその場で反映する。\n\n【天面接地】\n底板削除＋天面接地 STL でサポートレス印刷と\nボス積層強度を両立する。",
+      "updatedAt": "2026-08-30",
+      "sourceType": "manual"
+    },
+    {
       "id": "FACTORY-RP2350-POE-COVER-SCAN-001",
       "title": "【製造DX】RP2350-POE実測寸法ベースの3Dプリント専用カバー＆スキャン結合モデリング",
       "category": "IOT関連",
@@ -48,7 +79,7 @@
         "#TiSLY_Factory",
         "#PWA"
       ],
-      "summary": "Waveshare RP2350ボードの実測値（154.2×88.1×15.5mm、内寸69.5mm）をテンプレート化。\nRevopoint MINI 2のスキャンデータと重ね合わせて配線逃げ・端子開口・DINマウント付き\nカスタムカバーを即座にSTL出力。\n\n【実測テンプレート】\nWaveshare RP2350-POE 実測値をプリセット化。\n全長 154.2mm · 全幅（フランジ耳）88.1mm ·\n内寸幅 69.5mm · 深さ 15.5mm · ボス高 11.4mm。\n\n【端子逃げ】\nCH1〜CH8 / DI1〜DI8 / RS485 / PoE-LAN の\n配線逃げスリットと開口ガイドを自動生成する。\n\n【スキャン結合】\nRevopoint MINI 2 の STL/OBJ を半透明オーバーレイ。\nネジ穴ピッチ・端子開口の干渉をブラウザで確認し、\nクリアランス +0.2〜+1.0mm 調整後に STL 出力する。",
+      "summary": "Waveshare RP2350ボードの実測値（154.2×88.1×15.5mm、内寸69.5mm）をテンプレート化。\nRevopoint MINI 2のスキャンデータと重ね合わせて配線逃げ・端子開口・DINマウント付き\nカスタムカバーを即座にSTL出力。\n\n【実測テンプレート】\nWaveshare RP2350-POE 実測値をプリセット化。\n全長 154.2mm · 全幅（フランジ耳）88.1mm ·\n内寸幅 69.5mm · 深さ 15.5mm · ボス高 11.4mm。\n\n【端子逃げ】\nCH1〜CH8 / DI1〜DI8 / RS485 / PoE-LAN の\n配線逃げスリットと開口ガイドを自動生成する。\n\n【スキャン結合】\nRevopoint MINI 2 の STL/OBJ を半透明オーバーレイ。\nネジ穴ピッチ・端子開口の干渉をブラウザで確認し、\nクリアランス +0.2〜+1.0mm 調整後に STL 出力する。\n\n【上部カバー固定寸法・追記】\n長手ネジピッチ 145.0mm · 短手 70.0mm（M3ボス）。\n左側リレー8ch開口 115×6.5mm。天板/壁厚 2.0mm。\n底板なし＋天面接地でサポートレス STL 出力。",
       "updatedAt": "2026-08-30",
       "sourceType": "manual"
     },

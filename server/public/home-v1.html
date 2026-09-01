@@ -33,6 +33,25 @@
           >連携状態を確認中…</span
         >
       </div>
+      <!-- PWA Web Push 購読（ヘッダー） -->
+      <section class="hm-push-bar" id="hm-push-bar" aria-label="プッシュ通知">
+        <button
+          type="button"
+          class="hm-push-btn is-outline"
+          id="hm-push-register"
+        >
+          🔕 プッシュ通知を有効化する
+        </button>
+        <div class="hm-push-registered" id="hm-push-registered" hidden>
+          <span class="hm-badge hm-badge-ok" id="hm-push-badge">
+            🔔 通知受信中（登録済み）
+          </span>
+          <button type="button" class="hm-push-btn is-test" id="hm-push-test">
+            テスト通知を送る
+          </button>
+        </div>
+        <p class="hm-push-status" id="hm-push-status" role="status"></p>
+      </section>
     </div>
   </header>
 

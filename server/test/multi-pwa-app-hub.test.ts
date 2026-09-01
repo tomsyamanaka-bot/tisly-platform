@@ -1,5 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import fs from "fs";
+import path from "path";
 import assert from "node:assert/strict";
 
 process.env.JWT_SECRET = "test-jwt-pwa-phase461";
@@ -17,6 +18,7 @@ const { PWA_SHELL_VERSION } = await import("../src/pwa/pwa-shell-version.js");
 const { APP_ICON_VERSION } = await import("../src/pwa/pwa-manifest-icons.js");
 
 const app = createApp();
+const publicDir = path.join(process.cwd(), "public");
 
 async function customerLogin(code: string, username: string) {
   return request(app)
@@ -441,6 +443,19 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const hub = await request(app).get("/app");
     assert.ok(hub.text.includes("/apple-touch-icon.png"));
     assert.ok(hub.text.includes(`manifest.webmanifest?v=${APP_ICON_VERSION}`));
+    assert.ok(hub.text.includes('id="hub-push-register"'));
+    assert.ok(hub.text.includes("プッシュ通知を有効化する"));
+    assert.ok(hub.text.includes('id="hub-push-test"'));
+  });
+
+  it("app-hub JS binds inline push bar on login", () => {
+    const js = fs.readFileSync(
+      path.join(publicDir, "js/app-hub.js"),
+      "utf-8"
+    );
+    assert.ok(js.includes("bindTislyPushBarV1"));
+    assert.ok(js.includes("bindHubPushBarV1"));
+    assert.ok(js.includes('prefix: "hub"'));
   });
 
   it("serves RC2 push and notification PWA pages", async () => {
