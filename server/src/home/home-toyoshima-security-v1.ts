@@ -9,11 +9,15 @@
 import { v4 as uuid } from "uuid";
 import { sendWebPush } from "../notification/channels/web-push.js";
 import {
+  buildHomeSecurityFirmwareRulesV1,
   getHomeSecurityRulesV1,
   homeGuardModeLabelJaV1,
   isHomeGuardActiveV1,
+  isHomeNotifyModeV1,
+  isHomeNotifyPushEnabledV1,
   isHomeSecurityArmedV1,
   type HomeGuardModeV1,
+  type HomeNotifyModeV1,
   updateHomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import {
@@ -88,6 +92,38 @@ export interface ToyoshimaTimelineEventV1 {
   detail?: string;
 }
 
+export type ToyoshimaNotifySensorIdV1 =
+  | "detached_road"
+  | "detached_path"
+  | "main_beam";
+
+export interface ToyoshimaNotifySensorV1 {
+  id: ToyoshimaNotifySensorIdV1;
+  label: string;
+  mode: HomeNotifyModeV1;
+  modeLabel: string;
+}
+
+export interface ToyoshimaDeviceHealthV1 {
+  building: ToyoshimaBuildingIdV1;
+  label: string;
+  online: boolean;
+  lastCommAt: string | null;
+}
+
+export interface ToyoshimaAlarmStateV1 {
+  active: boolean;
+  message: string;
+  items: string[];
+}
+
+export interface ToyoshimaCommHealthV1 {
+  onlineSummary: string;
+  lastCommAt: string | null;
+  lastCommLabel: string;
+  devices: ToyoshimaDeviceHealthV1[];
+}
+
 export interface ToyoshimaSecurityDashboardV1 {
   siteId: string;
   displayName: string;
@@ -101,10 +137,18 @@ export interface ToyoshimaSecurityDashboardV1 {
   lightsScheduleLabel: string;
   armed: boolean;
   lightsActive: boolean;
+  commHealth: ToyoshimaCommHealthV1;
+  alarm: ToyoshimaAlarmStateV1;
+  notifySensors: ToyoshimaNotifySensorV1[];
   main: ToyoshimaBuildingStateV1;
   detached: ToyoshimaBuildingStateV1;
   timeline: ToyoshimaTimelineEventV1[];
   lastUpdatedAt: string;
+}
+
+interface ToyoshimaDeviceCommRuntimeV1 {
+  lastCommAt: string | null;
+  online: boolean;
 }
 
 /** ランタイム状態（VPS メモリ） */
@@ -113,6 +157,8 @@ interface ToyoshimaRuntimeV1 {
   detached: ToyoshimaBuildingStateV1;
   timeline: ToyoshimaTimelineEventV1[];
   patliteTimers: Map<string, ReturnType<typeof setInterval>>;
+  deviceComm: Record<ToyoshimaBuildingIdV1, ToyoshimaDeviceCommRuntimeV1>;
+  alarmLatch: boolean;
 }
 
 function defaultMainBuilding(): ToyoshimaBuildingStateV1 {
@@ -173,12 +219,30 @@ function defaultDetachedBuilding(): ToyoshimaBuildingStateV1 {
   };
 }
 
+function defaultDeviceComm(): ToyoshimaDeviceCommRuntimeV1 {
+  return { lastCommAt: nowIso(), online: true };
+}
+
 const runtime: ToyoshimaRuntimeV1 = {
   main: defaultMainBuilding(),
   detached: defaultDetachedBuilding(),
   timeline: [],
   patliteTimers: new Map(),
+  deviceComm: {
+    main: defaultDeviceComm(),
+    detached: defaultDeviceComm(),
+  },
+  alarmLatch: false,
 };
+
+/** 実機・操作の通信時刻を記録 */
+export function touchToyoshimaDeviceCommV1(
+  building: ToyoshimaBuildingIdV1
+): void {
+  const at = nowIso();
+  runtime.deviceComm[building] = { lastCommAt: at, online: true };
+  getBuilding(building).online = true;
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -336,13 +400,16 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
     actor: "rp2350",
   });
 
-  if (armed) {
+  if (armed && isHomeNotifyPushEnabledV1(rules.notifyStagedMode)) {
     await sendToyoshimaPush({
       title: "🚨 豊島邸 母屋",
       body: "母屋 遠近ビームセンサー侵入検知",
       eventType: "toyoshima_main_beam",
     });
   }
+
+  runtime.alarmLatch = true;
+  touchToyoshimaDeviceCommV1("main");
 
   if (lightsActive) {
     const d1 = findDo(runtime.main, 1);
@@ -398,7 +465,10 @@ async function handleDetachedDi(
     actor: "rp2350",
   });
 
-  if (armed) {
+  const notifyMode =
+    di === 1 ? rules.notifyDi1Mode : rules.notifyDi2Mode;
+
+  if (armed && isHomeNotifyPushEnabledV1(notifyMode)) {
     await sendToyoshimaPush({
       title,
       body: title,
@@ -407,6 +477,9 @@ async function handleDetachedDi(
         : "toyoshima_detached_path",
     });
   }
+
+  runtime.alarmLatch = true;
+  touchToyoshimaDeviceCommV1("detached");
 
   const light = findDo(runtime.detached, 1);
   if (lightsActive && light) {
@@ -483,6 +556,7 @@ export function applyToyoshimaManualControlV1(input: {
   );
   const building = getBuilding(input.building);
   const actor = input.actor ?? "app";
+  touchToyoshimaDeviceCommV1(input.building);
 
   if (input.action === "patlite_test") {
     const ch = input.building === "main" ? 3 : 2;
@@ -561,6 +635,251 @@ function mapToyoshimaBuildingForCustomerV1(
   };
 }
 
+/** 通知モードの日本語ラベル */
+function toyoshimaNotifyModeLabelV1(mode: HomeNotifyModeV1): string {
+  if (mode === "critical") return "緊急通知ON";
+  if (mode === "silent") return "サイレント";
+  return "OFF";
+}
+
+/** センサー別通知設定（UI 用） */
+function buildToyoshimaNotifySensorsV1(
+  rules: ReturnType<typeof getHomeSecurityRulesV1>
+): ToyoshimaNotifySensorV1[] {
+  return [
+    {
+      id: "detached_road",
+      label: "道路側センサー",
+      mode: rules.notifyDi1Mode,
+      modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi1Mode),
+    },
+    {
+      id: "detached_path",
+      label: "通路側センサー",
+      mode: rules.notifyDi2Mode,
+      modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi2Mode),
+    },
+    {
+      id: "main_beam",
+      label: "母屋 遠近センサー",
+      mode: rules.notifyStagedMode,
+      modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyStagedMode),
+    },
+  ];
+}
+
+function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
+  const items: string[] = [];
+  if (runtime.main.di.some((d) => d.state === "detecting")) {
+    items.push("母屋 遠近センサー検知");
+  }
+  if (runtime.detached.di.some((d) => d.state === "detecting")) {
+    const det = runtime.detached.di.find((d) => d.state === "detecting");
+    items.push(
+      det?.ch === 1 ? "はなれ 道路側センサー検知" : "はなれ 通路側センサー検知"
+    );
+  }
+  if (runtime.detached.do.some((d) => d.blinking)) {
+    items.push("はなれ パトライト作動中");
+  }
+  if (runtime.main.do.some((d) => d.blinking)) {
+    items.push("母屋 パトライト作動中");
+  }
+  const active = runtime.alarmLatch || items.length > 0;
+  return {
+    active,
+    message: active ? items[0] || "警報発報中" : "発報はありません",
+    items,
+  };
+}
+
+function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
+  const devices: ToyoshimaDeviceHealthV1[] = [
+    {
+      building: "main",
+      label: "主装置",
+      online: runtime.deviceComm.main.online,
+      lastCommAt: runtime.deviceComm.main.lastCommAt,
+    },
+    {
+      building: "detached",
+      label: "子機",
+      online: runtime.deviceComm.detached.online,
+      lastCommAt: runtime.deviceComm.detached.lastCommAt,
+    },
+  ];
+  const latest = devices
+    .filter((d) => d.lastCommAt)
+    .sort((a, b) =>
+      String(b.lastCommAt).localeCompare(String(a.lastCommAt))
+    )[0];
+  const allOnline = devices.every((d) => d.online);
+  return {
+    onlineSummary: allOnline
+      ? "🟢 オンライン（接続中）"
+      : "🔴 オフライン（要確認）",
+    lastCommAt: latest?.lastCommAt ?? null,
+    lastCommLabel: latest?.label ?? "—",
+    devices,
+  };
+}
+
+const NOTIFY_SENSOR_FIELD: Record<
+  ToyoshimaNotifySensorIdV1,
+  "notifyDi1Mode" | "notifyDi2Mode" | "notifyStagedMode"
+> = {
+  detached_road: "notifyDi1Mode",
+  detached_path: "notifyDi2Mode",
+  main_beam: "notifyStagedMode",
+};
+
+/** センサー通知モードを切替 */
+export function updateToyoshimaNotifyModeV1(input: {
+  siteId?: string;
+  sensorId: ToyoshimaNotifySensorIdV1;
+  mode: HomeNotifyModeV1;
+  actor?: string;
+}): { ok: boolean; rules: ReturnType<typeof getHomeSecurityRulesV1> } {
+  const homeId = resolveHomeSiteId(
+    String(input.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
+  );
+  if (!isHomeNotifyModeV1(input.mode)) {
+    throw new Error("mode must be critical, silent, or off");
+  }
+  const field = NOTIFY_SENSOR_FIELD[input.sensorId];
+  const rules = updateHomeSecurityRulesV1(homeId, {
+    [field]: input.mode,
+  });
+  recordSystemLogV1({
+    siteId: homeId,
+    category: "manual_control",
+    message: `通知設定変更: ${input.sensorId} → ${input.mode}`,
+    actor: input.actor ?? "customer-portal",
+  });
+  return { ok: true, rules };
+}
+
+/** 警報ラッチ解除・検知状態リセット */
+export function clearToyoshimaAlarmsV1(input?: {
+  siteId?: string;
+  actor?: string;
+}): { ok: boolean } {
+  const homeId = resolveHomeSiteId(
+    String(input?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
+  );
+  runtime.alarmLatch = false;
+  runtime.main.di.forEach((d) => {
+    d.state = "normal";
+  });
+  runtime.detached.di.forEach((d) => {
+    d.state = "normal";
+  });
+  stopPatliteBlink("main", 3);
+  stopPatliteBlink("detached", 2);
+  recordSystemLogV1({
+    siteId: homeId,
+    category: "manual_control",
+    message: "アラーム対応完了",
+    actor: input?.actor ?? "customer-portal",
+  });
+  return { ok: true };
+}
+
+/** 防犯ライト一括 ON/OFF（パトライト除く） */
+export function applyToyoshimaBulkLightsV1(input: {
+  siteId?: string;
+  action: "on" | "off";
+  actor?: string;
+}): { ok: boolean } {
+  const on = input.action === "on";
+  const actor = input.actor ?? "customer-portal";
+  for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+    touchToyoshimaDeviceCommV1(building);
+    applyToyoshimaManualControlV1({
+      building,
+      action: on ? "do1_on" : "do1_off",
+      actor,
+    });
+    if (building === "main") {
+      applyToyoshimaManualControlV1({
+        building,
+        action: on ? "do2_on" : "do2_off",
+        actor,
+      });
+    }
+  }
+  appendTimeline({
+    at: nowIso(),
+    building: "main",
+    kind: "manual",
+    title: on ? "照明を一括ON" : "照明を一括OFF",
+    detail: "母屋・はなれの防犯ライト",
+  });
+  return { ok: true };
+}
+
+/** RP2350 向け設定 JSON を返す（同期ボタン用） */
+export function syncToyoshimaConfigToFirmwareV1(
+  siteId?: string | null
+): ReturnType<typeof buildHomeSecurityFirmwareRulesV1> {
+  const homeId = resolveHomeSiteId(
+    String(siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
+  );
+  touchToyoshimaDeviceCommV1("main");
+  touchToyoshimaDeviceCommV1("detached");
+  recordSystemLogV1({
+    siteId: homeId,
+    category: "manual_control",
+    message: "主装置・子機へ設定を反映",
+    actor: "customer-portal",
+  });
+  return buildHomeSecurityFirmwareRulesV1(homeId);
+}
+
+/** 模擬 Push 通知 */
+export async function sendToyoshimaTestNotifyV1(
+  siteId?: string | null
+): Promise<{ ok: boolean; pushSent: boolean }> {
+  const homeId = resolveHomeSiteId(
+    String(siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
+  );
+  const pushSent = await sendToyoshimaPush({
+    title: "🔔 豊島邸 通知テスト",
+    body: "Push通知が正常に届きました（豊島邸 Security）",
+    eventType: "toyoshima_test_notify",
+  });
+  recordSystemLogV1({
+    siteId: homeId,
+    category: "manual_control",
+    message: "通知テスト送信",
+    detail: { pushSent },
+    actor: "customer-portal",
+  });
+  return { ok: true, pushSent };
+}
+
+/** 動作ログレポート（テキスト） */
+export function buildToyoshimaActivityReportV1(
+  siteId?: string | null
+): string {
+  const dash = buildToyoshimaSecurityDashboardV1(siteId);
+  const lines = [
+    `豊島邸 Security 動作レポート`,
+    `出力日時: ${new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}`,
+    `警戒: ${dash.guardModeLabel}`,
+    `ライト点灯: ${dash.lightsScheduleLabel}`,
+    `通信: ${dash.commHealth.onlineSummary}`,
+    "",
+    "— イベント履歴 —",
+  ];
+  for (const ev of dash.timeline) {
+    lines.push(
+      `${ev.at} | ${ev.title}${ev.detail ? ` / ${ev.detail}` : ""}`
+    );
+  }
+  return lines.join("\n");
+}
+
 /** 警戒時間帯の表示ラベル */
 function toyoshimaGuardScheduleLabelV1(
   rules: ReturnType<typeof getHomeSecurityRulesV1>
@@ -599,6 +918,9 @@ export function buildToyoshimaSecurityDashboardV1(
     lightsScheduleLabel: `${scheduleStart}〜${scheduleEnd}`,
     armed: isHomeSecurityArmedV1(rules),
     lightsActive: isHomeGuardActiveV1(rules),
+    commHealth: buildToyoshimaCommHealthV1(),
+    alarm: buildToyoshimaAlarmStateV1(),
+    notifySensors: buildToyoshimaNotifySensorsV1(rules),
     main: mapToyoshimaBuildingForCustomerV1({
       ...runtime.main,
       di: [...runtime.main.di],
@@ -619,6 +941,11 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
   runtime.main = defaultMainBuilding();
   runtime.detached = defaultDetachedBuilding();
   runtime.timeline = [];
+  runtime.deviceComm = {
+    main: defaultDeviceComm(),
+    detached: defaultDeviceComm(),
+  };
+  runtime.alarmLatch = false;
   for (const [, timer] of runtime.patliteTimers) {
     clearInterval(timer);
   }

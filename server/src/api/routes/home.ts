@@ -91,12 +91,18 @@ import {
   processHomeSecurityEventV1,
 } from "../../home/home-security-notify-v1.js";
 import {
+  applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
+  buildToyoshimaActivityReportV1,
   buildToyoshimaSecurityDashboardV1,
+  clearToyoshimaAlarmsV1,
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   isToyoshimaSecuritySiteIdV1,
   processToyoshimaSecurityEventV1,
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
+  sendToyoshimaTestNotifyV1,
+  syncToyoshimaConfigToFirmwareV1,
+  updateToyoshimaNotifyModeV1,
 } from "../../home/home-toyoshima-security-v1.js";
 import {
   buildSwitchBotHomeStatusV1,
@@ -879,6 +885,127 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       building: result.state,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),
     });
+  });
+
+  homeRouter.post(`${prefix}/sync-config`, (req, res) => {
+    const siteId = String(
+      req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    const homeId = HOME_JP_TOYOSHIMA_SITE_ID_V1;
+    const firmware = syncToyoshimaConfigToFirmwareV1(siteId);
+    const rules = getHomeSecurityRulesV1(homeId);
+    res.json({
+      ok: true,
+      message: "主装置・子機へ設定を反映しました",
+      firmware,
+      dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+      rules: {
+        ...rules,
+        guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+      },
+    });
+  });
+
+  homeRouter.post(`${prefix}/bulk-lights`, (req, res) => {
+    const siteId = String(
+      req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    const action = req.body?.action === "off" ? "off" : "on";
+    applyToyoshimaBulkLightsV1({
+      siteId,
+      action,
+      actor: String(req.body?.actor ?? "customer-portal"),
+    });
+    res.json({
+      ok: true,
+      action,
+      dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+    });
+  });
+
+  homeRouter.post(`${prefix}/alarm-clear`, (req, res) => {
+    const siteId = String(
+      req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    clearToyoshimaAlarmsV1({
+      siteId,
+      actor: String(req.body?.actor ?? "customer-portal"),
+    });
+    res.json({
+      ok: true,
+      dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+    });
+  });
+
+  homeRouter.put(`${prefix}/notify-mode`, (req, res) => {
+    const siteId = String(
+      req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    const sensorId = String(req.body?.sensorId ?? "").trim();
+    const mode = String(req.body?.mode ?? "").trim();
+    if (
+      sensorId !== "detached_road" &&
+      sensorId !== "detached_path" &&
+      sensorId !== "main_beam"
+    ) {
+      res.status(400).json({ ok: false, error: "sensorId invalid" });
+      return;
+    }
+    try {
+      updateToyoshimaNotifyModeV1({
+        siteId,
+        sensorId,
+        mode: mode as "critical" | "silent" | "off",
+        actor: String(req.body?.actor ?? "customer-portal"),
+      });
+      res.json({
+        ok: true,
+        dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+      });
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  homeRouter.post(`${prefix}/test-notify`, async (req, res) => {
+    const siteId = String(
+      req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    try {
+      const result = await sendToyoshimaTestNotifyV1(siteId);
+      res.json({
+        ...result,
+        dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  homeRouter.get(`${prefix}/report`, (req, res) => {
+    const siteId = String(req.query.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1).trim();
+    const format = String(req.query.format ?? "text").trim();
+    const body = buildToyoshimaActivityReportV1(siteId);
+    if (format === "json") {
+      res.json({
+        ok: true,
+        report: body,
+        dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+      });
+      return;
+    }
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="toyoshima-security-report.txt"'
+    );
+    res.send(body);
   });
 }
 

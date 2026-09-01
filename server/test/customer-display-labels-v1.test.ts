@@ -52,6 +52,8 @@ describe("toyoshima customer dashboard labels", () => {
     assert.equal(dash.displayName, "豊島邸");
     assert.match(dash.main.controllerLabel, /主装置/);
     assert.match(dash.detached.controllerLabel, /子機/);
+    assert.ok(dash.commHealth);
+    assert.ok(dash.notifySensors?.length === 3);
     assert.ok(dash.scheduleStart);
     assert.ok(dash.scheduleEnd);
     assert.match(dash.guardModeLabel, /警戒|24時間|解除/);

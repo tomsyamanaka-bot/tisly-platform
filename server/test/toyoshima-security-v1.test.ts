@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import {
+  applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
   buildToyoshimaSecurityDashboardV1,
+  clearToyoshimaAlarmsV1,
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   processToyoshimaSecurityEventV1,
   resetToyoshimaSecurityStateForTestV1,
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
+  updateToyoshimaNotifyModeV1,
 } from "../src/home/home-toyoshima-security-v1.js";
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
 import {
@@ -81,5 +84,40 @@ describe("toyoshima-security-v1", () => {
     });
     assert.equal(result.ok, true);
     assert.equal(result.state.do[1].blinking, true);
+  });
+
+  it("dashboard exposes comm health, alarm, and notify sensors", () => {
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.ok(dash.commHealth);
+    assert.match(dash.commHealth.onlineSummary, /オンライン/);
+    assert.ok(Array.isArray(dash.notifySensors));
+    assert.equal(dash.notifySensors.length, 3);
+    assert.equal(dash.alarm.active, false);
+  });
+
+  it("bulk lights and alarm clear work", async () => {
+    await processToyoshimaSecurityEventV1({
+      building: "detached",
+      di: 1,
+    });
+    const dash1 = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash1.alarm.active, true);
+    clearToyoshimaAlarmsV1();
+    const dash2 = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash2.alarm.active, false);
+    applyToyoshimaBulkLightsV1({ action: "on" });
+    const dash3 = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash3.main.do[0].on, true);
+    assert.equal(dash3.detached.do[0].on, true);
+  });
+
+  it("notify mode update persists", () => {
+    updateToyoshimaNotifyModeV1({
+      sensorId: "detached_road",
+      mode: "silent",
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    const road = dash.notifySensors.find((s) => s.id === "detached_road");
+    assert.equal(road?.mode, "silent");
   });
 });

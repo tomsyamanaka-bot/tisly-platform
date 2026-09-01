@@ -142,6 +142,233 @@
   color: #334155;
 }
 
+.ts-sync-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(30, 58, 138, 0.28);
+  touch-action: manipulation;
+}
+
+.ts-sync-btn:disabled {
+  opacity: 0.65;
+}
+
+.ts-health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ts-health-cell {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.ts-health-cell-wide {
+  grid-column: 1 / -1;
+}
+
+.ts-health-key {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.ts-health-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.ts-alarm-card.is-live {
+  border-color: #fecaca;
+  background: #fff5f5;
+}
+
+.ts-alarm-status {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #334155;
+}
+
+.ts-alarm-status.is-alert {
+  color: #b91c1c;
+}
+
+.ts-hint {
+  margin: 0 0 12px;
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.ts-notify-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ts-notify-row:last-child {
+  border-bottom: none;
+}
+
+.ts-notify-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ts-notify-btn {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ts-notify-btn.is-on {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #fff;
+}
+
+.ts-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ts-btn-wide {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.ts-section-gap {
+  margin-top: 16px;
+}
+
+.ts-push-diag {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ts-activity-log {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ts-log-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ts-log-ico {
+  font-size: 1.1rem;
+}
+
+.ts-log-title {
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.ts-log-sub {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.ts-log-time {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.ts-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(120%);
+  z-index: 9999;
+  max-width: min(92vw, 420px);
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+  transition: transform 0.25s ease;
+}
+
+.ts-toast.is-visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.ts-log-dialog {
+  border: none;
+  border-radius: 18px;
+  padding: 0;
+  max-width: min(96vw, 640px);
+  width: 96vw;
+  max-height: 85vh;
+}
+
+.ts-log-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.ts-log-dialog-inner {
+  padding: 16px 18px 18px;
+  max-height: 85vh;
+  overflow: auto;
+}
+
+.ts-log-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ts-log-dialog-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1e3a8a;
+}
+
 .ts-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
