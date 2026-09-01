@@ -21,21 +21,29 @@ const LOCAL_TENANT_MAP = {
     displayName: "板橋自宅",
     securitySiteId: "SEC-JP-ITABASHI-LIVE",
     homeSiteId: "HOME-JP-ITABASHI-LIVE",
-    useToshimaDashboard: false,
+    useToyoshimaDashboard: false,
   },
   HOME001: {
     customerCode: "HOME001",
     displayName: "板橋自宅",
     securitySiteId: "SEC-JP-ITABASHI-LIVE",
     homeSiteId: "HOME-JP-ITABASHI-LIVE",
-    useToshimaDashboard: false,
+    useToyoshimaDashboard: false,
   },
+  TOYOSHIMA001: {
+    customerCode: "TOYOSHIMA001",
+    displayName: "豊島邸 (Toyoshima Residence)",
+    securitySiteId: "SEC-JP-TOYOSHIMA-001",
+    homeSiteId: "HOME-JP-TOYOSHIMA",
+    useToyoshimaDashboard: true,
+  },
+  /** 旧コード互換 */
   TOSHIMA001: {
-    customerCode: "TOSHIMA001",
-    displayName: "豊島邸（Toshima Residence）",
-    securitySiteId: "SEC-JP-TOSHIMA-001",
-    homeSiteId: "HOME-JP-TOSHIMA",
-    useToshimaDashboard: true,
+    customerCode: "TOYOSHIMA001",
+    displayName: "豊島邸 (Toyoshima Residence)",
+    securitySiteId: "SEC-JP-TOYOSHIMA-001",
+    homeSiteId: "HOME-JP-TOYOSHIMA",
+    useToyoshimaDashboard: true,
   },
 };
 
@@ -48,11 +56,12 @@ export function getCustomerToken() {
 }
 
 export function getCustomerCode() {
-  return (
+  const raw =
     sessionStorage.getItem(CUSTOMER_CODE_KEY) ||
     localStorage.getItem(CUSTOMER_CODE_KEY) ||
-    ""
-  ).toUpperCase();
+    "";
+  const code = raw.toUpperCase();
+  return code === "TOSHIMA001" ? "TOYOSHIMA001" : code;
 }
 
 export function getCustomerUsername() {
@@ -64,7 +73,8 @@ export function setCustomerSession(token, customerCode, username) {
     localStorage.setItem(ADMIN_TOKEN_KEY, token);
     sessionStorage.setItem(TOKEN_KEY, token);
   }
-  const code = String(customerCode || "").trim().toUpperCase();
+  let code = String(customerCode || "").trim().toUpperCase();
+  if (code === "TOSHIMA001") code = "TOYOSHIMA001";
   if (code) {
     sessionStorage.setItem(CUSTOMER_CODE_KEY, code);
     localStorage.setItem(CUSTOMER_CODE_KEY, code);
@@ -100,7 +110,7 @@ export function loadTenantProfile() {
     /* ignore */
   }
   const code = getCustomerCode();
-  return LOCAL_TENANT_MAP[code] ?? null;
+  return LOCAL_TENANT_MAP[code] ?? LOCAL_TENANT_MAP.TOSHIMA001 ?? null;
 }
 
 export function resolveSecuritySiteId() {
@@ -115,9 +125,10 @@ export function isLoggedIn() {
 }
 
 export async function loginCustomer(credentials) {
-  const customerCode = String(credentials.customerCode || "")
+  let customerCode = String(credentials.customerCode || "")
     .trim()
     .toUpperCase();
+  if (customerCode === "TOSHIMA001") customerCode = "TOYOSHIMA001";
   const username = String(credentials.username || "").trim();
   const password = String(credentials.password || "");
 

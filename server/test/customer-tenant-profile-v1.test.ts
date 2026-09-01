@@ -22,20 +22,23 @@ describe("customer-tenant-profile-v1", () => {
     const profile = resolveCustomerTenantProfileV1("TOMS001");
     assert.ok(profile);
     assert.equal(profile?.securitySiteId, "SEC-JP-ITABASHI-LIVE");
-    assert.equal(profile?.useToshimaDashboard, false);
+    assert.equal(profile?.useToyoshimaDashboard, false);
   });
 
-  it("maps TOSHIMA001 to Toshima dashboard site", () => {
-    const profile = resolveCustomerTenantProfileV1("TOSHIMA001");
+  it("maps TOYOSHIMA001 to Toyoshima dashboard site", () => {
+    const profile = resolveCustomerTenantProfileV1("TOYOSHIMA001");
     assert.ok(profile);
-    assert.equal(profile?.securitySiteId, "SEC-JP-TOSHIMA-001");
-    assert.equal(profile?.useToshimaDashboard, true);
+    assert.equal(profile?.securitySiteId, "SEC-JP-TOYOSHIMA-001");
+    assert.equal(profile?.useToyoshimaDashboard, true);
+    assert.match(profile?.displayName ?? "", /Toyoshima Residence/);
   });
 
-  it("HOME001 alias resolves to Itabashi", () => {
+  it("TOSHIMA001 alias resolves to TOYOSHIMA001 profile", () => {
+    const profile = resolveCustomerTenantProfileV1("TOSHIMA001");
+    assert.equal(profile?.customerCode, "TOYOSHIMA001");
     assert.equal(
-      resolveCustomerSecuritySiteIdV1("HOME001"),
-      "SEC-JP-ITABASHI-LIVE"
+      resolveCustomerSecuritySiteIdV1("TOSHIMA001"),
+      "SEC-JP-TOYOSHIMA-001"
     );
   });
 
@@ -44,8 +47,8 @@ describe("customer-tenant-profile-v1", () => {
     const login = await request(app)
       .post("/api/auth/customer/login")
       .send({
-        customerCode: "TOSHIMA001",
-        username: "toshima001.owner",
+        customerCode: "TOYOSHIMA001",
+        username: "toyoshima001.owner",
         password: "demo-remote-2026",
       });
     assert.equal(login.status, 200, login.body?.error);
@@ -53,8 +56,8 @@ describe("customer-tenant-profile-v1", () => {
       .get("/api/customer-portal/v1/session-home")
       .set("Authorization", `Bearer ${login.body.token}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.tenantProfile.customerCode, "TOSHIMA001");
-    assert.equal(res.body.tenantProfile.securitySiteId, "SEC-JP-TOSHIMA-001");
+    assert.equal(res.body.tenantProfile.customerCode, "TOYOSHIMA001");
+    assert.equal(res.body.tenantProfile.securitySiteId, "SEC-JP-TOYOSHIMA-001");
     assert.ok(res.body.home?.cards?.length >= 0);
   });
 });

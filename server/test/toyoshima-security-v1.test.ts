@@ -1,41 +1,41 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import {
-  applyToshimaManualControlV1,
-  buildToshimaSecurityDashboardV1,
-  HOME_JP_TOSHIMA_SITE_ID_V1,
-  processToshimaSecurityEventV1,
-  resetToshimaSecurityStateForTestV1,
-  SEC_JP_TOSHIMA_SITE_ID_V1,
-} from "../src/home/home-toshima-security-v1.js";
+  applyToyoshimaManualControlV1,
+  buildToyoshimaSecurityDashboardV1,
+  HOME_JP_TOYOSHIMA_SITE_ID_V1,
+  processToyoshimaSecurityEventV1,
+  resetToyoshimaSecurityStateForTestV1,
+  SEC_JP_TOYOSHIMA_SITE_ID_V1,
+} from "../src/home/home-toyoshima-security-v1.js";
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
 import {
   findSecuritySiteV1,
-  SECURITY_FLOOR_TOSHIMA_SITE_ID_V1,
+  SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
 } from "../src/security-floor/security-floor-sites-v1.js";
 
-describe("toshima-security-v1", () => {
+describe("toyoshima-security-v1", () => {
   afterEach(() => {
-    resetToshimaSecurityStateForTestV1();
+    resetToyoshimaSecurityStateForTestV1();
   });
 
   it("HOME site is registered at catalog tail", () => {
-    const site = findHomeSiteV1(HOME_JP_TOSHIMA_SITE_ID_V1);
-    assert.equal(site.id, HOME_JP_TOSHIMA_SITE_ID_V1);
+    const site = findHomeSiteV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    assert.equal(site.id, HOME_JP_TOYOSHIMA_SITE_ID_V1);
     assert.match(site.displayName, /豊島邸/);
-    assert.equal(site.customerCode, "TOSHIMA001");
+    assert.equal(site.customerCode, "TOYOSHIMA001");
   });
 
   it("SEC site is registered with main and detached sensors", () => {
-    const site = findSecuritySiteV1(SECURITY_FLOOR_TOSHIMA_SITE_ID_V1);
-    assert.equal(site.id, SEC_JP_TOSHIMA_SITE_ID_V1);
-    assert.equal(site.propertyId, HOME_JP_TOSHIMA_SITE_ID_V1);
+    const site = findSecuritySiteV1(SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1);
+    assert.equal(site.id, SEC_JP_TOYOSHIMA_SITE_ID_V1);
+    assert.equal(site.propertyId, HOME_JP_TOYOSHIMA_SITE_ID_V1);
     assert.ok(site.sensors.some((s) => s.id === "tm-main-di1"));
     assert.ok(site.sensors.some((s) => s.id === "tm-det-di2"));
   });
 
   it("dashboard exposes main and detached building cards", () => {
-    const dash = buildToshimaSecurityDashboardV1(SEC_JP_TOSHIMA_SITE_ID_V1);
+    const dash = buildToyoshimaSecurityDashboardV1(SEC_JP_TOYOSHIMA_SITE_ID_V1);
     assert.equal(dash.main.label, "母屋");
     assert.equal(dash.detached.label, "はなれ");
     assert.equal(dash.main.do.length, 3);
@@ -43,30 +43,30 @@ describe("toshima-security-v1", () => {
   });
 
   it("main beam event lights DO1/DO2 when schedule active", async () => {
-    const result = await processToshimaSecurityEventV1({
-      siteId: HOME_JP_TOSHIMA_SITE_ID_V1,
+    const result = await processToyoshimaSecurityEventV1({
+      siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
       building: "main",
       di: 1,
     });
     assert.equal(result.ok, true);
-    const dash = buildToshimaSecurityDashboardV1();
+    const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.di[0].state, "detecting");
     assert.ok(dash.timeline.some((t) => t.kind === "main_beam"));
   });
 
   it("detached road DI1 records timeline", async () => {
-    await processToshimaSecurityEventV1({
+    await processToyoshimaSecurityEventV1({
       building: "detached",
       di: 1,
     });
-    const dash = buildToshimaSecurityDashboardV1();
+    const dash = buildToyoshimaSecurityDashboardV1();
     assert.ok(
       dash.timeline.some((t) => t.kind === "detached_road")
     );
   });
 
   it("manual DO toggle updates state", () => {
-    const result = applyToshimaManualControlV1({
+    const result = applyToyoshimaManualControlV1({
       building: "main",
       action: "do1_on",
     });
@@ -75,7 +75,7 @@ describe("toshima-security-v1", () => {
   });
 
   it("patlite test starts blinking on detached DO2", () => {
-    const result = applyToshimaManualControlV1({
+    const result = applyToyoshimaManualControlV1({
       building: "detached",
       action: "patlite_test",
     });

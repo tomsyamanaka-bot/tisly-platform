@@ -9,9 +9,9 @@
 import { SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1 } from "../../security-floor/security-floor-sites-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
 import {
-  HOME_JP_TOSHIMA_SITE_ID_V1,
-  SEC_JP_TOSHIMA_SITE_ID_V1,
-} from "../../home/home-toshima-security-v1.js";
+  HOME_JP_TOYOSHIMA_SITE_ID_V1,
+  SEC_JP_TOYOSHIMA_SITE_ID_V1,
+} from "../../home/home-toyoshima-security-v1.js";
 
 export interface CustomerTenantProfileV1 {
   customerCode: string;
@@ -21,8 +21,15 @@ export interface CustomerTenantProfileV1 {
   /** TiSLY HOME 物件 ID */
   homeSiteId: string;
   /** 豊島邸専用 UI を使うか */
-  useToshimaDashboard: boolean;
+  useToyoshimaDashboard: boolean;
 }
+
+const TOYOSHIMA_PROFILE_V1 = {
+  displayName: "豊島邸 (Toyoshima Residence)",
+  securitySiteId: SEC_JP_TOYOSHIMA_SITE_ID_V1,
+  homeSiteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+  useToyoshimaDashboard: true,
+} as const;
 
 /** 顧客コード別プロファイル（追記のみ） */
 const CUSTOMER_TENANT_PROFILES_V1: Record<
@@ -33,28 +40,27 @@ const CUSTOMER_TENANT_PROFILES_V1: Record<
     displayName: "板橋自宅",
     securitySiteId: SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
     homeSiteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
-    useToshimaDashboard: false,
+    useToyoshimaDashboard: false,
   },
   /** 板橋自宅の別コード（互換） */
   HOME001: {
     displayName: "板橋自宅",
     securitySiteId: SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
     homeSiteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
-    useToshimaDashboard: false,
+    useToyoshimaDashboard: false,
   },
-  TOSHIMA001: {
-    displayName: "豊島邸（Toshima Residence）",
-    securitySiteId: SEC_JP_TOSHIMA_SITE_ID_V1,
-    homeSiteId: HOME_JP_TOSHIMA_SITE_ID_V1,
-    useToshimaDashboard: true,
-  },
+  TOYOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
+  /** 旧コード互換（TOSHIMA001 → TOYOSHIMA001） */
+  TOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
 };
 
 /** 顧客コードを正規化（エイリアス含む） */
 export function normalizeCustomerTenantCodeV1(
   code: string | null | undefined
 ): string {
-  return String(code ?? "").trim().toUpperCase();
+  const raw = String(code ?? "").trim().toUpperCase();
+  if (raw === "TOSHIMA001") return "TOYOSHIMA001";
+  return raw;
 }
 
 /** 登録済みテナントプロファイルを返す */

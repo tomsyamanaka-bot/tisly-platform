@@ -102,12 +102,18 @@ export const SECURITY_FLOOR_ITABASHI_PROPERTY_ID_V1 =
   "HOME-JP-ITABASHI-LIVE";
 
 /** 豊島邸 Security Floor サイト ID */
-export const SECURITY_FLOOR_TOSHIMA_SITE_ID_V1 =
-  "SEC-JP-TOSHIMA-001";
+export const SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1 =
+  "SEC-JP-TOYOSHIMA-001";
 
 /** 豊島邸 HOME / propertyId */
+export const SECURITY_FLOOR_TOYOSHIMA_PROPERTY_ID_V1 =
+  "HOME-JP-TOYOSHIMA";
+
+/** @deprecated 旧 ID 互換 */
+export const SECURITY_FLOOR_TOSHIMA_SITE_ID_V1 =
+  SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1;
 export const SECURITY_FLOOR_TOSHIMA_PROPERTY_ID_V1 =
-  "HOME-JP-TOSHIMA";
+  SECURITY_FLOOR_TOYOSHIMA_PROPERTY_ID_V1;
 
 /**
  * UI 物件セレクタに出す ID。
@@ -115,7 +121,7 @@ export const SECURITY_FLOOR_TOSHIMA_PROPERTY_ID_V1 =
  */
 export const SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1 = [
   SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
-  SECURITY_FLOOR_TOSHIMA_SITE_ID_V1,
+  SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
 ] as const;
 
 /** UI 初期選択（板橋自宅） */
@@ -834,7 +840,11 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
 export function findSecuritySiteV1(
   id: string | null | undefined
 ): SecuritySiteV1 {
-  const key = String(id || "").trim();
+  const raw = String(id || "").trim();
+  const aliases: Record<string, string> = {
+    "SEC-JP-TOSHIMA-001": SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
+  };
+  const key = aliases[raw] ?? raw;
   const found = SECURITY_FLOOR_SITES_V1.find(
     (s) => s.id === key
   );
@@ -1426,22 +1436,22 @@ function enrichAerialPerimeterSitesV1(): void {
 }
 
 /** 豊島邸をカタログ末尾に追記（既存物件は変更しない） */
-function ensureToshimaSecuritySiteV1(): void {
+function ensureToyoshimaSecuritySiteV1(): void {
   if (
     SECURITY_FLOOR_SITES_V1.some(
-      (s) => s.id === SECURITY_FLOOR_TOSHIMA_SITE_ID_V1
+      (s) => s.id === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1
     )
   ) {
     return;
   }
-  const propertyId = SECURITY_FLOOR_TOSHIMA_PROPERTY_ID_V1;
+  const propertyId = SECURITY_FLOOR_TOYOSHIMA_PROPERTY_ID_V1;
   const site: SecuritySiteV1 = {
-    id: SECURITY_FLOOR_TOSHIMA_SITE_ID_V1,
+    id: SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
     tenantId: "tenant_toms_jp",
     countryCode: "JP",
     currency: "JPY",
     kind: "home",
-    displayName: "豊島邸（Toshima Residence）",
+    displayName: "豊島邸 (Toyoshima Residence)",
     addressLabel: "茨城県",
     planCode: "home_security_std",
     planStatus: "active",
@@ -1632,7 +1642,7 @@ enrichExistingSitesForSocV1();
 enrichItabashiDiSensorsV1();
 enrichAerialPerimeterSitesV1();
 ensureItabashiPropertyScopeV1();
-ensureToshimaSecuritySiteV1();
+ensureToyoshimaSecuritySiteV1();
 
 type SocSensorListenerV1 = (
   site: SecuritySiteV1,

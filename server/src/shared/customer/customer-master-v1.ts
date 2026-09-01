@@ -108,7 +108,7 @@ export function countCustomerMastersV1(): number {
 /** PRO Remote tenants + デモ seed を Customer Master へ同期 */
 export function syncCustomerMasterFromTenantsV1(): number {
   let synced = 0;
-  for (const code of ["TOMS001", "HOTEL001", "PLANT001", "TOSHIMA001"]) {
+  for (const code of ["TOMS001", "HOTEL001", "PLANT001", "TOYOSHIMA001", "TOSHIMA001"]) {
     const tenant = getCustomerByCode(code);
     if (!tenant) continue;
     const existing = getCustomerMasterV1(code);
@@ -118,6 +118,14 @@ export function syncCustomerMasterFromTenantsV1(): number {
         customerName: "TOMS設備デモ",
         address: "守谷市",
         contactName: "山中様",
+        contactPhone: "048-594-7077",
+        contactEmail: "info@toms.co.jp",
+        plan: "PRO",
+      },
+      TOYOSHIMA001: {
+        customerName: "豊島邸",
+        address: "茨城県",
+        contactName: "豊島様",
         contactPhone: "048-594-7077",
         contactEmail: "info@toms.co.jp",
         plan: "PRO",

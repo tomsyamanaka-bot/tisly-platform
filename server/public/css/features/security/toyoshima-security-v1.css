@@ -1,0 +1,236 @@
+﻿/* 豊島邸 Security ダッシュボード
+ * 白ベース × ネイビー · 現場スマホ視認性 */
+
+#ts-dashboard-root {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 24px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+#ts-dashboard-root[hidden] {
+  display: none !important;
+}
+
+.ts-hero {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #fff;
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 6px 18px rgba(30, 58, 138, 0.25);
+}
+
+.ts-hero-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.ts-hero-sub {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+  opacity: 0.92;
+  font-weight: 600;
+}
+
+.ts-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06),
+    0 6px 18px rgba(15, 23, 42, 0.07);
+}
+
+.ts-card-head {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #1e3a8a;
+}
+
+.ts-card-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #1e3a8a;
+}
+
+.ts-en {
+  display: block;
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.ts-controller {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.ts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ts-row:last-child {
+  border-bottom: none;
+}
+
+.ts-label {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.ts-sub {
+  margin: 12px 0 6px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  letter-spacing: 0.04em;
+}
+
+.ts-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.ts-badge.is-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ts-badge.is-alert {
+  background: #fee2e2;
+  color: #b91c1c;
+  animation: ts-pulse 1s ease-in-out infinite;
+}
+
+.ts-badge.is-on {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ts-badge.is-off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.ts-badge.is-blink {
+  background: #fef3c7;
+  color: #b45309;
+  animation: ts-pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes ts-pulse {
+  50% { opacity: 0.65; }
+}
+
+.ts-toggle-row {
+  display: grid;
+  gap: 10px;
+}
+
+.ts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.ts-toggle input {
+  width: 48px;
+  height: 28px;
+  accent-color: #1e3a8a;
+}
+
+.ts-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: #1e3a8a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.ts-timeline {
+  display: grid;
+  gap: 8px;
+}
+
+.ts-timeline-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ts-timeline-ico {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.ts-timeline-title {
+  margin: 0;
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.ts-timeline-sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.ts-timeline-time {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.ts-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-weight: 600;
+  text-align: center;
+  padding: 16px;
+}
+
+.sf-body.is-toyoshima .sf-soc-hero,
+.sf-body.is-toyoshima .sf-soc-mid,
+.sf-body.is-toyoshima .sf-soc-bottom,
+.sf-body.is-toyoshima .sf-quick-card {
+  display: none;
+}
+
+/* テナント固定時は物件セレクタ非表示 */
+.sf-soc-meta.sf-tenant-fixed .sf-select-inline {
+  display: none;
+}

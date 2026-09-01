@@ -235,6 +235,12 @@ export const DEFAULT_ENABLED_MODULES_BY_CODE_V1: Record<
     "customer_mgmt",
   ],
   // 豊島邸: Security + HOME のみ（追記）
+  TOYOSHIMA001: [
+    "tisly_home_v1",
+    "security_floor_v1",
+    "customer_portal",
+  ],
+  /** 旧コード互換 */
   TOSHIMA001: [
     "tisly_home_v1",
     "security_floor_v1",

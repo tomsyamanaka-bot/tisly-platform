@@ -291,7 +291,10 @@ export interface HomeSiteV1 {
 export const HOME_ITABASHI_LIVE_SITE_ID_V1 = "HOME-JP-ITABASHI-LIVE";
 
 /** 豊島邸 Security 物件 ID — 末尾追記のみ */
-export const HOME_JP_TOSHIMA_SITE_ID_V1 = "HOME-JP-TOSHIMA";
+export const HOME_JP_TOYOSHIMA_SITE_ID_V1 = "HOME-JP-TOYOSHIMA";
+
+/** @deprecated 旧 ID 互換 */
+export const HOME_JP_TOSHIMA_SITE_ID_V1 = HOME_JP_TOYOSHIMA_SITE_ID_V1;
 
 export const HOME_DEFAULT_SITE_ID_V1 = "HOME-JP-TSUKUBA-001";
 
@@ -980,13 +983,13 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
   },
   // 豊島邸 Security（母屋 + はなれ）— 既存物件は変更しない
   {
-    id: "HOME-JP-TOSHIMA",
+    id: "HOME-JP-TOYOSHIMA",
     tenantId: "tenant_toms_jp",
-    customerCode: "TOSHIMA001",
+    customerCode: "TOYOSHIMA001",
     countryCode: "JP",
     currency: "JPY",
     kind: "live_home",
-    displayName: "豊島邸（Toshima Residence）",
+    displayName: "豊島邸 (Toyoshima Residence)",
     addressLabel: "茨城県",
     voltageSpec: "単相3線 100V / 200V",
     hotWaterSpec: "給湯リモコン（監視対象外）",
@@ -1112,7 +1115,11 @@ function allHomeSitesV1(): HomeSiteV1[] {
 export function findHomeSiteV1(
   id: string | null | undefined
 ): HomeSiteV1 {
-  const key = String(id || "").trim();
+  const raw = String(id || "").trim();
+  const aliases: Record<string, string> = {
+    "HOME-JP-TOSHIMA": HOME_JP_TOYOSHIMA_SITE_ID_V1,
+  };
+  const key = aliases[raw] ?? raw;
   const found = allHomeSitesV1().find((s) => s.id === key);
   if (found) return found;
   return (
