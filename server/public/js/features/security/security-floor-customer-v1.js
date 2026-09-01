@@ -128,10 +128,10 @@ function fillSites(sites) {
       const id = s.siteId || s.id;
       const label =
         id === "SEC-JP-ITABASHI-LIVE"
-          ? "板橋自宅 (HOME-JP-ITABASHI-LIVE)"
+          ? "板橋自宅"
           : id === TOYOSHIMA_SEC_ID
-            ? "豊島邸 (HOME-JP-TOYOSHIMA)"
-            : s.displayName;
+            ? "豊島邸"
+            : customerSiteTitle(s.displayName);
       return `<option value="${id}">${label}</option>`;
     })
     .join("");
@@ -141,14 +141,31 @@ function fillSites(sites) {
   window.__TISLY_SF_SITE_ID = state.siteId;
 }
 
+function customerSiteTitle(label) {
+  return String(label || "")
+    .replace(/\s*\(HOME-JP-[^)]+\)/gi, "")
+    .replace(/\s*\(SEC-JP-[^)]+\)/gi, "")
+    .replace(/\s*\(Toyoshima Residence\)/gi, "")
+    .trim();
+}
+
 function syncCustomerHeaderTitle() {
   let title = "TiSLY Security";
-  if (state.siteId === "SEC-JP-ITABASHI-LIVE") {
-    title = "板橋自宅 (HOME-JP-ITABASHI-LIVE)";
+  if (state.tenantReady) {
+    const profile = JSON.parse(
+      sessionStorage.getItem("tisly_tenant_profile_v1") ||
+        localStorage.getItem("tisly_tenant_profile_v1") ||
+        "null"
+    );
+    if (profile?.displayName) {
+      title = customerSiteTitle(profile.displayName);
+    }
+  } else if (state.siteId === "SEC-JP-ITABASHI-LIVE") {
+    title = "板橋自宅";
   } else if (isToyoshimaSecuritySite(state.siteId)) {
-    title = "豊島邸 (HOME-JP-TOYOSHIMA)";
+    title = "豊島邸";
   } else if (state.dash?.displayName) {
-    title = state.dash.displayName;
+    title = customerSiteTitle(state.dash.displayName);
   }
   const el = $("sf-title");
   if (el) el.textContent = title;

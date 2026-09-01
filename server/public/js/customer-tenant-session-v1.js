@@ -32,7 +32,7 @@ const LOCAL_TENANT_MAP = {
   },
   TOYOSHIMA001: {
     customerCode: "TOYOSHIMA001",
-    displayName: "豊島邸 (Toyoshima Residence)",
+    displayName: "豊島邸",
     securitySiteId: "SEC-JP-TOYOSHIMA-001",
     homeSiteId: "HOME-JP-TOYOSHIMA",
     useToyoshimaDashboard: true,
@@ -40,7 +40,7 @@ const LOCAL_TENANT_MAP = {
   /** 旧コード互換 */
   TOSHIMA001: {
     customerCode: "TOYOSHIMA001",
-    displayName: "豊島邸 (Toyoshima Residence)",
+    displayName: "豊島邸",
     securitySiteId: "SEC-JP-TOYOSHIMA-001",
     homeSiteId: "HOME-JP-TOYOSHIMA",
     useToyoshimaDashboard: true,

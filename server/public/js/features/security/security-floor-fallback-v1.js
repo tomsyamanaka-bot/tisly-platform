@@ -501,7 +501,7 @@ export function listFallbackSites() {
     {
       id: "SEC-JP-TOYOSHIMA-001",
       siteId: "SEC-JP-TOYOSHIMA-001",
-      displayName: "豊島邸 (Toyoshima Residence)",
+      displayName: "豊島邸",
       countryCode: "JP",
       propertyId: "HOME-JP-TOYOSHIMA",
     },
@@ -539,7 +539,7 @@ export function listFallbackCatalogSites() {
     {
       id: "SEC-JP-TOYOSHIMA-001",
       siteId: "SEC-JP-TOYOSHIMA-001",
-      displayName: "豊島邸 (Toyoshima Residence)",
+      displayName: "豊島邸",
       countryCode: "JP",
     },
   ];

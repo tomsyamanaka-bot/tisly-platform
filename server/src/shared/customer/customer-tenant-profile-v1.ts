@@ -25,7 +25,7 @@ export interface CustomerTenantProfileV1 {
 }
 
 const TOYOSHIMA_PROFILE_V1 = {
-  displayName: "豊島邸 (Toyoshima Residence)",
+  displayName: "豊島邸",
   securitySiteId: SEC_JP_TOYOSHIMA_SITE_ID_V1,
   homeSiteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
   useToyoshimaDashboard: true,

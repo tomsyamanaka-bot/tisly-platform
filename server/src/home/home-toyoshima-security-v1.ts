@@ -10,10 +10,17 @@ import { v4 as uuid } from "uuid";
 import { sendWebPush } from "../notification/channels/web-push.js";
 import {
   getHomeSecurityRulesV1,
+  homeGuardModeLabelJaV1,
   isHomeGuardActiveV1,
   isHomeSecurityArmedV1,
+  type HomeGuardModeV1,
   updateHomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
+import {
+  customerControllerLabelV1,
+  customerIoLabelV1,
+  customerSiteTitleV1,
+} from "../shared/customer/customer-display-labels-v1.js";
 import { findHomeSiteV1 } from "./home-sites-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 
@@ -86,7 +93,11 @@ export interface ToyoshimaSecurityDashboardV1 {
   displayName: string;
   addressLabel: string;
   propertyId: string;
+  homeSiteId: string;
+  guardMode: HomeGuardModeV1;
   guardModeLabel: string;
+  scheduleStart: string;
+  scheduleEnd: string;
   lightsScheduleLabel: string;
   armed: boolean;
   lightsActive: boolean;
@@ -532,6 +543,37 @@ export function applyToyoshimaManualControlV1(input: {
   return { ok: true, state: building };
 }
 
+/** 顧客向けに建物カードのラベルを整形 */
+function mapToyoshimaBuildingForCustomerV1(
+  building: ToyoshimaBuildingStateV1
+): ToyoshimaBuildingStateV1 {
+  return {
+    ...building,
+    controllerLabel: customerControllerLabelV1(building.controllerLabel),
+    di: building.di.map((row) => ({
+      ...row,
+      label: customerIoLabelV1(row.label),
+    })),
+    do: building.do.map((row) => ({
+      ...row,
+      label: customerIoLabelV1(row.label),
+    })),
+  };
+}
+
+/** 警戒時間帯の表示ラベル */
+function toyoshimaGuardScheduleLabelV1(
+  rules: ReturnType<typeof getHomeSecurityRulesV1>
+): string {
+  if (rules.guardMode === "off") {
+    return homeGuardModeLabelJaV1("off");
+  }
+  if (rules.guardMode === "always") {
+    return homeGuardModeLabelJaV1("always");
+  }
+  return `警戒時間 ${rules.scheduleStart}〜${rules.scheduleEnd}`;
+}
+
 /** 豊島邸ダッシュボード JSON */
 export function buildToyoshimaSecurityDashboardV1(
   siteId?: string | null
@@ -541,27 +583,32 @@ export function buildToyoshimaSecurityDashboardV1(
   );
   const site = findHomeSiteV1(homeId);
   const rules = getHomeSecurityRulesV1(homeId);
+  const scheduleStart = rules.scheduleStart || "18:00";
+  const scheduleEnd = rules.scheduleEnd || "06:00";
 
   return {
     siteId: SEC_JP_TOYOSHIMA_SITE_ID_V1,
-    displayName: "豊島邸 (Toyoshima Residence)",
+    displayName: customerSiteTitleV1(site.displayName || "豊島邸"),
     addressLabel: site.addressLabel || "—",
     propertyId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
-    guardModeLabel:
-      rules.guardMode === "off"
-        ? "警戒解除"
-        : rules.guardMode === "always"
-          ? "24時間警戒"
-          : `時間指定 ${rules.scheduleStart}〜${rules.scheduleEnd}`,
-    lightsScheduleLabel: `${rules.scheduleStart}〜${rules.scheduleEnd}`,
+    homeSiteId: homeId,
+    guardMode: rules.guardMode,
+    guardModeLabel: toyoshimaGuardScheduleLabelV1(rules),
+    scheduleStart,
+    scheduleEnd,
+    lightsScheduleLabel: `${scheduleStart}〜${scheduleEnd}`,
     armed: isHomeSecurityArmedV1(rules),
     lightsActive: isHomeGuardActiveV1(rules),
-    main: { ...runtime.main, di: [...runtime.main.di], do: [...runtime.main.do] },
-    detached: {
+    main: mapToyoshimaBuildingForCustomerV1({
+      ...runtime.main,
+      di: [...runtime.main.di],
+      do: [...runtime.main.do],
+    }),
+    detached: mapToyoshimaBuildingForCustomerV1({
       ...runtime.detached,
       di: [...runtime.detached.di],
       do: [...runtime.detached.do],
-    },
+    }),
     timeline: [...runtime.timeline],
     lastUpdatedAt: nowIso(),
   };

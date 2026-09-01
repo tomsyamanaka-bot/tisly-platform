@@ -4,9 +4,16 @@
  */
 
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
+const TOYOSHIMA_HOME_ID = "HOME-JP-TOYOSHIMA";
 const HOME_API = "/api/home/v1";
 
 let lastDashSig = "";
+let scheduleState = {
+  homeSiteId: TOYOSHIMA_HOME_ID,
+  guardMode: "scheduled",
+  scheduleStart: "18:00",
+  scheduleEnd: "06:00",
+};
 
 function $(id) {
   return document.getElementById(id);
@@ -34,6 +41,36 @@ function formatTime(iso) {
   }
 }
 
+function normalizeTimeHm(value, fallback) {
+  const raw = String(value || "").trim();
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(raw);
+  if (!m) return fallback;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+function syncScheduleState(dash) {
+  if (!dash) return;
+  scheduleState = {
+    homeSiteId: dash.homeSiteId || dash.propertyId || TOYOSHIMA_HOME_ID,
+    guardMode: dash.guardMode || "scheduled",
+    scheduleStart: dash.scheduleStart || "18:00",
+    scheduleEnd: dash.scheduleEnd || "06:00",
+  };
+}
+
+function renderHeroChips(dash) {
+  const guardLabel = dash.guardModeLabel || "警戒時間";
+  const lightLabel = dash.lightsScheduleLabel || "—";
+  return `<button type="button" class="ts-hero-chip" data-ts-schedule="guard" aria-haspopup="dialog">
+      <span class="ts-hero-chip-label">警戒</span>
+      <span class="ts-hero-chip-value">${escapeHtml(guardLabel)}</span>
+    </button>
+    <button type="button" class="ts-hero-chip" data-ts-schedule="light" aria-haspopup="dialog">
+      <span class="ts-hero-chip-label">ライト点灯</span>
+      <span class="ts-hero-chip-value">${escapeHtml(lightLabel)}</span>
+    </button>`;
+}
+
 function diBadge(di) {
   const detecting = di.state === "detecting";
   return `<span class="ts-badge ${detecting ? "is-alert" : "is-ok"}">${
@@ -55,6 +92,9 @@ function dashSignature(dash) {
   return JSON.stringify({
     guard: dash.guardModeLabel,
     lights: dash.lightsScheduleLabel,
+    mode: dash.guardMode,
+    start: dash.scheduleStart,
+    end: dash.scheduleEnd,
     mainDi: (dash.main?.di || []).map((d) => d.state).join(","),
     mainDo: (dash.main?.do || [])
       .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
@@ -93,14 +133,14 @@ function renderBuildingCard(building, opts = {}) {
         <div class="ts-toggle-row">
           <label class="ts-toggle">
             <input type="checkbox" data-ts-building="main" data-ts-action="do1_on" data-ts-off="do1_off" ${d1?.on ? "checked" : ""} />
-            <span>DO1 1号機</span>
+            <span>1号機（出力1）</span>
           </label>
           <label class="ts-toggle">
             <input type="checkbox" data-ts-building="main" data-ts-action="do2_on" data-ts-off="do2_off" ${d2?.on ? "checked" : ""} />
-            <span>DO2 2号機</span>
+            <span>2号機（出力2）</span>
           </label>
         </div>
-        <p class="ts-sub">24V パトライト (DO3)</p>
+        <p class="ts-sub">24V パトライト（出力3）</p>
         <div class="ts-row">
           ${doStatus(d3 || { on: false })}
           <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">手動テスト</button>
@@ -113,11 +153,11 @@ function renderBuildingCard(building, opts = {}) {
       <div class="ts-do-group">
         <p class="ts-sub">連動ステータス</p>
         <div class="ts-row">
-          <span class="ts-label">DO1 100V ライト</span>
+          <span class="ts-label">100V ライト（出力1）</span>
           ${doStatus(d1 || { on: false })}
         </div>
         <div class="ts-row">
-          <span class="ts-label">DO2 パトライト</span>
+          <span class="ts-label">パトライト（出力2）</span>
           ${doStatus(d2 || { on: false, blinking: d2?.blinking })}
         </div>
       </div>`;
@@ -126,7 +166,6 @@ function renderBuildingCard(building, opts = {}) {
   return `<article class="ts-card" data-ts-building-card="${building.id}">
     <header class="ts-card-head">
       <h3>${escapeHtml(building.label)}</h3>
-      <span class="ts-en">${escapeHtml(building.labelEn)}</span>
     </header>
     <p class="ts-controller">${escapeHtml(building.controllerLabel)}</p>
     ${
@@ -168,6 +207,115 @@ function renderTimeline(timeline) {
     .join("");
 }
 
+function renderScheduleDialog() {
+  if ($("ts-schedule-dialog")) return;
+  const dialog = document.createElement("dialog");
+  dialog.id = "ts-schedule-dialog";
+  dialog.className = "ts-schedule-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="ts-schedule-form">
+      <h3 class="ts-schedule-title" id="ts-schedule-title">時間の設定</h3>
+      <p class="ts-schedule-hint" id="ts-schedule-hint">開始・終了時刻を選んで保存してください。</p>
+      <label class="ts-schedule-field" for="ts-schedule-start">
+        <span>開始時刻</span>
+        <input type="time" id="ts-schedule-start" required />
+      </label>
+      <label class="ts-schedule-field" for="ts-schedule-end">
+        <span>終了時刻</span>
+        <input type="time" id="ts-schedule-end" required />
+      </label>
+      <div class="ts-schedule-actions">
+        <button type="button" class="ts-btn ts-btn-primary" id="ts-schedule-save">保存する</button>
+        <button type="submit" class="ts-btn ts-btn-ghost">閉じる</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dialog);
+}
+
+function openScheduleDialog(kind) {
+  renderScheduleDialog();
+  const dialog = $("ts-schedule-dialog");
+  const title = $("ts-schedule-title");
+  const hint = $("ts-schedule-hint");
+  const startEl = $("ts-schedule-start");
+  const endEl = $("ts-schedule-end");
+  if (!dialog || !startEl || !endEl) return;
+
+  const start = normalizeTimeHm(scheduleState.scheduleStart, "18:00");
+  const end = normalizeTimeHm(scheduleState.scheduleEnd, "06:00");
+  startEl.value = start;
+  endEl.value = end;
+
+  if (kind === "guard") {
+    if (title) title.textContent = "警戒時間の設定";
+    if (hint) {
+      hint.textContent =
+        "警戒の有効時間帯を変更します。保存後すぐに反映されます。";
+    }
+  } else {
+    if (title) title.textContent = "ライト点灯時間の設定";
+    if (hint) {
+      hint.textContent =
+        "防犯ライトの点灯時間帯を変更します。保存後すぐに反映されます。";
+    }
+  }
+
+  dialog.dataset.scheduleKind = kind || "light";
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  }
+}
+
+async function saveScheduleFromDialog() {
+  const startEl = $("ts-schedule-start");
+  const endEl = $("ts-schedule-end");
+  const scheduleStart = normalizeTimeHm(
+    startEl?.value,
+    scheduleState.scheduleStart
+  );
+  const scheduleEnd = normalizeTimeHm(
+    endEl?.value,
+    scheduleState.scheduleEnd
+  );
+  const homeSiteId = scheduleState.homeSiteId || TOYOSHIMA_HOME_ID;
+  const guardMode =
+    scheduleState.guardMode === "off" ? "off" : "scheduled";
+
+  const res = await fetch(`${HOME_API}/security-rules`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId: homeSiteId,
+      actor: "customer-portal",
+      guardMode,
+      scheduleStart,
+      scheduleEnd,
+      securityPausedUntil: null,
+    }),
+  });
+  const data = await res.json();
+  if (!data?.ok) {
+    throw new Error(data?.error || "保存に失敗しました");
+  }
+
+  scheduleState.scheduleStart = scheduleStart;
+  scheduleState.scheduleEnd = scheduleEnd;
+  scheduleState.guardMode = data.rules?.guardMode || guardMode;
+  await refreshToyoshimaDashboard();
+  $("ts-schedule-dialog")?.close?.();
+}
+
+function bindScheduleDialog() {
+  if (window.__TISLY_TS_SCHEDULE_BOUND) return;
+  window.__TISLY_TS_SCHEDULE_BOUND = true;
+
+  $("ts-schedule-save")?.addEventListener("click", () => {
+    saveScheduleFromDialog().catch((err) => {
+      console.warn("[toyoshima-ui] schedule save", err);
+    });
+  });
+}
+
 function patchBuildingCard(building) {
   const card = document.querySelector(
     `[data-ts-building-card="${building.id}"]`
@@ -178,13 +326,12 @@ function patchBuildingCard(building) {
 }
 
 function patchToyoshimaDashboard(dash) {
+  syncScheduleState(dash);
   const heroTitle = $("ts-hero-title");
-  const heroSub = $("ts-hero-sub");
-  if (heroTitle) heroTitle.textContent = dash.displayName || "";
-  if (heroSub) {
-    heroSub.textContent = `${dash.guardModeLabel || ""} · ライト ${
-      dash.lightsScheduleLabel || ""
-    }`;
+  const heroActions = $("ts-hero-actions");
+  if (heroTitle) heroTitle.textContent = dash.displayName || "豊島邸";
+  if (heroActions) {
+    heroActions.innerHTML = renderHeroChips(dash);
   }
   patchBuildingCard(dash.main);
   patchBuildingCard(dash.detached);
@@ -201,6 +348,8 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   const root = $("ts-dashboard-root");
   if (!root || !dash) return;
 
+  syncScheduleState(dash);
+
   const sig = dashSignature(dash);
   if (soft && root.dataset.mounted === "1" && sig === lastDashSig) {
     return;
@@ -216,8 +365,8 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   root.hidden = false;
   root.innerHTML = `
     <section class="ts-hero">
-      <p class="ts-hero-title" id="ts-hero-title">${escapeHtml(dash.displayName)}</p>
-      <p class="ts-hero-sub" id="ts-hero-sub">${escapeHtml(dash.guardModeLabel)} · ライト ${escapeHtml(dash.lightsScheduleLabel)}</p>
+      <p class="ts-hero-title" id="ts-hero-title">${escapeHtml(dash.displayName || "豊島邸")}</p>
+      <div class="ts-hero-actions" id="ts-hero-actions">${renderHeroChips(dash)}</div>
     </section>
     ${renderBuildingCard(dash.main)}
     ${renderBuildingCard(dash.detached)}
@@ -227,6 +376,8 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     </section>`;
 
   root.dataset.mounted = "1";
+  renderScheduleDialog();
+  bindScheduleDialog();
   bindToyoshimaControls();
 }
 
@@ -281,6 +432,13 @@ function bindToyoshimaControls() {
   });
 
   root.addEventListener("click", async (e) => {
+    const chip = e.target.closest("[data-ts-schedule]");
+    if (chip) {
+      e.preventDefault();
+      openScheduleDialog(chip.getAttribute("data-ts-schedule"));
+      return;
+    }
+
     const btn = e.target.closest("[data-ts-action]");
     if (!btn || btn.tagName === "INPUT") return;
     const building = btn.getAttribute("data-ts-building");
