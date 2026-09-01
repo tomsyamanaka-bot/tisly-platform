@@ -1,7 +1,7 @@
 /**
  * お客様向け見守り
  * 3D俯瞰とやさしい警報表示
- * API 成否に関わらず即時描画する
+ * テナントセッションで物件を出し分け
  */
 
 import {
@@ -28,16 +28,25 @@ import {
   isToshimaSecuritySite,
   loadToshimaDashboard,
   startToshimaPolling,
+  stopToshimaPolling,
   TOSHIMA_SEC_ID,
 } from "./toshima-security-dashboard-v1.js";
+import {
+  isLoggedIn,
+  refreshTenantProfile,
+  requireCustomerSession,
+  resolveSecuritySiteId,
+} from "../../customer-tenant-session-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
+  layoutSiteId: null,
   floorId: "1f",
   dash: null,
   pane: "map",
   pollTimer: null,
   alarmSig: "",
+  tenantReady: false,
 };
 
 function $(id) {
@@ -72,13 +81,28 @@ async function fetchJson(url, opts) {
   return data;
 }
 
+function hideSiteSelectorForTenant() {
+  const sel = $("sf-site-select");
+  if (sel) {
+    sel.hidden = true;
+    sel.setAttribute("aria-hidden", "true");
+  }
+  $("sf-soc-meta")?.classList.add("sf-tenant-fixed");
+}
+
 function fillSites(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
-  const allow = new Set([
-    "SEC-JP-ITABASHI-LIVE",
-    TOSHIMA_SEC_ID,
-  ]);
+
+  if (state.tenantReady) {
+    hideSiteSelectorForTenant();
+    state.siteId = resolveSecuritySiteId() || state.siteId;
+    sel.value = state.siteId;
+    window.__TISLY_SF_SITE_ID = state.siteId;
+    return;
+  }
+
+  const allow = new Set(["SEC-JP-ITABASHI-LIVE", TOSHIMA_SEC_ID]);
   const raw = sites?.length ? sites : listFallbackSites();
   const list = [...raw]
     .filter((s) => allow.has(s.siteId || s.id))
@@ -111,10 +135,7 @@ function fillSites(sites) {
       return `<option value="${id}">${label}</option>`;
     })
     .join("");
-  const params = new URLSearchParams(window.location.search);
-  const fromUrl = params.get("siteId");
-  state.siteId =
-    fromUrl && allow.has(fromUrl) ? fromUrl : TOSHIMA_SEC_ID;
+  state.siteId = list[0]?.siteId || list[0]?.id || TOSHIMA_SEC_ID;
   sel.value = state.siteId;
   sel.disabled = list.length <= 1;
   window.__TISLY_SF_SITE_ID = state.siteId;
@@ -134,14 +155,20 @@ function syncCustomerHeaderTitle() {
   document.title = `TiSLY · ${title}`;
 }
 
-function applySiteLayout() {
+function applySiteLayout(force = false) {
   const isToshima = isToshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toshima", isToshima);
+
+  if (!force && state.layoutSiteId === state.siteId) {
+    return;
+  }
+  state.layoutSiteId = state.siteId;
+
   if (isToshima) {
-    hideToshimaDashboard();
     loadToshimaDashboard().catch(() => {});
     startToshimaPolling();
   } else {
+    stopToshimaPolling();
     hideToshimaDashboard();
   }
 }
@@ -163,7 +190,6 @@ function renderDash(dash, opts = {}) {
   if (!dash) return;
   if (isToshimaSecuritySite(state.siteId)) {
     syncCustomerHeaderTitle();
-    applySiteLayout();
     return;
   }
   try {
@@ -268,7 +294,7 @@ function renderDash(dash, opts = {}) {
 
 function bootFallback() {
   fillSites(listFallbackSites());
-  applySiteLayout();
+  applySiteLayout(true);
   if (!isToshimaSecuritySite(state.siteId)) {
     renderDash(getFallbackCustomerDash(state.siteId));
   }
@@ -281,13 +307,11 @@ async function loadSites() {
   } catch {
     fillSites(listFallbackSites());
   }
-  applySiteLayout();
 }
 
 async function loadDash(opts = {}) {
   if (isToshimaSecuritySite(state.siteId)) {
     syncCustomerHeaderTitle();
-    applySiteLayout();
     return;
   }
   try {
@@ -341,15 +365,13 @@ function bind() {
     if (id) state.floorId = id;
   });
   $("sf-site-select")?.addEventListener("change", (e) => {
+    if (state.tenantReady) return;
     const next = e.target.value;
-    const allow = new Set([
-      "SEC-JP-ITABASHI-LIVE",
-      TOSHIMA_SEC_ID,
-    ]);
+    const allow = new Set(["SEC-JP-ITABASHI-LIVE", TOSHIMA_SEC_ID]);
     state.siteId = allow.has(next) ? next : TOSHIMA_SEC_ID;
     e.target.value = state.siteId;
     window.__TISLY_SF_SITE_ID = state.siteId;
-    applySiteLayout();
+    applySiteLayout(true);
     if (isToshimaSecuritySite(state.siteId)) {
       loadToshimaDashboard().catch(() => {});
     } else {
@@ -365,9 +387,8 @@ function bind() {
     });
   }
 
-  startAlarmPolling();
-
   if (window.__TISLY_SF_CTRL_BOUND) return;
+  window.__TISLY_SF_CTRL_BOUND = true;
   $("sf-floor-tabs")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-floor]");
     if (!btn || btn.disabled) return;
@@ -397,11 +418,36 @@ function bind() {
   });
 }
 
-try {
+async function initTenantSecurity() {
+  if (!requireCustomerSession()) return false;
+  if (!isLoggedIn()) return false;
+  await refreshTenantProfile();
+  const siteId = resolveSecuritySiteId();
+  if (!siteId) {
+    console.warn("[security-customer] tenant site missing");
+    return false;
+  }
+  state.tenantReady = true;
+  state.siteId = siteId;
+  state.layoutSiteId = null;
+  window.__TISLY_SF_SITE_ID = siteId;
+  hideSiteSelectorForTenant();
+  return true;
+}
+
+async function boot() {
   bind();
-  bootFallback();
-  Promise.all([loadSites(), loadDash()]).catch(() => {});
-} catch (err) {
+  const tenantOk = await initTenantSecurity();
+  if (!tenantOk) return;
+  await loadSites();
+  applySiteLayout(true);
+  if (!isToshimaSecuritySite(state.siteId)) {
+    await loadDash();
+  }
+  startAlarmPolling();
+}
+
+boot().catch((err) => {
   bootFallback();
   console.warn("[security-customer] boot", err);
-}
+});

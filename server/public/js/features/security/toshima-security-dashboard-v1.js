@@ -6,6 +6,8 @@
 const TOSHIMA_SEC_ID = "SEC-JP-TOSHIMA-001";
 const HOME_API = "/api/home/v1";
 
+let lastDashSig = "";
+
 function $(id) {
   return document.getElementById(id);
 }
@@ -46,6 +48,26 @@ function doStatus(doRow) {
   return `<span class="ts-badge ${doRow.on ? "is-on" : "is-off"}">${
     doRow.on ? "ON" : "OFF"
   }</span>`;
+}
+
+function dashSignature(dash) {
+  if (!dash) return "";
+  return JSON.stringify({
+    guard: dash.guardModeLabel,
+    lights: dash.lightsScheduleLabel,
+    mainDi: (dash.main?.di || []).map((d) => d.state).join(","),
+    mainDo: (dash.main?.do || [])
+      .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
+      .join(","),
+    detDi: (dash.detached?.di || []).map((d) => d.state).join(","),
+    detDo: (dash.detached?.do || [])
+      .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
+      .join(","),
+    tlHead: (dash.timeline || [])
+      .slice(0, 5)
+      .map((t) => `${t.at}:${t.kind}`)
+      .join("|"),
+  });
 }
 
 function renderBuildingCard(building, opts = {}) {
@@ -146,19 +168,56 @@ function renderTimeline(timeline) {
     .join("");
 }
 
+function patchBuildingCard(building) {
+  const card = document.querySelector(
+    `[data-ts-building-card="${building.id}"]`
+  );
+  if (!card) return false;
+  card.outerHTML = renderBuildingCard(building);
+  return true;
+}
+
+function patchToshimaDashboard(dash) {
+  const heroTitle = $("ts-hero-title");
+  const heroSub = $("ts-hero-sub");
+  if (heroTitle) heroTitle.textContent = dash.displayName || "";
+  if (heroSub) {
+    heroSub.textContent = `${dash.guardModeLabel || ""} · ライト ${
+      dash.lightsScheduleLabel || ""
+    }`;
+  }
+  patchBuildingCard(dash.main);
+  patchBuildingCard(dash.detached);
+  const timeline = $("ts-timeline");
+  if (timeline) timeline.innerHTML = renderTimeline(dash.timeline);
+}
+
 export function isToshimaSecuritySite(siteId) {
   return String(siteId || "").trim() === TOSHIMA_SEC_ID;
 }
 
-export function renderToshimaDashboard(dash) {
+export function renderToshimaDashboard(dash, opts = {}) {
+  const soft = !!opts.soft;
   const root = $("ts-dashboard-root");
   if (!root || !dash) return;
+
+  const sig = dashSignature(dash);
+  if (soft && root.dataset.mounted === "1" && sig === lastDashSig) {
+    return;
+  }
+  lastDashSig = sig;
+
+  if (root.dataset.mounted === "1" && soft) {
+    root.hidden = false;
+    patchToshimaDashboard(dash);
+    return;
+  }
 
   root.hidden = false;
   root.innerHTML = `
     <section class="ts-hero">
-      <p class="ts-hero-title">${escapeHtml(dash.displayName)}</p>
-      <p class="ts-hero-sub">${escapeHtml(dash.guardModeLabel)} · ライト ${escapeHtml(dash.lightsScheduleLabel)}</p>
+      <p class="ts-hero-title" id="ts-hero-title">${escapeHtml(dash.displayName)}</p>
+      <p class="ts-hero-sub" id="ts-hero-sub">${escapeHtml(dash.guardModeLabel)} · ライト ${escapeHtml(dash.lightsScheduleLabel)}</p>
     </section>
     ${renderBuildingCard(dash.main)}
     ${renderBuildingCard(dash.detached)}
@@ -167,6 +226,7 @@ export function renderToshimaDashboard(dash) {
       <div class="ts-timeline" id="ts-timeline">${renderTimeline(dash.timeline)}</div>
     </section>`;
 
+  root.dataset.mounted = "1";
   bindToshimaControls();
 }
 
@@ -175,7 +235,10 @@ export function hideToshimaDashboard() {
   if (root) {
     root.hidden = true;
     root.innerHTML = "";
+    delete root.dataset.mounted;
+    delete root.dataset.bound;
   }
+  lastDashSig = "";
 }
 
 async function postControl(building, action) {
@@ -186,14 +249,14 @@ async function postControl(building, action) {
   });
 }
 
-async function refreshToshimaDashboard() {
+async function refreshToshimaDashboard(opts = {}) {
   const res = await fetch(
     `${HOME_API}/toshima/dashboard?siteId=${encodeURIComponent(TOSHIMA_SEC_ID)}`,
     { cache: "no-store" }
   );
   const data = await res.json();
   if (data?.ok && data.dashboard) {
-    renderToshimaDashboard(data.dashboard);
+    renderToshimaDashboard(data.dashboard, opts);
   }
 }
 
@@ -248,11 +311,18 @@ export async function loadToshimaDashboard() {
   return null;
 }
 
+export function stopToshimaPolling() {
+  if (window.__TISLY_TOSHIMA_POLL) {
+    clearInterval(window.__TISLY_TOSHIMA_POLL);
+    window.__TISLY_TOSHIMA_POLL = null;
+  }
+}
+
 export function startToshimaPolling() {
   if (window.__TISLY_TOSHIMA_POLL) return;
   window.__TISLY_TOSHIMA_POLL = setInterval(() => {
     if (isToshimaSecuritySite(window.__TISLY_SF_SITE_ID)) {
-      refreshToshimaDashboard().catch(() => {});
+      refreshToshimaDashboard({ soft: true }).catch(() => {});
     }
   }, 3000);
 }

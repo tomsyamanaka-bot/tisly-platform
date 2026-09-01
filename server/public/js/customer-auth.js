@@ -5,10 +5,15 @@ import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson } from "./tisly-fetch-v1.js";
 const ADMIN_TOKEN_KEY = "tisly_admin_token";
 const SESSION_TOKEN_KEY = "tisly_token";
 const CUSTOMER_CODE_KEY = "tisly_customer_code";
+const CUSTOMER_ENTRY = "/customer";
 
 export function customerCodeFromPath() {
+  const stored =
+    sessionStorage.getItem(CUSTOMER_CODE_KEY) ||
+    localStorage.getItem(CUSTOMER_CODE_KEY);
+  if (stored) return stored.toUpperCase();
   const m = location.pathname.match(/\/customer\/([^/]+)/i);
-  return m ? m[1].toUpperCase() : sessionStorage.getItem(CUSTOMER_CODE_KEY) || "TOMS001";
+  return m ? m[1].toUpperCase() : "";
 }
 
 export function getCustomerToken() {
@@ -23,7 +28,11 @@ export function setCustomerToken(token, customerCode) {
   if (token) {
     localStorage.setItem(ADMIN_TOKEN_KEY, token);
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-    if (customerCode) sessionStorage.setItem(CUSTOMER_CODE_KEY, customerCode.toUpperCase());
+    if (customerCode) {
+      const code = customerCode.toUpperCase();
+      sessionStorage.setItem(CUSTOMER_CODE_KEY, code);
+      localStorage.setItem(CUSTOMER_CODE_KEY, code);
+    }
   } else {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
@@ -32,6 +41,8 @@ export function setCustomerToken(token, customerCode) {
 
 export function clearCustomerToken() {
   setCustomerToken("");
+  sessionStorage.removeItem(CUSTOMER_CODE_KEY);
+  localStorage.removeItem(CUSTOMER_CODE_KEY);
 }
 
 export async function fetchCustomerSession() {
@@ -51,12 +62,17 @@ export async function fetchCustomerSession() {
   }
 }
 
-export function redirectToPortalLogin(customerCode, returnPath) {
-  const code = (customerCode || customerCodeFromPath()).toUpperCase();
+export function redirectToPortalLogin(_customerCode, returnPath) {
   const ret = returnPath || location.pathname + location.search;
   const q = new URLSearchParams({ login: "required" });
-  if (ret && ret !== `/customer/${code}`) q.set("return", ret);
-  location.replace(`/customer/${code}?${q}`);
+  if (
+    ret &&
+    ret !== CUSTOMER_ENTRY &&
+    !ret.startsWith(`${CUSTOMER_ENTRY}?`)
+  ) {
+    q.set("return", ret);
+  }
+  location.replace(`${CUSTOMER_ENTRY}?${q}`);
 }
 
 export async function requireCustomerLogin(customerCode) {
@@ -71,7 +87,11 @@ export async function requireCustomerLogin(customerCode) {
     redirectToPortalLogin(code);
     return null;
   }
-  if (session.customerCode && session.customerCode.toUpperCase() !== code) {
+  if (
+    code &&
+    session.customerCode &&
+    session.customerCode.toUpperCase() !== code
+  ) {
     redirectToPortalLogin(code);
     return null;
   }

@@ -20,6 +20,7 @@ import {
   fetchCustomerProjectFilesV1,
   getCustomerContactSettingsV1,
   getDefaultCustomerLandingPropertyV1,
+  getPrimaryPropertyForCustomerV1,
   listCustomerNotificationsForHomeV1,
   listProjectListItemsForCustomerV1,
   mapPortalFilesToDocuments,
@@ -37,10 +38,15 @@ import { encodeCustomerShareIdV1, decodeCustomerShareIdV1 } from "./customer-sha
 import type {
   CustomerContactV1,
   CustomerHomeListViewV1,
+  CustomerHomeViewV1,
   CustomerPortalLandingV1,
   CustomerProjectViewV1,
 } from "./customer-view-model-v1.js";
 import { getEnabledModulesForCustomerV1 } from "../../tenant/customer-enabled-modules-store-v1.js";
+import {
+  normalizeCustomerTenantCodeV1,
+  resolveCustomerTenantProfileV1,
+} from "./customer-tenant-profile-v1.js";
 
 function refFromShareId(shareId: string): string {
   return decodeCustomerShareIdV1(shareId);
@@ -85,6 +91,33 @@ export function buildCustomerPortalLandingV1(): CustomerPortalLandingV1 {
   });
 
   return { home, demoProjects: projects };
+}
+
+/** ログイン済み顧客コードからホーム画面を生成 */
+export function buildCustomerSessionHomeV1(
+  customerCode: string
+): CustomerHomeViewV1 {
+  const code = normalizeCustomerTenantCodeV1(customerCode);
+  const profile = resolveCustomerTenantProfileV1(code);
+  const primary = getPrimaryPropertyForCustomerV1(code);
+  const propertyName =
+    primary?.propertyName ??
+    profile?.displayName ??
+    (code === "TOMS001" ? "TOMS設備デモ" : `${code} 様`);
+  const ref =
+    primary?.projectRef ??
+    primary?.propertyId ??
+    profile?.homeSiteId ??
+    "";
+  const shareId = ref ? shareIdFromRef(ref) : "";
+  return buildCustomerHomeStateV1({
+    shareId,
+    propertyName,
+    ref,
+    contact: buildContactFromMasterV1(code),
+    notifications: listCustomerNotificationsForHomeV1(code),
+    enabledModules: getEnabledModulesForCustomerV1(code),
+  });
 }
 
 export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeListViewV1 {

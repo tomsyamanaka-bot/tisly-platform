@@ -229,3 +229,8 @@
 .sf-body.is-toshima .sf-quick-card {
   display: none;
 }
+
+/* テナント固定時は物件セレクタ非表示 */
+.sf-soc-meta.sf-tenant-fixed .sf-select-inline {
+  display: none;
+}

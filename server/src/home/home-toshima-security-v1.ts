@@ -278,9 +278,7 @@ async function sendToshimaPush(input: {
       body: input.body,
       eventType: input.eventType,
       deviceId: HOME_JP_TOSHIMA_SITE_ID_V1,
-      url: `/customer/security?siteId=${encodeURIComponent(
-        SEC_JP_TOSHIMA_SITE_ID_V1
-      )}`,
+      url: "/customer/security",
       icon: "/icons/icon-192.png?v=2003",
       badge: "/icons/icon-192.png?v=2003",
       data: {

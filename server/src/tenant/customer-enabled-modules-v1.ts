@@ -234,6 +234,12 @@ export const DEFAULT_ENABLED_MODULES_BY_CODE_V1: Record<
     "pro_remote",
     "customer_mgmt",
   ],
+  // 豊島邸: Security + HOME のみ（追記）
+  TOSHIMA001: [
+    "tisly_home_v1",
+    "security_floor_v1",
+    "customer_portal",
+  ],
 };
 
 /** 未知顧客向けの安全な既定（IoT 最小セット） */

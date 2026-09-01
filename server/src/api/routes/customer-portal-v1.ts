@@ -7,6 +7,7 @@ import {
   buildCustomerProjectViewV1,
   buildCustomerDocumentViewV1,
   buildCustomerMonitoringViewV1,
+  buildCustomerSessionHomeV1,
 } from "../../shared/customer/customer-portal-data-v1.js";
 import {
   buildCustomerAdminListV1,
@@ -27,12 +28,55 @@ import {
   TISLY_INTERNAL_ROUTES_V1,
   TISLY_CUSTOMER_ROUTES_V1,
 } from "../../shared/routes/tisly-routes-v1.js";
+import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
+import {
+  resolveCustomerTenantProfileV1,
+} from "../../shared/customer/customer-tenant-profile-v1.js";
 
 export const customerPortalV1Router = Router();
 
 customerPortalV1Router.get("/landing", (_req, res) => {
   res.json({ status: "ok", ...buildCustomerPortalLandingV1() });
 });
+
+/** ログイン済みセッションからホーム画面（/customer 固定 URL 用） */
+customerPortalV1Router.get(
+  "/session-home",
+  requireAuth("viewer"),
+  (req: AuthedRequest, res) => {
+    const code = String(req.admin?.customerCode ?? "").trim().toUpperCase();
+    if (!code) {
+      res.status(401).json({ status: "error", error: "ログインが必要です" });
+      return;
+    }
+    const profile = resolveCustomerTenantProfileV1(code);
+    const home = buildCustomerSessionHomeV1(code);
+    res.json({
+      status: "ok",
+      customerCode: code,
+      tenantProfile: profile,
+      home,
+    });
+  }
+);
+
+/** テナント別 Security / HOME 物件 ID */
+customerPortalV1Router.get(
+  "/tenant-profile",
+  requireAuth("viewer"),
+  (req: AuthedRequest, res) => {
+    const code = String(req.admin?.customerCode ?? "").trim().toUpperCase();
+    const profile = resolveCustomerTenantProfileV1(code);
+    if (!profile) {
+      res.status(404).json({
+        status: "error",
+        error: "テナントプロファイルが見つかりません",
+      });
+      return;
+    }
+    res.json({ status: "ok", profile });
+  }
+);
 
 customerPortalV1Router.get("/home/:customerCode", (req, res) => {
   const data = buildCustomerHomeListViewV1(String(req.params.customerCode));

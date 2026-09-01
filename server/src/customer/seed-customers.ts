@@ -38,6 +38,17 @@ const DEMO_CUSTOMERS = [
     siteName: "第1工場",
     address: "千葉県市川市",
   },
+  // 豊島邸 Security（追記 — 既存デモは変更しない）
+  {
+    customerId: "cust-toshima",
+    customerCode: "TOSHIMA001",
+    customerName: "豊島邸",
+    plan: "PRO" as const,
+    companyColor: "#1e3a8a",
+    siteId: "site-toshima-main",
+    siteName: "豊島邸",
+    address: "茨城県",
+  },
 ];
 
 export function ensureDemo001Kit(): void {
@@ -108,11 +119,55 @@ export function ensureDemo001Kit(): void {
   }
 }
 
+export function ensureToshima001CustomerV1(): void {
+  const db = getDatabase();
+  const exists = db
+    .prepare(
+      `SELECT customer_id FROM customers WHERE customer_code = 'TOSHIMA001'`
+    )
+    .get();
+  if (exists) return;
+
+  const demoPassword = process.env.CUSTOMER_DEMO_PASSWORD ?? "demo-remote-2026";
+  const hash = hashPassword(demoPassword);
+  const customerId = "cust-toshima";
+  const siteId = "site-toshima-main";
+
+  upsertCustomer({
+    customerId,
+    customerCode: "TOSHIMA001",
+    customerName: "豊島邸",
+    plan: "PRO",
+    tenantId: customerId,
+    branding: {
+      companyColor: "#1e3a8a",
+      companyName: "豊島邸",
+      logoUrl: "/assets/customers/toshima001-logo.svg",
+    },
+  });
+  ensureDemoSite(customerId, siteId, "豊島邸", "茨城県");
+
+  for (const role of ["owner", "admin", "viewer"] as const) {
+    db.prepare(
+      `INSERT INTO customer_users (id, customer_id, username, password_hash, role, status)
+       VALUES (?, ?, ?, ?, ?, 'active')
+       ON CONFLICT(customer_id, username) DO NOTHING`
+    ).run(
+      `cu-TOSHIMA001-${role}`,
+      customerId,
+      `toshima001.${role}`,
+      hash,
+      role
+    );
+  }
+}
+
 export function seedProRemoteCustomers(): void {
   const db = getDatabase();
   const has = db.prepare("SELECT customer_id FROM customers LIMIT 1").get();
   if (has) {
     ensureDemo001Kit();
+    ensureToshima001CustomerV1();
     ensureProFloorLayersSeed();
     return;
   }
@@ -179,5 +234,6 @@ export function seedProRemoteCustomers(): void {
     }
   }
   ensureDemo001Kit();
+  ensureToshima001CustomerV1();
   ensureProFloorLayersSeed();
 }
