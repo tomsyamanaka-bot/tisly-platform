@@ -1,0 +1,194 @@
+/**
+ * TiSLY DoorphoneCard — 白×navy PWA UI
+ */
+
+.dp-viewer {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.dp-model-note {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.dp-preview {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgba(30, 58, 138, 0.2);
+  background: #f1f5f9;
+  min-height: 180px;
+}
+
+.dp-preview.is-ringing {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.dp-preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 180px;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.dp-preview-placeholder,
+.dp-preview-stream {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 20px;
+  text-align: center;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.dp-preview-placeholder strong,
+.dp-preview-stream {
+  font-size: 2rem;
+}
+
+.dp-preview-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: dp-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.dp-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.dp-badge.is-live {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid rgba(22, 163, 74, 0.45);
+}
+
+.dp-badge.is-recording {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.45);
+}
+
+.dp-badge.is-ringing {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid rgba(234, 88, 12, 0.45);
+}
+
+.dp-badge.is-idle {
+  background: #e2e8f0;
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+}
+
+.dp-stream-tag {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+}
+
+.dp-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 420px) {
+  .dp-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dp-btn {
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 2px solid rgba(30, 58, 138, 0.25);
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1.25;
+}
+
+.dp-btn-primary {
+  grid-column: 1 / -1;
+  background: #1e3a8a;
+  color: #ffffff;
+  border-color: #1e3a8a;
+}
+
+.dp-btn.is-active {
+  background: #eff6ff;
+  border-color: #1e3a8a;
+}
+
+.dp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dp-unlock-btn {
+  width: 100%;
+  min-height: 56px;
+  margin-top: 4px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.28);
+}
+
+.dp-unlock-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dp-unlock-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #64748b;
+  text-align: center;
+}

@@ -24,6 +24,7 @@ import {
   hydrateHomeBathStateV1,
   syncBathEstimationForSiteV1,
 } from "./home-bath-state-v1.js";
+import { buildDoorphoneViewExtrasV1 } from "./home-doorphone-v1.js";
 
 export type HomeOverallStatusV1 =
   | "normal"
@@ -141,6 +142,17 @@ export interface HomeIntercomViewV1 {
     handledLabel: string;
     occurredAt: string;
   }>;
+  /** TD-B30C 等ドアホン拡張（追記） */
+  modelId: string | null;
+  modelLabel: string | null;
+  micMuted: boolean;
+  speakerVolume: number;
+  recording: boolean;
+  answerDeepLink: string;
+  statusBadge: string;
+  statusBadgeLabel: string;
+  previewMode: string;
+  lastSnapshotAt: string | null;
 }
 
 export interface HomeIotSwitchViewV1 {
@@ -424,6 +436,7 @@ function buildIntercomViewV1(site: HomeSiteV1): HomeIntercomViewV1 {
   const meta =
     INTERCOM_STATE_META_V1[ic.state] ?? INTERCOM_STATE_META_V1.idle;
   const hasLiveStream = Boolean(ic.streamUrl || ic.snapshotUrl);
+  const dp = buildDoorphoneViewExtrasV1(site);
   return {
     label: ic.label,
     state: ic.state,
@@ -449,6 +462,16 @@ function buildIntercomViewV1(site: HomeSiteV1): HomeIntercomViewV1 {
         INTERCOM_HANDLED_LABEL_V1[v.handledAs] ?? v.handledAs,
       occurredAt: formatAccessTimeV1(v.occurredAt),
     })),
+    modelId: dp.modelId,
+    modelLabel: dp.modelLabel,
+    micMuted: dp.micMuted,
+    speakerVolume: dp.speakerVolume,
+    recording: dp.recording,
+    answerDeepLink: dp.answerDeepLink,
+    statusBadge: dp.statusBadge,
+    statusBadgeLabel: dp.statusBadgeLabel,
+    previewMode: dp.previewMode,
+    lastSnapshotAt: dp.lastSnapshotAt,
   };
 }
 

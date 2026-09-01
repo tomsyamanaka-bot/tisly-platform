@@ -26,11 +26,11 @@ import {
   applyHomeControlV1,
   setHomeCircuitStateV1,
 } from "../src/home/home-control-v1.js";
-import {
-  buildHomeCustomerDashboardV1,
+import { buildHomeCustomerDashboardV1,
   buildHomeOperatorDashboardV1,
   buildHomeQuickSwitchV1,
 } from "../src/home/home-dashboard-v1.js";
+import { buildDoorphoneSnapshotSvgV1 } from "../src/home/home-doorphone-v1.js";
 import {
   buildHomeCustomerFacingDashboardV1,
   buildHomeCustomerSiteOptionsV1,
@@ -759,9 +759,10 @@ describe("tisly-home-v1", () => {
     assert.equal(d.intercom.ringing, false);
     assert.equal(d.intercomRinging, false);
     assert.match(d.intercom.lastVisitLabel, /^直近来客 .*\d{1,2}:\d{2}$/);
-    // カメラ未接続はモック枠で表示する
-    assert.equal(d.intercom.hasLiveStream, false);
-    assert.equal(d.intercom.streamKind, "mock");
+    assert.equal(d.intercom.modelId, "TD-B30C");
+    assert.match(String(d.intercom.label), /TD-B30C/);
+    assert.equal(d.intercom.hasLiveStream, true);
+    assert.equal(d.intercom.streamKind, "webrtc");
     assert.ok(d.intercom.visitors.length >= 1);
     assert.equal(d.intercom.visitors[0].handledLabel, "自動応答");
 
@@ -773,6 +774,49 @@ describe("tisly-home-v1", () => {
 
     const operator = buildHomeOperatorDashboardV1();
     assert.ok(operator.intercomRingingCount >= 1);
+  });
+
+  it("ships TD-B30C doorphone mock for Tsukuba and AU demo", () => {
+    const jp = findHomeSiteV1(JP_SITE);
+    assert.equal(jp.intercom.modelId, "TD-B30C");
+    assert.match(jp.intercom.label, /TD-B30C/);
+    assert.ok(jp.intercom.visitors.length >= 2);
+
+    const au = findHomeSiteV1(AU_SITE);
+    assert.equal(au.intercom.modelId, "TD-B30C");
+    assert.match(au.intercom.label, /Front Entrance Doorphone/i);
+
+    const publicDir = path.join(process.cwd(), "public");
+    const js = fs.readFileSync(
+      path.join(publicDir, "js/features/intercom/doorphone-viewer-v1.js"),
+      "utf-8"
+    );
+    assert.match(js, /renderDoorphoneViewerV1/);
+    assert.match(js, /doorphone\/control/);
+
+    for (const page of ["home-v1.html", "home-customer-v1.html"]) {
+      const html = fs.readFileSync(path.join(publicDir, page), "utf-8");
+      assert.match(html, /doorphone-viewer-v1\.css/, page);
+    }
+  });
+
+  it("doorphone snapshot and control APIs work", async () => {
+    const site = findHomeSiteV1(JP_SITE);
+    const svg = buildDoorphoneSnapshotSvgV1(site);
+    assert.match(svg, /TD-B30C/);
+
+    const snap = await request(app).get(
+      `/api/home/v1/doorphone/snapshot?siteId=${JP_SITE}`
+    );
+    assert.equal(snap.status, 200);
+    assert.match(String(snap.headers["content-type"]), /svg/);
+
+    const mic = await request(app)
+      .post("/api/home/v1/doorphone/control")
+      .send({ siteId: JP_SITE, action: "toggle_mic" });
+    assert.equal(mic.status, 200);
+    assert.equal(mic.body.ok, true);
+    assert.equal(typeof mic.body.doorphone?.micMuted, "boolean");
   });
 
   it("answers, auto-responds and unlocks from the intercom", async () => {

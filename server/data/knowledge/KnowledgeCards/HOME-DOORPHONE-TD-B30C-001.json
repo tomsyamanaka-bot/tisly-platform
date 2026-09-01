@@ -1,0 +1,20 @@
+{
+  "id": "HOME-DOORPHONE-TD-B30C-001",
+  "title": "【住設・インターホン】アイリスオーヤマ製スマートドアホン（TD-B30C）のPWA統合と電気錠連動ハック",
+  "category": "IOT関連",
+  "tags": [
+    "#Doorphone",
+    "#IrisOhyama",
+    "#TD_B30C",
+    "#Intercom",
+    "#SmartLock",
+    "#PWA",
+    "#TiSLY_HOME"
+  ],
+  "summary": "TD-B30Cの来客プッシュ通知をTiSLY PWAで捕捉し、\n外出先からのワンタップ通話起動および\nRP2350接点出力による玄関電気錠の\n遠隔解錠をワンストップで実現する設計。\n\n【PWA DoorphoneCard / Viewer】\n白×navy UI · ライブ/静止画プレビュー ·\nLIVE/録画中/呼出中バッジ · 大型操作ボタン。\n\n【来客Push → ワンタップ通話】\nTD-B30C 呼出を TiSLY PWA が捕捉。\nirisdoorphone:// Deep Link で専用アプリ起動。\n\n【RP2350 電気錠連動】\n解錠ボタン → RO1 約1秒パルス →\nPOST /api/home/v1/control unlock_door。\n\n【拡張 API】\nPOST /api/home/v1/doorphone/control\n（mic / speaker / snapshot / record）。\nGET /api/home/v1/doorphone/snapshot（SVG モック）。\n\n【モック物件】\nHOME-JP-TSUKUBA-001 · HOME-AU-GOLDCOAST-001。",
+  "files": [],
+  "updatedAt": "2026-09-01",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【PWA DoorphoneCard / Viewer】\n白×navy UI · ライブ/静止画プレビュー ·\nLIVE/録画中/呼出中バッジ · 大型操作ボタン。\n\n【来客Push → ワンタップ通話】\nTD-B30C 呼出を TiSLY PWA が捕捉。\nirisdoorphone:// Deep Link で専用アプリ起動。\n\n【RP2350 電気錠連動】\n解錠ボタン → RO1 約1秒パルス →\nPOST /api/home/v1/control unlock_door。\n\n【拡張 API】\nPOST /api/home/v1/doorphone/control\n（mic / speaker / snapshot / record）。\nGET /api/home/v1/doorphone/snapshot（SVG モック）。\n\n【モック物件】\nHOME-JP-TSUKUBA-001 · HOME-AU-GOLDCOAST-001。"
+}

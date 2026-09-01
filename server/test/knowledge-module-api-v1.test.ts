@@ -123,6 +123,10 @@ const {
   PWA_WEB_PUSH_MODULE_SEED_IDS,
   seedPwaWebPushKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-pwa-push-seed-v1.js");
+const {
+  DOORPHONE_TD_B30C_MODULE_SEED_IDS,
+  seedDoorphoneTdB30cKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-doorphone-td-b30c-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1149,6 +1153,33 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /Service Worker購読フロー/);
     assert.ok(card!.tags.includes("#PWA"));
     assert.ok(card!.tags.includes("#通知登録"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends doorphone TD-B30C seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of DOORPHONE_TD_B30C_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-doorphone-td-b30c-pwa-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /TD-B30C/);
+    assert.ok(item!.tags.includes("#Doorphone"));
+    assert.ok(item!.tags.includes("#TiSLY_HOME"));
+  });
+
+  it("seedDoorphoneTdB30cKnowledgeCardsV1 upserts searchable cards", () => {
+    seedDoorphoneTdB30cKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("HOME-DOORPHONE-TD-B30C-001");
+    assert.ok(card);
+    assert.match(card!.title, /電気錠連動ハック/);
+    assert.ok(card!.tags.includes("#TD_B30C"));
+    assert.ok(card!.tags.includes("#SmartLock"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

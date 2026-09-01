@@ -6,6 +6,8 @@
  * GET  /api/home/v1/quick-switch
  * GET  /api/home/v1/control-logs?siteId=
  * GET  /api/home/v1/intercom-events?siteId=
+ * GET  /api/home/v1/doorphone/snapshot?siteId=
+ * POST /api/home/v1/doorphone/control
  * GET  /api/home/v1/switchbot-status
  * GET  /api/home/v1/switchbot-devices
  * POST /api/home/v1/control
@@ -35,6 +37,12 @@ import {
   findHomeSiteV1,
   listHomeSitesV1,
 } from "../../home/home-sites-v1.js";
+import {
+  applyHomeDoorphoneControlV1,
+  buildDoorphoneSnapshotSvgV1,
+  buildDoorphoneViewExtrasV1,
+  getDoorphoneSiteOrThrow,
+} from "../../home/home-doorphone-v1.js";
 import {
   ensureHomeSeedV1,
   listHomeControlLogsV1,
@@ -345,6 +353,60 @@ homeRouter.get("/intercom-events", (req, res) => {
     ok: true,
     siteId,
     events: listHomeIntercomEventsV1(siteId, limit),
+  });
+});
+
+/** ドアホン玄関スナップショット（SVG モック / 実機は将来 RTSP キャプチャ） */
+homeRouter.get("/doorphone/snapshot", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId が必要です" });
+    return;
+  }
+  const site = findHomeSiteV1(siteId);
+  if (!site) {
+    res.status(404).json({ ok: false, error: "物件が見つかりません" });
+    return;
+  }
+  res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(buildDoorphoneSnapshotSvgV1(site));
+});
+
+/** ドアホン拡張操作（mic / speaker / snapshot / record） */
+homeRouter.post("/doorphone/control", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const action = String(req.body?.action ?? "").trim();
+  if (!siteId || !action) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId · action が必要です",
+    });
+    return;
+  }
+  let site;
+  try {
+    site = getDoorphoneSiteOrThrow(siteId);
+  } catch (err) {
+    res.status(404).json({
+      ok: false,
+      error: err instanceof Error ? err.message : "物件が見つかりません",
+    });
+    return;
+  }
+  const result = applyHomeDoorphoneControlV1(
+    site,
+    action,
+    req.body?.value
+  );
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json({
+    ...result,
+    siteId,
+    intercom: buildDoorphoneViewExtrasV1(site),
   });
 });
 

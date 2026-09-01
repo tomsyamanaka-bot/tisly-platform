@@ -212,6 +212,20 @@ export interface HomeIntercomV1 {
   unlockLinkEnabled: boolean;
   /** 来客履歴（新しい順） */
   visitors: HomeIntercomVisitorV1[];
+  /** 機種コード（TD-B30C 等 · 追記） */
+  modelId?: string;
+  /** 表示用機種名（追記） */
+  modelLabel?: string;
+  /** マイクミュート（追記） */
+  micMuted?: boolean;
+  /** スピーカー音量 0–100（追記） */
+  speakerVolume?: number;
+  /** イベント録画中（追記） */
+  recording?: boolean;
+  /** 通話応答 Deep Link（追記） */
+  answerDeepLink?: string;
+  /** 最終スナップショット ISO（追記） */
+  lastSnapshotAt?: string | null;
 }
 
 /** SwitchBot 連動スイッチ系（照明・AV・プラグ等） */
@@ -433,17 +447,37 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
     },
     intercom: {
       deviceKey: "intercom-entrance",
-      label: "玄関 スマートインターホン",
+      label: "玄関ドアホン TD-B30C",
       controlChannel: "intercom_sip",
+      modelId: "TD-B30C",
+      modelLabel: "アイリスオーヤマ TD-B30C",
       state: "idle",
-      lastVisitAt: "2026-08-16T14:20:00+09:00",
-      streamKind: "mock",
+      lastVisitAt: "2026-09-01T10:15:00+09:00",
+      streamKind: "webrtc",
       streamUrl: "",
-      snapshotUrl: "",
+      snapshotUrl:
+        "/api/home/v1/doorphone/snapshot?siteId=HOME-JP-TSUKUBA-001",
+      micMuted: false,
+      speakerVolume: 72,
+      recording: false,
+      answerDeepLink: "irisdoorphone://answer",
+      lastSnapshotAt: "2026-09-01T09:50:00+09:00",
       autoResponseMessage:
         "ただいま手が離せません。置き配でお願いします。",
       unlockLinkEnabled: true,
       visitors: [
+        {
+          id: "vis-jp-tb-1",
+          label: "宅配便（置き配依頼）",
+          occurredAt: "2026-09-01T10:15:00+09:00",
+          handledAs: "auto",
+        },
+        {
+          id: "vis-jp-tb-2",
+          label: "来訪者（応答済）",
+          occurredAt: "2026-08-31T16:42:00+09:00",
+          handledAs: "answered",
+        },
         {
           id: "vis-jp-1",
           label: "宅配便（置き配）",
@@ -739,17 +773,31 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
     },
     intercom: {
       deviceKey: "intercom-entrance",
-      label: "Front door smart intercom",
+      label: "Front Entrance Doorphone",
       controlChannel: "intercom_sip",
+      modelId: "TD-B30C",
+      modelLabel: "Iris Ohyama TD-B30C",
       state: "idle",
-      lastVisitAt: "2026-08-16T09:40:00+10:00",
-      streamKind: "mock",
+      lastVisitAt: "2026-09-01T08:30:00+10:00",
+      streamKind: "webrtc",
       streamUrl: "",
-      snapshotUrl: "",
+      snapshotUrl:
+        "/api/home/v1/doorphone/snapshot?siteId=HOME-AU-GOLDCOAST-001",
+      micMuted: false,
+      speakerVolume: 65,
+      recording: false,
+      answerDeepLink: "irisdoorphone://answer",
+      lastSnapshotAt: "2026-09-01T08:00:00+10:00",
       autoResponseMessage:
         "We are unavailable right now. Please leave the parcel at the door.",
       unlockLinkEnabled: false,
       visitors: [
+        {
+          id: "vis-au-tb-1",
+          label: "Courier (parcel)",
+          occurredAt: "2026-09-01T08:30:00+10:00",
+          handledAs: "auto",
+        },
         {
           id: "vis-au-1",
           label: "Parcel delivery",

@@ -667,7 +667,9 @@ export function renderLock(d, options = {}) {
 
 /* ---------- スマートインターホン ---------- */
 
-/** ライブ枠（実映像が無い場合はモック枠を出す） */
+import { renderDoorphoneViewerV1 } from "../intercom/doorphone-viewer-v1.js";
+
+/** ライブ枠（DoorphoneCard 未使用時のフォールバック） */
 function intercomFrameHtml(ic) {
   const tag = `<span class="hm-cam-tag">${escapeHtml(
     ic.streamKindLabel
@@ -726,18 +728,34 @@ export function renderIntercom(d, options = {}) {
   }
 
   const frame = byId("hm-intercom-frame");
-  if (frame) frame.innerHTML = intercomFrameHtml(ic);
+  if (frame) {
+    if (ic.modelId || ic.modelLabel || ic.statusBadge) {
+      renderDoorphoneViewerV1(ic, {
+        withUnlock: options.withUnlock !== false,
+        siteId: d.siteId,
+      });
+    } else {
+      frame.innerHTML = intercomFrameHtml(ic);
+    }
+  }
 
   const unlockBtn = byId("hm-intercom-unlock");
   if (unlockBtn) {
     const allowUnlock =
       ic.unlockLinkEnabled && options.withUnlock !== false;
-    unlockBtn.hidden = !allowUnlock;
+    const usesDoorphone = Boolean(ic.modelId || ic.modelLabel);
+    unlockBtn.hidden = !allowUnlock || usesDoorphone;
     unlockBtn.disabled = false;
   }
 
+  const answerBtn = byId("hm-intercom-answer");
   const autoBtn = byId("hm-intercom-auto");
-  if (autoBtn) autoBtn.title = ic.autoResponseMessage;
+  const usesDoorphone = Boolean(ic.modelId || ic.modelLabel);
+  if (answerBtn) answerBtn.hidden = usesDoorphone;
+  if (autoBtn) {
+    autoBtn.hidden = usesDoorphone;
+    autoBtn.title = ic.autoResponseMessage;
+  }
   setText("hm-intercom-auto-message", ic.autoResponseMessage);
 
   const list = byId("hm-intercom-visitors");
