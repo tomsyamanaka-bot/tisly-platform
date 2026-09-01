@@ -109,9 +109,45 @@ export function getCustomerPortalModulesV1(
   const code = normalizePortalCode(customerCode);
   const stored = getStoredEnabledModulesV1(code);
   if (stored?.enabledModules?.length) {
-    return ensurePortalBase(stored.enabledModules);
+    const normalized = normalizeStoredPortalModulesV1(
+      code,
+      stored.enabledModules
+    );
+    if (normalized) return normalized;
   }
   return resolveDefaultCustomerPortalModulesV1(code);
+}
+
+/** 旧 app 既定と同一の保存値はポータル既定へ移行 */
+function normalizeStoredPortalModulesV1(
+  customerCode: string,
+  stored: string[]
+): string[] | null {
+  const portalMarkerIds = [
+    "camera_preview_v1",
+    "equipment_monitor_v1",
+  ];
+  const hasPortalMarker = stored.some((m) =>
+    portalMarkerIds.includes(m)
+  );
+  if (hasPortalMarker) {
+    return ensurePortalBase(stored);
+  }
+  const appLegacy = resolveDefaultEnabledModulesV1(customerCode).filter(
+    (m) => m !== "*"
+  );
+  const storedCore = [...stored]
+    .filter((m) => m !== "customer_portal")
+    .sort()
+    .join(",");
+  const legacyCore = [...appLegacy]
+    .filter((m) => m !== "customer_portal")
+    .sort()
+    .join(",");
+  if (storedCore === legacyCore && legacyCore.length > 0) {
+    return null;
+  }
+  return ensurePortalBase(stored);
 }
 
 /** トグル状態 → enabledModules 配列 */

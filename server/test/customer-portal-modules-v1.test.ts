@@ -30,7 +30,7 @@ const { upsertEnabledModulesV1 } = await import(
   "../src/tenant/customer-enabled-modules-store-v1.js"
 );
 
-const app = createApp();
+let app: ReturnType<typeof createApp>;
 
 describe("customer portal modules v1 — Security default", () => {
   before(async () => {
@@ -45,6 +45,7 @@ describe("customer portal modules v1 — Security default", () => {
     }
     resetRateLimitsForTests();
     getDatabase();
+    app = createApp();
   });
 
   after(() => closeDatabase());
@@ -63,6 +64,22 @@ describe("customer portal modules v1 — Security default", () => {
       "customer_portal",
       "security_floor_v1",
     ]);
+  });
+
+  it("legacy app preset stored migrates to Security portal default", () => {
+    upsertEnabledModulesV1({
+      customerCode: "TOYOSHIMA001",
+      enabledModules: [
+        "tisly_home_v1",
+        "security_floor_v1",
+        "customer_portal",
+      ],
+      updatedBy: "legacy-seed",
+    });
+    const mods = getCustomerPortalModulesV1("TOYOSHIMA001");
+    assert.ok(mods.includes("security_floor_v1"));
+    assert.ok(mods.includes("camera_preview_v1"));
+    assert.ok(!mods.includes("tisly_home_v1"));
   });
 
   it("session home hides TiSLY HOME for TOYOSHIMA001", () => {
