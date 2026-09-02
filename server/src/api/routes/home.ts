@@ -91,6 +91,16 @@ import {
   processHomeSecurityEventV1,
 } from "../../home/home-security-notify-v1.js";
 import {
+  applyCustomerSecurityModeV1,
+  getCustomerSecurityModeV1,
+  isCustomerSecurityModeV1,
+  type CustomerSecurityModeV1,
+} from "../../home/home-customer-security-mode-v1.js";
+import {
+  buildMonthlySecurityReportHtmlV1,
+  buildMonthlySecurityReportV1,
+} from "../../home/home-monthly-security-report-v1.js";
+import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
   buildToyoshimaActivityReportV1,
@@ -618,6 +628,9 @@ function applyHomeSecurityRulesPatchV1(
     notifyStagedMode: body?.notifyStagedMode as HomeNotifyModeV1 | undefined,
     notifyDi2Mode: body?.notifyDi2Mode as HomeNotifyModeV1 | undefined,
     securityPausedUntil: body?.securityPausedUntil as string | null | undefined,
+    customerSecurityMode: body?.customerSecurityMode as
+      | CustomerSecurityModeV1
+      | undefined,
   });
   recordSystemLogV1({
     siteId,
@@ -658,6 +671,111 @@ homeRouter.put("/security-rules", (req, res) => {
     },
     notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
   });
+});
+
+/**
+ * 顧客ワンタップ警戒モード取得
+ * GET /api/home/v1/security/mode?siteId=
+ */
+homeRouter.get("/security/mode", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    const current = getCustomerSecurityModeV1(siteId);
+    res.json({
+      ok: true,
+      siteId,
+      mode: current.mode,
+      modeLabel: current.modeLabel,
+      options: current.options,
+      rules: {
+        ...current.rules,
+        guardModeLabel: homeGuardModeLabelJaV1(current.rules.guardMode),
+      },
+      dashboard: isToyoshimaSecuritySiteIdV1(siteId)
+        ? buildToyoshimaSecurityDashboardV1(siteId)
+        : undefined,
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * 顧客ワンタップ警戒モード保存
+ * POST /api/home/v1/security/mode
+ */
+homeRouter.post("/security/mode", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const mode = String(req.body?.mode ?? "").trim();
+  if (!siteId || !isCustomerSecurityModeV1(mode)) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId と mode(away|home|disarmed) が必要です",
+    });
+    return;
+  }
+  try {
+    const result = applyCustomerSecurityModeV1({
+      siteId,
+      mode,
+      actor: String(req.body?.actor ?? "customer-portal"),
+    });
+    if (isToyoshimaSecuritySiteIdV1(siteId)) {
+      syncToyoshimaConfigToFirmwareV1(siteId);
+    }
+    res.json({
+      ok: true,
+      siteId,
+      mode: result.mode,
+      modeLabel: result.modeLabel,
+      rules: {
+        ...result.rules,
+        guardModeLabel: homeGuardModeLabelJaV1(result.rules.guardMode),
+      },
+      dashboard: isToyoshimaSecuritySiteIdV1(siteId)
+        ? buildToyoshimaSecurityDashboardV1(siteId)
+        : undefined,
+      firmware: isToyoshimaSecuritySiteIdV1(siteId)
+        ? buildHomeSecurityFirmwareRulesV1(siteId)
+        : undefined,
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * 月次セキュリティ安心レポート
+ * GET /api/home/v1/security/monthly-report
+ */
+homeRouter.get("/security/monthly-report", (req, res) => {
+  const siteId = String(
+    req.query.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+  ).trim();
+  const yearMonth = String(req.query.yearMonth ?? "").trim() || null;
+  const format = String(req.query.format ?? "json").trim();
+  const report = buildMonthlySecurityReportV1({ siteId, yearMonth });
+  if (format === "pdf" || format === "html") {
+    const html = buildMonthlySecurityReportHtmlV1(report);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="tisly-monthly-security-${report.yearMonth}.html"`
+    );
+    res.send(html);
+    return;
+  }
+  res.json({ ok: true, report });
 });
 
 /** RP2350 DI 検知イベント（heartbeat 以外の明示 POST） */

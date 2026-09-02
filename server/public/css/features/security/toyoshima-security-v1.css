@@ -646,3 +646,181 @@
 .sf-soc-meta:not(.sf-tenant-fixed) .sf-site-fixed-label {
   display: none;
 }
+
+/* ワンタップ警戒モード */
+.ts-mode-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.ts-mode-btn {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  row-gap: 4px;
+  text-align: left;
+  min-height: 88px;
+  padding: 14px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.ts-mode-btn .ts-mode-emoji {
+  grid-row: 1 / span 2;
+  font-size: 1.6rem;
+  align-self: center;
+}
+
+.ts-mode-btn .ts-mode-label {
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: #1e3a8a;
+}
+
+.ts-mode-btn .ts-mode-desc {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.ts-mode-btn.is-on {
+  border-color: #1e3a8a;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px #1e3a8a inset;
+}
+
+/* 警報スナップショット */
+.ts-snap-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.ts-snap-thumb {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0f172a;
+  cursor: pointer;
+}
+
+.ts-snap-thumb img,
+.ts-snap-mini img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.ts-snap-meta {
+  padding: 0 8px 8px;
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.ts-snap-mini {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 160px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.ts-snap-lightbox {
+  border: none;
+  border-radius: 18px;
+  padding: 0;
+  max-width: min(96vw, 720px);
+  width: 100%;
+  background: #fff;
+}
+
+.ts-snap-lightbox::backdrop {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.ts-snap-lightbox-inner {
+  padding: 14px 16px 18px;
+}
+
+.ts-snap-lightbox-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ts-snap-lightbox-title {
+  margin: 0;
+  font-weight: 900;
+  color: #1e3a8a;
+}
+
+.ts-snap-lightbox-time {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.ts-snap-lightbox-img {
+  width: 100%;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
+/* 月次安心レポート */
+.ts-monthly-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ts-monthly-cell {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.ts-monthly-cell-wide {
+  grid-column: 1 / -1;
+}
+
+.ts-monthly-key {
+  display: block;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.ts-monthly-val {
+  display: block;
+  margin-top: 6px;
+  color: #1e3a8a;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+@media (min-width: 720px) {
+  .ts-mode-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .ts-monthly-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

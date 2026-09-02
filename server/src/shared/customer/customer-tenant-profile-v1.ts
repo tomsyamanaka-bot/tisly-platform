@@ -8,10 +8,13 @@
 
 import { SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1 } from "../../security-floor/security-floor-sites-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
-import {
-  HOME_JP_TOYOSHIMA_SITE_ID_V1,
-  SEC_JP_TOYOSHIMA_SITE_ID_V1,
-} from "../../home/home-toyoshima-security-v1.js";
+
+/**
+ * 豊島邸 ID は文字列直書き
+ * （toyoshima モジュール循環参照を避ける）
+ */
+const HOME_JP_TOYOSHIMA_SITE_ID_CONST = "HOME-JP-TOYOSHIMA";
+const SEC_JP_TOYOSHIMA_SITE_ID_CONST = "SEC-JP-TOYOSHIMA-001";
 
 export interface CustomerTenantProfileV1 {
   customerCode: string;
@@ -26,8 +29,8 @@ export interface CustomerTenantProfileV1 {
 
 const TOYOSHIMA_PROFILE_V1 = {
   displayName: "豊島邸",
-  securitySiteId: SEC_JP_TOYOSHIMA_SITE_ID_V1,
-  homeSiteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+  securitySiteId: SEC_JP_TOYOSHIMA_SITE_ID_CONST,
+  homeSiteId: HOME_JP_TOYOSHIMA_SITE_ID_CONST,
   useToyoshimaDashboard: true,
 } as const;
 

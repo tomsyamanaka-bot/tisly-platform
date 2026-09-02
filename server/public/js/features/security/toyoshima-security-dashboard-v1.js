@@ -116,16 +116,101 @@ function syncScheduleState(dash) {
 }
 
 function renderHeroChips(dash) {
-  const guardLabel = dash.guardModeLabel || "警戒時間";
+  const modeLabel = dash.customerModeLabel || dash.guardModeLabel || "警戒";
   const lightLabel = dash.lightsScheduleLabel || "—";
   return `<button type="button" class="ts-hero-chip" data-ts-schedule="guard" aria-haspopup="dialog">
       <span class="ts-hero-chip-label">警戒</span>
-      <span class="ts-hero-chip-value">${escapeHtml(guardLabel)}</span>
+      <span class="ts-hero-chip-value">${escapeHtml(modeLabel)}</span>
     </button>
     <button type="button" class="ts-hero-chip" data-ts-schedule="light" aria-haspopup="dialog">
       <span class="ts-hero-chip-label">ライト点灯</span>
       <span class="ts-hero-chip-value">${escapeHtml(lightLabel)}</span>
     </button>`;
+}
+
+/** ワンタップ警戒モード（大型カード） */
+function renderCustomerModeCards(dash) {
+  const current = dash.customerMode || "home";
+  const modes = [
+    {
+      id: "away",
+      emoji: "🏃‍♂️",
+      label: "おでかけ警戒",
+      desc: "全センサー24時間フル発報。ライト即時・パトライト・緊急Push。",
+    },
+    {
+      id: "home",
+      emoji: "🏠",
+      label: "在宅見守り",
+      desc: "外周のみ有効。夜間は外構ライトを優しく点灯し静かな通知。",
+    },
+    {
+      id: "disarmed",
+      emoji: "⏸️",
+      label: "警戒一時解除",
+      desc: "庭の手入れ・来客用。ライト・パトライト・緊急通知を一時停止。",
+    },
+  ];
+  return `<section class="ts-card ts-mode-card" id="ts-mode-card" aria-label="警戒モード">
+    <h3 class="ts-card-head">🛡️ 警戒モード</h3>
+    <p class="ts-hint">ワンタップで切り替え。実機へ即時反映します。</p>
+    <div class="ts-mode-grid" role="radiogroup" aria-label="警戒モード切替">
+      ${modes
+        .map(
+          (m) => `<button type="button" class="ts-mode-btn ${
+            current === m.id ? "is-on" : ""
+          }" data-ts-customer-mode="${m.id}" role="radio" aria-checked="${
+            current === m.id ? "true" : "false"
+          }">
+        <span class="ts-mode-emoji" aria-hidden="true">${m.emoji}</span>
+        <span class="ts-mode-label">${m.label}</span>
+        <span class="ts-mode-desc">${m.desc}</span>
+      </button>`
+        )
+        .join("")}
+    </div>
+  </section>`;
+}
+
+function latestSnapshots(timeline, limit = 6) {
+  return (timeline || [])
+    .filter((ev) => ev.snapshot?.imageUrl || ev.snapshot?.thumbUrl)
+    .slice(0, limit);
+}
+
+function renderSnapshotThumb(ev) {
+  const snap = ev.snapshot;
+  if (!snap?.imageUrl && !snap?.thumbUrl) return "";
+  const src = snap.thumbUrl || snap.imageUrl;
+  return `<button type="button" class="ts-snap-thumb" data-ts-snap-url="${escapeHtml(
+    snap.imageUrl || src
+  )}" data-ts-snap-title="${escapeHtml(ev.title || snap.cameraLabel || "スナップショット")}" data-ts-snap-time="${escapeHtml(
+    formatTime(snap.at || ev.at)
+  )}">
+    <img src="${escapeHtml(src)}" alt="${escapeHtml(snap.cameraLabel || "警報写真")}" loading="lazy" />
+    <span class="ts-snap-meta">${escapeHtml(formatTime(snap.at || ev.at))} · ${escapeHtml(
+    snap.areaLabel || snap.cameraLabel || ""
+  )}</span>
+  </button>`;
+}
+
+function renderAlarmCard(dash) {
+  const alarm = dash.alarm || { active: false, message: "発報はありません" };
+  const snaps = latestSnapshots(dash.timeline, 3);
+  return `<section class="ts-card ts-alarm-card ${alarm.active ? "is-live" : ""}" id="ts-alarm-card">
+    <h3 class="ts-card-head">🚨 アラーム発報</h3>
+    <p class="ts-alarm-status ${alarm.active ? "is-alert" : ""}" id="ts-alarm-status">${escapeHtml(alarm.message)}</p>
+    ${
+      snaps.length
+        ? `<div class="ts-snap-row" id="ts-alarm-snaps">${snaps
+            .map(renderSnapshotThumb)
+            .join("")}</div>`
+        : ""
+    }
+    <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
+      アラーム対応完了
+    </button>
+  </section>`;
 }
 
 function renderHealthGrid(dash) {
@@ -174,17 +259,6 @@ function renderSettingsCard(dash) {
       </div>
     </label>
     <p class="ts-hint">スライダー変更は自動保存されます</p>
-  </section>`;
-}
-
-function renderAlarmCard(dash) {
-  const alarm = dash.alarm || { active: false, message: "発報はありません" };
-  return `<section class="ts-card ts-alarm-card ${alarm.active ? "is-live" : ""}" id="ts-alarm-card">
-    <h3 class="ts-card-head">🚨 アラーム発報</h3>
-    <p class="ts-alarm-status ${alarm.active ? "is-alert" : ""}" id="ts-alarm-status">${escapeHtml(alarm.message)}</p>
-    <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
-      アラーム対応完了
-    </button>
   </section>`;
 }
 
@@ -249,11 +323,21 @@ function renderActivityLog(timeline, limit = 10) {
               : "💡";
       const alertClass =
         ev.kind === "comm_loss" ? " is-comm-alert" : "";
+      const snapHtml = ev.snapshot?.imageUrl
+        ? `<button type="button" class="ts-snap-mini" data-ts-snap-url="${escapeHtml(
+            ev.snapshot.imageUrl
+          )}" data-ts-snap-title="${escapeHtml(ev.title || "")}" data-ts-snap-time="${escapeHtml(
+            formatTime(ev.snapshot.at || ev.at)
+          )}">
+            <img src="${escapeHtml(ev.snapshot.thumbUrl || ev.snapshot.imageUrl)}" alt="スナップショット" loading="lazy" />
+          </button>`
+        : "";
       return `<article class="ts-log-row${alertClass}">
         <span class="ts-log-ico">${ico}</span>
         <div class="ts-log-body">
           <p class="ts-log-title">${escapeHtml(ev.title)}</p>
           <p class="ts-log-sub">${escapeHtml(ev.detail || "")}</p>
+          ${snapHtml}
         </div>
         <time class="ts-log-time">${formatTime(ev.at)}</time>
       </article>`;
@@ -261,14 +345,47 @@ function renderActivityLog(timeline, limit = 10) {
     .join("");
 }
 
+function renderMonthlyReportCard(report) {
+  const r = report || {
+    yearMonthLabel: "今月",
+    detectionLabel: "—",
+    lightOnLabel: "—",
+    uptimeLabel: "—",
+  };
+  return `<section class="ts-card ts-monthly-card" id="ts-monthly-card">
+    <h3 class="ts-card-head">📊 ${escapeHtml(r.yearMonthLabel)}の安心レポート</h3>
+    <div class="ts-monthly-grid">
+      <div class="ts-monthly-cell">
+        <span class="ts-monthly-key">侵入・センサー検知</span>
+        <strong class="ts-monthly-val" id="ts-monthly-detect">${escapeHtml(r.detectionLabel)}</strong>
+      </div>
+      <div class="ts-monthly-cell">
+        <span class="ts-monthly-key">夜間ライト自動点灯</span>
+        <strong class="ts-monthly-val" id="ts-monthly-light">${escapeHtml(r.lightOnLabel)}</strong>
+      </div>
+      <div class="ts-monthly-cell ts-monthly-cell-wide">
+        <span class="ts-monthly-key">主装置・子機 正常稼働率</span>
+        <strong class="ts-monthly-val" id="ts-monthly-uptime">${escapeHtml(r.uptimeLabel)}</strong>
+      </div>
+    </div>
+    <button type="button" class="ts-btn ts-btn-wide" data-ts-action="monthly_pdf">
+      📄 月次報告書を出力（PDF）
+    </button>
+  </section>`;
+}
+
 function renderActivitySection(dash) {
   return `<section class="ts-card ts-activity-card">
     <h3 class="ts-card-head">📜 動作ログ（直近10件）</h3>
     <div class="ts-activity-log" id="ts-activity-log">${renderActivityLog(dash.timeline, 10)}</div>
+    <div class="ts-snap-row ts-snap-row-log" id="ts-log-snaps">${latestSnapshots(dash.timeline, 6)
+      .map(renderSnapshotThumb)
+      .join("")}</div>
     <button type="button" class="ts-btn ts-btn-ghost ts-btn-wide" data-ts-action="open_log">
       詳細を見る（もっと見る）
     </button>
-  </section>`;
+  </section>
+  <div id="ts-monthly-root">${renderMonthlyReportCard(dash._monthlyReport)}</div>`;
 }
 
 function diBadge(di) {
@@ -533,6 +650,11 @@ function patchToyoshimaDashboard(dash) {
     if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
   }
 
+  const modeCard = $("ts-mode-card");
+  if (modeCard) {
+    modeCard.outerHTML = renderCustomerModeCards(dash);
+  }
+
   const alarmCard = $("ts-alarm-card");
   if (alarmCard) {
     alarmCard.outerHTML = renderAlarmCard(dash);
@@ -551,6 +673,12 @@ function patchToyoshimaDashboard(dash) {
   const activityLog = $("ts-activity-log");
   if (activityLog) {
     activityLog.innerHTML = renderActivityLog(dash.timeline, 10);
+  }
+  const logSnaps = $("ts-log-snaps");
+  if (logSnaps) {
+    logSnaps.innerHTML = latestSnapshots(dash.timeline, 6)
+      .map(renderSnapshotThumb)
+      .join("");
   }
 }
 
@@ -648,6 +776,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
           <p class="ts-hero-title" id="ts-hero-title">${escapeHtml(dash.displayName || "豊島邸")}</p>
           <div class="ts-hero-actions" id="ts-hero-actions">${renderHeroChips(dash)}</div>
         </section>
+        ${renderCustomerModeCards(dash)}
         <button type="button" class="ts-sync-btn" data-ts-action="sync_config">
           📡 主装置・子機へ設定を反映
         </button>
@@ -669,11 +798,13 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   root.dataset.mounted = "1";
   renderScheduleDialog();
   renderLogDialog();
+  ensureSnapshotLightbox();
   bindScheduleDialog();
   bindSettingsSliders();
   bindToyoshimaPush();
   bindToyoshimaControls();
   refreshToyoshimaPushDiag();
+  loadMonthlyReportIntoDash(dash).catch(() => {});
   setToyoshimaCustomerPane(
     document.body.getAttribute("data-pane") || "map"
   );
@@ -702,7 +833,71 @@ async function refreshToyoshimaDashboard(opts = {}) {
   const data = await res.json();
   if (data?.ok && data.dashboard) {
     renderToyoshimaDashboard(data.dashboard, opts);
+    if (!opts.soft) {
+      await loadMonthlyReportIntoDash(data.dashboard).catch(() => {});
+    }
   }
+}
+
+async function loadMonthlyReportIntoDash(dash) {
+  const res = await fetch(
+    `${HOME_API}/security/monthly-report?siteId=${encodeURIComponent(
+      dash?.homeSiteId || TOYOSHIMA_HOME_ID
+    )}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  if (!data?.ok || !data.report) return;
+  dash._monthlyReport = data.report;
+  const root = $("ts-monthly-root");
+  if (root) root.innerHTML = renderMonthlyReportCard(data.report);
+}
+
+async function setCustomerMode(mode) {
+  const res = await fetch(`${HOME_API}/security/mode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId: TOYOSHIMA_HOME_ID,
+      mode,
+      actor: "customer-portal",
+    }),
+  });
+  const data = await res.json();
+  if (!data?.ok) throw new Error(data?.error || "モード切替に失敗");
+  if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+  showToast(`${data.modeLabel || "警戒モード"} に切り替えました`);
+}
+
+function ensureSnapshotLightbox() {
+  if ($("ts-snap-lightbox")) return;
+  const dlg = document.createElement("dialog");
+  dlg.id = "ts-snap-lightbox";
+  dlg.className = "ts-snap-lightbox";
+  dlg.innerHTML = `
+    <div class="ts-snap-lightbox-inner">
+      <header class="ts-snap-lightbox-head">
+        <div>
+          <p class="ts-snap-lightbox-title" id="ts-snap-lightbox-title">スナップショット</p>
+          <p class="ts-snap-lightbox-time" id="ts-snap-lightbox-time"></p>
+        </div>
+        <form method="dialog"><button type="submit" class="ts-btn ts-btn-ghost">閉じる</button></form>
+      </header>
+      <img id="ts-snap-lightbox-img" class="ts-snap-lightbox-img" alt="警報スナップショット拡大" />
+    </div>`;
+  document.body.appendChild(dlg);
+}
+
+function openSnapshotLightbox(url, title, timeLabel) {
+  ensureSnapshotLightbox();
+  const dlg = $("ts-snap-lightbox");
+  const img = $("ts-snap-lightbox-img");
+  const t = $("ts-snap-lightbox-title");
+  const tm = $("ts-snap-lightbox-time");
+  if (img) img.src = url;
+  if (t) t.textContent = title || "スナップショット";
+  if (tm) tm.textContent = timeLabel || "";
+  dlg?.showModal?.();
 }
 
 async function setNotifyMode(sensorId, mode) {
@@ -793,6 +988,32 @@ function bindToyoshimaControls() {
   });
 
   root.addEventListener("click", async (e) => {
+    const modeBtn = e.target.closest("[data-ts-customer-mode]");
+    if (modeBtn) {
+      e.preventDefault();
+      const mode = modeBtn.getAttribute("data-ts-customer-mode");
+      try {
+        modeBtn.disabled = true;
+        await setCustomerMode(mode);
+      } catch (err) {
+        showToast(err.message || "モード切替に失敗");
+      } finally {
+        modeBtn.disabled = false;
+      }
+      return;
+    }
+
+    const snapBtn = e.target.closest("[data-ts-snap-url]");
+    if (snapBtn) {
+      e.preventDefault();
+      openSnapshotLightbox(
+        snapBtn.getAttribute("data-ts-snap-url"),
+        snapBtn.getAttribute("data-ts-snap-title"),
+        snapBtn.getAttribute("data-ts-snap-time")
+      );
+      return;
+    }
+
     const chip = e.target.closest("[data-ts-schedule]");
     if (chip) {
       e.preventDefault();
@@ -818,6 +1039,16 @@ function bindToyoshimaControls() {
     const action = actionBtn.getAttribute("data-ts-action");
 
     try {
+      if (action === "monthly_pdf") {
+        window.open(
+          `${HOME_API}/security/monthly-report?siteId=${encodeURIComponent(
+            TOYOSHIMA_HOME_ID
+          )}&format=pdf`,
+          "_blank",
+          "noopener"
+        );
+        return;
+      }
       if (action === "sync_config") {
         actionBtn.disabled = true;
         const data = await postJson("/toyoshima/sync-config", {

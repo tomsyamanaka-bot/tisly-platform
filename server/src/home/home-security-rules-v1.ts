@@ -93,6 +93,11 @@ export interface HomeSecurityRulesV1 {
   notifyDi2Mode: HomeNotifyModeV1;
   /** シーン「ただいま」等の一時停止期限 */
   securityPausedUntil: string | null;
+  /**
+   * 顧客ワンタップ警戒モード
+   * （away / home / disarmed）— 追記フィールド
+   */
+  customerSecurityMode?: "away" | "home" | "disarmed";
   updatedAt: string;
 }
 
@@ -116,6 +121,8 @@ export interface HomeSecurityRulesPatchV1 {
   notifyStagedMode?: HomeNotifyModeV1;
   notifyDi2Mode?: HomeNotifyModeV1;
   securityPausedUntil?: string | null;
+  /** 顧客ワンタップ警戒モード（追記） */
+  customerSecurityMode?: "away" | "home" | "disarmed";
 }
 
 /** RP2350 向けファームウェア JSON */
@@ -242,6 +249,11 @@ export function isHomeNotifyModeV1(value: unknown): value is HomeNotifyModeV1 {
 /** Push するモードか（critical のみ） */
 export function isHomeNotifyPushEnabledV1(mode: HomeNotifyModeV1): boolean {
   return mode === "critical";
+}
+
+/** 顧客向け：緊急 + サイレント（静かな通知） */
+export function isHomeNotifyAnyPushV1(mode: HomeNotifyModeV1): boolean {
+  return mode === "critical" || mode === "silent";
 }
 
 function parseNotifyMode(
@@ -435,6 +447,12 @@ function parseRulesJson(
       typeof parsed.securityPausedUntil === "string"
         ? parsed.securityPausedUntil
         : null,
+    customerSecurityMode:
+      parsed.customerSecurityMode === "away" ||
+      parsed.customerSecurityMode === "home" ||
+      parsed.customerSecurityMode === "disarmed"
+        ? parsed.customerSecurityMode
+        : undefined,
     updatedAt:
       typeof parsed.updatedAt === "string"
         ? parsed.updatedAt
@@ -638,6 +656,12 @@ export function updateHomeSecurityRulesV1(
       patch.securityPausedUntil !== undefined
         ? patch.securityPausedUntil
         : current.securityPausedUntil,
+    customerSecurityMode:
+      patch.customerSecurityMode === "away" ||
+      patch.customerSecurityMode === "home" ||
+      patch.customerSecurityMode === "disarmed"
+        ? patch.customerSecurityMode
+        : current.customerSecurityMode,
     updatedAt: nowIso(),
   };
 

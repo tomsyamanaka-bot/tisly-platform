@@ -13,6 +13,7 @@ import {
   getHomeSecurityRulesV1,
   homeGuardModeLabelJaV1,
   isHomeGuardActiveV1,
+  isHomeNotifyAnyPushV1,
   isHomeNotifyModeV1,
   isHomeNotifyPushEnabledV1,
   isHomeSecurityArmedV1,
@@ -27,6 +28,15 @@ import {
 } from "../shared/customer/customer-display-labels-v1.js";
 import { findHomeSiteV1 } from "./home-sites-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import {
+  captureSecurityAlarmSnapshotV1,
+  type SecurityAlarmSnapshotV1,
+} from "./home-security-alarm-snapshot-v1.js";
+import {
+  customerSecurityModeLabelV1,
+  deriveCustomerSecurityModeV1,
+  type CustomerSecurityModeV1,
+} from "./home-customer-security-mode-v1.js";
 
 /** 豊島邸 HOME / propertyId */
 export const HOME_JP_TOYOSHIMA_SITE_ID_V1 = "HOME-JP-TOYOSHIMA";
@@ -95,9 +105,12 @@ export interface ToyoshimaTimelineEventV1 {
     | "manual"
     | "patlite_test"
     | "comm_loss"
-    | "comm_recovered";
+    | "comm_recovered"
+    | "mode_change";
   title: string;
   detail?: string;
+  /** 警報時カメラ静止画 */
+  snapshot?: SecurityAlarmSnapshotV1 | null;
 }
 
 export type ToyoshimaNotifySensorIdV1 =
@@ -142,6 +155,9 @@ export interface ToyoshimaSecurityDashboardV1 {
   homeSiteId: string;
   guardMode: HomeGuardModeV1;
   guardModeLabel: string;
+  /** 顧客ワンタップ警戒モード */
+  customerMode: CustomerSecurityModeV1;
+  customerModeLabel: string;
   scheduleStart: string;
   scheduleEnd: string;
   lightsScheduleLabel: string;
@@ -444,6 +460,8 @@ async function sendToyoshimaPush(input: {
   title: string;
   body: string;
   eventType: string;
+  severity?: "critical" | "silent";
+  snapshotUrl?: string | null;
 }): Promise<boolean> {
   try {
     const result = await sendWebPush({
@@ -456,7 +474,8 @@ async function sendToyoshimaPush(input: {
       badge: "/icons/icon-192.png?v=2003",
       data: {
         siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
-        severity: "critical",
+        severity: input.severity || "critical",
+        snapshotUrl: input.snapshotUrl || undefined,
       },
     });
     return result.success;
@@ -469,42 +488,59 @@ async function sendToyoshimaPush(input: {
 async function handleMainBeamDetect(siteId: string): Promise<void> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
+  const customerMode = deriveCustomerSecurityModeV1(rules);
   const armed = isHomeSecurityArmedV1(rules);
   const lightsActive = isHomeGuardActiveV1(rules);
+  /* 在宅見守りでは屋内（母屋）はログのみ */
+  const mainActive = customerMode === "away";
 
   runtime.main.di.forEach((d) => {
     d.state = "detecting";
   });
 
   const title = "🚨 豊島邸 母屋";
+  const at = nowIso();
+  const snapshot = captureSecurityAlarmSnapshotV1({
+    eventKind: "main_beam",
+    at,
+    customerCode: "TOYOSHIMA001",
+  });
   appendTimeline({
-    at: nowIso(),
+    at,
     building: "main",
     kind: "main_beam",
     title,
-    detail: "母屋 遠近ビームセンサー DI1/DI2",
+    detail: "母屋 遠近ビームセンサー",
+    snapshot,
   });
 
   recordSystemLogV1({
     siteId: homeId,
     category: "sensor_alert",
     message: title,
-    detail: { building: "main", di: [1, 2] },
+    detail: { building: "main", di: [1, 2], customerMode },
     actor: "rp2350",
   });
 
-  if (armed && isHomeNotifyPushEnabledV1(rules.notifyStagedMode)) {
+  if (
+    armed &&
+    mainActive &&
+    isHomeNotifyAnyPushV1(rules.notifyStagedMode)
+  ) {
     await sendToyoshimaPush({
       title: "🚨 豊島邸 母屋",
       body: "母屋 遠近ビームセンサー侵入検知",
       eventType: "toyoshima_main_beam",
+      severity:
+        rules.notifyStagedMode === "silent" ? "silent" : "critical",
+      snapshotUrl: snapshot?.imageUrl,
     });
   }
 
-  runtime.alarmLatch = true;
+  runtime.alarmLatch = mainActive && armed;
   touchToyoshimaDeviceCommV1("main");
 
-  if (lightsActive) {
+  if (mainActive && lightsActive) {
     const d1 = findDo(runtime.main, 1);
     const d2 = findDo(runtime.main, 2);
     if (d1) d1.on = true;
@@ -514,6 +550,10 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
       if (d1) d1.on = false;
       if (d2) d2.on = false;
     }, durationMs);
+  }
+
+  if (mainActive && armed) {
+    startPatliteBlink("main", 3, rules.di2AlertDurationSec * 1000);
   }
 
   setTimeout(() => {
@@ -530,8 +570,12 @@ async function handleDetachedDi(
 ): Promise<void> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
+  const customerMode = deriveCustomerSecurityModeV1(rules);
   const armed = isHomeSecurityArmedV1(rules);
   const lightsActive = isHomeGuardActiveV1(rules);
+  /* 一時解除以外は外周センサーを有効 */
+  const perimeterActive =
+    customerMode === "away" || customerMode === "home";
 
   const diState = findDi(runtime.detached, di);
   if (diState) diState.state = "detecting";
@@ -541,48 +585,64 @@ async function handleDetachedDi(
     ? "🚨 豊島邸 はなれ（道路側）"
     : "🚨 豊島邸 はなれ（通路側）";
   const kind = isRoad ? "detached_road" : "detached_path";
+  const at = nowIso();
+  const snapshot = captureSecurityAlarmSnapshotV1({
+    eventKind: kind,
+    at,
+    customerCode: "TOYOSHIMA001",
+  });
 
   appendTimeline({
-    at: nowIso(),
+    at,
     building: "detached",
     kind,
     title: title.replace("🚨 ", ""),
-    detail: isRoad ? "DI1 道路側" : "DI2 通路側",
+    detail: isRoad ? "道路側センサー" : "通路側センサー",
+    snapshot,
   });
 
   recordSystemLogV1({
     siteId: homeId,
     category: "sensor_alert",
     message: title,
-    detail: { building: "detached", di },
+    detail: { building: "detached", di, customerMode },
     actor: "rp2350",
   });
 
   const notifyMode =
     di === 1 ? rules.notifyDi1Mode : rules.notifyDi2Mode;
 
-  if (armed && isHomeNotifyPushEnabledV1(notifyMode)) {
+  if (
+    armed &&
+    perimeterActive &&
+    isHomeNotifyAnyPushV1(notifyMode)
+  ) {
     await sendToyoshimaPush({
       title,
       body: title,
       eventType: isRoad
         ? "toyoshima_detached_road"
         : "toyoshima_detached_path",
+      severity: notifyMode === "silent" ? "silent" : "critical",
+      snapshotUrl: snapshot?.imageUrl,
     });
   }
 
-  runtime.alarmLatch = true;
+  runtime.alarmLatch = perimeterActive && armed;
   touchToyoshimaDeviceCommV1("detached");
 
   const light = findDo(runtime.detached, 1);
-  if (lightsActive && light) {
+  if (perimeterActive && lightsActive && light) {
     light.on = true;
     setTimeout(() => {
       light.on = false;
     }, rules.lightingDurationSec * 1000);
   }
 
-  startPatliteBlink("detached", 2, rules.di2AlertDurationSec * 1000);
+  /* おでかけ警戒のみパトライト威嚇 */
+  if (customerMode === "away" && armed) {
+    startPatliteBlink("detached", 2, rules.di2AlertDurationSec * 1000);
+  }
 
   setTimeout(() => {
     if (diState) diState.state = "normal";
@@ -1008,6 +1068,7 @@ export function buildToyoshimaSecurityDashboardV1(
   const rules = getHomeSecurityRulesV1(homeId);
   const scheduleStart = rules.scheduleStart || "18:00";
   const scheduleEnd = rules.scheduleEnd || "06:00";
+  const customerMode = deriveCustomerSecurityModeV1(rules);
 
   return {
     siteId: SEC_JP_TOYOSHIMA_SITE_ID_V1,
@@ -1017,6 +1078,8 @@ export function buildToyoshimaSecurityDashboardV1(
     homeSiteId: homeId,
     guardMode: rules.guardMode,
     guardModeLabel: toyoshimaGuardScheduleLabelV1(rules),
+    customerMode,
+    customerModeLabel: customerSecurityModeLabelV1(customerMode),
     scheduleStart,
     scheduleEnd,
     lightsScheduleLabel: `${scheduleStart}〜${scheduleEnd}`,
