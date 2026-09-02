@@ -621,6 +621,9 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2515/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2515/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2515/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
     assert.doesNotMatch(customerHtml, /擬似発報/);
     assert.doesNotMatch(customerHtml, /デバウンス/);
@@ -685,9 +688,9 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.match(toyoshimaJs, /renderCustomerDailySettings/);
-    assert.match(toyoshimaJs, /日常詳細設定/);
+    assert.match(toyoshimaJs, /日常詳細設定|防犯・照明・通知の詳細設定/);
     assert.match(toyoshimaJs, /パトライト威嚇/);
-    assert.match(toyoshimaJs, /通知を受け取る/);
+    assert.match(toyoshimaJs, /🔔 通知ON|通知を受け取る/);
     assert.match(toyoshimaJs, /manual_lights_3min/);
     assert.match(toyoshimaJs, /patliteThreatEnabled/);
     assert.match(toyoshimaJs, /ts-mode-segment/);
@@ -695,6 +698,9 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /防犯カメラを見る/);
     assert.match(toyoshimaJs, /heartbeatWatchEnabled/);
     assert.match(toyoshimaJs, /\/toyoshima\/config/);
+    assert.match(toyoshimaJs, /data-ts-daily-mounted/);
+    assert.match(toyoshimaJs, /ensureCustomerDailySettingsMounted|syncFirmwareConfigAfterSave/);
+    assert.match(toyoshimaJs, /\/toyoshima\/sync-config/);
     assert.match(toyoshimaJs, /ts-hb-watch/);
     assert.doesNotMatch(
       toyoshimaJs,
@@ -713,6 +719,8 @@ describe("security-floor-v1", () => {
       "utf8"
     );
     assert.doesNotMatch(customerJs, /heartbeatWatchEnabled|sf-pro-hb-watch/);
+    assert.match(customerJs, /forceRefreshOnDeployedCommit|ensureSecurityServiceWorker/);
+    assert.match(customerJs, /SKIP_WAITING|tisly-security-customer-commit/);
     assert.match(customerJs, /sf-tenant-fixed|lockSiteSelectorUi/);
     assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
     assert.doesNotMatch(customerJs, /switchCustomerSite/);

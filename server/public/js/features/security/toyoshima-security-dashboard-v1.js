@@ -195,7 +195,7 @@ function syncCustomerOnlinePill(online, alerting) {
   }
 }
 
-/** 顧客向け · 日常詳細設定（アコーディオン） */
+/** 顧客向け · 日常詳細設定（常時表示カード） */
 function renderCustomerDailySettings(dash) {
   const mode = dash.customerMode || "home";
   const lightSec = dash.lightingDurationSec ?? 45;
@@ -205,14 +205,14 @@ function renderCustomerDailySettings(dash) {
   const sensors = dash.notifySensors || [];
   const lightLabel =
     mode === "away"
-      ? "防犯ライト点灯時間"
+      ? "防犯ライト点灯維持時間"
       : mode === "home"
-        ? "外構ライト点灯時間"
-        : "ライト点灯時間";
+        ? "外構ライト点灯維持時間"
+        : "ライト点灯維持時間";
   const patliteBlock =
     mode === "away"
       ? `<label class="ts-switch-row" for="ts-patlite-threat">
-        <span class="ts-label">パトライト威嚇動作</span>
+        <span class="ts-label">パトライト威嚇連動</span>
         <span class="ts-switch">
           <input type="checkbox" id="ts-patlite-threat" ${patliteOn ? "checked" : ""} />
           <span class="ts-switch-ui" aria-hidden="true"></span>
@@ -221,10 +221,10 @@ function renderCustomerDailySettings(dash) {
       </label>`
       : mode === "home"
         ? `<div class="ts-switch-row is-locked">
-        <span class="ts-label">パトライト威嚇動作</span>
-        <span class="ts-locked-val">OFF（在宅見守りでは固定）</span>
+        <span class="ts-label">パトライト威嚇連動</span>
+        <span class="ts-locked-val">OFF固定（作動しません）</span>
       </div>`
-        : `<p class="ts-hint">警戒一時解除中はライト・パトライトは停止します</p>`;
+        : `<p class="ts-hint">警戒解除中はライト・パトライトは停止します</p>`;
 
   const notifyRows = sensors
     .map((s) => {
@@ -234,11 +234,11 @@ function renderCustomerDailySettings(dash) {
         <div class="ts-notify-btns">
           <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
-            通知を受け取る
+            🔔 通知ON
           </button>
           <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
-            サイレント
+            🔕 サイレント
           </button>
         </div>
       </div>`;
@@ -247,18 +247,18 @@ function renderCustomerDailySettings(dash) {
 
   const modeDetailsHidden = mode === "disarmed" ? " hidden" : "";
 
-  return `<details class="ts-card ts-daily-settings" id="ts-daily-settings" open>
-    <summary class="ts-daily-summary">
-      <span class="ts-card-head">⚙️ 日常詳細設定</span>
-      <span class="ts-daily-chevron" aria-hidden="true">▼</span>
-    </summary>
+  /* details ではなく常時表示セクションで確実マウント */
+  return `<section class="ts-card ts-daily-settings" id="ts-daily-settings" data-ts-daily-mounted="1">
+    <h3 class="ts-card-head">⚙️ 防犯・照明・通知の詳細設定</h3>
     <div class="ts-daily-body">
       <section class="ts-daily-block" id="ts-mode-actions"${modeDetailsHidden}>
-        <h4 class="ts-daily-h">① 警戒モード別の動作</h4>
+        <h4 class="ts-daily-h">① 警戒モード別 アクション詳細設定</h4>
         <p class="ts-hint" id="ts-mode-actions-hint">${
           mode === "away"
             ? "おでかけ警戒：全センサー有効時の動作です"
-            : "在宅見守り：外周センサー有効時の動作です"
+            : mode === "home"
+              ? "在宅見守り：外周センサー有効時の動作です"
+              : "警戒解除中は詳細動作を一時停止します"
         }</p>
         <label class="ts-slider-field" for="ts-lighting-duration">
           <span class="ts-label" id="ts-lighting-label">${lightLabel}</span>
@@ -271,7 +271,7 @@ function renderCustomerDailySettings(dash) {
       </section>
 
       <section class="ts-daily-block">
-        <h4 class="ts-daily-h">② 自動点灯スケジュール</h4>
+        <h4 class="ts-daily-h">② 自動点灯スケジュール設定</h4>
         <p class="ts-hint">夜間のライト自動点灯時間帯（日跨ぎ可）</p>
         <div class="ts-schedule-inline">
           <label class="ts-schedule-field" for="ts-daily-schedule-start">
@@ -286,7 +286,7 @@ function renderCustomerDailySettings(dash) {
       </section>
 
       <section class="ts-daily-block">
-        <h4 class="ts-daily-h">③ エリア別プッシュ通知</h4>
+        <h4 class="ts-daily-h">③ エリア別 通知条件設定</h4>
         <p class="ts-hint">センサーごとに通知の受け取りを切り替え</p>
         <div id="ts-customer-notify">${notifyRows}</div>
       </section>
@@ -306,7 +306,7 @@ function renderCustomerDailySettings(dash) {
 
       <p class="ts-hint">変更は自動保存され、実機へ即時反映されます</p>
     </div>
-  </details>`;
+  </section>`;
 }
 
 /** 顧客向け · カメラプレビュー */
@@ -850,6 +850,11 @@ function patchToyoshimaDashboard(dash) {
     const modeCard = $("ts-mode-card");
     if (modeCard) modeCard.outerHTML = renderCustomerModeCards(dash);
 
+    /* 詳細設定が欠落したらフル再マウント */
+    if (!ensureCustomerDailySettingsMounted(dash)) {
+      return;
+    }
+
     const daily = $("ts-daily-settings");
     if (daily && !daily.querySelector(":active, :focus")) {
       daily.outerHTML = renderCustomerDailySettings(dash);
@@ -870,11 +875,11 @@ function patchToyoshimaDashboard(dash) {
         <div class="ts-notify-btns">
           <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
-            通知を受け取る
+            🔔 通知ON
           </button>
           <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
-            サイレント
+            🔕 サイレント
           </button>
         </div>
       </div>`;
@@ -1003,6 +1008,17 @@ export function setToyoshimaCustomerPane(pane) {
   if (root) root.setAttribute("data-ts-active-pane", id);
 }
 
+async function syncFirmwareConfigAfterSave() {
+  try {
+    await postJson("/toyoshima/sync-config", {
+      siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+      actor: "customer-portal",
+    });
+  } catch (err) {
+    console.warn("[toyoshima-ui] sync-config", err);
+  }
+}
+
 async function saveSettingsDebounced() {
   clearTimeout(settingsSaveTimer);
   settingsSaveTimer = setTimeout(async () => {
@@ -1026,11 +1042,42 @@ async function saveSettingsDebounced() {
       });
       const data = await res.json();
       if (!data?.ok) throw new Error(data?.error || "保存に失敗");
+      /* 実機評価APIへ即時同期 */
+      await syncFirmwareConfigAfterSave();
       showToast("日常設定を保存しました");
     } catch (err) {
       showToast(err.message || "設定の保存に失敗");
     }
   }, 600);
+}
+
+/**
+ * 詳細設定カードの存在を保証
+ * 欠落時はフル再描画して true=継続 / false=再入
+ */
+function ensureCustomerDailySettingsMounted(dash) {
+  if (!isCustomerPortal()) return true;
+  const root = $("ts-dashboard-root");
+  if (!root || root.hidden) return true;
+  const daily = $("ts-daily-settings");
+  const pane = root.querySelector('.ts-tab-pane[data-ts-pane="map"]');
+  if (daily && daily.getAttribute("data-ts-daily-mounted") === "1") {
+    return true;
+  }
+  if (!pane) {
+    delete root.dataset.mounted;
+    renderToyoshimaDashboard(dash);
+    return false;
+  }
+  /* モードカード直後へ詳細設定を挿入 */
+  const modeCard = $("ts-mode-card");
+  const html = renderCustomerDailySettings(dash);
+  if (modeCard) {
+    modeCard.insertAdjacentHTML("afterend", html);
+  } else {
+    pane.insertAdjacentHTML("afterbegin", html);
+  }
+  return true;
 }
 
 function bindSettingsSliders() {
@@ -1184,6 +1231,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     loadMonthlyReportIntoDash(dash).catch(() => {});
   } else {
     bindCustomerCamera();
+    ensureCustomerDailySettingsMounted(dash);
   }
   bindToyoshimaControls();
   setToyoshimaCustomerPane(
@@ -1248,6 +1296,7 @@ async function setCustomerMode(mode) {
   });
   const data = await res.json();
   if (!data?.ok) throw new Error(data?.error || "モード切替に失敗");
+  await syncFirmwareConfigAfterSave();
   if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
   showToast(`${data.modeLabel || "警戒モード"} に切り替えました`);
 }
@@ -1297,11 +1346,12 @@ async function setNotifyMode(sensorId, mode) {
   const data = await res.json();
   if (!data?.ok) throw new Error(data?.error || "通知設定の保存に失敗");
   if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+  await syncFirmwareConfigAfterSave();
   showToast(
     mode === "critical"
-      ? "通知を受け取る に変更しました"
+      ? "🔔 通知ON に変更しました"
       : mode === "silent"
-        ? "サイレント に変更しました"
+        ? "🔕 サイレント に変更しました"
         : `${NOTIFY_LABELS[mode] || mode} に変更しました`
   );
 }

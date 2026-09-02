@@ -336,6 +336,15 @@ export function createApp(): express.Application {
   });
   // ホームセキュリティ フロア俯瞰 — お客様（追記）
   app.get("/customer/security", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.sendFile(
+      path.join(publicDir, "security-customer-v1.html")
+    );
+  });
+  app.get("/security-customer-v1.html", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.sendFile(
       path.join(publicDir, "security-customer-v1.html")
     );
@@ -1001,6 +1010,7 @@ export function createApp(): express.Application {
 
   app.get("/service-worker.js", (_req, res) => {
     res.setHeader("Service-Worker-Allowed", "/");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.sendFile(path.join(publicDir, "service-worker.js"));
   });
 

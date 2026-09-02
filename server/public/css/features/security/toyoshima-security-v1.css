@@ -1040,53 +1040,28 @@
   margin-top: 14px;
 }
 
-/* 顧客 · 日常詳細設定アコーディオン */
+/* 顧客 · 日常詳細設定（常時表示） */
 .ts-daily-settings {
-  padding: 0;
+  padding: 16px 18px;
   overflow: hidden;
 }
 
-.ts-daily-summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none;
-}
-
-.ts-daily-summary::-webkit-details-marker {
-  display: none;
-}
-
-.ts-daily-summary .ts-card-head {
-  margin: 0;
-}
-
-.ts-daily-chevron {
-  color: #1e3a8a;
-  font-size: 0.85rem;
-  transition: transform 0.2s ease;
-}
-
-.ts-daily-settings:not([open]) .ts-daily-chevron {
-  transform: rotate(-90deg);
+.ts-daily-settings > .ts-card-head {
+  margin: 0 0 12px;
 }
 
 .ts-daily-body {
   display: grid;
   gap: 16px;
-  padding: 0 18px 18px;
-  border-top: 1px solid #e2e8f0;
 }
 
 .ts-daily-block {
   display: grid;
   gap: 10px;
-  padding-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .ts-daily-h {

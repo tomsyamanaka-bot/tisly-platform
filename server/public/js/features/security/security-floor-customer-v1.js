@@ -45,6 +45,72 @@ import { openCustomerCameraPreview } from "../../camera-webrtc-viewer-v1.js";
 import { resolveHomeSiteId } from "./security-floor-remote-config-v1.js";
 
 const HOME_API = "/api/home/v1";
+const SECURITY_ASSET_COMMIT_KEY = "tisly-security-customer-commit";
+
+/**
+ * 本番 commit 差分でキャッシュを強制破棄
+ * Safari/Chrome の古い画面残留を防ぐ
+ */
+async function forceRefreshOnDeployedCommit() {
+  try {
+    const res = await fetch("/api/health", { cache: "no-store" });
+    const data = await res.json();
+    const short = String(data?.commitShort || "").trim();
+    if (!short) return;
+    const url = new URL(location.href);
+    /* 直前の強制更新直後は再リロードしない */
+    if (url.searchParams.get("_tisly_refresh") === short) {
+      url.searchParams.delete("_tisly_refresh");
+      history.replaceState({}, "", url.toString());
+      localStorage.setItem(SECURITY_ASSET_COMMIT_KEY, short);
+      return;
+    }
+    const prev = localStorage.getItem(SECURITY_ASSET_COMMIT_KEY) || "";
+    if (prev && prev !== short) {
+      localStorage.setItem(SECURITY_ASSET_COMMIT_KEY, short);
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      const reg = await navigator.serviceWorker?.getRegistration?.();
+      if (reg) {
+        try {
+          await reg.update();
+        } catch {
+          /* ignore */
+        }
+        const worker = reg.waiting || reg.installing;
+        worker?.postMessage?.({ type: "SKIP_WAITING" });
+      }
+      url.searchParams.set("_tisly_refresh", short);
+      location.replace(url.toString());
+      return;
+    }
+    localStorage.setItem(SECURITY_ASSET_COMMIT_KEY, short);
+  } catch (err) {
+    console.warn("[security-customer] cache refresh", err);
+  }
+}
+
+async function ensureSecurityServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register("/service-worker.js", {
+      updateViaCache: "none",
+    });
+    reg.update?.().catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (window.__TISLY_SF_SW_RELOADED) return;
+      window.__TISLY_SF_SW_RELOADED = true;
+      location.reload();
+    });
+    if (reg.waiting) {
+      reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+  } catch (err) {
+    console.warn("[security-customer] sw", err);
+  }
+}
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -639,6 +705,8 @@ async function initTenantSecurity() {
 }
 
 async function boot() {
+  await forceRefreshOnDeployedCommit();
+  await ensureSecurityServiceWorker();
   bind();
   document.body.setAttribute("data-pane", state.pane || "map");
   const tenantOk = await initTenantSecurity();
