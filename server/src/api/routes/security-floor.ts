@@ -22,8 +22,10 @@ import {
 } from "../../security-floor/security-floor-sites-v1.js";
 import {
   defaultCustomerSecuritySiteIdV1,
-  listCustomerSecuritySitesV1,
+  listOperatorSecuritySitesV1,
+  listTenantScopedSecuritySitesV1,
 } from "../../shared/customer/customer-security-sites-v1.js";
+import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import {
   ackSecurityAlarmsV1,
   demoTogglePrimaryAlertV1,
@@ -50,13 +52,37 @@ securityFloorRouter.get("/sites", (_req, res) => {
   res.json({ ok: true, sites });
 });
 
-/** 顧客 Security 物件セレクタ（UI 表示対象のみ） */
-securityFloorRouter.get("/customer-sites", (_req, res) => {
-  const sites = listCustomerSecuritySitesV1();
+/**
+ * 顧客 Security 物件（ログイン必須・自邸 1 件固定）
+ * 他物件の選択肢はサーバ側で遮断する。
+ */
+securityFloorRouter.get(
+  "/customer-sites",
+  requireAuth("viewer"),
+  (req: AuthedRequest, res) => {
+    const code = String(req.admin?.customerCode ?? "").trim();
+    const sites = listTenantScopedSecuritySitesV1(code);
+    const defaultSiteId =
+      sites[0]?.siteId || defaultCustomerSecuritySiteIdV1();
+    res.json({
+      ok: true,
+      sites,
+      defaultSiteId,
+      locked: true,
+      scope: "tenant_single",
+    });
+  }
+);
+
+/** 社内 Security 物件セレクタ（UI 表示対象の全件） */
+securityFloorRouter.get("/operator-sites", (_req, res) => {
+  const sites = listOperatorSecuritySitesV1();
   res.json({
     ok: true,
     sites,
     defaultSiteId: defaultCustomerSecuritySiteIdV1(),
+    locked: false,
+    scope: "operator_all",
   });
 });
 

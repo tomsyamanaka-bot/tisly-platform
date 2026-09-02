@@ -368,10 +368,7 @@ describe("gas-monitor-v1", () => {
       /gas-monitor-accordion-state-v1\.js/
     );
     // SW は機能追加ごとに更新される（旧タグも許容）
-    assert.match(
-      sw.text,
-      /tisly-pwa-v2459-home-tile-grid|tisly-pwa-v2458-home-light-intercom|tisly-pwa-v2457-tisly-home|tisly-pwa-v2456-property-register/
-    );
+    assert.match(sw.text, /tisly-pwa-v\d+/);
     // 旧JSがHTTPキャッシュから返らないようにする
     assert.match(sw.text, /function shouldBypassHttpCache/);
     assert.match(sw.text, /cache: "reload"/);

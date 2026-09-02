@@ -10,8 +10,9 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
-  <title>板橋自宅 (HOME-JP-ITABASHI-LIVE) · TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2509" />
+  <title>TiSLY Security</title>
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2510" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2510" />
   <script type="importmap">
   {
     "imports": {
@@ -35,7 +36,7 @@
       />
       <div>
         <p class="sf-brand-name">TiSLY</p>
-        <h1 class="sf-title" id="sf-title">板橋自宅 (HOME-JP-ITABASHI-LIVE)</h1>
+        <h1 class="sf-title" id="sf-title">TiSLY Security</h1>
       </div>
     </div>
     <div class="sf-soc-meta">
@@ -286,7 +287,7 @@
 
       <section class="sf-card sf-remote-config" id="sf-remote-config">
         <p class="sf-card-label">🛡️ 遠隔防犯ルール設定（RP2350連動）</p>
-        <p class="sf-remote-target" id="sf-remote-target">実機: HOME-JP-ITABASHI-LIVE</p>
+        <p class="sf-remote-target" id="sf-remote-target">実機: 板橋自宅</p>
 
         <div class="sf-remote-block sf-remote-block--highlight">
           <p class="sf-remote-label">💡 防犯ライト点灯時間帯</p>
@@ -576,13 +577,16 @@
     </div>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2508"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2508"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2508"></script>
-  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2508"></script>
-  <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2509"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2508"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2508"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2508"></script>
+  <div id="ts-dashboard-root" hidden aria-label="豊島邸 Security ダッシュボード"></div>
+
+  <script src="/js/features/security/security-floor-light-v1.js?v=2510"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2510"></script>
 </body>
 </html>

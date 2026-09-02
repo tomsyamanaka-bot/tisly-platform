@@ -11,6 +11,15 @@ const SF_HOME_SITE_MAP = {
   "SEC-JP-ITABASHI-LIVE": DEFAULT_HOME_SITE,
   "SEC-JP-MORIYA-001": DEFAULT_HOME_SITE,
   "SEC-JP-TSUKUBA-001": "HOME-JP-TSUKUBA-001",
+  "SEC-JP-TOYOSHIMA-001": "HOME-JP-TOYOSHIMA",
+  "SEC-JP-TOSHIMA-001": "HOME-JP-TOYOSHIMA",
+};
+
+/** 実機ラベル（内部 ID 非表示） */
+const SF_HOME_SITE_LABEL = {
+  "HOME-JP-ITABASHI-LIVE": "板橋自宅",
+  "HOME-JP-TOYOSHIMA": "豊島邸",
+  "HOME-JP-TSUKUBA-001": "つくばモデルハウス",
 };
 
 /** Web Push 条件トグル：緊急 → サイレント → OFF → 緊急… */
@@ -448,7 +457,8 @@ async function applyScheduleTimesImmediate() {
 }
 
 function updateTargetLabel(homeSiteId) {
-  setText("sf-remote-target", `実機: ${homeSiteId}`);
+  const label = SF_HOME_SITE_LABEL[homeSiteId] || "選択中の物件";
+  setText("sf-remote-target", `実機: ${label}`);
   state.homeSiteId = homeSiteId;
 }
 

@@ -42,6 +42,18 @@
   padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 6px;
 }
 
+.hm-site-fixed-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
 .hm-back {
   display: inline-flex;
   align-items: center;

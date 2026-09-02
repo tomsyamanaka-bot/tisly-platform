@@ -1,7 +1,7 @@
 /**
  * お客様向け見守り
  * 3D俯瞰とやさしい警報表示
- * 物件セレクタはマスターから動的読込
+ * ログイン後は自邸1件に完全固定
  */
 
 import {
@@ -30,21 +30,22 @@ import {
   setToyoshimaCustomerPane,
   startToyoshimaPolling,
   stopToyoshimaPolling,
-  TOYOSHIMA_SEC_ID,
 } from "./toyoshima-security-dashboard-v1.js";
 import {
+  getCustomerCode,
+  getCustomerToken,
   isLoggedIn,
+  loadTenantProfile,
   refreshTenantProfile,
   requireCustomerSession,
   resolveSecuritySiteId,
 } from "../../customer-tenant-session-v1.js";
-
-const SITE_STORAGE_KEY = "tisly_customer_security_site_v1";
+import { setPropertyScope } from "../../shared/property-scope-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
   siteOptions: [],
-  defaultSiteId: FALLBACK_DEFAULT_SITE_ID,
+  propertyId: null,
   layoutSiteId: null,
   floorId: "1f",
   dash: null,
@@ -53,6 +54,7 @@ const state = {
   alarmSig: "",
   tenantReady: false,
   tenantSiteId: null,
+  locked: true,
 };
 
 function $(id) {
@@ -70,9 +72,15 @@ function setHtml(id, html) {
 }
 
 async function fetchJson(url, opts) {
+  const headers = { ...(opts?.headers || {}) };
+  const token = getCustomerToken();
+  if (token && !headers.Authorization) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   const res = await fetch(url, {
     cache: "no-store",
     ...opts,
+    headers,
   });
   const text = await res.text();
   let data;
@@ -95,66 +103,6 @@ function customerSiteTitle(label) {
     .trim();
 }
 
-function normalizeSiteOption(row) {
-  const siteId = row?.siteId || row?.id || "";
-  return {
-    siteId,
-    displayName: customerSiteTitle(row?.displayName || siteId),
-    propertyId: row?.propertyId ?? row?.homeSiteId ?? null,
-    useToyoshimaDashboard: Boolean(row?.useToyoshimaDashboard),
-  };
-}
-
-function resolveInitialSiteId(options, preferredId) {
-  const ids = new Set(options.map((o) => o.siteId));
-  const saved = sessionStorage.getItem(SITE_STORAGE_KEY);
-  if (saved && ids.has(saved)) return saved;
-  if (preferredId && ids.has(preferredId)) return preferredId;
-  if (state.defaultSiteId && ids.has(state.defaultSiteId)) {
-    return state.defaultSiteId;
-  }
-  return options[0]?.siteId || FALLBACK_DEFAULT_SITE_ID;
-}
-
-function syncSiteSelectorUi() {
-  const sel = $("sf-site-select");
-  if (!sel) return;
-  sel.hidden = false;
-  sel.removeAttribute("aria-hidden");
-  $("sf-soc-meta")?.classList.remove("sf-tenant-fixed");
-  sel.disabled = state.siteOptions.length <= 1;
-  sel.value = state.siteId;
-}
-
-function fillSites(apiSites, defaultSiteId) {
-  const sel = $("sf-site-select");
-  if (!sel) return;
-
-  const raw = apiSites?.length ? apiSites : listFallbackSites();
-  state.siteOptions = raw.map(normalizeSiteOption).filter((s) => s.siteId);
-  if (defaultSiteId) state.defaultSiteId = defaultSiteId;
-
-  if (!state.siteOptions.length) {
-    state.siteOptions = listFallbackSites().map(normalizeSiteOption);
-  }
-
-  sel.innerHTML = state.siteOptions
-    .map(
-      (s) =>
-        `<option value="${s.siteId}">${escapeHtml(s.displayName)}</option>`
-    )
-    .join("");
-
-  state.siteId = resolveInitialSiteId(
-    state.siteOptions,
-    state.tenantSiteId || resolveSecuritySiteId()
-  );
-  sel.value = state.siteId;
-  window.__TISLY_SF_SITE_ID = state.siteId;
-  sessionStorage.setItem(SITE_STORAGE_KEY, state.siteId);
-  syncSiteSelectorUi();
-}
-
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -163,24 +111,115 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function ensureFixedSiteLabel() {
+  const meta = $("sf-soc-meta");
+  if (!meta) return null;
+  let fixed = $("sf-site-fixed-label");
+  if (fixed) return fixed;
+  fixed = document.createElement("span");
+  fixed.id = "sf-site-fixed-label";
+  fixed.className = "sf-site-fixed-label";
+  fixed.setAttribute("aria-label", "ご契約のおうち");
+  const sel = $("sf-site-select");
+  if (sel) meta.insertBefore(fixed, sel);
+  else meta.prepend(fixed);
+  return fixed;
+}
+
+/** セレクタ非表示 · 自邸名のみ表示 */
+function lockSiteSelectorUi(displayName) {
+  const sel = $("sf-site-select");
+  const title = customerSiteTitle(displayName) || "ご契約のおうち";
+  if (sel) {
+    sel.innerHTML = `<option value="${escapeHtml(state.siteId)}">${escapeHtml(title)}</option>`;
+    sel.value = state.siteId;
+    sel.hidden = true;
+    sel.disabled = true;
+    sel.setAttribute("aria-hidden", "true");
+  }
+  $("sf-soc-meta")?.classList.add("sf-tenant-fixed");
+  const fixed = ensureFixedSiteLabel();
+  if (fixed) {
+    fixed.textContent = title;
+    fixed.hidden = false;
+  }
+}
+
+function publishTenantScope(displayName) {
+  setPropertyScope({
+    siteId: state.siteId,
+    propertyId: state.propertyId || state.siteId,
+    displayName: customerSiteTitle(displayName),
+    locked: true,
+    source: "customer-tenant",
+    persist: false,
+  });
+}
+
 function syncCustomerHeaderTitle() {
   const row = state.siteOptions.find((s) => s.siteId === state.siteId);
   let title = row?.displayName || "TiSLY Security";
   if (!row && state.tenantReady) {
-    const profile = JSON.parse(
-      sessionStorage.getItem("tisly_tenant_profile_v1") ||
-        localStorage.getItem("tisly_tenant_profile_v1") ||
-        "null"
-    );
+    const profile = loadTenantProfile();
     if (profile?.displayName) {
       title = customerSiteTitle(profile.displayName);
     }
   } else if (!row && state.dash?.displayName) {
     title = customerSiteTitle(state.dash.displayName);
   }
+  title = customerSiteTitle(title);
   const el = $("sf-title");
   if (el) el.textContent = title;
   document.title = `TiSLY · ${title}`;
+  const fixed = $("sf-site-fixed-label");
+  if (fixed) fixed.textContent = title;
+}
+
+/**
+ * テナント自邸のみを確定（他物件遮断）
+ */
+function applyTenantSingleSite(sites, preferredId) {
+  const profile = loadTenantProfile();
+  const tenantId =
+    preferredId ||
+    state.tenantSiteId ||
+    resolveSecuritySiteId() ||
+    FALLBACK_DEFAULT_SITE_ID;
+
+  const fromApi = (sites || []).find((s) => s.siteId === tenantId);
+  const fallback = listFallbackSites().find(
+    (s) => (s.siteId || s.id) === tenantId
+  );
+  const displayName = customerSiteTitle(
+    fromApi?.displayName ||
+      profile?.displayName ||
+      fallback?.displayName ||
+      "ご契約のおうち"
+  );
+  const propertyId =
+    fromApi?.propertyId ||
+    fromApi?.homeSiteId ||
+    profile?.homeSiteId ||
+    fallback?.propertyId ||
+    null;
+
+  state.locked = true;
+  state.siteId = tenantId;
+  state.propertyId = propertyId;
+  state.siteOptions = [
+    {
+      siteId: tenantId,
+      displayName,
+      propertyId,
+      useToyoshimaDashboard:
+        Boolean(fromApi?.useToyoshimaDashboard) ||
+        Boolean(profile?.useToyoshimaDashboard) ||
+        isToyoshimaSecuritySite(tenantId),
+    },
+  ];
+  lockSiteSelectorUi(displayName);
+  publishTenantScope(displayName);
+  syncCustomerHeaderTitle();
 }
 
 function applySiteLayout(force = false) {
@@ -322,19 +361,28 @@ function renderDash(dash, opts = {}) {
 }
 
 function bootFallback() {
-  fillSites(listFallbackSites(), FALLBACK_DEFAULT_SITE_ID);
+  const profile = loadTenantProfile();
+  applyTenantSingleSite(
+    listFallbackSites().map((s) => ({
+      siteId: s.siteId || s.id,
+      displayName: s.displayName,
+      propertyId: s.propertyId || null,
+      useToyoshimaDashboard: isToyoshimaSecuritySite(s.siteId || s.id),
+    })),
+    profile?.securitySiteId || resolveSecuritySiteId()
+  );
   applySiteLayout(true);
   if (!isToyoshimaSecuritySite(state.siteId)) {
     renderDash(getFallbackCustomerDash(state.siteId));
   }
 }
 
-async function loadSites() {
+async function loadTenantSites() {
   try {
     const data = await fetchJson("/api/security-floor/v1/customer-sites");
-    fillSites(data.sites, data.defaultSiteId);
+    applyTenantSingleSite(data.sites, data.defaultSiteId);
   } catch {
-    fillSites(listFallbackSites(), FALLBACK_DEFAULT_SITE_ID);
+    applyTenantSingleSite([], resolveSecuritySiteId());
   }
 }
 
@@ -351,29 +399,6 @@ async function loadDash(opts = {}) {
   } catch (err) {
     if (!state.dash) bootFallback();
     console.warn("[security-customer] API fallback", err);
-  }
-}
-
-async function switchCustomerSite(nextSiteId) {
-  const allowed = state.siteOptions.some((s) => s.siteId === nextSiteId);
-  if (!allowed) return;
-  if (nextSiteId === state.siteId) return;
-
-  state.siteId = nextSiteId;
-  state.layoutSiteId = null;
-  state.dash = null;
-  state.alarmSig = "";
-  state.floorId = "1f";
-  window.__TISLY_SF_SITE_ID = nextSiteId;
-  sessionStorage.setItem(SITE_STORAGE_KEY, nextSiteId);
-
-  syncCustomerHeaderTitle();
-  applySiteLayout(true);
-
-  if (isToyoshimaSecuritySite(state.siteId)) {
-    await loadToyoshimaDashboard();
-  } else {
-    await loadDash();
   }
 }
 
@@ -417,12 +442,9 @@ function bind() {
     const id = e.detail?.id;
     if (id) state.floorId = id;
   });
+  // 顧客は物件切替不可（選択変更を無視）
   $("sf-site-select")?.addEventListener("change", (e) => {
-    const next = e.target.value;
-    switchCustomerSite(next).catch((err) => {
-      console.warn("[security-customer] site switch", err);
-      e.target.value = state.siteId;
-    });
+    e.target.value = state.siteId;
   });
 
   if (!window.__TISLY_SF_ALARM_BOUND) {
@@ -473,13 +495,13 @@ async function initTenantSecurity() {
   await refreshTenantProfile();
   const siteId = resolveSecuritySiteId();
   if (!siteId) {
-    console.warn("[security-customer] tenant site missing");
+    console.warn("[security-customer] tenant site missing", getCustomerCode());
     return false;
   }
   state.tenantReady = true;
   state.tenantSiteId = siteId;
   state.layoutSiteId = null;
-  window.__TISLY_SF_SITE_ID = siteId;
+  state.locked = true;
   return true;
 }
 
@@ -488,7 +510,7 @@ async function boot() {
   document.body.setAttribute("data-pane", state.pane || "map");
   const tenantOk = await initTenantSecurity();
   if (!tenantOk) return;
-  await loadSites();
+  await loadTenantSites();
   applySiteLayout(true);
   syncCustomerHeaderTitle();
   if (!isToyoshimaSecuritySite(state.siteId)) {

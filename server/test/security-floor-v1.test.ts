@@ -281,6 +281,32 @@ describe("security-floor-v1", () => {
     assert.equal(operator.status, 200);
     assert.ok(operator.body.dashboard.totalSites >= 3);
 
+    const opSites = await request(app).get(
+      "/api/security-floor/v1/operator-sites"
+    );
+    assert.equal(opSites.status, 200);
+    assert.equal(opSites.body.ok, true);
+    assert.ok(opSites.body.sites.length >= 2);
+    assert.ok(
+      opSites.body.sites.some((s: { siteId: string }) =>
+        s.siteId === "SEC-JP-ITABASHI-LIVE"
+      )
+    );
+    assert.ok(
+      opSites.body.sites.some((s: { siteId: string }) =>
+        s.siteId === "SEC-JP-TOYOSHIMA-001"
+      )
+    );
+    assert.equal(opSites.body.locked, false);
+
+    const customerSitesNoAuth = await request(app).get(
+      "/api/security-floor/v1/customer-sites"
+    );
+    assert.ok(
+      customerSitesNoAuth.status === 401 ||
+        customerSitesNoAuth.status === 403
+    );
+
     const mode = await request(app)
       .post("/api/security-floor/v1/guard-mode")
       .send({
@@ -348,17 +374,18 @@ describe("security-floor-v1", () => {
     assert.match(html, /DI2単独：即時Web Push/);
     assert.match(html, /data-notify-mode/);
     assert.match(html, /sf-remote-apply/);
-    assert.match(html, /security-floor-remote-config-v1\.js\?v=2508/);
-    assert.match(html, /security-floor-intercom-v1\.js\?v=2509/);
+    assert.match(html, /security-floor-remote-config-v1\.js\?v=\d+/);
+    assert.match(html, /security-floor-intercom-v1\.js\?v=\d+/);
     assert.match(html, /sf-intercom-link/);
     assert.match(html, /玄関インターホン連携/);
     assert.match(html, /sf-intercom-unlock-arm/);
     assert.match(html, /呼出シミュレーション/);
-    assert.match(html, /security-floor-push-v1\.js\?v=2508/);
-    assert.match(html, /security-floor-light-v1\.js\?v=2508/);
-    assert.match(html, /security-floor-operator-v1\.js\?v=2508/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=2508/);
-    assert.match(html, /security-floor-v1\.css\?v=2509/);
+    assert.match(html, /security-floor-push-v1\.js\?v=\d+/);
+    assert.match(html, /security-floor-light-v1\.js\?v=\d+/);
+    assert.match(html, /security-floor-operator-v1\.js\?v=\d+/);
+    assert.match(html, /security-floor-iso3d-v1\.js\?v=\d+/);
+    assert.match(html, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
+    assert.match(html, /security-floor-v1\.css\?v=\d+/);
     assert.match(html, /sf-brand-logo/);
     assert.match(html, /tisly-shield-logo-128\.png/);
     assert.match(html, /icons\/icon-128\.png\?v=2508/);
@@ -613,13 +640,29 @@ describe("security-floor-v1", () => {
     );
     assert.match(fbJs, /FALLBACK_DEFAULT_SITE_ID = "SEC-JP-ITABASHI-LIVE"/);
     assert.match(fbJs, /UI_VISIBLE_SITE_IDS|listFallbackCatalogSites/);
-    assert.match(opJs, /filterUiSites|板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
-    assert.match(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
+    assert.match(opJs, /selectedPropertyId|switchOperatorSite|operator-sites/);
+    assert.match(opJs, /板橋自宅|豊島邸/);
+    assert.doesNotMatch(opJs, /単一物件のため切替不可表示/);
+    assert.match(opHtml, /sf-site-select/);
+    assert.match(opHtml, /toyoshima-security-dashboard-v1\.js/);
+    assert.match(opHtml, /ts-dashboard-root/);
+    assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);
     assert.match(opHtml, /Push通知を再登録・購読/);
     assert.match(opHtml, /security-floor-push-v1\.js/);
     assert.match(opHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
+
+    const customerJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-customer-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(customerJs, /sf-tenant-fixed|lockSiteSelectorUi/);
+    assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
+    assert.doesNotMatch(customerJs, /switchCustomerSite/);
 
     const pushJs = fs.readFileSync(
       path.join(

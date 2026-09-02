@@ -35,15 +35,29 @@ import {
   renderHomeTilesV1,
   applyOptimisticHomeControlV1,
 } from "./home-tiles-v1.js";
+import { setPropertyScope } from "../../shared/property-scope-v1.js";
 
 const POLL_INTERVAL_MS = 30000;
 
 let currentSiteId = "";
+let selectedPropertyId = "";
 let siteOptionsKey = "";
 /** 操作中は自動更新で画面を奪わない */
 let controlBusy = false;
 /** 社内向けフルダッシュボード（operator API から保持） */
 let operatorCache = null;
+
+function publishHomeOperatorScope(displayName) {
+  selectedPropertyId = currentSiteId;
+  setPropertyScope({
+    siteId: currentSiteId,
+    propertyId: currentSiteId,
+    displayName: displayName || currentSiteId,
+    locked: false,
+    source: "home-operator",
+    persist: true,
+  });
+}
 
 function pickSiteDashboard(operator) {
   if (!operator?.sites?.length) return null;
@@ -62,24 +76,19 @@ function renderSiteOptions(operator) {
   siteOptionsKey = key;
   select.innerHTML = operator.sites
     .map((s) => {
-      const live =
-        s.operationMode === "live"
-          ? " · 実機"
-          : "";
+      const live = s.operationMode === "live" ? " · 実機" : "";
       const name =
         s.operationMode === "live"
           ? `🟢 ${s.displayName}`
           : `${s.statusEmoji} ${s.displayName}`;
       return `
       <option value="${escapeHtml(s.siteId)}">
-        ${escapeHtml(name)}
-        （${escapeHtml(s.countryCode)}/${escapeHtml(s.currency)}${escapeHtml(
-        live
-      )}）
+        ${escapeHtml(name)}${escapeHtml(live)}
       </option>`;
     })
     .join("");
   select.value = currentSiteId;
+  select.disabled = operator.sites.length <= 1;
 }
 
 function renderSummary(operator) {
@@ -278,6 +287,8 @@ async function refresh() {
   const dashboard = pickSiteDashboard(operator);
   if (dashboard) {
     currentSiteId = dashboard.siteId;
+    selectedPropertyId = dashboard.siteId;
+    publishHomeOperatorScope(dashboard.displayName);
     renderSiteDetail(dashboard);
   }
 }
@@ -297,10 +308,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (select) {
     select.addEventListener("change", async () => {
       currentSiteId = select.value;
+      selectedPropertyId = currentSiteId;
       replaceSiteIdInUrl(currentSiteId);
       try {
         const dashboard = pickSiteDashboard(operatorCache);
         if (dashboard && dashboard.siteId === currentSiteId) {
+          publishHomeOperatorScope(dashboard.displayName);
           renderSiteDetail(dashboard);
         } else {
           await refresh();

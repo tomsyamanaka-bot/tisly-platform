@@ -860,7 +860,7 @@ export function listSecuritySitesV1(): SecuritySiteV1[] {
   return [...SECURITY_FLOOR_SITES_V1];
 }
 
-/** UI セレクタ用（板橋自宅のみ） */
+/** UI セレクタ用（板橋・豊島など表示対象） */
 export function listSecurityFloorUiSitesV1(): SecuritySiteV1[] {
   const allow = new Set<string>(
     SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1

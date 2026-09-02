@@ -135,7 +135,12 @@
 
   function siteId() {
     var sel = $("sf-site-select");
-    return (sel && sel.value) || "SEC-JP-MORIYA-001";
+    return (
+      (sel && sel.value) ||
+      window.__TISLY_SF_SITE_ID ||
+      window.__TISLY_SELECTED_SITE_ID ||
+      "SEC-JP-ITABASHI-LIVE"
+    );
   }
 
   function postJson(url, body) {

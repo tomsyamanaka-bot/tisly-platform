@@ -87,51 +87,89 @@ let dashCache = null;
 
 
 async function loadSiteOptions() {
-
   const select = byId("hm-site-select");
-
   if (!select) return;
-
   try {
-
-    const sites = await fetchHomeCustomerSites();
-
-    if (!sites.length) {
-
-      select.innerHTML = '<option value="">おうちがありません</option>';
-
-      return;
-
+    // 顧客は自邸1件のみ（他物件を遮断）
+    let tenantHomeId = "";
+    let tenantName = "";
+    try {
+      const { loadTenantProfile, isLoggedIn, refreshTenantProfile } =
+        await import("../../customer-tenant-session-v1.js");
+      if (isLoggedIn()) {
+        await refreshTenantProfile();
+        const profile = loadTenantProfile();
+        tenantHomeId = profile?.homeSiteId || "";
+        tenantName = profile?.displayName || "";
+      }
+    } catch {
+      /* テナント未使用ページでも継続 */
     }
 
-    select.innerHTML = sites
-
+    const sites = await fetchHomeCustomerSites();
+    let filtered = sites;
+    if (tenantHomeId) {
+      filtered = sites.filter((s) => s.id === tenantHomeId);
+      if (!filtered.length && tenantHomeId) {
+        filtered = [
+          {
+            id: tenantHomeId,
+            displayName: tenantName || "ご契約のおうち",
+            statusEmoji: "🏠",
+            statusLabel: "ご契約",
+          },
+        ];
+      }
+    }
+    if (!filtered.length) {
+      select.innerHTML = '<option value="">おうちがありません</option>';
+      return;
+    }
+    select.innerHTML = filtered
       .map(
-
         (s) => `
-
         <option value="${escapeHtml(s.id)}">
-
           ${escapeHtml(s.statusEmoji)} ${escapeHtml(s.displayName)}
-
           — ${escapeHtml(s.statusLabel)}
-
         </option>`
-
       )
-
       .join("");
-
-    if (!currentSiteId) currentSiteId = sites[0].id;
-
+    currentSiteId = tenantHomeId || filtered[0].id;
     select.value = currentSiteId;
-
+    if (filtered.length <= 1) {
+      select.disabled = true;
+      select.hidden = true;
+      select.setAttribute("aria-hidden", "true");
+      let fixed = document.getElementById("hm-site-fixed-label");
+      if (!fixed && select.parentElement) {
+        fixed = document.createElement("span");
+        fixed.id = "hm-site-fixed-label";
+        fixed.className = "hm-site-fixed-label";
+        select.parentElement.insertBefore(fixed, select);
+      }
+      if (fixed) {
+        fixed.textContent = filtered[0].displayName;
+        fixed.hidden = false;
+      }
+    }
+    try {
+      const { setPropertyScope } = await import(
+        "../../shared/property-scope-v1.js"
+      );
+      setPropertyScope({
+        siteId: currentSiteId,
+        propertyId: currentSiteId,
+        displayName: filtered[0].displayName,
+        locked: true,
+        source: "home-customer",
+        persist: false,
+      });
+    } catch {
+      /* ignore */
+    }
   } catch {
-
     select.innerHTML = '<option value="">読み込めませんでした</option>';
-
   }
-
 }
 
 

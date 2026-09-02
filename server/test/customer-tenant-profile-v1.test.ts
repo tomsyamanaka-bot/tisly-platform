@@ -30,7 +30,8 @@ describe("customer-tenant-profile-v1", () => {
     assert.ok(profile);
     assert.equal(profile?.securitySiteId, "SEC-JP-TOYOSHIMA-001");
     assert.equal(profile?.useToyoshimaDashboard, true);
-    assert.match(profile?.displayName ?? "", /Toyoshima Residence/);
+    assert.equal(profile?.displayName, "豊島邸");
+    assert.match(profile?.displayName ?? "", /豊島邸/);
   });
 
   it("TOSHIMA001 alias resolves to TOYOSHIMA001 profile", () => {

@@ -627,3 +627,22 @@
 .sf-soc-meta.sf-tenant-fixed .sf-select-inline {
   display: none;
 }
+
+/* 顧客自邸名（セレクタ代替） */
+.sf-site-fixed-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.sf-soc-meta:not(.sf-tenant-fixed) .sf-site-fixed-label {
+  display: none;
+}
