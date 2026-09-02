@@ -47,6 +47,12 @@ export const TOYOSHIMA_DI_DEBOUNCE_MS_V1 = 100;
 /** パトライト点滅周期（ms） */
 export const TOYOSHIMA_PATLITE_BLINK_MS_V1 = 500;
 
+/** 実機 heartbeat 送信周期（秒）— toyoshima_security.py と同期 */
+export const TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 = 300;
+
+/** 通信途絶とみなす猶予（ms）— 5分周期 + 1分余裕 */
+export const TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 = 6 * 60 * 1000;
+
 export type ToyoshimaBuildingIdV1 = "main" | "detached";
 
 export type ToyoshimaDiChannelV1 = 1 | 2;
@@ -87,7 +93,9 @@ export interface ToyoshimaTimelineEventV1 {
     | "detached_road"
     | "detached_path"
     | "manual"
-    | "patlite_test";
+    | "patlite_test"
+    | "comm_loss"
+    | "comm_recovered";
   title: string;
   detail?: string;
 }
@@ -109,6 +117,7 @@ export interface ToyoshimaDeviceHealthV1 {
   label: string;
   online: boolean;
   lastCommAt: string | null;
+  lastHeartbeatAt: string | null;
 }
 
 export interface ToyoshimaAlarmStateV1 {
@@ -121,6 +130,7 @@ export interface ToyoshimaCommHealthV1 {
   onlineSummary: string;
   lastCommAt: string | null;
   lastCommLabel: string;
+  lastHeartbeatAt: string | null;
   devices: ToyoshimaDeviceHealthV1[];
 }
 
@@ -137,6 +147,8 @@ export interface ToyoshimaSecurityDashboardV1 {
   lightsScheduleLabel: string;
   armed: boolean;
   lightsActive: boolean;
+  lightingDurationSec: number;
+  perimeterTimeoutSec: number;
   commHealth: ToyoshimaCommHealthV1;
   alarm: ToyoshimaAlarmStateV1;
   notifySensors: ToyoshimaNotifySensorV1[];
@@ -148,7 +160,10 @@ export interface ToyoshimaSecurityDashboardV1 {
 
 interface ToyoshimaDeviceCommRuntimeV1 {
   lastCommAt: string | null;
+  lastHeartbeatAt: string | null;
   online: boolean;
+  /** 途絶 Push を送ったか */
+  offlineNotified: boolean;
 }
 
 /** ランタイム状態（VPS メモリ） */
@@ -220,7 +235,13 @@ function defaultDetachedBuilding(): ToyoshimaBuildingStateV1 {
 }
 
 function defaultDeviceComm(): ToyoshimaDeviceCommRuntimeV1 {
-  return { lastCommAt: nowIso(), online: true };
+  const at = nowIso();
+  return {
+    lastCommAt: at,
+    lastHeartbeatAt: at,
+    online: true,
+    offlineNotified: false,
+  };
 }
 
 const runtime: ToyoshimaRuntimeV1 = {
@@ -240,8 +261,80 @@ export function touchToyoshimaDeviceCommV1(
   building: ToyoshimaBuildingIdV1
 ): void {
   const at = nowIso();
-  runtime.deviceComm[building] = { lastCommAt: at, online: true };
+  const prev = runtime.deviceComm[building];
+  runtime.deviceComm[building] = {
+    ...prev,
+    lastCommAt: at,
+    online: true,
+  };
   getBuilding(building).online = true;
+}
+
+/** RP2350 からの生存確認 heartbeat を記録 */
+export function recordToyoshimaHeartbeatV1(input: {
+  building: ToyoshimaBuildingIdV1;
+  deviceId?: string;
+  siteId?: string;
+}): void {
+  const at = nowIso();
+  const prev = runtime.deviceComm[input.building];
+  const wasOffline = !prev.online || prev.offlineNotified;
+  runtime.deviceComm[input.building] = {
+    ...prev,
+    lastCommAt: at,
+    lastHeartbeatAt: at,
+    online: true,
+    offlineNotified: false,
+  };
+  getBuilding(input.building).online = true;
+  if (wasOffline && prev.lastHeartbeatAt) {
+    const label = input.building === "main" ? "主装置" : "子機";
+    appendTimeline({
+      at,
+      building: input.building,
+      kind: "comm_recovered",
+      title: `${label} 通信復旧`,
+      detail: "ハートビートを再受信しました",
+    });
+  }
+}
+
+/** 5分 heartbeat 監視 — 途絶時に Push と履歴を記録 */
+export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
+  const now = Date.now();
+  for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+    const comm = runtime.deviceComm[building];
+    const hbAt = comm.lastHeartbeatAt;
+    if (!hbAt) continue;
+    const elapsed = now - Date.parse(hbAt);
+    if (elapsed < TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1) {
+      continue;
+    }
+    const label = building === "main" ? "主装置" : "子機";
+    if (comm.online) {
+      comm.online = false;
+      getBuilding(building).online = false;
+    }
+    if (comm.offlineNotified) {
+      continue;
+    }
+    comm.offlineNotified = true;
+    appendTimeline({
+      at: nowIso(),
+      building,
+      kind: "comm_loss",
+      title: "通信断検知",
+      detail: `${label}：5分以上ハートビート未受信`,
+    });
+    await sendToyoshimaPush({
+      title:
+        building === "main"
+          ? "⚠️ 豊島邸：主装置との通信が途絶えました"
+          : "⚠️ 豊島邸：子機との通信が途絶えました",
+      body: `${label}から5分以上ハートビート未受信（通信途絶）`,
+      eventType: "toyoshima_comm_loss",
+    });
+  }
 }
 
 function nowIso(): string {
@@ -649,19 +742,19 @@ function buildToyoshimaNotifySensorsV1(
   return [
     {
       id: "detached_road",
-      label: "道路側センサー",
+      label: "道路側センサー（はなれ 入力1）",
       mode: rules.notifyDi1Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi1Mode),
     },
     {
       id: "detached_path",
-      label: "通路側センサー",
+      label: "通路側センサー（はなれ 入力2）",
       mode: rules.notifyDi2Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi2Mode),
     },
     {
       id: "main_beam",
-      label: "母屋 遠近センサー",
+      label: "遠近ビームセンサー（母屋）",
       mode: rules.notifyStagedMode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyStagedMode),
     },
@@ -694,20 +787,30 @@ function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
 }
 
 function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
-  const devices: ToyoshimaDeviceHealthV1[] = [
-    {
-      building: "main",
-      label: "主装置",
-      online: runtime.deviceComm.main.online,
-      lastCommAt: runtime.deviceComm.main.lastCommAt,
-    },
-    {
-      building: "detached",
-      label: "子機",
-      online: runtime.deviceComm.detached.online,
-      lastCommAt: runtime.deviceComm.detached.lastCommAt,
-    },
-  ];
+  const now = Date.now();
+  const devices: ToyoshimaDeviceHealthV1[] = (
+    ["main", "detached"] as ToyoshimaBuildingIdV1[]
+  ).map((building) => {
+    const comm = runtime.deviceComm[building];
+    const hbAt = comm.lastHeartbeatAt;
+    const elapsed = hbAt ? now - Date.parse(hbAt) : 0;
+    const online =
+      Boolean(hbAt) && elapsed < TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1;
+    comm.online = online;
+    getBuilding(building).online = online;
+    return {
+      building,
+      label: building === "main" ? "主装置" : "子機",
+      online,
+      lastCommAt: comm.lastCommAt,
+      lastHeartbeatAt: comm.lastHeartbeatAt,
+    };
+  });
+  const latestHb = devices
+    .filter((d) => d.lastHeartbeatAt)
+    .sort((a, b) =>
+      String(b.lastHeartbeatAt).localeCompare(String(a.lastHeartbeatAt))
+    )[0];
   const latest = devices
     .filter((d) => d.lastCommAt)
     .sort((a, b) =>
@@ -716,10 +819,11 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
   const allOnline = devices.every((d) => d.online);
   return {
     onlineSummary: allOnline
-      ? "🟢 オンライン（接続中）"
-      : "🔴 オフライン（要確認）",
+      ? "🟢 オンライン（主装置・子機 接続中）"
+      : "🔴 オフライン（通信途絶）",
     lastCommAt: latest?.lastCommAt ?? null,
     lastCommLabel: latest?.label ?? "—",
+    lastHeartbeatAt: latestHb?.lastHeartbeatAt ?? null,
     devices,
   };
 }
@@ -918,6 +1022,9 @@ export function buildToyoshimaSecurityDashboardV1(
     lightsScheduleLabel: `${scheduleStart}〜${scheduleEnd}`,
     armed: isHomeSecurityArmedV1(rules),
     lightsActive: isHomeGuardActiveV1(rules),
+    lightingDurationSec:
+      rules.lightingDurationSec ?? rules.di1DurationSec ?? 45,
+    perimeterTimeoutSec: rules.perimeterTimeoutSec ?? 120,
     commHealth: buildToyoshimaCommHealthV1(),
     alarm: buildToyoshimaAlarmStateV1(),
     notifySensors: buildToyoshimaNotifySensorsV1(rules),
@@ -934,6 +1041,15 @@ export function buildToyoshimaSecurityDashboardV1(
     timeline: [...runtime.timeline],
     lastUpdatedAt: nowIso(),
   };
+}
+
+/** テスト用：heartbeat 時刻を手動設定 */
+export function setToyoshimaHeartbeatAtForTestV1(
+  building: ToyoshimaBuildingIdV1,
+  at: string
+): void {
+  runtime.deviceComm[building].lastHeartbeatAt = at;
+  runtime.deviceComm[building].lastCommAt = at;
 }
 
 /** テスト用：状態リセット */

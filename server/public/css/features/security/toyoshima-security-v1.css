@@ -565,6 +565,64 @@
   display: none;
 }
 
+.sf-body.is-toyoshima .sf-mobile-tabs {
+  display: grid;
+}
+
+.ts-tab-panes {
+  display: block;
+}
+
+.ts-tab-pane {
+  display: none;
+  gap: 14px;
+}
+
+.ts-tab-pane.is-on {
+  display: grid;
+}
+
+.ts-slider-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ts-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ts-slider-row input[type="range"] {
+  flex: 1;
+  min-height: 36px;
+}
+
+.ts-slider-val {
+  min-width: 52px;
+  font-weight: 800;
+  color: #1e3a8a;
+  text-align: right;
+}
+
+.ts-log-row.is-comm-alert {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.ts-log-row.is-comm-alert .ts-log-title {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.ts-health-card .ts-health-val.is-offline {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
 /* テナント固定時は物件セレクタ非表示 */
 .sf-soc-meta.sf-tenant-fixed .sf-select-inline {
   display: none;

@@ -18,6 +18,14 @@ const NOTIFY_LABELS = {
   off: "OFF",
 };
 
+function syncSettingsState(dash) {
+  if (!dash) return;
+  settingsState = {
+    lightingDurationSec: dash.lightingDurationSec ?? 45,
+    perimeterTimeoutSec: dash.perimeterTimeoutSec ?? 120,
+  };
+}
+
 let lastDashSig = "";
 let clientLatencyMs = null;
 let scheduleState = {
@@ -25,6 +33,11 @@ let scheduleState = {
   guardMode: "scheduled",
   scheduleStart: "18:00",
   scheduleEnd: "06:00",
+};
+let settingsSaveTimer = null;
+let settingsState = {
+  lightingDurationSec: 45,
+  perimeterTimeoutSec: 120,
 };
 
 function $(id) {
@@ -119,11 +132,11 @@ function renderHealthGrid(dash) {
   const health = dash.commHealth || {};
   const latency =
     clientLatencyMs != null ? `${clientLatencyMs} ms` : "計測中…";
-  const lastComm = health.lastCommAt
-    ? `${formatJstCommTime(health.lastCommAt)} / ${escapeHtml(health.lastCommLabel || "—")}`
+  const heartbeat = health.lastHeartbeatAt
+    ? formatJstCommTime(health.lastHeartbeatAt)
     : "—";
   return `<section class="ts-card ts-health-card" id="ts-health-card">
-    <h3 class="ts-card-head">📡 実機通信ステータス</h3>
+    <h3 class="ts-card-head">📡 通信ステータス</h3>
     <div class="ts-health-grid">
       <div class="ts-health-cell">
         <span class="ts-health-key">ネットワーク遅延</span>
@@ -134,10 +147,33 @@ function renderHealthGrid(dash) {
         <span class="ts-health-val" id="ts-online-val">${escapeHtml(health.onlineSummary || "—")}</span>
       </div>
       <div class="ts-health-cell ts-health-cell-wide">
-        <span class="ts-health-key">最新通信時刻</span>
-        <span class="ts-health-val" id="ts-last-comm-val">${lastComm}</span>
+        <span class="ts-health-key">最新ハートビート</span>
+        <span class="ts-health-val" id="ts-heartbeat-val">${escapeHtml(heartbeat)}</span>
       </div>
     </div>
+  </section>`;
+}
+
+function renderSettingsCard(dash) {
+  const lightSec = dash.lightingDurationSec ?? 45;
+  const periSec = dash.perimeterTimeoutSec ?? 120;
+  return `<section class="ts-card ts-settings-card" id="ts-settings-card">
+    <h3 class="ts-card-head">⚙️ 詳細設定</h3>
+    <label class="ts-slider-field" for="ts-lighting-duration">
+      <span class="ts-label">DOライト点灯維持時間</span>
+      <div class="ts-slider-row">
+        <input type="range" id="ts-lighting-duration" min="5" max="180" step="1" value="${lightSec}" />
+        <span class="ts-slider-val" id="ts-lighting-duration-val">${lightSec}秒</span>
+      </div>
+    </label>
+    <label class="ts-slider-field" for="ts-perimeter-timeout">
+      <span class="ts-label">段階接近判定 制限時間</span>
+      <div class="ts-slider-row">
+        <input type="range" id="ts-perimeter-timeout" min="30" max="300" step="5" value="${periSec}" />
+        <span class="ts-slider-val" id="ts-perimeter-timeout-val">${periSec}秒</span>
+      </div>
+    </label>
+    <p class="ts-hint">スライダー変更は自動保存されます</p>
   </section>`;
 }
 
@@ -200,14 +236,20 @@ function renderActivityLog(timeline, limit = 10) {
   return rows
     .map((ev) => {
       const ico =
-        ev.kind === "main_beam"
+        ev.kind === "comm_loss"
+          ? "🔴"
+          : ev.kind === "comm_recovered"
+            ? "🟢"
+            : ev.kind === "main_beam"
           ? "🏠"
           : ev.kind === "detached_road" || ev.kind === "detached_path"
             ? "🚨"
             : ev.kind === "patlite_test"
               ? "🔔"
               : "💡";
-      return `<article class="ts-log-row">
+      const alertClass =
+        ev.kind === "comm_loss" ? " is-comm-alert" : "";
+      return `<article class="ts-log-row${alertClass}">
         <span class="ts-log-ico">${ico}</span>
         <div class="ts-log-body">
           <p class="ts-log-title">${escapeHtml(ev.title)}</p>
@@ -459,6 +501,7 @@ async function postControl(building, action) {
 
 function patchToyoshimaDashboard(dash) {
   syncScheduleState(dash);
+  syncSettingsState(dash);
   const heroTitle = $("ts-hero-title");
   const heroActions = $("ts-hero-actions");
   if (heroTitle) heroTitle.textContent = dash.displayName || "豊島邸";
@@ -467,17 +510,28 @@ function patchToyoshimaDashboard(dash) {
   const health = dash.commHealth || {};
   const latency =
     clientLatencyMs != null ? `${clientLatencyMs} ms` : "計測中…";
-  const lastComm = health.lastCommAt
-    ? `${formatJstCommTime(health.lastCommAt)} / ${escapeHtml(health.lastCommLabel || "—")}`
+  const heartbeat = health.lastHeartbeatAt
+    ? formatJstCommTime(health.lastHeartbeatAt)
     : "—";
   const latencyEl = $("ts-latency-val");
   const onlineEl = $("ts-online-val");
-  const lastCommEl = $("ts-last-comm-val");
+  const heartbeatEl = $("ts-heartbeat-val");
   if (latencyEl) latencyEl.textContent = latency;
-  if (onlineEl) {
-    onlineEl.textContent = health.onlineSummary || "—";
+  if (onlineEl) onlineEl.textContent = health.onlineSummary || "—";
+  if (heartbeatEl) heartbeatEl.textContent = heartbeat;
+
+  const lightSlider = $("ts-lighting-duration");
+  const periSlider = $("ts-perimeter-timeout");
+  if (lightSlider && !lightSlider.matches(":active")) {
+    lightSlider.value = String(settingsState.lightingDurationSec);
+    const lv = $("ts-lighting-duration-val");
+    if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
   }
-  if (lastCommEl) lastCommEl.textContent = lastComm;
+  if (periSlider && !periSlider.matches(":active")) {
+    periSlider.value = String(settingsState.perimeterTimeoutSec);
+    const pv = $("ts-perimeter-timeout-val");
+    if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+  }
 
   const alarmCard = $("ts-alarm-card");
   if (alarmCard) {
@@ -498,9 +552,6 @@ function patchToyoshimaDashboard(dash) {
   if (activityLog) {
     activityLog.innerHTML = renderActivityLog(dash.timeline, 10);
   }
-
-  const timeline = $("ts-timeline");
-  if (timeline) timeline.innerHTML = renderTimelineFull(dash.timeline);
 }
 
 function patchBuildingCard(building) {
@@ -516,12 +567,69 @@ export function isToyoshimaSecuritySite(siteId) {
   return String(siteId || "").trim() === TOYOSHIMA_SEC_ID;
 }
 
+/** 顧客タブ（家のようす / お知らせ / 履歴）切替 */
+export function setToyoshimaCustomerPane(pane) {
+  const id = String(pane || "map").trim();
+  document.querySelectorAll(".ts-tab-pane").forEach((el) => {
+    el.classList.toggle("is-on", el.getAttribute("data-ts-pane") === id);
+  });
+  const root = $("ts-dashboard-root");
+  if (root) root.setAttribute("data-ts-active-pane", id);
+}
+
+async function saveSettingsDebounced() {
+  clearTimeout(settingsSaveTimer);
+  settingsSaveTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${HOME_API}/security-rules`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+          actor: "customer-portal",
+          lightingDurationSec: settingsState.lightingDurationSec,
+          di1DurationSec: settingsState.lightingDurationSec,
+          perimeterTimeoutSec: settingsState.perimeterTimeoutSec,
+        }),
+      });
+      const data = await res.json();
+      if (!data?.ok) throw new Error(data?.error || "保存に失敗");
+      showToast("詳細設定を保存しました");
+    } catch (err) {
+      showToast(err.message || "設定の保存に失敗");
+    }
+  }, 600);
+}
+
+function bindSettingsSliders() {
+  const root = $("ts-dashboard-root");
+  if (!root || root.dataset.settingsBound === "1") return;
+  root.dataset.settingsBound = "1";
+  root.addEventListener("input", (e) => {
+    const light = e.target.closest("#ts-lighting-duration");
+    const peri = e.target.closest("#ts-perimeter-timeout");
+    if (light) {
+      settingsState.lightingDurationSec = Number(light.value) || 45;
+      const lv = $("ts-lighting-duration-val");
+      if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+      saveSettingsDebounced();
+    }
+    if (peri) {
+      settingsState.perimeterTimeoutSec = Number(peri.value) || 120;
+      const pv = $("ts-perimeter-timeout-val");
+      if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+      saveSettingsDebounced();
+    }
+  });
+}
+
 export function renderToyoshimaDashboard(dash, opts = {}) {
   const soft = !!opts.soft;
   const root = $("ts-dashboard-root");
   if (!root || !dash) return;
 
   syncScheduleState(dash);
+  syncSettingsState(dash);
   const sig = dashSignature(dash);
   if (soft && root.dataset.mounted === "1" && sig === lastDashSig) return;
   lastDashSig = sig;
@@ -534,31 +642,41 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
 
   root.hidden = false;
   root.innerHTML = `
-    <section class="ts-hero">
-      <p class="ts-hero-title" id="ts-hero-title">${escapeHtml(dash.displayName || "豊島邸")}</p>
-      <div class="ts-hero-actions" id="ts-hero-actions">${renderHeroChips(dash)}</div>
-    </section>
-    <button type="button" class="ts-sync-btn" data-ts-action="sync_config">
-      📡 主装置・子機へ設定を反映
-    </button>
-    <div id="ts-health-root">${renderHealthGrid(dash)}</div>
-    <div id="ts-alarm-root">${renderAlarmCard(dash)}</div>
-    <div id="ts-notify-root">${renderNotifyCard(dash)}</div>
-    ${renderBuildingCard(dash.main)}
-    ${renderBuildingCard(dash.detached)}
-    ${renderOpsCard()}
-    ${renderActivitySection(dash)}
-    <section class="ts-card ts-timeline-card" hidden aria-hidden="true">
-      <div class="ts-timeline" id="ts-timeline"></div>
-    </section>`;
+    <div class="ts-tab-panes" id="ts-tab-panes" data-ts-active-pane="map">
+      <div class="ts-tab-pane is-on" data-ts-pane="map">
+        <section class="ts-hero">
+          <p class="ts-hero-title" id="ts-hero-title">${escapeHtml(dash.displayName || "豊島邸")}</p>
+          <div class="ts-hero-actions" id="ts-hero-actions">${renderHeroChips(dash)}</div>
+        </section>
+        <button type="button" class="ts-sync-btn" data-ts-action="sync_config">
+          📡 主装置・子機へ設定を反映
+        </button>
+        <div id="ts-health-root">${renderHealthGrid(dash)}</div>
+        <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
+        ${renderBuildingCard(dash.main)}
+        ${renderBuildingCard(dash.detached)}
+      </div>
+      <div class="ts-tab-pane" data-ts-pane="alert">
+        <div id="ts-alarm-root">${renderAlarmCard(dash)}</div>
+        <div id="ts-notify-root">${renderNotifyCard(dash)}</div>
+        ${renderOpsCard()}
+      </div>
+      <div class="ts-tab-pane" data-ts-pane="log">
+        ${renderActivitySection(dash)}
+      </div>
+    </div>`;
 
   root.dataset.mounted = "1";
   renderScheduleDialog();
   renderLogDialog();
   bindScheduleDialog();
+  bindSettingsSliders();
   bindToyoshimaPush();
   bindToyoshimaControls();
   refreshToyoshimaPushDiag();
+  setToyoshimaCustomerPane(
+    document.body.getAttribute("data-pane") || "map"
+  );
 }
 
 export function hideToyoshimaDashboard() {
@@ -568,6 +686,7 @@ export function hideToyoshimaDashboard() {
     root.innerHTML = "";
     delete root.dataset.mounted;
     delete root.dataset.bound;
+    delete root.dataset.settingsBound;
   }
   lastDashSig = "";
   clientLatencyMs = null;

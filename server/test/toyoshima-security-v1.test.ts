@@ -7,8 +7,12 @@ import {
   clearToyoshimaAlarmsV1,
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   processToyoshimaSecurityEventV1,
+  recordToyoshimaHeartbeatV1,
+  setToyoshimaHeartbeatAtForTestV1,
   resetToyoshimaSecurityStateForTestV1,
+  runToyoshimaHeartbeatWatchdogV1,
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
+  TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1,
   updateToyoshimaNotifyModeV1,
 } from "../src/home/home-toyoshima-security-v1.js";
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
@@ -119,5 +123,25 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     const road = dash.notifySensors.find((s) => s.id === "detached_road");
     assert.equal(road?.mode, "silent");
+  });
+
+  it("heartbeat records and watchdog marks offline after grace", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    recordToyoshimaHeartbeatV1({ building: "main" });
+    const dash1 = buildToyoshimaSecurityDashboardV1();
+    assert.match(dash1.commHealth.onlineSummary, /オンライン/);
+    assert.ok(dash1.commHealth.lastHeartbeatAt);
+    assert.ok(dash1.lightingDurationSec >= 5);
+    assert.ok(dash1.perimeterTimeoutSec >= 30);
+
+    const stale = new Date(
+      Date.now() - TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 - 1000
+    ).toISOString();
+    setToyoshimaHeartbeatAtForTestV1("main", stale);
+    setToyoshimaHeartbeatAtForTestV1("detached", stale);
+    await runToyoshimaHeartbeatWatchdogV1();
+    const dash2 = buildToyoshimaSecurityDashboardV1();
+    assert.match(dash2.commHealth.onlineSummary, /オフライン/);
+    assert.ok(dash2.timeline.some((t) => t.kind === "comm_loss"));
   });
 });

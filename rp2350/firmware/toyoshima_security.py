@@ -277,5 +277,23 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         else:
             self.log("outside schedule - DO skipped (notify only)")
         tasks = [t for t in (light_task, blink_task) if t]
-        if tasks:
+        if (tasks:
             await asyncio.gather(*tasks)
+
+
+# 生存確認 heartbeat 間隔（秒）— VPS TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 と同期
+HEARTBEAT_INTERVAL_SEC = 300
+
+
+async def heartbeat_loop(send_heartbeat, building="main"):
+    """
+    RP2350 メインループから起動する 5 分周期 heartbeat。
+
+    send_heartbeat: callable(building) -> bool
+    """
+    while True:
+        try:
+            send_heartbeat(building)
+        except Exception as exc:
+            print("[toyoshima security] heartbeat err:", exc)
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)

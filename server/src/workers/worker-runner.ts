@@ -4,6 +4,7 @@ import { runQnapPdfBackupWorkerTick } from "./qnap-pdf-backup-worker.js";
 import { runKnowledgeQnapSyncWorkerTick } from "./knowledge-qnap-sync-worker-v1.js";
 import { runEstimateInvoiceQnapPendingWorkerTick } from "./estimate-invoice-qnap-pending-worker.js";
 import { runHomeBathWorkerTickV1 } from "../home/home-bath-worker-v1.js";
+import { runToyoshimaHeartbeatWatchdogV1 } from "../home/home-toyoshima-security-v1.js";
 import { recordWorkerTick, setWorkerRunning } from "./worker-status.js";
 
 const DEFAULT_INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? "15000");
@@ -25,6 +26,7 @@ export function startWorkers(): void {
       const estimateInvoicePending =
         await runEstimateInvoiceQnapPendingWorkerTick();
       const homeBath = runHomeBathWorkerTickV1();
+      await runToyoshimaHeartbeatWatchdogV1();
       recordWorkerTick({
         notification,
         gmail,

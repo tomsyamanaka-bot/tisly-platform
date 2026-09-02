@@ -99,6 +99,7 @@ import {
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   isToyoshimaSecuritySiteIdV1,
   processToyoshimaSecurityEventV1,
+  recordToyoshimaHeartbeatV1,
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
   sendToyoshimaTestNotifyV1,
   syncToyoshimaConfigToFirmwareV1,
@@ -884,6 +885,29 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       ok: true,
       building: result.state,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+    });
+  });
+
+  homeRouter.post(`${prefix}/heartbeat`, (req, res) => {
+    const building = String(req.body?.building ?? "").trim();
+    if (building !== "main" && building !== "detached") {
+      res.status(400).json({
+        ok: false,
+        error: "building must be main or detached",
+      });
+      return;
+    }
+    recordToyoshimaHeartbeatV1({
+      siteId: String(req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1),
+      building: building as "main" | "detached",
+      deviceId: req.body?.deviceId as string | undefined,
+    });
+    const dashSite = String(
+      req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    res.json({
+      ok: true,
+      dashboard: buildToyoshimaSecurityDashboardV1(dashSite),
     });
   });
 

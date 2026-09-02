@@ -27,6 +27,7 @@ import {
   hideToyoshimaDashboard,
   isToyoshimaSecuritySite,
   loadToyoshimaDashboard,
+  setToyoshimaCustomerPane,
   startToyoshimaPolling,
   stopToyoshimaPolling,
   TOYOSHIMA_SEC_ID,
@@ -184,6 +185,7 @@ function applySiteLayout(force = false) {
   if (isToyoshima) {
     loadToyoshimaDashboard().catch(() => {});
     startToyoshimaPolling();
+    setToyoshimaCustomerPane(state.pane || "map");
   } else {
     stopToyoshimaPolling();
     hideToyoshimaDashboard();
@@ -427,6 +429,10 @@ function bind() {
         .querySelectorAll(".sf-mobile-tabs button")
         .forEach((b) => b.classList.toggle("is-on", b === btn));
       document.body.setAttribute("data-pane", state.pane);
+      if (isToyoshimaSecuritySite(state.siteId)) {
+        setToyoshimaCustomerPane(state.pane);
+        return;
+      }
       const target = document.querySelector(
         `.sf-soc-shell [data-pane="${state.pane}"]`
       );
@@ -454,6 +460,7 @@ async function initTenantSecurity() {
 
 async function boot() {
   bind();
+  document.body.setAttribute("data-pane", state.pane || "map");
   const tenantOk = await initTenantSecurity();
   if (!tenantOk) return;
   await loadSites();
