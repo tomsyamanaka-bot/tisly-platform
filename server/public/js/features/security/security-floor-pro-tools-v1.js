@@ -8,6 +8,7 @@ import { resolveHomeSiteId, showSecurityRemoteToastV1 } from "./security-floor-r
 const HOME_API = "/api/home/v1";
 
 let currentHomeSiteId = "HOME-JP-ITABASHI-LIVE";
+let diPollTimer = null;
 
 function $(id) {
   return document.getElementById(id);
@@ -73,6 +74,78 @@ async function loadTestOutputs() {
   renderTestPulseOutputs(data.outputs);
 }
 
+function renderDiChannels(channels) {
+  const root = $("sf-pro-di-list");
+  if (!root) return;
+  if (!channels?.length) {
+    root.innerHTML = '<p class="sf-pro-hint">DI端子情報がありません</p>';
+    return;
+  }
+  root.innerHTML = channels
+    .map(
+      (c) => `<div class="sf-pro-di-row ${c.state === "detecting" ? "is-on" : ""}">
+      <div class="sf-pro-di-state">
+        <span class="sf-pro-di-emoji" aria-hidden="true">${c.stateEmoji || "⚪"}</span>
+        <div>
+          <strong class="sf-pro-di-label">${escapeHtml(c.label)}</strong>
+          <span class="sf-pro-di-sub">${escapeHtml(c.stateLabel || "OFF")}</span>
+        </div>
+      </div>
+      <button type="button" class="sf-pro-di-trigger" data-pro-di="${escapeHtml(
+        c.id
+      )}" data-pro-building="${escapeHtml(c.building || "")}">
+        ⚡ 擬似発報
+      </button>
+    </div>`
+    )
+    .join("");
+}
+
+async function loadDiStatus() {
+  const data = await fetchJson(
+    `${HOME_API}/hardware/di-status?siteId=${encodeURIComponent(currentHomeSiteId)}`
+  );
+  renderDiChannels(data.channels);
+}
+
+function startDiPolling() {
+  stopDiPolling();
+  loadDiStatus().catch(() => {});
+  diPollTimer = setInterval(() => {
+    loadDiStatus().catch(() => {});
+  }, 2500);
+}
+
+function stopDiPolling() {
+  if (diPollTimer) {
+    clearInterval(diPollTimer);
+    diPollTimer = null;
+  }
+}
+
+async function runDiTrigger(diId, building) {
+  const body = {
+    siteId: currentHomeSiteId,
+    diId,
+    actor: "operator-pro",
+  };
+  if (building) body.building = building;
+  const data = await fetchJson(`${HOME_API}/hardware/test-di-trigger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  toast(data.message || "DI擬似発報を実行しました");
+  await loadDiStatus().catch(() => {});
+}
+
+async function loadFieldPhotos() {
+  const data = await fetchJson(
+    `${HOME_API}/field-photos?siteId=${encodeURIComponent(currentHomeSiteId)}`
+  );
+  renderFieldPhotos(data.photos);
+}
+
 function renderFieldPhotos(photos) {
   const root = $("sf-pro-photo-grid");
   if (!root) return;
@@ -103,15 +176,9 @@ function renderFieldPhotos(photos) {
     .join("");
 }
 
-async function loadFieldPhotos() {
-  const data = await fetchJson(
-    `${HOME_API}/field-photos?siteId=${encodeURIComponent(currentHomeSiteId)}`
-  );
-  renderFieldPhotos(data.photos);
-}
-
 async function refreshProToolsPanels() {
-  await Promise.all([loadTestOutputs(), loadFieldPhotos()]);
+  await Promise.all([loadTestOutputs(), loadFieldPhotos(), loadDiStatus()]);
+  startDiPolling();
 }
 
 async function runTestPulse(outputId, building) {
@@ -199,6 +266,22 @@ function openPhotoPreview(url) {
 function bindProToolsUi() {
   if (window.__TISLY_SF_PRO_BOUND) return;
   window.__TISLY_SF_PRO_BOUND = true;
+
+  $("sf-pro-di-list")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-pro-di]");
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      await runDiTrigger(
+        btn.getAttribute("data-pro-di"),
+        btn.getAttribute("data-pro-building") || undefined
+      );
+    } catch (err) {
+      toast(err.message || "DI擬似発報に失敗");
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   $("sf-pro-test-grid")?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-pro-output]");

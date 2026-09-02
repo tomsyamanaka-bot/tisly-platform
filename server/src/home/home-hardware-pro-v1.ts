@@ -7,7 +7,11 @@
 
 import { queueRp2350RelayPulseV1 } from "../device/rp2350-relay-pulse-v1.js";
 import { shellyToggle } from "../device/shelly-real-client.js";
-import { queueDeviceSoftRebootV1 } from "../remote-test/remote-test-state.js";
+import { processHomeSecurityEventV1 } from "./home-security-notify-v1.js";
+import {
+  getRemoteTestStatus,
+  queueDeviceSoftRebootV1,
+} from "../remote-test/remote-test-state.js";
 import {
   HOME_ITABASHI_LIVE_SITE_ID_V1,
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
@@ -16,7 +20,9 @@ import {
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import {
   HOME_JP_TOYOSHIMA_SITE_ID_V1 as TOYOSHIMA_HOME_ID,
+  buildToyoshimaSecurityDashboardV1,
   isToyoshimaSecuritySiteIdV1,
+  processToyoshimaSecurityEventV1,
   pulseToyoshimaDoV1,
   syncToyoshimaConfigToFirmwareV1,
   type ToyoshimaBuildingIdV1,
@@ -262,4 +268,153 @@ export async function shellyColdPowerCycleV1(input?: {
 /** 板橋自宅かどうか（8CH 単一盤） */
 export function isItabashiLiveSiteV1(siteId: string): boolean {
   return String(siteId).trim() === HOME_ITABASHI_LIVE_SITE_ID_V1;
+}
+
+export interface HardwareDiChannelV1 {
+  id: string;
+  label: string;
+  building?: ToyoshimaBuildingIdV1;
+  di: number;
+  state: "normal" | "detecting";
+  stateLabel: string;
+  stateEmoji: string;
+}
+
+const ITABASHI_DI_V1: Omit<HardwareDiChannelV1, "state" | "stateLabel" | "stateEmoji">[] =
+  [
+    { id: "di1", label: "DI1 駐車場センサー（外周）", di: 1 },
+    { id: "di2", label: "DI2 ガレージセンサー", di: 2 },
+  ];
+
+function diPresentation(state: "normal" | "detecting"): {
+  stateLabel: string;
+  stateEmoji: string;
+} {
+  if (state === "detecting") {
+    return { stateLabel: "ON 検知中", stateEmoji: "🔴" };
+  }
+  return { stateLabel: "OFF", stateEmoji: "⚪" };
+}
+
+/** リアルタイム DI 入力状態一覧 */
+export function listHardwareDiStatusV1(siteId: string): HardwareDiChannelV1[] {
+  const sid = String(siteId || "").trim();
+  findHomeSiteV1(sid);
+
+  if (
+    sid === HOME_JP_TOYOSHIMA_SITE_ID_V1 ||
+    sid === TOYOSHIMA_HOME_ID ||
+    isToyoshimaSecuritySiteIdV1(sid)
+  ) {
+    const dash = buildToyoshimaSecurityDashboardV1(sid);
+    const rows: HardwareDiChannelV1[] = [];
+    for (const d of dash.main?.di || []) {
+      const state = d.state === "detecting" ? "detecting" : "normal";
+      const pres = diPresentation(state);
+      rows.push({
+        id: `main-di${d.ch}`,
+        label: `主装置 ${d.label.replace(/DI\d\s*/i, "")}`,
+        building: "main",
+        di: d.ch,
+        state,
+        ...pres,
+      });
+    }
+    for (const d of dash.detached?.di || []) {
+      const state = d.state === "detecting" ? "detecting" : "normal";
+      const pres = diPresentation(state);
+      rows.push({
+        id: `det-di${d.ch}`,
+        label: `子機 ${d.label.replace(/\(DI\d\)/i, "").trim()}`,
+        building: "detached",
+        di: d.ch,
+        state,
+        ...pres,
+      });
+    }
+    return rows;
+  }
+
+  const inputs = getRemoteTestStatus().inputStates || {};
+  return ITABASHI_DI_V1.map((row) => {
+    const raw = inputs[String(row.di)] === "on" ? "detecting" : "normal";
+    const pres = diPresentation(raw);
+    return { ...row, state: raw, ...pres };
+  });
+}
+
+export interface HardwareDiTriggerInputV1 {
+  siteId: string;
+  diId?: string;
+  building?: ToyoshimaBuildingIdV1;
+  di?: number;
+  actor?: string;
+}
+
+/** DI 擬似発報 — 物理センサーなしで一連シーケンスを検証 */
+export async function triggerHardwareDiTestV1(
+  input: HardwareDiTriggerInputV1
+): Promise<{
+  ok: boolean;
+  message: string;
+  pushSent?: boolean;
+}> {
+  const siteId = String(input.siteId || "").trim();
+  findHomeSiteV1(siteId);
+  const actor = input.actor ?? "operator-pro";
+  const channels = listHardwareDiStatusV1(siteId);
+  let target = channels.find((c) => c.id === input.diId);
+  if (!target && input.di) {
+    target = channels.find(
+      (c) =>
+        c.di === Number(input.di) &&
+        (!input.building || c.building === input.building)
+    );
+  }
+  if (!target) {
+    return { ok: false, message: "DI端子が見つかりません" };
+  }
+
+  if (
+    siteId === HOME_JP_TOYOSHIMA_SITE_ID_V1 ||
+    isToyoshimaSecuritySiteIdV1(siteId)
+  ) {
+    const building = target.building || "main";
+    const result = await processToyoshimaSecurityEventV1({
+      siteId,
+      building,
+      di: target.di,
+      deviceId: "operator-di-test",
+    });
+    recordSystemLogV1({
+      siteId,
+      category: "manual_control",
+      message: `DI擬似発報: ${target.label}`,
+      detail: { diId: target.id, building, di: target.di },
+      actor,
+    });
+    return {
+      ok: result.ok,
+      message: result.message || `${target.label} の擬似発報を実行しました`,
+      pushSent: result.pushSent,
+    };
+  }
+
+  const result = await processHomeSecurityEventV1({
+    siteId,
+    di: target.di,
+    pattern: "operator_di_test",
+  });
+  recordSystemLogV1({
+    siteId,
+    category: "manual_control",
+    message: `DI擬似発報: ${target.label}`,
+    detail: { diId: target.id, di: target.di, pattern: result.pattern },
+    actor,
+  });
+  return {
+    ok: true,
+    message: `${target.label} の擬似発報を実行しました`,
+    pushSent: result.pushSent,
+  };
 }

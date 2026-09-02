@@ -108,9 +108,11 @@ import {
 } from "../../home/home-field-photos-v1.js";
 import {
   listHardwareTestOutputsV1,
+  listHardwareDiStatusV1,
   pulseHardwareOutputV1,
   shellyColdPowerCycleV1,
   softRebootRp2350V1,
+  triggerHardwareDiTestV1,
 } from "../../home/home-hardware-pro-v1.js";
 import {
   applyToyoshimaBulkLightsV1,
@@ -893,6 +895,62 @@ homeRouter.post("/hardware/shelly-cold-reboot", async (req, res) => {
     res.json({ siteId, ...result });
   } catch (err) {
     res.status(500).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * DI 入力状態（リアルタイム）
+ * GET /api/home/v1/hardware/di-status?siteId=
+ */
+homeRouter.get("/hardware/di-status", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    findHomeSiteV1(siteId);
+    res.json({
+      ok: true,
+      siteId,
+      channels: listHardwareDiStatusV1(siteId),
+      polledAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * DI 擬似発報（ソフトウェア強制テスト）
+ * POST /api/home/v1/hardware/test-di-trigger
+ */
+homeRouter.post("/hardware/test-di-trigger", async (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    const result = await triggerHardwareDiTestV1({
+      siteId,
+      diId: req.body?.diId,
+      building: req.body?.building,
+      di: req.body?.di,
+      actor: String(req.body?.actor ?? "operator-pro"),
+    });
+    if (isToyoshimaSecuritySiteIdV1(siteId)) {
+      syncToyoshimaConfigToFirmwareV1(siteId);
+    }
+    res.json({ siteId, ...result });
+  } catch (err) {
+    res.status(400).json({
       ok: false,
       error: err instanceof Error ? err.message : String(err),
     });

@@ -615,9 +615,13 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.match(customerHtml, /security-floor-iso3d-v1\.js/);
     assert.match(customerHtml, /security-floor-push-v1\.js/);
-    assert.match(customerHtml, /sf-push-reregister/);
-    assert.match(customerHtml, /sf-push-diag/);
-    assert.match(customerHtml, /Push通知を再登録・購読/);
+    assert.match(customerHtml, /sf-customer-camera/);
+    assert.match(customerHtml, /カメラを見る/);
+    assert.match(customerHtml, /sf-customer-lighting-duration/);
+    assert.match(customerHtml, /防犯ライト点灯時間/);
+    assert.doesNotMatch(customerHtml, /sf-push-reregister/);
+    assert.doesNotMatch(customerHtml, /sf-demo-alert/);
+    assert.doesNotMatch(customerHtml, /Push通知を再登録/);
     assert.match(customerHtml, /sf-brand-logo/);
     assert.match(customerHtml, /tisly-shield-logo-128\.png/);
     assert.doesNotMatch(customerHtml, /sf-crystal/);
@@ -628,7 +632,6 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(customerHtml, /タブでフロア切替/);
     assert.doesNotMatch(customerHtml, /sf-orbit-hint/);
     assert.match(customerHtml, /sf-log-compact/);
-    assert.match(customerHtml, /sf-demo-alert/);
     assert.match(customerHtml, /data-room-id="my-1f-katte"/);
     assert.match(customerHtml, /data-focus="1f"/);
     assert.doesNotMatch(customerHtml, /読み込み中/);

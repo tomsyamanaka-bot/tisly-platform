@@ -115,6 +115,11 @@ function syncScheduleState(dash) {
   };
 }
 
+/** 顧客ポータル（/customer）判定 */
+function isCustomerPortal() {
+  return document.body.classList.contains("sf-customer");
+}
+
 function renderHeroChips(dash) {
   const modeLabel = dash.customerModeLabel || dash.guardModeLabel || "警戒";
   const lightLabel = dash.lightsScheduleLabel || "—";
@@ -126,6 +131,62 @@ function renderHeroChips(dash) {
       <span class="ts-hero-chip-label">ライト点灯</span>
       <span class="ts-hero-chip-value">${escapeHtml(lightLabel)}</span>
     </button>`;
+}
+
+/** 顧客向け · 正常状態バナー */
+function renderCustomerStatusBanner(dash) {
+  const alarm = dash.alarm || {};
+  const alerting = !!alarm.active;
+  return `<section class="ts-card ts-status-banner ${
+    alerting ? "is-alert" : "is-ok"
+  }" id="ts-status-banner">
+    <span class="ts-status-emoji" aria-hidden="true">${alerting ? "🚨" : "🟢"}</span>
+    <div class="ts-status-copy">
+      <p class="ts-status-head">${alerting ? "異常があります" : "正常です"}</p>
+      <p class="ts-status-sub">${escapeHtml(
+        alarm.message || "すべてのセンサーが正常に動作しています"
+      )}</p>
+    </div>
+  </section>`;
+}
+
+/** 顧客向け · 防犯ライト点灯時間のみ */
+function renderCustomerLightCard(dash) {
+  const lightSec = dash.lightingDurationSec ?? 45;
+  return `<section class="ts-card ts-light-card" id="ts-light-card">
+    <h3 class="ts-card-head">💡 防犯ライト点灯時間</h3>
+    <label class="ts-slider-field" for="ts-lighting-duration">
+      <span class="ts-label">センサー検知後の点灯時間</span>
+      <div class="ts-slider-row">
+        <input type="range" id="ts-lighting-duration" min="5" max="180" step="1" value="${lightSec}" />
+        <span class="ts-slider-val" id="ts-lighting-duration-val">${lightSec}秒</span>
+      </div>
+    </label>
+    <p class="ts-hint">変更は自動で保存されます</p>
+  </section>`;
+}
+
+/** 顧客向け · カメラプレビュー */
+function renderCustomerCameraCard() {
+  return `<section class="ts-card ts-camera-card">
+    <h3 class="ts-card-head">📷 カメラ</h3>
+    <p class="ts-hint">登録カメラの映像を確認できます</p>
+    <button type="button" class="ts-btn ts-btn-wide" id="ts-customer-camera">📷 カメラを見る</button>
+  </section>`;
+}
+
+/** 顧客向け · 発報履歴（月次レポートなし） */
+function renderCustomerActivitySection(dash) {
+  return `<section class="ts-card ts-activity-card">
+    <h3 class="ts-card-head">📜 発報履歴（直近10件）</h3>
+    <div class="ts-activity-log" id="ts-activity-log">${renderActivityLog(dash.timeline, 10)}</div>
+    <div class="ts-snap-row ts-snap-row-log" id="ts-log-snaps">${latestSnapshots(dash.timeline, 6)
+      .map(renderSnapshotThumb)
+      .join("")}</div>
+    <button type="button" class="ts-btn ts-btn-ghost ts-btn-wide" data-ts-action="open_log">
+      詳細を見る（もっと見る）
+    </button>
+  </section>`;
 }
 
 /** ワンタップ警戒モード（大型カード） */
@@ -194,11 +255,12 @@ function renderSnapshotThumb(ev) {
   </button>`;
 }
 
-function renderAlarmCard(dash) {
+function renderAlarmCard(dash, opts = {}) {
+  const customer = !!opts.customer;
   const alarm = dash.alarm || { active: false, message: "発報はありません" };
   const snaps = latestSnapshots(dash.timeline, 3);
   return `<section class="ts-card ts-alarm-card ${alarm.active ? "is-live" : ""}" id="ts-alarm-card">
-    <h3 class="ts-card-head">🚨 アラーム発報</h3>
+    <h3 class="ts-card-head">🚨 ${customer ? "いまのお知らせ" : "アラーム発報"}</h3>
     <p class="ts-alarm-status ${alarm.active ? "is-alert" : ""}" id="ts-alarm-status">${escapeHtml(alarm.message)}</p>
     ${
       snaps.length
@@ -207,9 +269,13 @@ function renderAlarmCard(dash) {
             .join("")}</div>`
         : ""
     }
-    <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
+    ${
+      customer
+        ? ""
+        : `<button type="button" class="ts-btn ts-btn-ghost" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
       アラーム対応完了
-    </button>
+    </button>`
+    }
   </section>`;
 }
 
@@ -619,6 +685,37 @@ async function postControl(building, action) {
 function patchToyoshimaDashboard(dash) {
   syncScheduleState(dash);
   syncSettingsState(dash);
+
+  if (isCustomerPortal()) {
+    const banner = $("ts-status-banner");
+    if (banner) banner.outerHTML = renderCustomerStatusBanner(dash);
+
+    const modeCard = $("ts-mode-card");
+    if (modeCard) modeCard.outerHTML = renderCustomerModeCards(dash);
+
+    const lightSlider = $("ts-lighting-duration");
+    if (lightSlider && !lightSlider.matches(":active")) {
+      lightSlider.value = String(settingsState.lightingDurationSec);
+      const lv = $("ts-lighting-duration-val");
+      if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+    }
+
+    const alarmCard = $("ts-alarm-card");
+    if (alarmCard) alarmCard.outerHTML = renderAlarmCard(dash, { customer: true });
+
+    const activityLog = $("ts-activity-log");
+    if (activityLog) {
+      activityLog.innerHTML = renderActivityLog(dash.timeline, 10);
+    }
+    const logSnaps = $("ts-log-snaps");
+    if (logSnaps) {
+      logSnaps.innerHTML = latestSnapshots(dash.timeline, 6)
+        .map(renderSnapshotThumb)
+        .join("");
+    }
+    return;
+  }
+
   const heroTitle = $("ts-hero-title");
   const heroActions = $("ts-hero-actions");
   if (heroTitle) heroTitle.textContent = dash.displayName || "豊島邸";
@@ -769,7 +866,25 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   }
 
   root.hidden = false;
-  root.innerHTML = `
+  const customer = isCustomerPortal();
+  if (customer) {
+    root.innerHTML = `
+    <div class="ts-tab-panes ts-customer-dash" id="ts-tab-panes" data-ts-active-pane="map">
+      <div class="ts-tab-pane is-on" data-ts-pane="map">
+        ${renderCustomerStatusBanner(dash)}
+        ${renderCustomerModeCards(dash)}
+        ${renderCustomerLightCard(dash)}
+        ${renderCustomerCameraCard()}
+      </div>
+      <div class="ts-tab-pane" data-ts-pane="alert">
+        <div id="ts-alarm-root">${renderAlarmCard(dash, { customer: true })}</div>
+      </div>
+      <div class="ts-tab-pane" data-ts-pane="log">
+        ${renderCustomerActivitySection(dash)}
+      </div>
+    </div>`;
+  } else {
+    root.innerHTML = `
     <div class="ts-tab-panes" id="ts-tab-panes" data-ts-active-pane="map">
       <div class="ts-tab-pane is-on" data-ts-pane="map">
         <section class="ts-hero">
@@ -794,6 +909,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         ${renderActivitySection(dash)}
       </div>
     </div>`;
+  }
 
   root.dataset.mounted = "1";
   renderScheduleDialog();
@@ -801,10 +917,14 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   ensureSnapshotLightbox();
   bindScheduleDialog();
   bindSettingsSliders();
-  bindToyoshimaPush();
+  if (!customer) {
+    bindToyoshimaPush();
+    refreshToyoshimaPushDiag();
+    loadMonthlyReportIntoDash(dash).catch(() => {});
+  } else {
+    bindCustomerCamera();
+  }
   bindToyoshimaControls();
-  refreshToyoshimaPushDiag();
-  loadMonthlyReportIntoDash(dash).catch(() => {});
   setToyoshimaCustomerPane(
     document.body.getAttribute("data-pane") || "map"
   );
@@ -834,7 +954,9 @@ async function refreshToyoshimaDashboard(opts = {}) {
   if (data?.ok && data.dashboard) {
     renderToyoshimaDashboard(data.dashboard, opts);
     if (!opts.soft) {
-      await loadMonthlyReportIntoDash(data.dashboard).catch(() => {});
+      if (!isCustomerPortal()) {
+        await loadMonthlyReportIntoDash(data.dashboard).catch(() => {});
+      }
     }
   }
 }
@@ -915,6 +1037,26 @@ async function setNotifyMode(sensorId, mode) {
   if (!data?.ok) throw new Error(data?.error || "通知設定の保存に失敗");
   if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
   showToast(`${NOTIFY_LABELS[mode] || mode} に変更しました`);
+}
+
+function bindCustomerCamera() {
+  if (window.__TISLY_TS_CAM_BOUND) return;
+  window.__TISLY_TS_CAM_BOUND = true;
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("#ts-customer-camera");
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      const { openCustomerCameraPreview } = await import(
+        "../../camera-webrtc-viewer-v1.js"
+      );
+      await openCustomerCameraPreview();
+    } catch (err) {
+      showToast(err.message || "カメラを開けません");
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 function bindToyoshimaPush() {

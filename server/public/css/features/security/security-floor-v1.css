@@ -2555,3 +2555,111 @@
   width: 100%;
   border-radius: 10px;
 }
+
+/* DI 現場保守（導通チェック＆擬似発報） */
+.sf-pro-di-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sf-pro-di-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.sf-pro-di-row.is-on {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.sf-pro-di-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sf-pro-di-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.sf-pro-di-label {
+  display: block;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.sf-pro-di-sub {
+  display: block;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.sf-pro-di-trigger {
+  flex-shrink: 0;
+  border: 1px solid #1e3a8a;
+  background: #1e3a8a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.sf-pro-di-trigger:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* 顧客ポータル · シンプル操作のみ */
+.sf-customer .sf-iso3d-toolbar {
+  display: none;
+}
+
+.sf-customer-light-card .sf-slider-field,
+.sf-customer-camera-card .sf-btn-wide {
+  margin-top: 8px;
+}
+
+.sf-slider-field {
+  display: grid;
+  gap: 8px;
+}
+
+.sf-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sf-slider-row input[type="range"] {
+  flex: 1;
+  min-height: 36px;
+}
+
+.sf-slider-row strong {
+  min-width: 52px;
+  text-align: right;
+  color: #1e3a8a;
+}
+
+.sf-btn-wide {
+  width: 100%;
+  border: 1px solid #1e3a8a;
+  background: #1e3a8a;
+  color: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+}

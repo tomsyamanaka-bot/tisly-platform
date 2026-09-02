@@ -12,7 +12,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
   <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2510" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2511" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2512" />
+  <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <script type="importmap">
   {
     "imports": {
@@ -228,23 +229,40 @@
     </section>
 
     <section class="sf-card sf-quick-card">
-      <p class="sf-card-label">クイック操作</p>
+      <p class="sf-card-label">警戒モード</p>
       <div class="sf-quick">
         <div class="sf-modes" id="sf-modes">
           <button type="button" class="sf-mode" data-mode="home">🛡️ 在宅警備</button>
           <button type="button" class="sf-mode is-on" data-mode="away">🛡️ 外出警戒</button>
           <button type="button" class="sf-mode" data-mode="disarmed">🛡️ 警戒解除</button>
         </div>
-        <div class="sf-push-panel">
-          <button type="button" class="sf-push-btn" id="sf-push-reregister">
-            🔔 Push通知を再登録・購読
-          </button>
-          <p class="sf-push-diag" id="sf-push-diag" role="status">
-            permission: — / standalone: — / appleAPNs: —
-          </p>
-        </div>
-        <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
       </div>
+    </section>
+
+    <section class="sf-card sf-customer-light-card" id="sf-customer-light-card">
+      <p class="sf-card-label">💡 防犯ライト点灯時間</p>
+      <label class="sf-slider-field" for="sf-customer-lighting-duration">
+        <span class="sf-slider-label">センサー検知後の点灯時間</span>
+        <div class="sf-slider-row">
+          <input
+            type="range"
+            id="sf-customer-lighting-duration"
+            min="5"
+            max="180"
+            step="1"
+            value="45"
+            aria-label="防犯ライト点灯時間"
+          />
+          <strong id="sf-customer-lighting-duration-val">45秒</strong>
+        </div>
+      </label>
+    </section>
+
+    <section class="sf-card sf-customer-camera-card">
+      <p class="sf-card-label">📷 カメラ</p>
+      <button type="button" class="sf-btn sf-btn-wide" id="sf-customer-camera">
+        📷 カメラを見る
+      </button>
     </section>
 
     <section class="sf-soc-bottom" data-pane="log">
@@ -290,7 +308,7 @@
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2510"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2511"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2512"></script>
   <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2510"></script>
 </body>
 </html>

@@ -565,6 +565,11 @@
   display: none;
 }
 
+.sf-body.is-toyoshima .sf-customer-light-card,
+.sf-body.is-toyoshima .sf-customer-camera-card {
+  display: none;
+}
+
 .sf-body.is-toyoshima .sf-mobile-tabs {
   display: grid;
 }
@@ -823,4 +828,45 @@
   .ts-monthly-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* 顧客向け · 正常状態バナー */
+.ts-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.ts-status-banner.is-ok {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.ts-status-banner.is-alert {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+}
+
+.ts-status-emoji {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.ts-status-head {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ts-status-sub {
+  margin: 4px 0 0;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.ts-customer-dash .ts-camera-card .ts-btn-wide {
+  margin-top: 4px;
 }

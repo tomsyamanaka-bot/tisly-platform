@@ -41,6 +41,10 @@ import {
   resolveSecuritySiteId,
 } from "../../customer-tenant-session-v1.js";
 import { setPropertyScope } from "../../shared/property-scope-v1.js";
+import { openCustomerCameraPreview } from "../../camera-webrtc-viewer-v1.js";
+import { resolveHomeSiteId } from "./security-floor-remote-config-v1.js";
+
+const HOME_API = "/api/home/v1";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -423,21 +427,63 @@ async function setMode(mode) {
   }
 }
 
-async function toggleDemoAlert() {
+let customerLightSaveTimer = null;
+
+function bindCustomerLightSlider() {
+  const slider = $("sf-customer-lighting-duration");
+  if (!slider || slider.dataset.bound === "1") return;
+  slider.dataset.bound = "1";
+  slider.addEventListener("input", () => {
+    const sec = Number(slider.value) || 45;
+    setText("sf-customer-lighting-duration-val", `${sec}秒`);
+    clearTimeout(customerLightSaveTimer);
+    customerLightSaveTimer = setTimeout(() => {
+      saveCustomerLightDuration(sec).catch(() => {});
+    }, 600);
+  });
+}
+
+async function loadCustomerLightDuration() {
+  if (isToyoshimaSecuritySite(state.siteId)) return;
+  const homeSiteId = resolveHomeSiteId(state.siteId);
   try {
-    const data = await fetchJson("/api/security-floor/v1/test-notify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ siteId: state.siteId }),
-    });
-    if (data.dashboard) renderDash(data.dashboard);
-    else await loadDash();
+    const data = await fetchJson(
+      `${HOME_API}/security-rules?siteId=${encodeURIComponent(homeSiteId)}`
+    );
+    const sec = data.rules?.lightingDurationSec ?? 45;
+    const slider = $("sf-customer-lighting-duration");
+    if (slider) slider.value = String(sec);
+    setText("sf-customer-lighting-duration-val", `${sec}秒`);
   } catch {
-    await loadDash();
+    /* 未取得でもスライダーは操作可能 */
   }
 }
 
+async function saveCustomerLightDuration(sec) {
+  const homeSiteId = resolveHomeSiteId(state.siteId);
+  await fetchJson(`${HOME_API}/security-rules`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId: homeSiteId,
+      actor: "customer-portal",
+      lightingDurationSec: sec,
+      di1DurationSec: sec,
+    }),
+  });
+}
+
+function bindCustomerCamera() {
+  $("sf-customer-camera")?.addEventListener("click", () => {
+    openCustomerCameraPreview().catch((err) => {
+      console.warn("[security-customer] camera", err);
+    });
+  });
+}
+
 function bind() {
+  bindCustomerLightSlider();
+  bindCustomerCamera();
   document.addEventListener("tisly-sf-floor", (e) => {
     const id = e.detail?.id;
     if (id) state.floorId = id;
@@ -446,13 +492,6 @@ function bind() {
   $("sf-site-select")?.addEventListener("change", (e) => {
     e.target.value = state.siteId;
   });
-
-  if (!window.__TISLY_SF_ALARM_BOUND) {
-    window.__TISLY_SF_ALARM_BOUND = true;
-    $("sf-demo-alert")?.addEventListener("click", () => {
-      toggleDemoAlert().catch(() => {});
-    });
-  }
 
   if (window.__TISLY_SF_CTRL_BOUND) return;
   window.__TISLY_SF_CTRL_BOUND = true;
@@ -515,6 +554,7 @@ async function boot() {
   syncCustomerHeaderTitle();
   if (!isToyoshimaSecuritySite(state.siteId)) {
     await loadDash();
+    await loadCustomerLightDuration();
   }
   startAlarmPolling();
 }

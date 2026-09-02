@@ -7,8 +7,10 @@ import {
 } from "../src/home/home-field-photos-v1.js";
 import {
   listHardwareTestOutputsV1,
+  listHardwareDiStatusV1,
   pulseHardwareOutputV1,
   softRebootRp2350V1,
+  triggerHardwareDiTestV1,
 } from "../src/home/home-hardware-pro-v1.js";
 import {
   buildHomeSecurityFirmwareRulesV1,
@@ -83,6 +85,41 @@ describe("home-pro-tools-v1", () => {
     assert.equal(fw.diConfirmMs, 120);
     assert.equal(fw.debounceDi1Ms, 80);
     assert.equal(fw.debounceBeamMs, 200);
+  });
+
+  it("lists DI channels for Itabashi and Toyoshima", () => {
+    const ita = listHardwareDiStatusV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
+    assert.equal(ita.length, 2);
+    assert.match(ita[0].label, /DI1/);
+    assert.equal(ita[0].stateEmoji, "⚪");
+
+    const toy = listHardwareDiStatusV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    assert.ok(toy.length >= 3);
+    assert.ok(toy.some((c) => c.label.includes("主装置")));
+    assert.ok(toy.some((c) => c.label.includes("子機")));
+  });
+
+  it("triggers DI pseudo alarm for Toyoshima detached DI", async () => {
+    const channels = listHardwareDiStatusV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    const target = channels.find((c) => c.building === "detached" && c.di === 1);
+    assert.ok(target);
+    const result = await triggerHardwareDiTestV1({
+      siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      diId: target.id,
+      actor: "operator-pro",
+    });
+    assert.equal(result.ok, true);
+    assert.match(result.message, /道路側|擬似発報|センサー/);
+  });
+
+  it("triggers DI pseudo alarm for Itabashi DI1", async () => {
+    const result = await triggerHardwareDiTestV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      diId: "di1",
+      actor: "operator-pro",
+    });
+    assert.equal(result.ok, true);
+    assert.match(result.message, /DI1/);
   });
 
   it("stores field photos and marks QNAP sync", async () => {
