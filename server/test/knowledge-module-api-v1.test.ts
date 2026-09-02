@@ -127,6 +127,10 @@ const {
   DOORPHONE_TD_B30C_MODULE_SEED_IDS,
   seedDoorphoneTdB30cKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-doorphone-td-b30c-seed-v1.js");
+const {
+  ATTENDANCE_NFC_MODULE_SEED_IDS,
+  seedAttendanceNfcKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-attendance-nfc-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1180,6 +1184,33 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /電気錠連動ハック/);
     assert.ok(card!.tags.includes("#TD_B30C"));
     assert.ok(card!.tags.includes("#SmartLock"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends attendance NFC RS485 seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of ATTENDANCE_NFC_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const item = listed.find(
+      (x) => x.id === "kn-seed-attendance-nfc-rs485-001"
+    );
+    assert.ok(item);
+    assert.match(item!.title, /勤怠打刻/);
+    assert.ok(item!.tags.includes("#勤怠管理"));
+    assert.ok(item!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("seedAttendanceNfcKnowledgeCardsV1 upserts searchable cards", () => {
+    seedAttendanceNfcKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-ATTENDANCE-NFC-001");
+    assert.ok(card);
+    assert.match(card!.title, /電気錠連動仕様/);
+    assert.ok(card!.tags.includes("#RS485"));
+    assert.ok(card!.tags.includes("#NFCリーダー"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

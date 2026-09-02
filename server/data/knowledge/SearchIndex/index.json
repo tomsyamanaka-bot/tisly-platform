@@ -1,7 +1,87 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-01T05:37:57.882Z",
+  "updatedAt": "2026-09-02T13:59:12.073Z",
   "entries": [
+    {
+      "id": "OPS-ATTENDANCE-NFC-001",
+      "title": "【設備DX】RP2350直結 RS485 NFCリーダーによる勤怠打刻・出退勤管理＆電気錠連動仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#勤怠管理",
+        "#出退勤打刻",
+        "#NFCリーダー",
+        "#RS485",
+        "#電気錠連動",
+        "#RP2350",
+        "#TiSLY_Core"
+      ],
+      "summary": "産業用RS485 RFID/NFCリーダー（またはUART接続PN532）を\nRP2350へ接続。SuicaやスマホNFCのタッチ情報を読み取り、\n出退勤ログのクラウド自動記録と同時に\nリレーCH1による電気錠解錠を実行する一元管理仕様。\n\n【ハード構成】\n産業用 RS485 RFID/NFC リーダー、\nまたは UART 接続 PN532 を RP2350 へ直結。\nSuica / スマホ NFC の UID を現場で読取。\n\n【勤怠クラウド連携】\nタッチ検知 → POST /api/attendance/v1/punch。\n出退勤ログを tenant 単位で自動記録。\nApp Hub にリアルタイム一覧反映。\n\n【電気錠連動 CH1】\n打刻成功と同時にリレー CH1 を約1秒パルス。\nRP2350 RO1 → 電気錠解錠を一元制御。\nunlock_door と同系の安全インターロック。\n\n【現場 PWA】\n/app 勤怠カードで出勤/退勤シミュレーション。\n白×navy UI · 社員名 · 解錠ステータス表示。",
+      "updatedAt": "2026-09-02",
+      "sourceType": "manual"
+    },
+    {
+      "id": "PDF-MO260621099-ESTIMATE-001",
+      "title": "見積書 — MO-26-0621-099",
+      "category": "防犯カメラ",
+      "tags": [
+        "見積書",
+        "MO-26-0621-099",
+        "テスト顧客",
+        "PDF"
+      ],
+      "summary": "テスト顧客 · 案件 MO-26-0621-099 の見積書。",
+      "updatedAt": "2026-09-02",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "pdf"
+    },
+    {
+      "id": "PHOTO-COMP-CPKNOW1",
+      "title": "盤内配線",
+      "category": "LAN",
+      "tags": [
+        "盤内配線",
+        "RJ45",
+        "LAN",
+        "完了報告"
+      ],
+      "summary": "完了報告写真: 盤内配線（案件 MO-26-0621-099）",
+      "updatedAt": "2026-09-02",
+      "projectNo": "MO-26-0621-099",
+      "customerName": "テスト顧客",
+      "sourceType": "photo"
+    },
+    {
+      "id": "QUICK-MTK54DUO",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-09-02",
+      "sourceType": "quick"
+    },
+    {
+      "id": "HOME-DOORPHONE-TD-B30C-001",
+      "title": "【住設・インターホン】アイリスオーヤマ製スマートドアホン（TD-B30C）のPWA統合と電気錠連動ハック",
+      "category": "IOT関連",
+      "tags": [
+        "#Doorphone",
+        "#IrisOhyama",
+        "#TD_B30C",
+        "#Intercom",
+        "#SmartLock",
+        "#PWA",
+        "#TiSLY_HOME"
+      ],
+      "summary": "TD-B30Cの来客プッシュ通知をTiSLY PWAで捕捉し、\n外出先からのワンタップ通話起動および\nRP2350接点出力による玄関電気錠の\n遠隔解錠をワンストップで実現する設計。\n\n【PWA DoorphoneCard / Viewer】\n白×navy UI · ライブ/静止画プレビュー ·\nLIVE/録画中/呼出中バッジ · 大型操作ボタン。\n\n【来客Push → ワンタップ通話】\nTD-B30C 呼出を TiSLY PWA が捕捉。\nirisdoorphone:// Deep Link で専用アプリ起動。\n\n【RP2350 電気錠連動】\n解錠ボタン → RO1 約1秒パルス →\nPOST /api/home/v1/control unlock_door。\n\n【拡張 API】\nPOST /api/home/v1/doorphone/control\n（mic / speaker / snapshot / record）。\nGET /api/home/v1/doorphone/snapshot（SVG モック）。\n\n【モック物件】\nHOME-JP-TSUKUBA-001 · HOME-AU-GOLDCOAST-001。",
+      "updatedAt": "2026-09-01",
+      "sourceType": "manual"
+    },
     {
       "id": "PWA-WEB-PUSH-REGISTER-001",
       "title": "【PWA機能】Web Push通知登録ボタン・Service Worker購読フロー復旧仕様",
@@ -16,6 +96,34 @@
       "summary": "PWAカード一覧画面からのワンタップ通知許諾、\nVAPID公開鍵連携、来客・防犯アラートの\nバックグラウンド受信仕様。\n\n【PWA カード一覧ヘッダー UI】\n未登録: 🔕「プッシュ通知を有効化する」（navy 枠）。\n登録済: 🔔「通知受信中（登録済み）」＋テスト送信。\n\n【購読フロー】\nService Worker 登録 → VAPID 公開鍵取得 →\nNotification.requestPermission → PushManager.subscribe →\nPOST /api/notifications/subscribe（userId=home-security）。\n\n【テスト通知】\nPOST /api/security-floor/v1/test-notify で\n玄関インターホン呼出・ミリ波検知の模擬Pushを送信。\n\n【配置画面】\nApp Hub（/app）カード一覧上部 · TiSLY HOME · 各拠点PWA。\niOS はホーム画面追加した PWA のみ Web Push 対応。",
       "updatedAt": "2026-09-01",
       "sourceType": "manual"
+    },
+    {
+      "id": "QUICK-MTIIMCUT",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-09-01",
+      "sourceType": "quick"
+    },
+    {
+      "id": "QUICK-MTIOKTQ4",
+      "title": "PoE配線メモ",
+      "category": "LAN",
+      "tags": [
+        "PoE給電",
+        "RJ45",
+        "現場",
+        "クイック登録"
+      ],
+      "summary": "ラック内配線の注意点",
+      "updatedAt": "2026-09-01",
+      "sourceType": "quick"
     },
     {
       "id": "FACTORY-FIELD-DX-3D-UNIFIED-001",
@@ -532,38 +640,6 @@
       "summary": "市販イヤホン（骨伝導等）での通話テキストをPWAへ受け渡すワークフロー。\nGeminiによる日程・現場名・材料リストの自動構造化とJSON抽出。\n通話後ワンタップでGoogleカレンダーとTiSLY材料チェックへ同時登録する省力化。\n\n【ワークフロー】\n市販イヤホン（骨伝導等）や通話録音アプリで\n得たテキストを、PWA「通話音声・クイック入力」\nへワンタップ貼付する。Web Speech API による\nその場の文字起こしも併用できる。\n\n【LLM プロンプト設計】\nGemini に JSON のみを返させる。抽出項目は\n予定（件名・開始・終了・場所）、材料\n（品名・数量・単位・発注フラグ）、案件メモ\n（3行要約・要望・決定事項）。キー未設定時は\nルールベース抽出にフォールバックする。\n\n【データフロー】\n抽出プレビュー確認後、ワンタップで\nGoogle Calendar API（mock/real）へ予定登録し、\n同時に材料チェックへ部材を追記、案件メモへ\n要約を保存する。tenant_id / JP|AU / JPY|AUD\nを意識した拡張ポイントをログに残す。",
       "updatedAt": "2026-08-26",
       "sourceType": "manual"
-    },
-    {
-      "id": "PDF-MO260621099-ESTIMATE-001",
-      "title": "見積書 — MO-26-0621-099",
-      "category": "防犯カメラ",
-      "tags": [
-        "見積書",
-        "MO-26-0621-099",
-        "テスト顧客",
-        "PDF"
-      ],
-      "summary": "テスト顧客 · 案件 MO-26-0621-099 の見積書。",
-      "updatedAt": "2026-08-24",
-      "projectNo": "MO-26-0621-099",
-      "customerName": "テスト顧客",
-      "sourceType": "pdf"
-    },
-    {
-      "id": "PHOTO-COMP-CPKNOW1",
-      "title": "盤内配線",
-      "category": "LAN",
-      "tags": [
-        "盤内配線",
-        "RJ45",
-        "LAN",
-        "完了報告"
-      ],
-      "summary": "完了報告写真: 盤内配線（案件 MO-26-0621-099）",
-      "updatedAt": "2026-08-24",
-      "projectNo": "MO-26-0621-099",
-      "customerName": "テスト顧客",
-      "sourceType": "photo"
     },
     {
       "id": "QUICK-MT7V3OTB",
@@ -1676,6 +1752,84 @@
     },
     {
       "id": "AUTO-SYNCMT7V439W-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMTIIMSQU-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMTIIMSQU-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMTIOL74K-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMTIOL74K-2",
+      "title": "一括承認2",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 2",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMTK54W2N-1",
+      "title": "一括承認1",
+      "category": "防犯カメラ",
+      "tags": [
+        "テスト"
+      ],
+      "summary": "一括承認テスト 1",
+      "updatedAt": "2026-06-21",
+      "projectNo": "MO-26-0621-200",
+      "customerName": "同期テスト顧客",
+      "sourceType": "project"
+    },
+    {
+      "id": "AUTO-SYNCMTK54W2N-2",
       "title": "一括承認2",
       "category": "防犯カメラ",
       "tags": [

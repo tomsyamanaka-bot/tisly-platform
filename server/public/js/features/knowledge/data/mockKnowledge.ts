@@ -1590,3 +1590,51 @@ export const MOCK_MULTI_ANGLE_SKETCH_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+/** RP2350 NFC 勤怠打刻（末尾追記） */
+export const ATTENDANCE_NFC_KNOWLEDGE_TITLES = [
+  "【設備DX】RP2350直結 RS485 NFCリーダーによる勤怠打刻・出退勤管理＆電気錠連動仕様",
+] as const;
+
+const ATTENDANCE_NFC_CREATED_AT = "2026-09-02T13:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に勤怠 NFC 1 件を保持。
+ */
+export const MOCK_ATTENDANCE_NFC_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-attendance-nfc-rs485-001",
+    title:
+      "【設備DX】RP2350直結 RS485 NFCリーダーによる勤怠打刻・出退勤管理＆電気錠連動仕様",
+    summary: [
+      "産業用RS485 RFID/NFCリーダー（またはUART接続PN532）を",
+      "RP2350へ接続。SuicaやスマホNFCのタッチ情報を読み取り、",
+      "出退勤ログのクラウド自動記録と同時に",
+      "リレーCH1による電気錠解錠を実行する一元管理仕様。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#勤怠管理",
+      "#出退勤打刻",
+      "#NFCリーダー",
+      "#RS485",
+      "#電気錠連動",
+      "#RP2350",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: ATTENDANCE_NFC_CREATED_AT,
+    body: [
+      "【ハード構成】",
+      "産業用 RS485 RFID/NFC リーダー、",
+      "または UART 接続 PN532 を RP2350 へ直結。",
+      "",
+      "【勤怠クラウド連携】",
+      "タッチ検知 → 出退勤ログを tenant 単位で記録。",
+      "",
+      "【電気錠連動 CH1】",
+      "打刻成功と同時にリレー CH1 を約1秒パルス。",
+    ].join("\n"),
+  },
+];

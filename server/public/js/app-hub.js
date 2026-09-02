@@ -3,6 +3,7 @@ import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyLoginError } from "./tisly-friendly-errors.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
 import { bindTislyPushBarV1 } from "./tisly-pwa-push-bar-v1.js";
+import { bindAttendancePunchCardV1 } from "./attendance-punch-v1.js";
 
 const TOKEN_KEY = "tisly_token";
 
@@ -705,6 +706,14 @@ async function loadHubApps() {
   // 社内下部ナビは業務ロールのみ
   ensurePracticalNav(data.showPracticalNav === true);
   bindHubPushBarV1();
+  bindAttendanceCardV1();
+}
+
+function bindAttendanceCardV1() {
+  bindAttendancePunchCardV1({
+    getToken: () => sessionStorage.getItem(TOKEN_KEY),
+    showToast: showHubToast,
+  });
 }
 
 function showHubToast(message) {

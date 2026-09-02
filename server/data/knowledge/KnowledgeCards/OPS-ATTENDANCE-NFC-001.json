@@ -1,0 +1,20 @@
+{
+  "id": "OPS-ATTENDANCE-NFC-001",
+  "title": "【設備DX】RP2350直結 RS485 NFCリーダーによる勤怠打刻・出退勤管理＆電気錠連動仕様",
+  "category": "IOT関連",
+  "tags": [
+    "#勤怠管理",
+    "#出退勤打刻",
+    "#NFCリーダー",
+    "#RS485",
+    "#電気錠連動",
+    "#RP2350",
+    "#TiSLY_Core"
+  ],
+  "summary": "産業用RS485 RFID/NFCリーダー（またはUART接続PN532）を\nRP2350へ接続。SuicaやスマホNFCのタッチ情報を読み取り、\n出退勤ログのクラウド自動記録と同時に\nリレーCH1による電気錠解錠を実行する一元管理仕様。\n\n【ハード構成】\n産業用 RS485 RFID/NFC リーダー、\nまたは UART 接続 PN532 を RP2350 へ直結。\nSuica / スマホ NFC の UID を現場で読取。\n\n【勤怠クラウド連携】\nタッチ検知 → POST /api/attendance/v1/punch。\n出退勤ログを tenant 単位で自動記録。\nApp Hub にリアルタイム一覧反映。\n\n【電気錠連動 CH1】\n打刻成功と同時にリレー CH1 を約1秒パルス。\nRP2350 RO1 → 電気錠解錠を一元制御。\nunlock_door と同系の安全インターロック。\n\n【現場 PWA】\n/app 勤怠カードで出勤/退勤シミュレーション。\n白×navy UI · 社員名 · 解錠ステータス表示。",
+  "files": [],
+  "updatedAt": "2026-09-02",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【ハード構成】\n産業用 RS485 RFID/NFC リーダー、\nまたは UART 接続 PN532 を RP2350 へ直結。\nSuica / スマホ NFC の UID を現場で読取。\n\n【勤怠クラウド連携】\nタッチ検知 → POST /api/attendance/v1/punch。\n出退勤ログを tenant 単位で自動記録。\nApp Hub にリアルタイム一覧反映。\n\n【電気錠連動 CH1】\n打刻成功と同時にリレー CH1 を約1秒パルス。\nRP2350 RO1 → 電気錠解錠を一元制御。\nunlock_door と同系の安全インターロック。\n\n【現場 PWA】\n/app 勤怠カードで出勤/退勤シミュレーション。\n白×navy UI · 社員名 · 解錠ステータス表示。"
+}

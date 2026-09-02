@@ -56,6 +56,39 @@
       </div>
       <p class="hub-push-status" id="hub-push-status" role="status"></p>
     </section>
+    <!-- 勤怠・入退室打刻（社内 /app） -->
+    <section
+      class="hub-attendance-card"
+      id="hub-attendance-card"
+      aria-label="勤怠・入退室打刻"
+    >
+      <div class="hub-attendance-head">
+        <h3 class="hub-attendance-title">🕐 勤怠・入退室打刻ログ</h3>
+        <p class="hub-attendance-sub">
+          RS485 NFC タッチ連動 · リレー CH1 解錠シミュレーション
+        </p>
+      </div>
+      <div class="hub-attendance-actions">
+        <button
+          type="button"
+          class="hub-attendance-btn is-in"
+          id="hub-attendance-clock-in"
+        >
+          出勤打刻
+        </button>
+        <button
+          type="button"
+          class="hub-attendance-btn is-out"
+          id="hub-attendance-clock-out"
+        >
+          退勤打刻
+        </button>
+      </div>
+      <p class="hub-attendance-status" id="hub-attendance-status" role="status">
+        ログイン後に打刻履歴を読み込みます
+      </p>
+      <ul class="hub-attendance-log-list" id="hub-attendance-log-list"></ul>
+    </section>
     <p class="hint" id="pwa-icon-hint">📱 ホーム画面アイコンが古い緑のままのときは、一度削除してから <strong>ホーム画面に追加</strong> し直してください（青 TiSLY ロゴ）。</p>
     <div id="hub-practical-grid" class="hub-practical-grid"></div>
     <section id="hub-monitoring-properties" class="hub-monitoring-section" hidden>
