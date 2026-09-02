@@ -1275,7 +1275,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
     });
   });
 
-  homeRouter.post(`${prefix}/heartbeat`, (req, res) => {
+  homeRouter.post(`${prefix}/heartbeat`, async (req, res) => {
     const building = String(req.body?.building ?? "").trim();
     if (building !== "main" && building !== "detached") {
       res.status(400).json({
@@ -1284,18 +1284,26 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       });
       return;
     }
-    recordToyoshimaHeartbeatV1({
-      siteId: String(req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1),
-      building: building as "main" | "detached",
-      deviceId: req.body?.deviceId as string | undefined,
-    });
-    const dashSite = String(
-      req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
-    ).trim();
-    res.json({
-      ok: true,
-      dashboard: buildToyoshimaSecurityDashboardV1(dashSite),
-    });
+    try {
+      await recordToyoshimaHeartbeatV1({
+        siteId: String(req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1),
+        building: building as "main" | "detached",
+        deviceId: req.body?.deviceId as string | undefined,
+        boardTemp: req.body?.board_temp ?? req.body?.boardTemp,
+      });
+      const dashSite = String(
+        req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
+      ).trim();
+      res.json({
+        ok: true,
+        dashboard: buildToyoshimaSecurityDashboardV1(dashSite),
+      });
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
 
   homeRouter.post(`${prefix}/sync-config`, (req, res) => {

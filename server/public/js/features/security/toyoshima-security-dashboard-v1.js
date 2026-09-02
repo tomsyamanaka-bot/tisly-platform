@@ -286,6 +286,10 @@ function renderHealthGrid(dash) {
   const heartbeat = health.lastHeartbeatAt
     ? formatJstCommTime(health.lastHeartbeatAt)
     : "—";
+  const tempLevel = health.boardTempLevel || "normal";
+  const tempEmoji =
+    tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
+  const tempLabel = health.boardTempLabel || "—";
   return `<section class="ts-card ts-health-card" id="ts-health-card">
     <h3 class="ts-card-head">📡 通信ステータス</h3>
     <div class="ts-health-grid">
@@ -296,6 +300,10 @@ function renderHealthGrid(dash) {
       <div class="ts-health-cell">
         <span class="ts-health-key">稼働ステータス</span>
         <span class="ts-health-val" id="ts-online-val">${escapeHtml(health.onlineSummary || "—")}</span>
+      </div>
+      <div class="ts-health-cell">
+        <span class="ts-health-key">盤内温度（主装置）</span>
+        <span class="ts-health-val ts-board-temp is-${tempLevel}" id="ts-board-temp-val">${tempEmoji} ${escapeHtml(tempLabel)}</span>
       </div>
       <div class="ts-health-cell ts-health-cell-wide">
         <span class="ts-health-key">最新ハートビート</span>
@@ -378,8 +386,10 @@ function renderActivityLog(timeline, limit = 10) {
       const ico =
         ev.kind === "comm_loss"
           ? "🔴"
-          : ev.kind === "comm_recovered"
+          :         ev.kind === "comm_recovered"
             ? "🟢"
+            : ev.kind === "board_overheat"
+              ? "🌡️"
             : ev.kind === "main_beam"
           ? "🏠"
           : ev.kind === "detached_road" || ev.kind === "detached_path"
@@ -733,6 +743,15 @@ function patchToyoshimaDashboard(dash) {
   if (latencyEl) latencyEl.textContent = latency;
   if (onlineEl) onlineEl.textContent = health.onlineSummary || "—";
   if (heartbeatEl) heartbeatEl.textContent = heartbeat;
+  const boardTempEl = $("ts-board-temp-val");
+  if (boardTempEl) {
+    const level = health.boardTempLevel || "normal";
+    const emoji =
+      level === "warning" ? "🔴" : level === "caution" ? "🟡" : "🟢";
+    boardTempEl.textContent = `${emoji} ${health.boardTempLabel || "—"}`;
+    boardTempEl.classList.remove("is-normal", "is-caution", "is-warning");
+    boardTempEl.classList.add(`is-${level}`);
+  }
 
   const lightSlider = $("ts-lighting-duration");
   const periSlider = $("ts-perimeter-timeout");

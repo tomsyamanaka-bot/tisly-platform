@@ -308,8 +308,54 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         else:
             self.log("outside schedule - DO skipped (notify only)")
         tasks = [t for t in (light_task, blink_task) if t]
-        if (tasks:
+        if tasks:
             await asyncio.gather(*tasks)
+
+
+# ── RP2350 内蔵温度センサー（ADC4） ──
+
+def read_board_temperature_c():
+    """
+    RP2350 内蔵 ADC4 から盤内温度（℃）を取得。
+    計算式: 27 - (voltage - 0.706) / 0.001721
+    """
+    try:
+        import machine
+
+        adc = machine.ADC(4)
+        reading = adc.read_u16()
+        voltage = reading * 3.3 / 65535
+        temp_c = 27 - (voltage - 0.706) / 0.001721
+        return round(temp_c, 1)
+    except Exception as exc:
+        print("[toyoshima security] temp read err:", exc)
+        return None
+
+
+def build_heartbeat_payload(building, site_id=None, device_id=None, extra=None):
+    """VPS 向け heartbeat JSON（board_temp 付き）。"""
+    payload = {"building": building}
+    temp = read_board_temperature_c()
+    if temp is not None:
+        payload["board_temp"] = temp
+    if site_id:
+        payload["siteId"] = site_id
+    if device_id:
+        payload["deviceId"] = device_id
+    if extra and isinstance(extra, dict):
+        payload.update(extra)
+    return payload
+
+
+def send_toyoshima_heartbeat(http_post, building, site_id=None, device_id=None):
+    """
+    POST /api/home/v1/toyoshima/heartbeat
+    http_post: callable(path, payload) -> (body, status)
+    """
+    path = "/api/home/v1/toyoshima/heartbeat"
+    payload = build_heartbeat_payload(building, site_id, device_id)
+    _body, status = http_post(path, payload)
+    return status == 200
 
 
 # 生存確認 heartbeat 間隔（秒）— VPS TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 と同期

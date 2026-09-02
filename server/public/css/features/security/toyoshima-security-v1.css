@@ -628,6 +628,21 @@
   font-weight: 800;
 }
 
+.ts-board-temp.is-normal {
+  color: #15803d;
+  font-weight: 800;
+}
+
+.ts-board-temp.is-caution {
+  color: #ca8a04;
+  font-weight: 800;
+}
+
+.ts-board-temp.is-warning {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
 /* テナント固定時は物件セレクタ非表示 */
 .sf-soc-meta.sf-tenant-fixed .sf-select-inline {
   display: none;

@@ -127,10 +127,12 @@ describe("toyoshima-security-v1", () => {
 
   it("heartbeat records and watchdog marks offline after grace", async () => {
     resetToyoshimaSecurityStateForTestV1();
-    recordToyoshimaHeartbeatV1({ building: "main" });
+    await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 36.4 });
     const dash1 = buildToyoshimaSecurityDashboardV1();
     assert.match(dash1.commHealth.onlineSummary, /オンライン/);
     assert.ok(dash1.commHealth.lastHeartbeatAt);
+    assert.equal(dash1.commHealth.boardTempC, 36.4);
+    assert.match(dash1.commHealth.boardTempLabel, /正常/);
     assert.ok(dash1.lightingDurationSec >= 5);
     assert.ok(dash1.perimeterTimeoutSec >= 30);
 
@@ -143,5 +145,20 @@ describe("toyoshima-security-v1", () => {
     const dash2 = buildToyoshimaSecurityDashboardV1();
     assert.match(dash2.commHealth.onlineSummary, /オフライン/);
     assert.ok(dash2.timeline.some((t) => t.kind === "comm_loss"));
+  });
+
+  it("heartbeat board_temp caution and overheat warning", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 48.2 });
+    const dashCaution = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dashCaution.commHealth.boardTempLevel, "caution");
+    assert.match(dashCaution.commHealth.boardTempLabel, /注意/);
+
+    await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 62.5 });
+    const dashWarn = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dashWarn.commHealth.boardTempLevel, "warning");
+    assert.match(dashWarn.commHealth.onlineSummary, /盤内高温警告/);
+    assert.ok(dashWarn.timeline.some((t) => t.kind === "board_overheat"));
+    assert.ok(dashWarn.alarm.active);
   });
 });

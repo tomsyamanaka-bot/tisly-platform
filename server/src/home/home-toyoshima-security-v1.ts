@@ -63,6 +63,12 @@ export const TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 = 300;
 /** 通信途絶とみなす猶予（ms）— 5分周期 + 1分余裕 */
 export const TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 = 6 * 60 * 1000;
 
+/** 盤内温度 — 注意（℃） */
+export const TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1 = 45;
+
+/** 盤内温度 — 過熱警告（℃） */
+export const TOYOSHIMA_BOARD_TEMP_WARN_C_V1 = 60;
+
 export type ToyoshimaBuildingIdV1 = "main" | "detached";
 
 export type ToyoshimaDiChannelV1 = 1 | 2;
@@ -106,6 +112,7 @@ export interface ToyoshimaTimelineEventV1 {
     | "patlite_test"
     | "comm_loss"
     | "comm_recovered"
+    | "board_overheat"
     | "mode_change";
   title: string;
   detail?: string;
@@ -131,6 +138,10 @@ export interface ToyoshimaDeviceHealthV1 {
   online: boolean;
   lastCommAt: string | null;
   lastHeartbeatAt: string | null;
+  /** 盤内温度（℃） */
+  boardTempC: number | null;
+  boardTempLabel: string;
+  boardTempLevel: "normal" | "caution" | "warning";
 }
 
 export interface ToyoshimaAlarmStateV1 {
@@ -144,6 +155,10 @@ export interface ToyoshimaCommHealthV1 {
   lastCommAt: string | null;
   lastCommLabel: string;
   lastHeartbeatAt: string | null;
+  /** 主装置の盤内温度表示（例: 36.4℃（正常）） */
+  boardTempLabel: string;
+  boardTempLevel: "normal" | "caution" | "warning";
+  boardTempC: number | null;
   devices: ToyoshimaDeviceHealthV1[];
 }
 
@@ -180,6 +195,10 @@ interface ToyoshimaDeviceCommRuntimeV1 {
   online: boolean;
   /** 途絶 Push を送ったか */
   offlineNotified: boolean;
+  /** 最新盤内温度（℃） */
+  boardTempC: number | null;
+  /** 過熱 Push を送ったか（温度低下で解除） */
+  overheatNotified: boolean;
 }
 
 /** ランタイム状態（VPS メモリ） */
@@ -257,7 +276,35 @@ function defaultDeviceComm(): ToyoshimaDeviceCommRuntimeV1 {
     lastHeartbeatAt: at,
     online: true,
     offlineNotified: false,
+    boardTempC: null,
+    overheatNotified: false,
   };
+}
+
+function boardTempLevelV1(
+  c: number
+): "normal" | "caution" | "warning" {
+  if (c >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1) return "warning";
+  if (c >= TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1) return "caution";
+  return "normal";
+}
+
+function formatBoardTempLabelV1(c: number | null): string {
+  if (c == null || Number.isNaN(c)) return "—";
+  const level = boardTempLevelV1(c);
+  const suffix =
+    level === "warning"
+      ? "（警告）"
+      : level === "caution"
+        ? "（注意）"
+        : "（正常）";
+  return `${c.toFixed(1)}℃${suffix}`;
+}
+
+function parseBoardTempC(raw: unknown): number | null {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < -40 || n > 125) return null;
+  return Math.round(n * 10) / 10;
 }
 
 const runtime: ToyoshimaRuntimeV1 = {
@@ -287,11 +334,12 @@ export function touchToyoshimaDeviceCommV1(
 }
 
 /** RP2350 からの生存確認 heartbeat を記録 */
-export function recordToyoshimaHeartbeatV1(input: {
+export async function recordToyoshimaHeartbeatV1(input: {
   building: ToyoshimaBuildingIdV1;
   deviceId?: string;
   siteId?: string;
-}): void {
+  boardTemp?: unknown;
+}): Promise<void> {
   const at = nowIso();
   const prev = runtime.deviceComm[input.building];
   const wasOffline = !prev.online || prev.offlineNotified;
@@ -312,6 +360,56 @@ export function recordToyoshimaHeartbeatV1(input: {
       title: `${label} 通信復旧`,
       detail: "ハートビートを再受信しました",
     });
+  }
+  const temp = parseBoardTempC(input.boardTemp);
+  if (temp != null) {
+    await processToyoshimaBoardTempV1(input.building, temp);
+  }
+}
+
+/** 盤内温度 — 過熱判定と Push・履歴 */
+async function processToyoshimaBoardTempV1(
+  building: ToyoshimaBuildingIdV1,
+  boardTempC: number
+): Promise<void> {
+  const comm = runtime.deviceComm[building];
+  comm.boardTempC = boardTempC;
+  const label = building === "main" ? "主装置" : "子機";
+  const level = boardTempLevelV1(boardTempC);
+
+  if (boardTempC >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1) {
+    if (!comm.overheatNotified) {
+      comm.overheatNotified = true;
+      const now = boardTempC.toFixed(1);
+      const title = `⚠️ 豊島邸：${label}の盤内温度が${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃を超えました`;
+      const body = `⚠️ 豊島邸：${label}の盤内温度が${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃を超えました（現在${now}℃）。換気または直射日光を確認してください`;
+      appendTimeline({
+        at: nowIso(),
+        building,
+        kind: "board_overheat",
+        title: "盤内過熱警告",
+        detail: `${label} 盤内温度 ${now}℃（しきい値 ${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃）`,
+      });
+      recordSystemLogV1({
+        siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        category: "sensor_alert",
+        message: title,
+        detail: { building, boardTempC, level },
+        actor: "rp2350",
+      });
+      await sendToyoshimaPush({
+        title,
+        body,
+        eventType: "toyoshima_board_overheat",
+      });
+      runtime.alarmLatch = true;
+    }
+    return;
+  }
+
+  comm.overheatNotified = false;
+  if (level === "normal" && boardTempC < TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1) {
+    /* 正常復帰 — ラッチは手動解除または別警報で維持 */
   }
 }
 
@@ -886,6 +984,18 @@ function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
   if (runtime.main.do.some((d) => d.blinking)) {
     items.push("母屋 パトライト作動中");
   }
+  for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+    const comm = runtime.deviceComm[building];
+    if (
+      comm.boardTempC != null &&
+      comm.boardTempC >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1
+    ) {
+      const label = building === "main" ? "主装置" : "子機";
+      items.push(
+        `${label} 盤内高温（${comm.boardTempC.toFixed(1)}℃）`
+      );
+    }
+  }
   const active = runtime.alarmLatch || items.length > 0;
   return {
     active,
@@ -906,12 +1016,17 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
       Boolean(hbAt) && elapsed < TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1;
     comm.online = online;
     getBuilding(building).online = online;
+    const boardTempC = comm.boardTempC;
     return {
       building,
       label: building === "main" ? "主装置" : "子機",
       online,
       lastCommAt: comm.lastCommAt,
       lastHeartbeatAt: comm.lastHeartbeatAt,
+      boardTempC,
+      boardTempLabel: formatBoardTempLabelV1(boardTempC),
+      boardTempLevel:
+        boardTempC != null ? boardTempLevelV1(boardTempC) : "normal",
     };
   });
   const latestHb = devices
@@ -925,13 +1040,31 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
       String(b.lastCommAt).localeCompare(String(a.lastCommAt))
     )[0];
   const allOnline = devices.every((d) => d.online);
+  const mainDevice = devices.find((d) => d.building === "main");
+  const mainTemp = mainDevice?.boardTempC ?? null;
+  const mainLevel =
+    mainTemp != null ? boardTempLevelV1(mainTemp) : "normal";
+  const anyOverheat = devices.some(
+    (d) =>
+      d.boardTempC != null &&
+      d.boardTempC >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1
+  );
+
+  let onlineSummary = allOnline
+    ? "🟢 オンライン（主装置・子機 接続中）"
+    : "🔴 オフライン（通信途絶）";
+  if (allOnline && anyOverheat) {
+    onlineSummary = "⚠️ 盤内高温警告";
+  }
+
   return {
-    onlineSummary: allOnline
-      ? "🟢 オンライン（主装置・子機 接続中）"
-      : "🔴 オフライン（通信途絶）",
+    onlineSummary,
     lastCommAt: latest?.lastCommAt ?? null,
     lastCommLabel: latest?.label ?? "—",
     lastHeartbeatAt: latestHb?.lastHeartbeatAt ?? null,
+    boardTempC: mainTemp,
+    boardTempLabel: formatBoardTempLabelV1(mainTemp),
+    boardTempLevel: mainLevel,
     devices,
   };
 }

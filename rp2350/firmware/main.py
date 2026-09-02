@@ -546,6 +546,16 @@ def send_heartbeat():
 
     }
 
+    try:
+        from toyoshima_security import read_board_temperature_c
+        temp = read_board_temperature_c()
+        if temp is not None:
+            payload["board_temp"] = temp
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
     log("heartbeat payload={}".format(json.dumps(payload)))
 
     body, status = http_post(path, payload)
