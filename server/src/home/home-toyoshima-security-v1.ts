@@ -773,7 +773,7 @@ export async function processToyoshimaSecurityEventV1(input: {
     return {
       ok: true,
       pushSent: true,
-      message: "母屋 遠近センサー侵入検知",
+      message: "母屋 遠近検知",
     };
   }
 
@@ -782,9 +782,7 @@ export async function processToyoshimaSecurityEventV1(input: {
     ok: true,
     pushSent: true,
     message:
-      di === 1
-        ? "はなれ：道路側センサー反応"
-        : "はなれ：通路側センサー反応",
+      di === 1 ? "はなれ 道路側検知" : "はなれ 通路側検知",
   };
 }
 

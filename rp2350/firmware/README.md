@@ -228,8 +228,42 @@ mip.install("urequests")
 
 ---
 
+## 豊島邸 Security ファーム（実機書き込み）
+
+| 項目 | 値 |
+|------|-----|
+| TENANT_ID | `TOYOSHIMA001` |
+| SITE_ID | `SEC-JP-TOYOSHIMA-001` |
+| API | `https://tisly.jp/api/home/v1/toyoshima` |
+| 母屋 | 主装置 8ch — DI1/DI2 遠近 → DO1+DO2 ライト（夜間）+ DO3 パトライト |
+| はなれ | 子機 6ch — DI1 道路側 / DI2 通路側 → DO1 ライト（夜間）+ DO2 パトライト |
+| heartbeat | 300 秒 + `board_temp` + 60℃ 過熱フラグ |
+| WDT | 8 秒物理ウォッチドッグ |
+| デバウンス | 100ms |
+
+### USB 一発書き込み
+
+```bash
+# 母屋（主装置）
+npm run flash:toyoshima:main
+
+# はなれ（子機）
+npm run flash:toyoshima:detached
+
+# または
+python tools/flash_rp2350.py --building main
+python tools/flash_rp2350.py --port COM5 --building detached
+```
+
+転送ファイル（ボード直下）: `boot.py` · `config.py` · `main.py` · `toyoshima_security.py`
+
+Thonny 手動時は `config_toyoshima.py` → `config.py`、`main_toyoshima.py` → `main.py` として保存。
+
+---
+
 ## 関連
 
 - VPS API: `GET /api/remote-test/command`（3 秒・命令取得）/ `GET /api/remote-test/heartbeat`（60 秒・生存確認）
+- 豊島邸 API: `POST /api/home/v1/toyoshima/event` · `POST /api/home/v1/toyoshima/heartbeat`
 - PWA: `https://tisly.jp/remote-test`
 - デプロイ手順: `docs/remote-test-phase2-deploy.md`

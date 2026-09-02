@@ -49,6 +49,7 @@
     "test:device-binding": "tsx --test test/device-binding-v1.test.ts",
     "test:tisly-home": "tsx --test test/tisly-home-v1.test.ts",
     "test:price-cost-master": "tsx --test test/price-cost-master-v1.test.ts",
+    "test:toyoshima": "tsx --test test/toyoshima-security-v1.test.ts",
     "switchbot:list-devices": "tsx scripts/list_switchbot_devices.ts"
   },
   "engines": {

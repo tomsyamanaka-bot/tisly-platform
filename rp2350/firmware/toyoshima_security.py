@@ -1,12 +1,11 @@
 """
 豊島邸 Security 制御 — 母屋 / はなれ
 
-DI1/DI2 立上りエッジを 100ms デバウンスで確定し、
-各リレー出力タイマーおよびパトライト点滅
-（0.5 秒周期トグル）を実行する。
+DI1/DI2 立上りを 100ms デバウンスで確定し、
+ライト・パトライト出力と VPS イベント送信を行う。
 
-24 時間常時通知と夜間ライト点灯スケジュールは
-独立判定（security_light.py と同様の分離）。
+24 時間常時通知。ライト点灯は 18:00〜06:00 のみ。
+日中は通知＋パトライトのみ作動する。
 """
 
 import time
@@ -16,7 +15,13 @@ try:
 except ImportError:
     import asyncio
 
-# デバウンス（ms）— VPS home-toyoshima-security-v1 と同期
+# ── 豊島邸 物件識別子（VPS / 実機共通） ──
+TENANT_ID = "TOYOSHIMA001"
+SITE_ID = "SEC-JP-TOYOSHIMA-001"
+HOME_SITE_ID = "HOME-JP-TOYOSHIMA"
+API_TOYOSHIMA_BASE = "/api/home/v1/toyoshima"
+
+# デバウンス（ms）— VPS TOYOSHIMA_DI_DEBOUNCE_MS_V1 と同期
 DI_DEBOUNCE_MS = 100
 # パトライト点滅周期（ms）
 PATLITE_BLINK_MS = 500
@@ -25,6 +30,12 @@ DEFAULT_OUTPUT_MS = 45_000
 # 夜間スケジュール既定（JST）
 DEFAULT_LIGHT_START = "18:00"
 DEFAULT_LIGHT_END = "06:00"
+# 5 分 heartbeat — VPS と同期
+HEARTBEAT_INTERVAL_SEC = 300
+# 物理 WDT タイムアウト（ms）
+WDT_TIMEOUT_MS = 8000
+# 盤内過熱しきい値（℃）
+BOARD_TEMP_OVERHEAT_C = 60.0
 
 
 def _parse_hm(value, fallback):
@@ -110,7 +121,7 @@ class ToyoshimaBaseController:
         return True
 
     def log(self, msg):
-        print("[toyoshima security]", msg)
+        print("[豊島邸 security]", msg)
 
     def _jst_minutes(self):
         utc_sec = int(time.time())
@@ -139,7 +150,7 @@ class ToyoshimaBaseController:
         return True
 
     def _can_run_lights(self):
-        """DO リレー点灯可否 — 時間帯のみ。"""
+        """DO ライト点灯可否 — 時間帯のみ。"""
         if self._security_paused:
             return False
         if self._guard_mode == "off":
@@ -220,11 +231,11 @@ class ToyoshimaBaseController:
 
 class ToyoshimaMainHouseController(ToyoshimaBaseController):
     """
-    母屋 — Waveshare RP2350 8CH Relay Board (親機)
+    母屋 — Waveshare RP2350 8CH（主装置）
 
-    DI1/DI2: 遠近赤外線ビーム
-    DO1/DO2: 100V 防犯ライト
-    DO3: 24V パトライト
+    DI1/DI2: 遠近ビームセンサー
+    DO1/DO2: ライト1 / ライト2（夜間のみ）
+    DO3: パトライト（24h）
     """
 
     DO_LIGHT_1 = 1
@@ -241,36 +252,45 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         if di not in (self.DI_BEAM_1, self.DI_BEAM_2):
             return
         if not self._is_armed_now():
-            self.log("disarmed - main beam ignored")
+            self.log("disarmed - 母屋 遠近検知を無視")
             return
-        self._notify_vps(
-            "main",
-            di,
-            "母屋 遠近センサー侵入検知",
-        )
-        if not self._can_run_lights():
-            self.log("outside schedule - lights skipped")
-            return
+        self._notify_vps("main", di, "母屋 遠近検知")
         try:
             asyncio.create_task(self._main_beam_response())
         except Exception as exc:
             self.log("main response err: {}".format(exc))
 
     async def _main_beam_response(self):
-        """DO1+DO2 同時点灯、設定時間後消灯。"""
-        self._set_ch(self.DO_LIGHT_1, True)
-        self._set_ch(self.DO_LIGHT_2, True)
+        """
+        DO3 パトライトは常時作動。
+        DO1+DO2 ライトは夜間スケジュールのみ。
+        """
+        light_ok = self._can_run_lights()
+        if light_ok:
+            self._set_ch(self.DO_LIGHT_1, True)
+            self._set_ch(self.DO_LIGHT_2, True)
+        else:
+            self.log("日中 — ライト省略（通知＋パトライトのみ）")
+        blink = asyncio.create_task(
+            self._drive_blink(self.DO_PATLITE, self._output_ms)
+        )
         await asyncio.sleep_ms(self._output_ms)
-        self._set_ch(self.DO_LIGHT_1, False)
-        self._set_ch(self.DO_LIGHT_2, False)
+        if light_ok:
+            self._set_ch(self.DO_LIGHT_1, False)
+            self._set_ch(self.DO_LIGHT_2, False)
+        try:
+            await blink
+        except Exception:
+            self._set_ch(self.DO_PATLITE, False)
 
 
 class ToyoshimaDetachedController(ToyoshimaBaseController):
     """
-    はなれ — Waveshare RP2350 6CH Relay Board (子機)
+    はなれ — Waveshare RP2350 6CH（子機）
 
-    DI1: 道路側ビーム / DI2: 通路側ビーム
-    DO1: 100V ライト / DO2: 24V パトライト点滅
+    DI1: 道路側センサー / DI2: 通路側センサー
+    DO1: ライト（夜間のみ）
+    DO2: パトライト点滅（24h）
     """
 
     DO_LIGHT = 1
@@ -282,12 +302,12 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         if di not in (self.DI_ROAD, self.DI_PATH):
             return
         if not self._is_armed_now():
-            self.log("disarmed - detached ignored")
+            self.log("disarmed - はなれ検知を無視")
             return
         if di == self.DI_ROAD:
-            msg = "はなれ：道路側センサー反応"
+            msg = "はなれ 道路側検知"
         else:
-            msg = "はなれ：通路側センサー反応"
+            msg = "はなれ 通路側検知"
         self._notify_vps("detached", di, msg)
         try:
             asyncio.create_task(self._detached_response(di))
@@ -295,21 +315,24 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
             self.log("detached response err: {}".format(exc))
 
     async def _detached_response(self, di):
-        """DO1 点灯 + DO2 パトライト点滅。"""
+        """
+        DO2 パトライトは常時点滅。
+        DO1 ライトは夜間スケジュールのみ。
+        """
         light_task = None
-        blink_task = None
         if self._can_run_lights():
             light_task = asyncio.create_task(
                 self._drive_steady(self.DO_LIGHT, self._output_ms)
             )
-            blink_task = asyncio.create_task(
-                self._drive_blink(self.DO_PATLITE, self._output_ms)
-            )
         else:
-            self.log("outside schedule - DO skipped (notify only)")
-        tasks = [t for t in (light_task, blink_task) if t]
-        if tasks:
-            await asyncio.gather(*tasks)
+            self.log("日中 — ライト省略（通知＋パトライトのみ）")
+        blink_task = asyncio.create_task(
+            self._drive_blink(self.DO_PATLITE, self._output_ms)
+        )
+        tasks = [blink_task]
+        if light_task:
+            tasks.append(light_task)
+        await asyncio.gather(*tasks)
 
 
 # ── RP2350 内蔵温度センサー（ADC4） ──
@@ -328,18 +351,23 @@ def read_board_temperature_c():
         temp_c = 27 - (voltage - 0.706) / 0.001721
         return round(temp_c, 1)
     except Exception as exc:
-        print("[toyoshima security] temp read err:", exc)
+        print("[豊島邸 security] temp read err:", exc)
         return None
 
 
 def build_heartbeat_payload(building, site_id=None, device_id=None, extra=None):
-    """VPS 向け heartbeat JSON（board_temp 付き）。"""
-    payload = {"building": building}
+    """VPS 向け heartbeat JSON（board_temp / 過熱フラグ）。"""
+    payload = {
+        "building": building,
+        "tenantId": TENANT_ID,
+        "siteId": site_id or SITE_ID,
+    }
     temp = read_board_temperature_c()
     if temp is not None:
         payload["board_temp"] = temp
-    if site_id:
-        payload["siteId"] = site_id
+        if temp >= BOARD_TEMP_OVERHEAT_C:
+            payload["overheat"] = True
+            payload["overheat_flag"] = True
     if device_id:
         payload["deviceId"] = device_id
     if extra and isinstance(extra, dict):
@@ -352,14 +380,29 @@ def send_toyoshima_heartbeat(http_post, building, site_id=None, device_id=None):
     POST /api/home/v1/toyoshima/heartbeat
     http_post: callable(path, payload) -> (body, status)
     """
-    path = "/api/home/v1/toyoshima/heartbeat"
+    path = API_TOYOSHIMA_BASE + "/heartbeat"
     payload = build_heartbeat_payload(building, site_id, device_id)
     _body, status = http_post(path, payload)
     return status == 200
 
 
-# 生存確認 heartbeat 間隔（秒）— VPS TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 と同期
-HEARTBEAT_INTERVAL_SEC = 300
+def send_toyoshima_event(http_post, building, di, message, site_id=None, device_id=None):
+    """
+    POST /api/home/v1/toyoshima/event
+    母屋 / はなれ 検知イベントを即時送信。
+    """
+    path = API_TOYOSHIMA_BASE + "/event"
+    payload = {
+        "building": building,
+        "di": di,
+        "message": message,
+        "tenantId": TENANT_ID,
+        "siteId": site_id or SITE_ID,
+    }
+    if device_id:
+        payload["deviceId"] = device_id
+    _body, status = http_post(path, payload)
+    return status == 200
 
 
 async def heartbeat_loop(send_heartbeat, building="main"):
@@ -372,5 +415,34 @@ async def heartbeat_loop(send_heartbeat, building="main"):
         try:
             send_heartbeat(building)
         except Exception as exc:
-            print("[toyoshima security] heartbeat err:", exc)
+            print("[豊島邸 security] heartbeat err:", exc)
         await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)
+
+
+# ── 物理ウォッチドッグ（WDT） ──
+
+def init_watchdog(timeout_ms=None):
+    """
+    8 秒タイムアウトの物理 WDT を有効化。
+    ハング時は自動リブート。ホストテストでは None。
+    """
+    ms = int(timeout_ms if timeout_ms is not None else WDT_TIMEOUT_MS)
+    try:
+        import machine
+
+        wdt = machine.WDT(timeout=ms)
+        print("[豊島邸 security] WDT enabled {}ms".format(ms))
+        return wdt
+    except Exception as exc:
+        print("[豊島邸 security] WDT unavailable:", exc)
+        return None
+
+
+def kick_watchdog(wdt):
+    """メインループから定期キック。"""
+    if wdt is None:
+        return
+    try:
+        wdt.feed()
+    except Exception as exc:
+        print("[豊島邸 security] WDT feed err:", exc)

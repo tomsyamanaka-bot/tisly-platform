@@ -13,6 +13,11 @@
     "android:open-aab": "node scripts/android-open-aab.mjs",
     "hash:admin-password": "npm run hash:admin-password --prefix server",
     "vapid:setup": "npm run vapid:setup --prefix server",
-    "vapid:generate": "npm run vapid:generate --prefix server"
+    "vapid:generate": "npm run vapid:generate --prefix server",
+    "flash:toyoshima": "python tools/flash_rp2350.py",
+    "flash:toyoshima:main": "python tools/flash_rp2350.py --building main",
+    "flash:toyoshima:detached": "python tools/flash_rp2350.py --building detached",
+    "test:toyoshima-fw": "python rp2350/test/test_toyoshima_board_temp.py",
+    "test:toyoshima": "npm run test:toyoshima --prefix server"
   }
 }
