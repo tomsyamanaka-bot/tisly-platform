@@ -180,6 +180,8 @@ export interface ToyoshimaSecurityDashboardV1 {
   lightsActive: boolean;
   lightingDurationSec: number;
   perimeterTimeoutSec: number;
+  /** おでかけ警戒時パトライト威嚇 */
+  patliteThreatEnabled: boolean;
   commHealth: ToyoshimaCommHealthV1;
   alarm: ToyoshimaAlarmStateV1;
   notifySensors: ToyoshimaNotifySensorV1[];
@@ -207,6 +209,7 @@ interface ToyoshimaRuntimeV1 {
   detached: ToyoshimaBuildingStateV1;
   timeline: ToyoshimaTimelineEventV1[];
   patliteTimers: Map<string, ReturnType<typeof setInterval>>;
+  lightAutoOffTimers: ReturnType<typeof setTimeout>[];
   deviceComm: Record<ToyoshimaBuildingIdV1, ToyoshimaDeviceCommRuntimeV1>;
   alarmLatch: boolean;
 }
@@ -312,6 +315,7 @@ const runtime: ToyoshimaRuntimeV1 = {
   detached: defaultDetachedBuilding(),
   timeline: [],
   patliteTimers: new Map(),
+  lightAutoOffTimers: [],
   deviceComm: {
     main: defaultDeviceComm(),
     detached: defaultDeviceComm(),
@@ -650,7 +654,7 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
     }, durationMs);
   }
 
-  if (mainActive && armed) {
+  if (mainActive && armed && rules.patliteThreatEnabled !== false) {
     startPatliteBlink("main", 3, rules.di2AlertDurationSec * 1000);
   }
 
@@ -737,8 +741,12 @@ async function handleDetachedDi(
     }, rules.lightingDurationSec * 1000);
   }
 
-  /* おでかけ警戒のみパトライト威嚇 */
-  if (customerMode === "away" && armed) {
+  /* おでかけ警戒 + パトライト威嚇ON のみ */
+  if (
+    customerMode === "away" &&
+    armed &&
+    rules.patliteThreatEnabled !== false
+  ) {
     startPatliteBlink("detached", 2, rules.di2AlertDurationSec * 1000);
   }
 
@@ -946,19 +954,19 @@ function buildToyoshimaNotifySensorsV1(
   return [
     {
       id: "detached_road",
-      label: "道路側センサー（はなれ 入力1）",
+      label: "道路側センサー（はなれ）",
       mode: rules.notifyDi1Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi1Mode),
     },
     {
       id: "detached_path",
-      label: "通路側センサー（はなれ 入力2）",
+      label: "通路側センサー（はなれ）",
       mode: rules.notifyDi2Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi2Mode),
     },
     {
       id: "main_beam",
-      label: "遠近ビームセンサー（母屋）",
+      label: "遠近センサー（母屋）",
       mode: rules.notifyStagedMode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyStagedMode),
     },
@@ -1132,8 +1140,10 @@ export function clearToyoshimaAlarmsV1(input?: {
 export function applyToyoshimaBulkLightsV1(input: {
   siteId?: string;
   action: "on" | "off";
+  /** ON 時の自動消灯秒数（帰宅確認用・既定なし） */
+  durationSec?: number;
   actor?: string;
-}): { ok: boolean } {
+}): { ok: boolean; durationSec?: number } {
   const on = input.action === "on";
   const actor = input.actor ?? "customer-portal";
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
@@ -1151,14 +1161,35 @@ export function applyToyoshimaBulkLightsV1(input: {
       });
     }
   }
+  const durationSec =
+    on && input.durationSec != null
+      ? Math.max(5, Math.min(180, Math.round(Number(input.durationSec) || 180)))
+      : undefined;
+  if (durationSec) {
+    const timer = setTimeout(() => {
+      applyToyoshimaBulkLightsV1({
+        siteId: input.siteId,
+        action: "off",
+        actor: "auto-off",
+      });
+    }, durationSec * 1000);
+    if (typeof (timer as NodeJS.Timeout).unref === "function") {
+      (timer as NodeJS.Timeout).unref();
+    }
+    runtime.lightAutoOffTimers.push(timer);
+  }
   appendTimeline({
     at: nowIso(),
     building: "main",
     kind: "manual",
-    title: on ? "照明を一括ON" : "照明を一括OFF",
+    title: on
+      ? durationSec
+        ? `外構ライト点灯（${durationSec}秒）`
+        : "照明を一括ON"
+      : "照明を一括OFF",
     detail: "母屋・はなれの防犯ライト",
   });
-  return { ok: true };
+  return { ok: true, durationSec };
 }
 
 /** RP2350 向け設定 JSON を返す（同期ボタン用） */
@@ -1267,6 +1298,7 @@ export function buildToyoshimaSecurityDashboardV1(
     lightingDurationSec:
       rules.lightingDurationSec ?? rules.di1DurationSec ?? 45,
     perimeterTimeoutSec: rules.perimeterTimeoutSec ?? 120,
+    patliteThreatEnabled: rules.patliteThreatEnabled !== false,
     commHealth: buildToyoshimaCommHealthV1(),
     alarm: buildToyoshimaAlarmStateV1(),
     notifySensors: buildToyoshimaNotifySensorsV1(rules),
@@ -1308,6 +1340,10 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
     clearInterval(timer);
   }
   runtime.patliteTimers.clear();
+  for (const timer of runtime.lightAutoOffTimers) {
+    clearTimeout(timer);
+  }
+  runtime.lightAutoOffTimers = [];
 }
 
 /** 豊島邸の初期ルールを merge（初回のみ） */

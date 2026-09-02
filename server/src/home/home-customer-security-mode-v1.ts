@@ -99,6 +99,7 @@ export function buildCustomerSecurityModePatchV1(
       scheduleStart: "00:00",
       scheduleEnd: "00:00",
       securityPausedUntil: null,
+      patliteThreatEnabled: true,
       notifyDi1Mode: "critical",
       notifyDi2Mode: "critical",
       notifyStagedMode: "critical",
@@ -113,6 +114,7 @@ export function buildCustomerSecurityModePatchV1(
       scheduleStart: "18:00",
       scheduleEnd: "06:00",
       securityPausedUntil: null,
+      patliteThreatEnabled: false,
       /* 外周は静かな通知、母屋はサイレント */
       notifyDi1Mode: "silent",
       notifyDi2Mode: "silent",
@@ -125,6 +127,7 @@ export function buildCustomerSecurityModePatchV1(
     customerSecurityMode: "disarmed",
     guardMode: "off",
     securityPausedUntil: null,
+    patliteThreatEnabled: false,
     notifyDi1Mode: "off",
     notifyDi2Mode: "off",
     notifyStagedMode: "off",

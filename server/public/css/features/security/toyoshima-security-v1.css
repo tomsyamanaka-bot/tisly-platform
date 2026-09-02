@@ -566,7 +566,8 @@
 }
 
 .sf-body.is-toyoshima .sf-customer-light-card,
-.sf-body.is-toyoshima .sf-customer-camera-card {
+.sf-body.is-toyoshima .sf-customer-camera-card,
+.sf-body.is-toyoshima .sf-customer-daily-settings {
   display: none;
 }
 
@@ -885,3 +886,151 @@
 .ts-customer-dash .ts-camera-card .ts-btn-wide {
   margin-top: 4px;
 }
+
+/* 顧客 · 日常詳細設定アコーディオン */
+.ts-daily-settings {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ts-daily-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.ts-daily-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ts-daily-summary .ts-card-head {
+  margin: 0;
+}
+
+.ts-daily-chevron {
+  color: #1e3a8a;
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+}
+
+.ts-daily-settings:not([open]) .ts-daily-chevron {
+  transform: rotate(-90deg);
+}
+
+.ts-daily-body {
+  display: grid;
+  gap: 16px;
+  padding: 0 18px 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ts-daily-block {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.ts-daily-h {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.ts-schedule-inline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ts-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 0;
+}
+
+.ts-switch-row.is-locked .ts-locked-val {
+  font-weight: 800;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+}
+
+.ts-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.ts-switch-ui {
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.ts-switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.ts-switch input:checked + .ts-switch-ui {
+  background: #1e3a8a;
+}
+
+.ts-switch input:checked + .ts-switch-ui::after {
+  transform: translateX(22px);
+}
+
+.ts-switch-text {
+  font-weight: 800;
+  color: #1e3a8a;
+  min-width: 2.5rem;
+}
+
+.ts-customer-notify-row .ts-notify-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ts-btn-primary {
+  background: #1e3a8a;
+  color: #fff;
+  border-color: #1e3a8a;
+}
+
+@media (max-width: 520px) {
+  .ts-schedule-inline {
+    grid-template-columns: 1fr;
+  }
+}
+

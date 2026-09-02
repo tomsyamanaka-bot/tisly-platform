@@ -428,6 +428,7 @@ async function setMode(mode) {
 }
 
 let customerLightSaveTimer = null;
+let customerScheduleSaveTimer = null;
 
 function bindCustomerLightSlider() {
   const slider = $("sf-customer-lighting-duration");
@@ -443,6 +444,22 @@ function bindCustomerLightSlider() {
   });
 }
 
+function bindCustomerSchedule() {
+  const start = $("sf-customer-schedule-start");
+  const end = $("sf-customer-schedule-end");
+  if (!start || start.dataset.bound === "1") return;
+  start.dataset.bound = "1";
+  if (end) end.dataset.bound = "1";
+  const save = () => {
+    clearTimeout(customerScheduleSaveTimer);
+    customerScheduleSaveTimer = setTimeout(() => {
+      saveCustomerSchedule(start.value, end?.value).catch(() => {});
+    }, 600);
+  };
+  start.addEventListener("change", save);
+  end?.addEventListener("change", save);
+}
+
 async function loadCustomerLightDuration() {
   if (isToyoshimaSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
@@ -454,6 +471,14 @@ async function loadCustomerLightDuration() {
     const slider = $("sf-customer-lighting-duration");
     if (slider) slider.value = String(sec);
     setText("sf-customer-lighting-duration-val", `${sec}秒`);
+    const start = $("sf-customer-schedule-start");
+    const end = $("sf-customer-schedule-end");
+    if (start && data.rules?.scheduleStart) {
+      start.value = String(data.rules.scheduleStart).slice(0, 5);
+    }
+    if (end && data.rules?.scheduleEnd) {
+      end.value = String(data.rules.scheduleEnd).slice(0, 5);
+    }
   } catch {
     /* 未取得でもスライダーは操作可能 */
   }
@@ -473,6 +498,57 @@ async function saveCustomerLightDuration(sec) {
   });
 }
 
+async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
+  if (isToyoshimaSecuritySite(state.siteId)) return;
+  const homeSiteId = resolveHomeSiteId(state.siteId);
+  await fetchJson(`${HOME_API}/security-rules`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId: homeSiteId,
+      actor: "customer-portal",
+      scheduleStart: String(scheduleStart || "18:00").slice(0, 5),
+      scheduleEnd: String(scheduleEnd || "06:00").slice(0, 5),
+    }),
+  });
+}
+
+function bindCustomerManualLights() {
+  if (window.__TISLY_SF_CUST_LIGHTS) return;
+  window.__TISLY_SF_CUST_LIGHTS = true;
+  $("sf-customer-lights-3min")?.addEventListener("click", async () => {
+    if (isToyoshimaSecuritySite(state.siteId)) return;
+    try {
+      await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "on",
+          durationSec: 180,
+          actor: "customer-portal",
+        }),
+      });
+    } catch (err) {
+      console.warn("[security-customer] lights", err);
+    }
+  });
+  $("sf-customer-lights-off")?.addEventListener("click", async () => {
+    if (isToyoshimaSecuritySite(state.siteId)) return;
+    try {
+      await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "off",
+          actor: "customer-portal",
+        }),
+      });
+    } catch (err) {
+      console.warn("[security-customer] lights off", err);
+    }
+  });
+}
+
 function bindCustomerCamera() {
   $("sf-customer-camera")?.addEventListener("click", () => {
     openCustomerCameraPreview().catch((err) => {
@@ -483,6 +559,8 @@ function bindCustomerCamera() {
 
 function bind() {
   bindCustomerLightSlider();
+  bindCustomerSchedule();
+  bindCustomerManualLights();
   bindCustomerCamera();
   document.addEventListener("tisly-sf-floor", (e) => {
     const id = e.detail?.id;

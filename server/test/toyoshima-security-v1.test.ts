@@ -123,6 +123,26 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     const road = dash.notifySensors.find((s) => s.id === "detached_road");
     assert.equal(road?.mode, "silent");
+    assert.match(road?.label || "", /道路側センサー（はなれ）/);
+  });
+
+  it("dashboard exposes patliteThreatEnabled for customer daily settings", () => {
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(typeof dash.patliteThreatEnabled, "boolean");
+    assert.ok(
+      dash.notifySensors.some((s) => s.label.includes("遠近センサー"))
+    );
+  });
+
+  it("timed bulk lights auto-off is accepted", () => {
+    const result = applyToyoshimaBulkLightsV1({
+      action: "on",
+      durationSec: 180,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.durationSec, 180);
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
   });
 
   it("heartbeat records and watchdog marks offline after grace", async () => {

@@ -1330,14 +1330,21 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
     ).trim();
     const action = req.body?.action === "off" ? "off" : "on";
-    applyToyoshimaBulkLightsV1({
+    const durationRaw = req.body?.durationSec;
+    const durationSec =
+      durationRaw != null && Number.isFinite(Number(durationRaw))
+        ? Number(durationRaw)
+        : undefined;
+    const result = applyToyoshimaBulkLightsV1({
       siteId,
       action,
+      durationSec,
       actor: String(req.body?.actor ?? "customer-portal"),
     });
     res.json({
       ok: true,
       action,
+      durationSec: result.durationSec,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),
     });
   });

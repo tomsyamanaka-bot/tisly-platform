@@ -23,6 +23,10 @@ function syncSettingsState(dash) {
   settingsState = {
     lightingDurationSec: dash.lightingDurationSec ?? 45,
     perimeterTimeoutSec: dash.perimeterTimeoutSec ?? 120,
+    patliteThreatEnabled: dash.patliteThreatEnabled !== false,
+    scheduleStart: dash.scheduleStart || "18:00",
+    scheduleEnd: dash.scheduleEnd || "06:00",
+    customerMode: dash.customerMode || "home",
   };
 }
 
@@ -38,6 +42,10 @@ let settingsSaveTimer = null;
 let settingsState = {
   lightingDurationSec: 45,
   perimeterTimeoutSec: 120,
+  patliteThreatEnabled: true,
+  scheduleStart: "18:00",
+  scheduleEnd: "06:00",
+  customerMode: "home",
 };
 
 function $(id) {
@@ -150,20 +158,118 @@ function renderCustomerStatusBanner(dash) {
   </section>`;
 }
 
-/** 顧客向け · 防犯ライト点灯時間のみ */
-function renderCustomerLightCard(dash) {
+/** 顧客向け · 日常詳細設定（アコーディオン） */
+function renderCustomerDailySettings(dash) {
+  const mode = dash.customerMode || "home";
   const lightSec = dash.lightingDurationSec ?? 45;
-  return `<section class="ts-card ts-light-card" id="ts-light-card">
-    <h3 class="ts-card-head">💡 防犯ライト点灯時間</h3>
-    <label class="ts-slider-field" for="ts-lighting-duration">
-      <span class="ts-label">センサー検知後の点灯時間</span>
-      <div class="ts-slider-row">
-        <input type="range" id="ts-lighting-duration" min="5" max="180" step="1" value="${lightSec}" />
-        <span class="ts-slider-val" id="ts-lighting-duration-val">${lightSec}秒</span>
-      </div>
-    </label>
-    <p class="ts-hint">変更は自動で保存されます</p>
-  </section>`;
+  const patliteOn = dash.patliteThreatEnabled !== false;
+  const start = normalizeTimeHm(dash.scheduleStart, "18:00");
+  const end = normalizeTimeHm(dash.scheduleEnd, "06:00");
+  const sensors = dash.notifySensors || [];
+  const lightLabel =
+    mode === "away"
+      ? "防犯ライト点灯時間"
+      : mode === "home"
+        ? "外構ライト点灯時間"
+        : "ライト点灯時間";
+  const patliteBlock =
+    mode === "away"
+      ? `<label class="ts-switch-row" for="ts-patlite-threat">
+        <span class="ts-label">パトライト威嚇動作</span>
+        <span class="ts-switch">
+          <input type="checkbox" id="ts-patlite-threat" ${patliteOn ? "checked" : ""} />
+          <span class="ts-switch-ui" aria-hidden="true"></span>
+          <span class="ts-switch-text" id="ts-patlite-threat-label">${patliteOn ? "ON" : "OFF"}</span>
+        </span>
+      </label>`
+      : mode === "home"
+        ? `<div class="ts-switch-row is-locked">
+        <span class="ts-label">パトライト威嚇動作</span>
+        <span class="ts-locked-val">OFF（在宅見守りでは固定）</span>
+      </div>`
+        : `<p class="ts-hint">警戒一時解除中はライト・パトライトは停止します</p>`;
+
+  const notifyRows = sensors
+    .map((s) => {
+      const receive = s.mode === "critical";
+      return `<div class="ts-notify-row ts-customer-notify-row">
+        <span class="ts-label">${escapeHtml(s.label)}</span>
+        <div class="ts-notify-btns">
+          <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
+            通知を受け取る
+          </button>
+          <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
+            サイレント
+          </button>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  const modeDetailsHidden = mode === "disarmed" ? " hidden" : "";
+
+  return `<details class="ts-card ts-daily-settings" id="ts-daily-settings" open>
+    <summary class="ts-daily-summary">
+      <span class="ts-card-head">⚙️ 日常詳細設定</span>
+      <span class="ts-daily-chevron" aria-hidden="true">▼</span>
+    </summary>
+    <div class="ts-daily-body">
+      <section class="ts-daily-block" id="ts-mode-actions"${modeDetailsHidden}>
+        <h4 class="ts-daily-h">① 警戒モード別の動作</h4>
+        <p class="ts-hint" id="ts-mode-actions-hint">${
+          mode === "away"
+            ? "おでかけ警戒：全センサー有効時の動作です"
+            : "在宅見守り：外周センサー有効時の動作です"
+        }</p>
+        <label class="ts-slider-field" for="ts-lighting-duration">
+          <span class="ts-label" id="ts-lighting-label">${lightLabel}</span>
+          <div class="ts-slider-row">
+            <input type="range" id="ts-lighting-duration" min="5" max="180" step="1" value="${lightSec}" />
+            <span class="ts-slider-val" id="ts-lighting-duration-val">${lightSec}秒</span>
+          </div>
+        </label>
+        ${patliteBlock}
+      </section>
+
+      <section class="ts-daily-block">
+        <h4 class="ts-daily-h">② 自動点灯スケジュール</h4>
+        <p class="ts-hint">夜間のライト自動点灯時間帯（日跨ぎ可）</p>
+        <div class="ts-schedule-inline">
+          <label class="ts-schedule-field" for="ts-daily-schedule-start">
+            <span>開始時刻</span>
+            <input type="time" id="ts-daily-schedule-start" value="${start}" />
+          </label>
+          <label class="ts-schedule-field" for="ts-daily-schedule-end">
+            <span>終了時刻</span>
+            <input type="time" id="ts-daily-schedule-end" value="${end}" />
+          </label>
+        </div>
+      </section>
+
+      <section class="ts-daily-block">
+        <h4 class="ts-daily-h">③ エリア別プッシュ通知</h4>
+        <p class="ts-hint">センサーごとに通知の受け取りを切り替え</p>
+        <div id="ts-customer-notify">${notifyRows}</div>
+      </section>
+
+      <section class="ts-daily-block">
+        <h4 class="ts-daily-h">④ 外構ライト手動操作</h4>
+        <p class="ts-hint">帰宅時や庭の確認用（パトライトは動きません）</p>
+        <div class="ts-btn-row">
+          <button type="button" class="ts-btn ts-btn-primary" data-ts-action="manual_lights_3min">
+            💡 照明を点灯（3分間）
+          </button>
+          <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="manual_lights_off">
+            消灯
+          </button>
+        </div>
+      </section>
+
+      <p class="ts-hint">変更は自動保存され、実機へ即時反映されます</p>
+    </div>
+  </details>`;
 }
 
 /** 顧客向け · カメラプレビュー */
@@ -486,6 +592,10 @@ function dashSignature(dash) {
     guard: dash.guardModeLabel,
     lights: dash.lightsScheduleLabel,
     mode: dash.guardMode,
+    cmode: dash.customerMode,
+    lightSec: dash.lightingDurationSec,
+    patlite: dash.patliteThreatEnabled,
+    sched: `${dash.scheduleStart}-${dash.scheduleEnd}`,
     alarm: dash.alarm?.active,
     alarmMsg: dash.alarm?.message,
     notify: (dash.notifySensors || []).map((s) => `${s.id}:${s.mode}`).join(","),
@@ -703,11 +813,37 @@ function patchToyoshimaDashboard(dash) {
     const modeCard = $("ts-mode-card");
     if (modeCard) modeCard.outerHTML = renderCustomerModeCards(dash);
 
-    const lightSlider = $("ts-lighting-duration");
-    if (lightSlider && !lightSlider.matches(":active")) {
-      lightSlider.value = String(settingsState.lightingDurationSec);
-      const lv = $("ts-lighting-duration-val");
-      if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+    const daily = $("ts-daily-settings");
+    if (daily && !daily.querySelector(":active, :focus")) {
+      daily.outerHTML = renderCustomerDailySettings(dash);
+    } else {
+      const lightSlider = $("ts-lighting-duration");
+      if (lightSlider && !lightSlider.matches(":active")) {
+        lightSlider.value = String(settingsState.lightingDurationSec);
+        const lv = $("ts-lighting-duration-val");
+        if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+      }
+      const notifyRoot = $("ts-customer-notify");
+      if (notifyRoot && dash.notifySensors) {
+        notifyRoot.innerHTML = (dash.notifySensors || [])
+          .map((s) => {
+            const receive = s.mode === "critical";
+            return `<div class="ts-notify-row ts-customer-notify-row">
+        <span class="ts-label">${escapeHtml(s.label)}</span>
+        <div class="ts-notify-btns">
+          <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
+            通知を受け取る
+          </button>
+          <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
+            サイレント
+          </button>
+        </div>
+      </div>`;
+          })
+          .join("");
+      }
     }
 
     const alarmCard = $("ts-alarm-card");
@@ -825,20 +961,26 @@ async function saveSettingsDebounced() {
   clearTimeout(settingsSaveTimer);
   settingsSaveTimer = setTimeout(async () => {
     try {
+      const payload = {
+        siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+        actor: "customer-portal",
+        lightingDurationSec: settingsState.lightingDurationSec,
+        di1DurationSec: settingsState.lightingDurationSec,
+        scheduleStart: settingsState.scheduleStart,
+        scheduleEnd: settingsState.scheduleEnd,
+        patliteThreatEnabled: settingsState.patliteThreatEnabled,
+      };
+      if (!isCustomerPortal()) {
+        payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
+      }
       const res = await fetch(`${HOME_API}/security-rules`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
-          actor: "customer-portal",
-          lightingDurationSec: settingsState.lightingDurationSec,
-          di1DurationSec: settingsState.lightingDurationSec,
-          perimeterTimeoutSec: settingsState.perimeterTimeoutSec,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!data?.ok) throw new Error(data?.error || "保存に失敗");
-      showToast("詳細設定を保存しました");
+      showToast("日常設定を保存しました");
     } catch (err) {
       showToast(err.message || "設定の保存に失敗");
     }
@@ -852,6 +994,8 @@ function bindSettingsSliders() {
   root.addEventListener("input", (e) => {
     const light = e.target.closest("#ts-lighting-duration");
     const peri = e.target.closest("#ts-perimeter-timeout");
+    const start = e.target.closest("#ts-daily-schedule-start");
+    const end = e.target.closest("#ts-daily-schedule-end");
     if (light) {
       settingsState.lightingDurationSec = Number(light.value) || 45;
       const lv = $("ts-lighting-duration-val");
@@ -862,6 +1006,25 @@ function bindSettingsSliders() {
       settingsState.perimeterTimeoutSec = Number(peri.value) || 120;
       const pv = $("ts-perimeter-timeout-val");
       if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+      saveSettingsDebounced();
+    }
+    if (start) {
+      settingsState.scheduleStart = normalizeTimeHm(start.value, "18:00");
+      scheduleState.scheduleStart = settingsState.scheduleStart;
+      saveSettingsDebounced();
+    }
+    if (end) {
+      settingsState.scheduleEnd = normalizeTimeHm(end.value, "06:00");
+      scheduleState.scheduleEnd = settingsState.scheduleEnd;
+      saveSettingsDebounced();
+    }
+  });
+  root.addEventListener("change", (e) => {
+    const patlite = e.target.closest("#ts-patlite-threat");
+    if (patlite) {
+      settingsState.patliteThreatEnabled = !!patlite.checked;
+      const lab = $("ts-patlite-threat-label");
+      if (lab) lab.textContent = patlite.checked ? "ON" : "OFF";
       saveSettingsDebounced();
     }
   });
@@ -892,7 +1055,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
       <div class="ts-tab-pane is-on" data-ts-pane="map">
         ${renderCustomerStatusBanner(dash)}
         ${renderCustomerModeCards(dash)}
-        ${renderCustomerLightCard(dash)}
+        ${renderCustomerDailySettings(dash)}
         ${renderCustomerCameraCard()}
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">
@@ -1055,7 +1218,13 @@ async function setNotifyMode(sensorId, mode) {
   const data = await res.json();
   if (!data?.ok) throw new Error(data?.error || "通知設定の保存に失敗");
   if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
-  showToast(`${NOTIFY_LABELS[mode] || mode} に変更しました`);
+  showToast(
+    mode === "critical"
+      ? "通知を受け取る に変更しました"
+      : mode === "silent"
+        ? "サイレント に変更しました"
+        : `${NOTIFY_LABELS[mode] || mode} に変更しました`
+  );
 }
 
 function bindCustomerCamera() {
@@ -1231,6 +1400,27 @@ function bindToyoshimaControls() {
             ? "照明を一括ONにしました"
             : "照明を一括OFFにしました"
         );
+        return;
+      }
+      if (action === "manual_lights_3min") {
+        const data = await postJson("/toyoshima/bulk-lights", {
+          siteId: TOYOSHIMA_HOME_ID,
+          action: "on",
+          durationSec: 180,
+          actor: "customer-portal",
+        });
+        if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+        showToast("外構ライトを3分間点灯します");
+        return;
+      }
+      if (action === "manual_lights_off") {
+        const data = await postJson("/toyoshima/bulk-lights", {
+          siteId: TOYOSHIMA_HOME_ID,
+          action: "off",
+          actor: "customer-portal",
+        });
+        if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+        showToast("外構ライトを消灯しました");
         return;
       }
       if (action === "alarm_clear") {

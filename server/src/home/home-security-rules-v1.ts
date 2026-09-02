@@ -98,6 +98,11 @@ export interface HomeSecurityRulesV1 {
    * （away / home / disarmed）— 追記フィールド
    */
   customerSecurityMode?: "away" | "home" | "disarmed";
+  /**
+   * おでかけ警戒時のパトライト威嚇
+   * （在宅見守りでは常に OFF）
+   */
+  patliteThreatEnabled?: boolean;
   /** DI 確定デバウンス（ms）— 既定100 */
   diConfirmMs?: number;
   /** 外周・道路側 DI1 デバウンス（ms） */
@@ -131,6 +136,8 @@ export interface HomeSecurityRulesPatchV1 {
   securityPausedUntil?: string | null;
   /** 顧客ワンタップ警戒モード（追記） */
   customerSecurityMode?: "away" | "home" | "disarmed";
+  /** おでかけ警戒時パトライト威嚇 */
+  patliteThreatEnabled?: boolean;
   diConfirmMs?: number;
   debounceDi1Ms?: number;
   debounceDi2Ms?: number;
@@ -173,6 +180,8 @@ export interface HomeSecurityFirmwareRulesV1 {
   debounceBeamMs: number;
   /** 夜間ライト点灯維持（秒）— RP2350 実機キー */
   lighting_duration_sec: number;
+  /** おでかけ警戒時のパトライト威嚇 */
+  patlite_threat_enabled: boolean;
 }
 
 const GUARD_MODES: HomeGuardModeV1[] = [
@@ -301,6 +310,7 @@ const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   notifyStagedMode: "critical",
   notifyDi2Mode: "critical",
   securityPausedUntil: null,
+  patliteThreatEnabled: true,
   diConfirmMs: 100,
   debounceDi1Ms: 100,
   debounceDi2Ms: 100,
@@ -486,6 +496,10 @@ function parseRulesJson(
       parsed.customerSecurityMode === "disarmed"
         ? parsed.customerSecurityMode
         : undefined,
+    patliteThreatEnabled:
+      parsed.patliteThreatEnabled === undefined
+        ? DEFAULT_RULES.patliteThreatEnabled !== false
+        : Boolean(parsed.patliteThreatEnabled),
     diConfirmMs: clampDebounceMsV1(
       parsed.diConfirmMs,
       DEFAULT_RULES.diConfirmMs ?? 100
@@ -711,6 +725,10 @@ export function updateHomeSecurityRulesV1(
       patch.customerSecurityMode === "disarmed"
         ? patch.customerSecurityMode
         : current.customerSecurityMode,
+    patliteThreatEnabled:
+      patch.patliteThreatEnabled !== undefined
+        ? Boolean(patch.patliteThreatEnabled)
+        : current.patliteThreatEnabled !== false,
     diConfirmMs:
       patch.diConfirmMs !== undefined
         ? clampDebounceMsV1(patch.diConfirmMs, current.diConfirmMs ?? 100)
@@ -838,6 +856,7 @@ export function buildHomeSecurityFirmwareRulesV1(
       rules.diConfirmMs ?? 100
     ),
     lighting_duration_sec: rules.lightingDurationSec,
+    patlite_threat_enabled: rules.patliteThreatEnabled !== false,
   };
 }
 

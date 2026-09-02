@@ -618,7 +618,19 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /sf-customer-camera/);
     assert.match(customerHtml, /カメラを見る/);
     assert.match(customerHtml, /sf-customer-lighting-duration/);
-    assert.match(customerHtml, /防犯ライト点灯時間/);
+    assert.match(customerHtml, /日常詳細設定/);
+    assert.match(customerHtml, /自動点灯スケジュール/);
+    assert.match(customerHtml, /照明を点灯（3分間）/);
+    assert.doesNotMatch(customerHtml, /sf-pro-tools/);
+    assert.doesNotMatch(customerHtml, /擬似発報/);
+    assert.doesNotMatch(customerHtml, /デバウンス/);
+    assert.doesNotMatch(customerHtml, /1秒テスト/);
+    assert.doesNotMatch(customerHtml, /リブート/);
+    assert.doesNotMatch(customerHtml, /Shelly/);
+    assert.doesNotMatch(customerHtml, /しきい値/);
+    assert.doesNotMatch(customerHtml, /工事写真/);
+    assert.doesNotMatch(customerHtml, /結線図/);
+    assert.doesNotMatch(customerHtml, /security-floor-pro-tools/);
     assert.doesNotMatch(customerHtml, /sf-push-reregister/);
     assert.doesNotMatch(customerHtml, /sf-demo-alert/);
     assert.doesNotMatch(customerHtml, /Push通知を再登録/);
@@ -649,12 +661,32 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /sf-site-select/);
     assert.match(opHtml, /toyoshima-security-dashboard-v1\.js/);
     assert.match(opHtml, /ts-dashboard-root/);
+    assert.match(opHtml, /sf-pro-tools/);
+    assert.match(opHtml, /security-floor-pro-tools-v1\.js/);
     assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);
     assert.match(opHtml, /Push通知を再登録・購読/);
     assert.match(opHtml, /security-floor-push-v1\.js/);
     assert.match(opHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
+
+    const toyoshimaJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/toyoshima-security-dashboard-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(toyoshimaJs, /renderCustomerDailySettings/);
+    assert.match(toyoshimaJs, /日常詳細設定/);
+    assert.match(toyoshimaJs, /パトライト威嚇/);
+    assert.match(toyoshimaJs, /通知を受け取る/);
+    assert.match(toyoshimaJs, /manual_lights_3min/);
+    assert.match(toyoshimaJs, /patliteThreatEnabled/);
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /isCustomerPortal\(\)[\s\S]{0,200}擬似発報/
+    );
 
     const customerJs = fs.readFileSync(
       path.join(

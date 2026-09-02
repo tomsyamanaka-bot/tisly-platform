@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2510" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2512" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2513" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2513" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <script type="importmap">
   {
@@ -239,24 +239,64 @@
       </div>
     </section>
 
-    <section class="sf-card sf-customer-light-card" id="sf-customer-light-card">
-      <p class="sf-card-label">💡 防犯ライト点灯時間</p>
-      <label class="sf-slider-field" for="sf-customer-lighting-duration">
-        <span class="sf-slider-label">センサー検知後の点灯時間</span>
-        <div class="sf-slider-row">
-          <input
-            type="range"
-            id="sf-customer-lighting-duration"
-            min="5"
-            max="180"
-            step="1"
-            value="45"
-            aria-label="防犯ライト点灯時間"
-          />
-          <strong id="sf-customer-lighting-duration-val">45秒</strong>
-        </div>
-      </label>
-    </section>
+    <details class="sf-card sf-customer-daily-settings" id="sf-customer-daily-settings" open>
+      <summary class="sf-daily-summary">
+        <span class="sf-card-label">⚙️ 日常詳細設定</span>
+        <span class="sf-daily-chevron" aria-hidden="true">▼</span>
+      </summary>
+      <div class="sf-daily-body">
+        <section class="sf-daily-block" id="sf-customer-light-card">
+          <p class="sf-card-label">① ライト点灯時間</p>
+          <label class="sf-slider-field" for="sf-customer-lighting-duration">
+            <span class="sf-slider-label">センサー検知後の点灯時間</span>
+            <div class="sf-slider-row">
+              <input
+                type="range"
+                id="sf-customer-lighting-duration"
+                min="5"
+                max="180"
+                step="1"
+                value="45"
+                aria-label="防犯ライト点灯時間"
+              />
+              <strong id="sf-customer-lighting-duration-val">45秒</strong>
+            </div>
+          </label>
+        </section>
+        <section class="sf-daily-block">
+          <p class="sf-card-label">② 自動点灯スケジュール</p>
+          <div class="sf-schedule-inline">
+            <label class="sf-schedule-field" for="sf-customer-schedule-start">
+              <span>開始時刻</span>
+              <input type="time" id="sf-customer-schedule-start" value="18:00" />
+            </label>
+            <label class="sf-schedule-field" for="sf-customer-schedule-end">
+              <span>終了時刻</span>
+              <input type="time" id="sf-customer-schedule-end" value="06:00" />
+            </label>
+          </div>
+        </section>
+        <section class="sf-daily-block">
+          <p class="sf-card-label">③ エリア別プッシュ通知</p>
+          <p class="sf-hint">豊島邸ではセンサー別に切り替えできます</p>
+          <div id="sf-customer-notify-hint" class="sf-hint">
+            物件接続後に表示されます
+          </div>
+        </section>
+        <section class="sf-daily-block">
+          <p class="sf-card-label">④ 外構ライト手動操作</p>
+          <div class="sf-btn-row">
+            <button type="button" class="sf-btn" id="sf-customer-lights-3min">
+              💡 照明を点灯（3分間）
+            </button>
+            <button type="button" class="sf-btn sf-btn-ghost" id="sf-customer-lights-off">
+              消灯
+            </button>
+          </div>
+        </section>
+        <p class="sf-hint">変更は自動保存されます</p>
+      </div>
+    </details>
 
     <section class="sf-card sf-customer-camera-card">
       <p class="sf-card-label">📷 カメラ</p>
@@ -308,7 +348,7 @@
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2510"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2512"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2513"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2513"></script>
 </body>
 </html>
