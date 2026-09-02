@@ -105,41 +105,48 @@ export function countCustomerMastersV1(): number {
   return row.c;
 }
 
-/** PRO Remote tenants + デモ seed を Customer Master へ同期 */
+/** 正規顧客（板橋自宅 / 豊島邸）を Customer Master へ同期 */
 export function syncCustomerMasterFromTenantsV1(): number {
   let synced = 0;
-  for (const code of ["TOMS001", "HOTEL001", "PLANT001", "TOYOSHIMA001", "TOSHIMA001"]) {
+  const defaults: Record<string, Partial<CustomerMasterV1>> = {
+    TOMS001: {
+      customerName: "板橋自宅",
+      address: "東京都板橋区",
+      contactName: "山中様",
+      contactPhone: "048-594-7077",
+      contactEmail: "info@toms.co.jp",
+      plan: "PRO",
+    },
+    TOYOSHIMA001: {
+      customerName: "豊島邸",
+      address: "茨城県",
+      contactName: "豊島様",
+      contactPhone: "048-594-7077",
+      contactEmail: "info@toms.co.jp",
+      plan: "PRO",
+    },
+  };
+  for (const code of ["TOMS001", "TOYOSHIMA001"]) {
     const tenant = getCustomerByCode(code);
     if (!tenant) continue;
     const existing = getCustomerMasterV1(code);
-    if (existing) continue;
-    const defaults: Record<string, Partial<CustomerMasterV1>> = {
-      TOMS001: {
-        customerName: "TOMS設備デモ",
-        address: "守谷市",
-        contactName: "山中様",
-        contactPhone: "048-594-7077",
-        contactEmail: "info@toms.co.jp",
-        plan: "PRO",
-      },
-      TOYOSHIMA001: {
-        customerName: "豊島邸",
-        address: "茨城県",
-        contactName: "豊島様",
-        contactPhone: "048-594-7077",
-        contactEmail: "info@toms.co.jp",
-        plan: "PRO",
-      },
-      TOSHIMA001: {
-        customerName: "豊島邸",
-        address: "茨城県",
-        contactName: "豊島様",
-        contactPhone: "048-594-7077",
-        contactEmail: "info@toms.co.jp",
-        plan: "PRO",
-      },
-    };
     const d = defaults[code] ?? {};
+    if (existing) {
+      // 表示名を正規名へ揃える（既存行は削除しない）
+      if (
+        existing.customerName !== d.customerName ||
+        existing.status !== "active"
+      ) {
+        upsertCustomerMasterV1({
+          ...existing,
+          customerName: d.customerName ?? existing.customerName,
+          address: d.address ?? existing.address,
+          status: "active",
+        });
+        synced += 1;
+      }
+      continue;
+    }
     upsertCustomerMasterV1({
       customerCode: code,
       customerName: d.customerName ?? tenant.customer_name,
@@ -147,7 +154,9 @@ export function syncCustomerMasterFromTenantsV1(): number {
       contactName: d.contactName ?? "",
       contactPhone: d.contactPhone ?? "",
       contactEmail: d.contactEmail ?? "info@toms.co.jp",
-      plan: normalizeCustomerPortalPlanV1(String(d.plan ?? tenant.plan ?? "PRO")),
+      plan: normalizeCustomerPortalPlanV1(
+        String(d.plan ?? tenant.plan ?? "PRO")
+      ),
       status: "active",
       businessCustomerId: null,
     });

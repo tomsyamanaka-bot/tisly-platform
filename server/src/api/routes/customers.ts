@@ -21,8 +21,12 @@ import { createSite } from "../../site-builder/site-store.js";
 
 export const customersRouter = Router();
 
-customersRouter.get("/", requireAdminAuth, (_req, res) => {
-  res.json({ customers: listCustomers(false) });
+customersRouter.get("/", requireAdminAuth, (req, res) => {
+  // 既定は active のみ（退役デモを一覧から除外）
+  const includeDeleted =
+    String(req.query.includeDeleted ?? "") === "1" ||
+    String(req.query.all ?? "") === "1";
+  res.json({ customers: listCustomers(!includeDeleted) });
 });
 
 customersRouter.get("/by-code/:customerCode", requireAuth("viewer"), requireTenantMatch("customerCode"), (req: AuthedRequest, res) => {

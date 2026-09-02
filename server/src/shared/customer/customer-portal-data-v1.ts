@@ -103,7 +103,7 @@ export function buildCustomerSessionHomeV1(
   const propertyName =
     primary?.propertyName ??
     profile?.displayName ??
-    (code === "TOMS001" ? "TOMS設備デモ" : `${code} 様`);
+    (code === "TOMS001" ? "板橋自宅" : `${code} 様`);
   const ref =
     primary?.projectRef ??
     primary?.propertyId ??
@@ -128,7 +128,7 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
   const projects = listProjectListItemsForCustomerV1(code);
 
   const masterRecord = getCustomerMasterV1(code);
-  const customerName = masterRecord?.customerName ?? (code === "TOMS001" ? "TOMS設備デモ" : `${code} 様`);
+  const customerName = masterRecord?.customerName ?? (code === "TOMS001" ? "板橋自宅" : `${code} 様`);
 
   return {
     customerName,

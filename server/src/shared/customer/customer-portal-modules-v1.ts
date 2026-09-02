@@ -50,13 +50,15 @@ export const PORTAL_BASE_MODULES_V1 = ["customer_portal"] as const;
  * 既存 DEFAULT_ENABLED_MODULES_BY_CODE_V1 は改変しない。
  */
 export const CUSTOMER_PORTAL_DEFAULTS_BY_CODE_V1: Record<string, string[]> = {
-  TOMS001: ["*"],
-  TOYOSHIMA001: [
+  /** 板橋自宅: Security / HOME / カメラ */
+  TOMS001: [
     "security_floor_v1",
+    "tisly_home_v1",
     "camera_preview_v1",
     "customer_portal",
   ],
-  TOSHIMA001: [
+  /** 豊島邸: Security / カメラ */
+  TOYOSHIMA001: [
     "security_floor_v1",
     "camera_preview_v1",
     "customer_portal",
@@ -108,6 +110,10 @@ export function getCustomerPortalModulesV1(
 ): string[] {
   const code = normalizePortalCode(customerCode);
   const stored = getStoredEnabledModulesV1(code);
+  // 社内 "*" は /customer カード既定へ展開
+  if (stored?.enabledModules?.includes("*")) {
+    return resolveDefaultCustomerPortalModulesV1(code);
+  }
   if (stored?.enabledModules?.length) {
     const normalized = normalizeStoredPortalModulesV1(
       code,

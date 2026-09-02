@@ -149,7 +149,7 @@ export function ensureDemoIncidents(): void {
   if (marker) return;
 
   const customers = listCustomers(false).filter((c) =>
-    ["TOMS001", "HOTEL001", "PLANT001"].includes(c.customer_code)
+    ["TOMS001", "TOYOSHIMA001"].includes(c.customer_code)
   );
   for (const c of customers) {
     const id = uuid();
@@ -162,7 +162,7 @@ export function ensureDemoIncidents(): void {
         id,
         `demo-device-${c.customer_code.toLowerCase()}`,
         null,
-        c.customer_code === "TOMS001" ? "critical" : c.customer_code === "HOTEL001" ? "alarm" : "warning",
+        c.customer_code === "TOMS001" ? "critical" : "alarm",
         `Demo incident — ${c.customer_name}`,
         c.customer_id,
         c.tenant_id ?? c.customer_id

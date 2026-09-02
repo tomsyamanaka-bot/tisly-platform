@@ -16,6 +16,11 @@ describe("Phase 221-240 PRO Remote", () => {
   let customerToken = "";
 
   before(async () => {
+    const { retireObsoleteDemoCustomersV1, ensureCanonicalCustomersV1 } =
+      await import("../src/customer/retire-obsolete-demo-customers-v1.js");
+    retireObsoleteDemoCustomersV1();
+    ensureCanonicalCustomersV1();
+
     const adminRes = await request(app)
       .post("/api/auth/login")
       .send({ username: "admin", password: "testpass" });
@@ -45,14 +50,20 @@ describe("Phase 221-240 PRO Remote", () => {
     assert.ok(names.includes("RP2350 Gateway"));
   });
 
-  it("GET /api/customers lists demo customers", async () => {
+  it("GET /api/customers lists canonical customers", async () => {
     const res = await request(app)
       .get("/api/customers")
       .set("Authorization", `Bearer ${adminToken}`);
     assert.equal(res.status, 200);
-    const codes = res.body.customers.map((c: { customer_code: string }) => c.customer_code);
+    const codes = res.body.customers.map(
+      (c: { customer_code: string }) => c.customer_code
+    );
     assert.ok(codes.includes("TOMS001"));
-    assert.ok(codes.includes("HOTEL001"));
+    assert.ok(codes.includes("TOYOSHIMA001"));
+    assert.ok(!codes.includes("HOTEL001"));
+    assert.ok(!codes.includes("DEMO001"));
+    assert.ok(!codes.includes("TOSHIMA001"));
+    assert.ok(!codes.includes("FACTORY-DEMO"));
   });
 
   it("GET /api/customer/TOMS001/dashboard for viewer", async () => {

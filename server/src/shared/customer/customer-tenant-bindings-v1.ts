@@ -40,13 +40,6 @@ const DEFAULT_BINDINGS_V1: Record<
     nvrLabel: "H.View NVR（豊島邸）",
     nvrRtspBase: "rtsp://192.168.10.50:554",
   },
-  TOSHIMA001: {
-    rp2350MainId: "rp2350-toyoshima-main-01",
-    rp2350DetachedId: "rp2350-toyoshima-detached-01",
-    nvrHost: "192.168.10.50",
-    nvrLabel: "H.View NVR（豊島邸）",
-    nvrRtspBase: "rtsp://192.168.10.50:554",
-  },
 };
 
 export function ensureCustomerTenantBindingsTableV1(): void {

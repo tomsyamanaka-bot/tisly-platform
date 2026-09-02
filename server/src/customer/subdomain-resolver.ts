@@ -3,8 +3,7 @@ import { getCustomerByCode } from "./customer-store.js";
 
 const DEMO_SUBDOMAINS: Record<string, string> = {
   toms001: "TOMS001",
-  hotel001: "HOTEL001",
-  plant001: "PLANT001",
+  toyoshima001: "TOYOSHIMA001",
 };
 
 export function resolveCustomerCodeFromHost(host: string): string | null {

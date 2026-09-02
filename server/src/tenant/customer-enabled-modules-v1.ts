@@ -210,54 +210,12 @@ export const DEFAULT_ENABLED_MODULES_BY_CODE_V1: Record<
   string,
   string[]
 > = {
-  // 社内: 全機能 + 業務 + Deploy
+  // 社内（板橋自宅）: 全機能 + 業務 + Deploy
   TOMS001: ["*"],
-  // 戸建て・ホテル系: HOME / レーダー / デマンド
-  HOTEL001: [
-    "tisly_home_v1",
-    "radar_settings_v1",
-    "demand_security_v1",
-    "customer_mgmt",
-    "customer_portal",
-    "pro_remote",
-  ],
-  // 店舗・工場系: Security / デマンド / ガス
-  PLANT001: [
-    "security_floor_v1",
-    "demand_security_v1",
-    "gas_monitor_v1",
-    "customer_mgmt",
-    "customer_portal",
-    "pro_remote",
-  ],
-  // デモ戸建て例（CUST002）
-  CUST002: [
-    "tisly_home_v1",
-    "radar_settings_v1",
-    "demand_security_v1",
-    "customer_portal",
-    "customer_mgmt",
-  ],
-  // Demo Kit: HOME + Security 寄り
-  DEMO001: [
-    "tisly_home_v1",
-    "security_floor_v1",
-    "demand_security_v1",
-    "radar_settings_v1",
-    "customer_portal",
-    "pro_remote",
-    "customer_mgmt",
-  ],
-  // 豊島邸: Security + HOME のみ（追記）
+  // 豊島邸: Security + カメラプレビュー
   TOYOSHIMA001: [
-    "tisly_home_v1",
     "security_floor_v1",
-    "customer_portal",
-  ],
-  /** 旧コード互換 */
-  TOSHIMA001: [
-    "tisly_home_v1",
-    "security_floor_v1",
+    "camera_preview_v1",
     "customer_portal",
   ],
 };

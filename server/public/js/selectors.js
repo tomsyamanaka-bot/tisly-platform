@@ -43,9 +43,8 @@ export function getSelectedTenantId() {
 
 const CUSTOMER_SCOPE_OPTIONS = [
   { code: "ALL", label: "全顧客" },
-  { code: "TOMS001", label: "TOMS001" },
-  { code: "HOTEL001", label: "HOTEL001" },
-  { code: "PLANT001", label: "PLANT001" },
+  { code: "TOMS001", label: "板橋自宅" },
+  { code: "TOYOSHIMA001", label: "豊島邸" },
 ];
 
 export function mountCustomerScopeSelector(containerId, onChange) {

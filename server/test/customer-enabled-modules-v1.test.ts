@@ -51,7 +51,7 @@ async function customerLogin(code: string, username: string) {
 
 describe("customer enabled modules / tenant filter v1", () => {
   let tomsAdmin = "";
-  let hotelOwner = "";
+  let toyoshimaOwner = "";
 
   before(async () => {
     closeDatabase();
@@ -70,9 +70,9 @@ describe("customer enabled modules / tenant filter v1", () => {
     assert.equal(ta.status, 200, ta.body?.error);
     tomsAdmin = ta.body.token;
 
-    const ho = await customerLogin("HOTEL001", "hotel001.owner");
+    const ho = await customerLogin("TOYOSHIMA001", "toyoshima001.owner");
     assert.equal(ho.status, 200, ho.body?.error);
-    hotelOwner = ho.body.token;
+    toyoshimaOwner = ho.body.token;
   });
 
   after(() => closeDatabase());
@@ -97,38 +97,31 @@ describe("customer enabled modules / tenant filter v1", () => {
     assert.ok(html.includes("利用機能（モジュール）"));
   });
 
-  it("defaults: TOMS001 is all, HOTEL001 is home pack", () => {
+  it("defaults: TOMS001 is all, TOYOSHIMA001 is security pack", () => {
     assert.deepEqual(
       resolveDefaultEnabledModulesV1("TOMS001"),
       DEFAULT_ENABLED_MODULES_BY_CODE_V1.TOMS001
     );
     assert.ok(
-      resolveDefaultEnabledModulesV1("HOTEL001").includes(
-        "tisly_home_v1"
-      )
-    );
-    assert.ok(
-      !resolveDefaultEnabledModulesV1("HOTEL001").includes(
+      resolveDefaultEnabledModulesV1("TOYOSHIMA001").includes(
         "security_floor_v1"
       )
     );
     assert.ok(
-      resolveDefaultEnabledModulesV1("PLANT001").includes(
-        "security_floor_v1"
+      resolveDefaultEnabledModulesV1("TOYOSHIMA001").includes(
+        "camera_preview_v1"
       )
     );
     assert.ok(
-      resolveDefaultEnabledModulesV1("CUST002").includes(
-        "radar_settings_v1"
-      )
+      !resolveDefaultEnabledModulesV1("TOYOSHIMA001").includes("*")
     );
   });
 
   it("ops panels only for internal TOMS001", () => {
     assert.equal(isInternalOpsCustomerV1("TOMS001"), true);
-    assert.equal(isInternalOpsCustomerV1("HOTEL001"), false);
+    assert.equal(isInternalOpsCustomerV1("TOYOSHIMA001"), false);
     assert.equal(showOpsPanelsForRole("admin", "TOMS001"), true);
-    assert.equal(showOpsPanelsForRole("admin", "HOTEL001"), false);
+    assert.equal(showOpsPanelsForRole("admin", "TOYOSHIMA001"), false);
     assert.equal(showOpsPanelsForRole("viewer", "TOMS001"), false);
   });
 
@@ -148,22 +141,22 @@ describe("customer enabled modules / tenant filter v1", () => {
 
   it("GET /api/customer-modules/v1 returns catalog", async () => {
     const res = await request(app)
-      .get("/api/customer-modules/v1?customerCode=HOTEL001")
+      .get("/api/customer-modules/v1?customerCode=TOYOSHIMA001")
       .set("Authorization", `Bearer ${tomsAdmin}`);
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
-    assert.equal(res.body.customerCode, "HOTEL001");
+    assert.equal(res.body.customerCode, "TOYOSHIMA001");
     assert.ok(Array.isArray(res.body.catalog));
     assert.ok(res.body.catalog.length >= 5);
-    assert.ok(res.body.enabledModules.includes("tisly_home_v1"));
+    assert.ok(res.body.enabledModules.includes("security_floor_v1"));
   });
 
-  it("PATCH enabledModules then hub filters for HOTEL001", async () => {
+  it("PATCH enabledModules then hub filters for TOYOSHIMA001", async () => {
     const patch = await request(app)
       .patch("/api/customer-modules/v1")
       .set("Authorization", `Bearer ${tomsAdmin}`)
       .send({
-        customerCode: "HOTEL001",
+        customerCode: "TOYOSHIMA001",
         enabledModules: [
           "tisly_home_v1",
           "radar_settings_v1",
@@ -177,7 +170,7 @@ describe("customer enabled modules / tenant filter v1", () => {
 
     const hub = await request(app)
       .get("/api/pwa/hub")
-      .set("Authorization", `Bearer ${hotelOwner}`);
+      .set("Authorization", `Bearer ${toyoshimaOwner}`);
     assert.equal(hub.status, 200);
     assert.equal(hub.body.showOpsPanels, false);
     const ids = (hub.body.practicalApps || []).map(
@@ -218,15 +211,14 @@ describe("customer enabled modules / tenant filter v1", () => {
     assert.ok(ids.includes("tisly_home_v1"));
   });
 
-  it("HOTEL001 without business modules hides ops / workflows / practical nav", async () => {
-    // PATCH 後も business 無しなら社内UIは出ない
-    const mods = getEnabledModulesForCustomerV1("HOTEL001");
+  it("TOYOSHIMA001 without business modules hides ops / workflows / practical nav", async () => {
+    const mods = getEnabledModulesForCustomerV1("TOYOSHIMA001");
     assert.ok(!mods.includes("*"));
     assert.ok(!mods.includes("schedule_v1"));
 
     const hub = await request(app)
       .get("/api/pwa/hub")
-      .set("Authorization", `Bearer ${hotelOwner}`);
+      .set("Authorization", `Bearer ${toyoshimaOwner}`);
     assert.equal(hub.status, 200);
     assert.equal(hub.body.showOpsPanels, false);
     assert.equal(hub.body.showPracticalNav, false);

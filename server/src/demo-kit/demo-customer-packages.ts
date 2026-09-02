@@ -25,11 +25,20 @@ export interface DemoPackageMeta {
 }
 
 const PACKAGES: DemoPackageMeta[] = [
-  { type: "house", label: "戸建て", customerCode: "TOMS001", deviceMode: "mock", description: "戸建て向け — 外周・1F・2F・ESP/Shelly" },
-  { type: "minpaku", label: "民泊", customerCode: "MINPAKU-DEMO", deviceMode: "mixed", description: "民泊向け — 複数部屋・カメラ重点" },
-  { type: "factory", label: "工場", customerCode: "FACTORY-DEMO", deviceMode: "mixed", description: "工場向け — PLC・大規模ゾーン" },
-  { type: "warehouse", label: "倉庫", customerCode: "FACTORY-DEMO", deviceMode: "mock", description: "倉庫向け — 外周・搬入口" },
-  { type: "care", label: "介護", customerCode: "TISLY-DEMO", deviceMode: "mock", description: "介護施設向け — 見守り・緊急ボタン" },
+  {
+    type: "house",
+    label: "板橋自宅",
+    customerCode: "TOMS001",
+    deviceMode: "mock",
+    description: "板橋自宅 — Security / HOME / カメラ",
+  },
+  {
+    type: "care",
+    label: "豊島邸",
+    customerCode: "TOYOSHIMA001",
+    deviceMode: "mixed",
+    description: "豊島邸 — Security / NVR / 母屋・はなれ",
+  },
 ];
 
 export function listDemoPackages(): DemoPackageMeta[] {

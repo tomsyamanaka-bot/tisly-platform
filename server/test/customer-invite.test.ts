@@ -12,6 +12,8 @@ process.env.REDIS_URL = "";
 const { default: request } = await import("supertest");
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, getDatabase } = await import("../src/db/database.js");
+const { upsertCustomer } = await import("../src/customer/customer-store.js");
+const { hashPassword } = await import("../src/auth/password.js");
 
 const app = createApp();
 
@@ -24,7 +26,7 @@ async function customerLogin(code: string, username: string) {
 describe("Phase 261-280 customer invite & reports", () => {
   let tomsAdmin = "";
   let tomsViewer = "";
-  let plantAdmin = "";
+  let toyoshimaAdmin = "";
 
   before(async () => {
     closeDatabase();
@@ -45,9 +47,9 @@ describe("Phase 261-280 customer invite & reports", () => {
     assert.equal(tv.status, 200, tv.body?.error);
     tomsViewer = tv.body.token;
 
-    const pa = await customerLogin("PLANT001", "plant001.admin");
+    const pa = await customerLogin("TOYOSHIMA001", "toyoshima001.admin");
     assert.equal(pa.status, 200, pa.body?.error);
-    plantAdmin = pa.body.token;
+    toyoshimaAdmin = pa.body.token;
   });
 
   after(() => {
@@ -55,11 +57,12 @@ describe("Phase 261-280 customer invite & reports", () => {
   });
 
   it("owner/admin can invite users", async () => {
+    const username = `toms001.invited.${Date.now()}`;
     const res = await request(app)
       .post("/api/customer/TOMS001/users/invite")
       .set("Authorization", `Bearer ${tomsAdmin}`)
-      .send({ username: "toms001.invited.test", role: "viewer" });
-    assert.equal(res.status, 201);
+      .send({ username, role: "viewer" });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.ok(res.body.inviteToken);
   });
 
@@ -67,7 +70,7 @@ describe("Phase 261-280 customer invite & reports", () => {
     const res = await request(app)
       .post("/api/customer/TOMS001/users/invite")
       .set("Authorization", `Bearer ${tomsViewer}`)
-      .send({ username: "toms001.bad.invite", role: "viewer" });
+      .send({ username: `toms001.bad.${Date.now()}`, role: "viewer" });
     assert.equal(res.status, 403);
   });
 
@@ -75,8 +78,11 @@ describe("Phase 261-280 customer invite & reports", () => {
     const invite = await request(app)
       .post("/api/customer/TOMS001/users/invite")
       .set("Authorization", `Bearer ${tomsAdmin}`)
-      .send({ username: "toms001.expired.test", role: "viewer" });
-    assert.equal(invite.status, 201);
+      .send({
+        username: `toms001.expired.${Date.now()}`,
+        role: "viewer",
+      });
+    assert.equal(invite.status, 201, JSON.stringify(invite.body));
     const token = invite.body.inviteToken as string;
     getDatabase()
       .prepare(
@@ -126,8 +132,10 @@ describe("Phase 261-280 customer invite & reports", () => {
       .get("/api/customer/TOMS001/users")
       .set("Authorization", `Bearer ${tomsViewer}`);
     assert.equal(res.status, 200);
-    const names = (res.body.users as Array<{ username: string }>).map((u) => u.username);
-    assert.ok(!names.some((n) => n.startsWith("hotel001.")));
+    const names = (res.body.users as Array<{ username: string }>).map(
+      (u) => u.username
+    );
+    assert.ok(!names.some((n) => n.startsWith("toyoshima001.")));
   });
 
   it("report export includes export_id", async () => {
@@ -139,13 +147,49 @@ describe("Phase 261-280 customer invite & reports", () => {
     assert.ok(res.body.export?.export_id);
   });
 
-  it("PLANT001 Standard plan blocks webhook", async () => {
+  it("Standard plan blocks webhook", async () => {
+    upsertCustomer({
+      customerId: "cust-toyoshima",
+      customerCode: "TOYOSHIMA001",
+      customerName: "豊島邸",
+      plan: "Standard",
+      tenantId: "cust-toyoshima",
+    });
+    const hash = hashPassword("demo-remote-2026");
+    getDatabase()
+      .prepare(
+        `INSERT INTO customer_users
+           (id, customer_id, username, password_hash, role, status)
+         VALUES (?, ?, ?, ?, 'admin', 'active')
+         ON CONFLICT(customer_id, username) DO UPDATE SET
+           password_hash = excluded.password_hash,
+           status = 'active'`
+      )
+      .run(
+        "cu-TOYOSHIMA001-admin",
+        "cust-toyoshima",
+        "toyoshima001.admin",
+        hash
+      );
+    const login = await customerLogin(
+      "TOYOSHIMA001",
+      "toyoshima001.admin"
+    );
+    assert.equal(login.status, 200);
     const res = await request(app)
-      .post("/api/customer/PLANT001/webhooks")
-      .set("Authorization", `Bearer ${plantAdmin}`)
+      .post("/api/customer/TOYOSHIMA001/webhooks")
+      .set("Authorization", `Bearer ${login.body.token}`)
       .send({ url: "https://example.com/hook" });
     assert.equal(res.status, 403);
     assert.equal(res.body.channel, "webhook");
+    upsertCustomer({
+      customerId: "cust-toyoshima",
+      customerCode: "TOYOSHIMA001",
+      customerName: "豊島邸",
+      plan: "PRO",
+      tenantId: "cust-toyoshima",
+    });
+    void toyoshimaAdmin;
   });
 
   it("TOMS001 PRO_REMOTE allows webhook create", async () => {

@@ -34,7 +34,7 @@ const TOYOSHIMA_PROFILE_V1 = {
   useToyoshimaDashboard: true,
 } as const;
 
-/** 顧客コード別プロファイル（追記のみ） */
+/** 顧客コード別プロファイル（正規2件のみ） */
 const CUSTOMER_TENANT_PROFILES_V1: Record<
   string,
   Omit<CustomerTenantProfileV1, "customerCode">
@@ -45,24 +45,16 @@ const CUSTOMER_TENANT_PROFILES_V1: Record<
     homeSiteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
     useToyoshimaDashboard: false,
   },
-  /** 板橋自宅の別コード（互換） */
-  HOME001: {
-    displayName: "板橋自宅",
-    securitySiteId: SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
-    homeSiteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
-    useToyoshimaDashboard: false,
-  },
   TOYOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
-  /** 旧コード互換（TOSHIMA001 → TOYOSHIMA001） */
-  TOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
 };
 
-/** 顧客コードを正規化（エイリアス含む） */
+/** 顧客コードを正規化（旧エイリアス含む） */
 export function normalizeCustomerTenantCodeV1(
   code: string | null | undefined
 ): string {
   const raw = String(code ?? "").trim().toUpperCase();
   if (raw === "TOSHIMA001") return "TOYOSHIMA001";
+  if (raw === "HOME001") return "TOMS001";
   return raw;
 }
 

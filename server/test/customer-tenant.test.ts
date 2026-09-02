@@ -4,6 +4,7 @@ import request from "supertest";
 import { createApp } from "../src/app.js";
 import { hashPassword } from "../src/auth/password.js";
 import { getDatabase } from "../src/db/database.js";
+import { upsertCustomer } from "../src/customer/customer-store.js";
 
 process.env.JWT_SECRET = "test-jwt-tenant-phase241";
 process.env.ADMIN_USERNAME = "admin";
@@ -25,7 +26,7 @@ async function customerLogin(code: string, username: string) {
 describe("Phase 241-260 tenant isolation", () => {
   let tomsViewer = "";
   let tomsAdmin = "";
-  let hotelViewer = "";
+  let toyoshimaViewer = "";
 
   before(async () => {
     getDatabase();
@@ -37,14 +38,14 @@ describe("Phase 241-260 tenant isolation", () => {
     assert.equal(ta.status, 200, ta.body?.error);
     tomsAdmin = ta.body.token;
 
-    const hv = await customerLogin("HOTEL001", "hotel001.viewer");
+    const hv = await customerLogin("TOYOSHIMA001", "toyoshima001.viewer");
     assert.equal(hv.status, 200, hv.body?.error);
-    hotelViewer = hv.body.token;
+    toyoshimaViewer = hv.body.token;
   });
 
-  it("TOMS001 user cannot read HOTEL001 dashboard", async () => {
+  it("TOMS001 user cannot read TOYOSHIMA001 dashboard", async () => {
     const res = await request(app)
-      .get("/api/customer/HOTEL001/dashboard")
+      .get("/api/customer/TOYOSHIMA001/dashboard")
       .set("Authorization", `Bearer ${tomsViewer}`);
     assert.equal(res.status, 403);
   });
@@ -73,14 +74,36 @@ describe("Phase 241-260 tenant isolation", () => {
     assert.equal(res.body.customer.plan, "PRO_REMOTE");
   });
 
-  it("PLANT001 Standard plan blocks customer portal dashboard", async () => {
-    const login = await customerLogin("PLANT001", "plant001.viewer");
+  it("Standard plan blocks customer portal dashboard", async () => {
+    const demoPassword =
+      process.env.CUSTOMER_DEMO_PASSWORD ?? "demo-remote-2026";
+    upsertCustomer({
+      customerId: "cust-toyoshima",
+      customerCode: "TOYOSHIMA001",
+      customerName: "豊島邸",
+      plan: "Standard",
+      tenantId: "cust-toyoshima",
+    });
+    const login = await customerLogin(
+      "TOYOSHIMA001",
+      "toyoshima001.viewer"
+    );
     assert.equal(login.status, 200);
     const res = await request(app)
-      .get("/api/customer/PLANT001/dashboard")
+      .get("/api/customer/TOYOSHIMA001/dashboard")
       .set("Authorization", `Bearer ${login.body.token}`);
     assert.equal(res.status, 403);
     assert.match(res.body.error, /Plan restriction/);
+    // 正規プランへ戻す
+    upsertCustomer({
+      customerId: "cust-toyoshima",
+      customerCode: "TOYOSHIMA001",
+      customerName: "豊島邸",
+      plan: "PRO",
+      tenantId: "cust-toyoshima",
+    });
+    void demoPassword;
+    void toyoshimaViewer;
   });
 
   it("TOMS001 PRO_REMOTE can access sales-report", async () => {
@@ -97,11 +120,19 @@ describe("Phase 241-260 tenant isolation", () => {
     for (let i = 0; i < 3; i++) {
       await request(app)
         .post("/api/auth/customer/login")
-        .send({ customerCode: "TOMS001", username: user, password: "wrong-password" });
+        .send({
+          customerCode: "TOMS001",
+          username: user,
+          password: "wrong-password",
+        });
     }
     const locked = await request(app)
       .post("/api/auth/customer/login")
-      .send({ customerCode: "TOMS001", username: user, password: "demo-remote-2026" });
+      .send({
+        customerCode: "TOMS001",
+        username: user,
+        password: "demo-remote-2026",
+      });
     assert.equal(locked.status, 423);
   });
 });
