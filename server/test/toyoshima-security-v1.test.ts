@@ -155,6 +155,7 @@ describe("toyoshima-security-v1", () => {
     assert.match(dash1.commHealth.boardTempLabel, /正常/);
     assert.ok(dash1.lightingDurationSec >= 5);
     assert.ok(dash1.perimeterTimeoutSec >= 30);
+    assert.equal(dash1.heartbeatWatchEnabled, true);
 
     const stale = new Date(
       Date.now() - TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 - 1000
@@ -165,6 +166,32 @@ describe("toyoshima-security-v1", () => {
     const dash2 = buildToyoshimaSecurityDashboardV1();
     assert.match(dash2.commHealth.onlineSummary, /オフライン/);
     assert.ok(dash2.timeline.some((t) => t.kind === "comm_loss"));
+  });
+
+  it("heartbeat watch OFF mutes push and shelly auto reboot", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    const { updateToyoshimaOpsConfigV1 } = await import(
+      "../src/home/home-toyoshima-ops-config-v1.js"
+    );
+    updateToyoshimaOpsConfigV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      heartbeatWatchEnabled: false,
+    });
+    await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 36.0 });
+    const stale = new Date(
+      Date.now() - TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 - 1000
+    ).toISOString();
+    setToyoshimaHeartbeatAtForTestV1("main", stale);
+    setToyoshimaHeartbeatAtForTestV1("detached", stale);
+    await runToyoshimaHeartbeatWatchdogV1();
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.heartbeatWatchEnabled, false);
+    assert.equal(
+      dash.timeline.some((t) => t.kind === "comm_loss"),
+      false
+    );
+    updateToyoshimaOpsConfigV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      heartbeatWatchEnabled: true,
+    });
   });
 
   it("heartbeat board_temp caution and overheat warning", async () => {

@@ -182,8 +182,49 @@ async function refreshProToolsPanels() {
     loadFieldPhotos(),
     loadDiStatus(),
     loadShellyFailsafe().catch(() => {}),
+    loadHeartbeatWatch().catch(() => {}),
   ]);
   startDiPolling();
+}
+
+function isToyoshimaHomeSite(siteId) {
+  const id = String(siteId || "");
+  return id.includes("TOYOSHIMA") || id.includes("TOSHIMA");
+}
+
+async function loadHeartbeatWatch() {
+  const panel = $("sf-pro-heartbeat-watch");
+  if (panel) {
+    panel.hidden = !isToyoshimaHomeSite(currentHomeSiteId);
+  }
+  if (!isToyoshimaHomeSite(currentHomeSiteId)) return;
+  const data = await fetchJson(
+    `${HOME_API}/toyoshima/config?siteId=${encodeURIComponent(
+      currentHomeSiteId
+    )}`
+  );
+  const enabled = data.config?.heartbeatWatchEnabled !== false;
+  const input = $("sf-pro-hb-watch");
+  const label = $("sf-pro-hb-watch-label");
+  const caption = $("sf-pro-hb-watch-caption");
+  if (input) input.checked = enabled;
+  const text = enabled ? "監視中（有効）" : "一時停止（無効）";
+  if (label) label.textContent = text;
+  if (caption) caption.textContent = text;
+}
+
+async function saveHeartbeatWatch(enabled) {
+  const data = await fetchJson(`${HOME_API}/toyoshima/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId: currentHomeSiteId,
+      heartbeatWatchEnabled: !!enabled,
+      actor: "operator-pro",
+    }),
+  });
+  toast(data.message || "ハートビート監視設定を保存しました");
+  await loadHeartbeatWatch();
 }
 
 async function runTestPulse(outputId, building) {
@@ -411,6 +452,21 @@ function bindProToolsUi() {
     const on = !!$("sf-pro-shelly-auto")?.checked;
     const lab = $("sf-pro-shelly-auto-label");
     if (lab) lab.textContent = on ? "ON" : "OFF";
+  });
+
+  $("sf-pro-hb-watch")?.addEventListener("change", async () => {
+    const on = !!$("sf-pro-hb-watch")?.checked;
+    const lab = $("sf-pro-hb-watch-label");
+    const caption = $("sf-pro-hb-watch-caption");
+    const text = on ? "監視中（有効）" : "一時停止（無効）";
+    if (lab) lab.textContent = text;
+    if (caption) caption.textContent = text;
+    try {
+      await saveHeartbeatWatch(on);
+    } catch (err) {
+      toast(err.message || "監視設定の保存に失敗");
+      await loadHeartbeatWatch().catch(() => {});
+    }
   });
 
   $("sf-pro-shelly-save")?.addEventListener("click", async () => {

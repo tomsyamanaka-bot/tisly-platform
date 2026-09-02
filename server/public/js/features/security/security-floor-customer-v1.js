@@ -176,7 +176,11 @@ function syncCustomerHeaderTitle() {
   if (el) el.textContent = title;
   document.title = `TiSLY · ${title}`;
   const fixed = $("sf-site-fixed-label");
-  if (fixed) fixed.textContent = title;
+  if (fixed) {
+    fixed.textContent = title;
+    /* 豊島邸はタイトルと重複するためカプセル非表示 */
+    fixed.hidden = isToyoshimaSecuritySite(state.siteId);
+  }
 }
 
 /**
@@ -229,6 +233,18 @@ function applyTenantSingleSite(sites, preferredId) {
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
+
+  const fixed = $("sf-site-fixed-label");
+  if (fixed) {
+    /* 物件名と重複するカプセルを豊島邸では非表示 */
+    fixed.hidden = isToyoshima;
+  }
+  if (isToyoshima) {
+    const online = $("sf-online");
+    if (online && !online.textContent.includes("発報")) {
+      online.textContent = "🟢 正常に稼働中（オンライン）";
+    }
+  }
 
   if (!force && state.layoutSiteId === state.siteId) {
     return;

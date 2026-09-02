@@ -602,7 +602,47 @@
 
 .ts-slider-row input[type="range"] {
   flex: 1;
-  min-height: 36px;
+  min-height: 44px;
+  height: 44px;
+  /* 現場で指が届きやすい大きめノブ */
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.ts-slider-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.ts-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: #1e3a8a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+
+.ts-slider-row input[type="range"]::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.ts-slider-row input[type="range"]::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1e3a8a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
 }
 
 .ts-slider-val {
@@ -668,7 +708,63 @@
   display: none;
 }
 
-/* ワンタップ警戒モード */
+/* 豊島邸: タイトルと重複するカプセルを非表示 */
+.sf-body.is-toyoshima.sf-customer .sf-site-fixed-label {
+  display: none !important;
+}
+
+.sf-body.is-toyoshima.sf-customer .sf-online-pill {
+  font-weight: 700;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* スマート3連セグメント · 警戒モード */
+.ts-mode-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.ts-mode-seg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 72px;
+  padding: 10px 6px;
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ts-mode-seg-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.ts-mode-seg-label {
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.ts-mode-seg.is-on {
+  background: #1e3a8a;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.28);
+}
+
+/* ワンタップ警戒モード（互換） */
 .ts-mode-grid {
   display: grid;
   gap: 10px;
@@ -846,22 +942,58 @@
   }
 }
 
-/* 顧客向け · 正常状態バナー */
+/* 顧客向け · 安全確認カード */
+.ts-safety-card,
 .ts-status-banner {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 14px;
   padding: 16px 18px;
 }
 
-.ts-status-banner.is-ok {
-  border: 1px solid #bbf7d0;
-  background: #f0fdf4;
+.ts-safety-main,
+.ts-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
+.ts-safety-card.is-ok,
+.ts-status-banner.is-ok {
+  border: 1px solid #86efac;
+  background: #ecfdf5;
+}
+
+.ts-safety-card.is-alert,
 .ts-status-banner.is-alert {
-  border: 1px solid #fecaca;
+  border: 2px solid #ef4444;
   background: #fef2f2;
+}
+
+.ts-safety-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ts-safety-metric {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(30, 58, 138, 0.08);
+}
+
+.ts-safety-metric-key {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.ts-safety-metric-val {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f172a;
 }
 
 .ts-status-emoji {
@@ -883,8 +1015,29 @@
   font-size: 0.92rem;
 }
 
+.ts-customer-dash .ts-camera-card {
+  text-align: center;
+}
+
+.ts-customer-dash .ts-btn-camera-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: min(100%, 280px);
+  min-height: 52px;
+  margin: 8px auto 0;
+  padding: 14px 22px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  border-radius: 14px;
+}
+
 .ts-customer-dash .ts-camera-card .ts-btn-wide {
   margin-top: 4px;
+}
+
+.ts-hb-watch-row {
+  margin-top: 14px;
 }
 
 /* 顧客 · 日常詳細設定アコーディオン */

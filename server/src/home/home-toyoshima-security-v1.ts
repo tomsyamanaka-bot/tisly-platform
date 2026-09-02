@@ -37,6 +37,10 @@ import {
   deriveCustomerSecurityModeV1,
   type CustomerSecurityModeV1,
 } from "./home-customer-security-mode-v1.js";
+import {
+  getToyoshimaOpsConfigV1,
+  isToyoshimaHeartbeatWatchEnabledV1,
+} from "./home-toyoshima-ops-config-v1.js";
 
 /** 豊島邸 HOME / propertyId */
 export const HOME_JP_TOYOSHIMA_SITE_ID_V1 = "HOME-JP-TOYOSHIMA";
@@ -183,6 +187,14 @@ export interface ToyoshimaSecurityDashboardV1 {
   perimeterTimeoutSec: number;
   /** おでかけ警戒時パトライト威嚇 */
   patliteThreatEnabled: boolean;
+  /**
+   * ハートビート死活監視
+   * false 時は Push・Shelly自動再投入を抑止
+   */
+  heartbeatWatchEnabled: boolean;
+  /** 今月のセンサー発報件数 */
+  monthlyDetectionCount: number;
+  monthlyDetectionLabel: string;
   commHealth: ToyoshimaCommHealthV1;
   alarm: ToyoshimaAlarmStateV1;
   notifySensors: ToyoshimaNotifySensorV1[];
@@ -420,6 +432,11 @@ async function processToyoshimaBoardTempV1(
 
 /** 5分 heartbeat 監視 — 途絶時に Push・履歴・Shelly自動キック */
 export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
+  /* 施工中などは監視OFFで通知・自動再投入を抑止 */
+  if (!isToyoshimaHeartbeatWatchEnabledV1(HOME_JP_TOYOSHIMA_SITE_ID_V1)) {
+    return;
+  }
+
   const now = Date.now();
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
     const comm = runtime.deviceComm[building];
@@ -1295,6 +1312,39 @@ function toyoshimaGuardScheduleLabelV1(
   return `警戒時間 ${rules.scheduleStart}〜${rules.scheduleEnd}`;
 }
 
+/** JST の年月（YYYY-MM） */
+function jstYearMonthV1(at = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(at);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  return `${y}-${m}`;
+}
+
+/** 今月のセンサー発報件数を集計 */
+function countMonthlyDetectionsV1(
+  timeline: ToyoshimaTimelineEventV1[]
+): number {
+  const ym = jstYearMonthV1();
+  return timeline.filter((ev) => {
+    if (
+      ev.kind !== "main_beam" &&
+      ev.kind !== "detached_road" &&
+      ev.kind !== "detached_path"
+    ) {
+      return false;
+    }
+    try {
+      return jstYearMonthV1(new Date(ev.at)) === ym;
+    } catch {
+      return false;
+    }
+  }).length;
+}
+
 /** 豊島邸ダッシュボード JSON */
 export function buildToyoshimaSecurityDashboardV1(
   siteId?: string | null
@@ -1307,6 +1357,9 @@ export function buildToyoshimaSecurityDashboardV1(
   const scheduleStart = rules.scheduleStart || "18:00";
   const scheduleEnd = rules.scheduleEnd || "06:00";
   const customerMode = deriveCustomerSecurityModeV1(rules);
+  const ops = getToyoshimaOpsConfigV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+  const timeline = [...runtime.timeline];
+  const monthlyDetectionCount = countMonthlyDetectionsV1(timeline);
 
   return {
     siteId: SEC_JP_TOYOSHIMA_SITE_ID_V1,
@@ -1327,6 +1380,9 @@ export function buildToyoshimaSecurityDashboardV1(
       rules.lightingDurationSec ?? rules.di1DurationSec ?? 45,
     perimeterTimeoutSec: rules.perimeterTimeoutSec ?? 120,
     patliteThreatEnabled: rules.patliteThreatEnabled !== false,
+    heartbeatWatchEnabled: ops.heartbeatWatchEnabled !== false,
+    monthlyDetectionCount,
+    monthlyDetectionLabel: `${monthlyDetectionCount}件`,
     commHealth: buildToyoshimaCommHealthV1(),
     alarm: buildToyoshimaAlarmStateV1(),
     notifySensors: buildToyoshimaNotifySensorsV1(rules),
@@ -1340,7 +1396,7 @@ export function buildToyoshimaSecurityDashboardV1(
       di: [...runtime.detached.di],
       do: [...runtime.detached.do],
     }),
-    timeline: [...runtime.timeline],
+    timeline,
     lastUpdatedAt: nowIso(),
   };
 }

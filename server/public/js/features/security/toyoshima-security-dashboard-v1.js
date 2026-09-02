@@ -141,21 +141,58 @@ function renderHeroChips(dash) {
     </button>`;
 }
 
-/** 顧客向け · 正常状態バナー */
+/** 顧客向け · 安全確認カード＋サマリー */
 function renderCustomerStatusBanner(dash) {
   const alarm = dash.alarm || {};
   const alerting = !!alarm.active;
-  return `<section class="ts-card ts-status-banner ${
+  const detectLabel = dash.monthlyDetectionLabel || "0件";
+  const lightLabel = dash.lightsScheduleLabel || "18:00〜06:00";
+  const online =
+    !String(dash.commHealth?.onlineSummary || "").includes("オフライン");
+  syncCustomerOnlinePill(online, alerting);
+  return `<section class="ts-card ts-safety-card ${
     alerting ? "is-alert" : "is-ok"
   }" id="ts-status-banner">
-    <span class="ts-status-emoji" aria-hidden="true">${alerting ? "🚨" : "🟢"}</span>
-    <div class="ts-status-copy">
-      <p class="ts-status-head">${alerting ? "異常があります" : "正常です"}</p>
-      <p class="ts-status-sub">${escapeHtml(
-        alarm.message || "すべてのセンサーが正常に動作しています"
-      )}</p>
+    <div class="ts-safety-main">
+      <span class="ts-status-emoji" aria-hidden="true">${alerting ? "🚨" : "✅"}</span>
+      <div class="ts-status-copy">
+        <p class="ts-status-head">${alerting ? "発報があります" : "安全確認：異常なし"}</p>
+        <p class="ts-status-sub">${escapeHtml(
+          alarm.message || "すべてのセンサーが正常に動作しています"
+        )}</p>
+      </div>
+    </div>
+    <div class="ts-safety-metrics" aria-label="稼働サマリー">
+      <div class="ts-safety-metric">
+        <span class="ts-safety-metric-key">今月の発報</span>
+        <strong class="ts-safety-metric-val">${escapeHtml(detectLabel)}</strong>
+      </div>
+      <div class="ts-safety-metric">
+        <span class="ts-safety-metric-key">防犯ライト</span>
+        <strong class="ts-safety-metric-val">${escapeHtml(lightLabel)}自動点灯</strong>
+      </div>
     </div>
   </section>`;
+}
+
+function syncCustomerOnlinePill(online, alerting) {
+  if (!isCustomerPortal()) return;
+  const el = $("sf-online");
+  if (!el) return;
+  if (alerting) {
+    el.textContent = "🚨 発報中";
+    el.classList.add("is-alert");
+    el.classList.remove("is-offline");
+    return;
+  }
+  el.classList.remove("is-alert");
+  if (online) {
+    el.textContent = "🟢 正常に稼働中（オンライン）";
+    el.classList.remove("is-offline");
+  } else {
+    el.textContent = "🔴 オフライン";
+    el.classList.add("is-offline");
+  }
 }
 
 /** 顧客向け · 日常詳細設定（アコーディオン） */
@@ -275,9 +312,11 @@ function renderCustomerDailySettings(dash) {
 /** 顧客向け · カメラプレビュー */
 function renderCustomerCameraCard() {
   return `<section class="ts-card ts-camera-card">
-    <h3 class="ts-card-head">📷 カメラ</h3>
-    <p class="ts-hint">登録カメラの映像を確認できます</p>
-    <button type="button" class="ts-btn ts-btn-wide" id="ts-customer-camera">📷 カメラを見る</button>
+    <h3 class="ts-card-head">📷 防犯カメラ</h3>
+    <p class="ts-hint">ライブ映像と最新スナップショットを確認できます</p>
+    <button type="button" class="ts-btn ts-btn-primary ts-btn-camera-cta" id="ts-customer-camera">
+      防犯カメラを見る
+    </button>
   </section>`;
 }
 
@@ -295,43 +334,26 @@ function renderCustomerActivitySection(dash) {
   </section>`;
 }
 
-/** ワンタップ警戒モード（大型カード） */
+/** スマート3連セグメント · 警戒モード */
 function renderCustomerModeCards(dash) {
   const current = dash.customerMode || "home";
   const modes = [
-    {
-      id: "away",
-      emoji: "🏃‍♂️",
-      label: "おでかけ警戒",
-      desc: "全センサー24時間フル発報。ライト即時・パトライト・緊急Push。",
-    },
-    {
-      id: "home",
-      emoji: "🏠",
-      label: "在宅見守り",
-      desc: "外周のみ有効。夜間は外構ライトを優しく点灯し静かな通知。",
-    },
-    {
-      id: "disarmed",
-      emoji: "⏸️",
-      label: "警戒一時解除",
-      desc: "庭の手入れ・来客用。ライト・パトライト・緊急通知を一時停止。",
-    },
+    { id: "away", emoji: "🏃", label: "おでかけ警戒" },
+    { id: "home", emoji: "🏠", label: "在宅見守り" },
+    { id: "disarmed", emoji: "⏸️", label: "警戒解除" },
   ];
   return `<section class="ts-card ts-mode-card" id="ts-mode-card" aria-label="警戒モード">
     <h3 class="ts-card-head">🛡️ 警戒モード</h3>
-    <p class="ts-hint">ワンタップで切り替え。実機へ即時反映します。</p>
-    <div class="ts-mode-grid" role="radiogroup" aria-label="警戒モード切替">
+    <div class="ts-mode-segment" role="radiogroup" aria-label="警戒モード切替">
       ${modes
         .map(
-          (m) => `<button type="button" class="ts-mode-btn ${
+          (m) => `<button type="button" class="ts-mode-seg ${
             current === m.id ? "is-on" : ""
           }" data-ts-customer-mode="${m.id}" role="radio" aria-checked="${
             current === m.id ? "true" : "false"
           }">
-        <span class="ts-mode-emoji" aria-hidden="true">${m.emoji}</span>
-        <span class="ts-mode-label">${m.label}</span>
-        <span class="ts-mode-desc">${m.desc}</span>
+        <span class="ts-mode-seg-emoji" aria-hidden="true">${m.emoji}</span>
+        <span class="ts-mode-seg-label">${m.label}</span>
       </button>`
         )
         .join("")}
@@ -396,6 +418,7 @@ function renderHealthGrid(dash) {
   const tempEmoji =
     tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
   const tempLabel = health.boardTempLabel || "—";
+  const watchOn = dash.heartbeatWatchEnabled !== false;
   return `<section class="ts-card ts-health-card" id="ts-health-card">
     <h3 class="ts-card-head">📡 通信ステータス</h3>
     <div class="ts-health-grid">
@@ -416,6 +439,17 @@ function renderHealthGrid(dash) {
         <span class="ts-health-val" id="ts-heartbeat-val">${escapeHtml(heartbeat)}</span>
       </div>
     </div>
+    <label class="ts-switch-row ts-hb-watch-row" for="ts-hb-watch">
+      <span class="ts-label">ハートビート死活監視</span>
+      <span class="ts-switch">
+        <input type="checkbox" id="ts-hb-watch" ${watchOn ? "checked" : ""} />
+        <span class="ts-switch-ui" aria-hidden="true"></span>
+        <span class="ts-switch-text" id="ts-hb-watch-label">${
+          watchOn ? "監視中（有効）" : "一時停止（無効）"
+        }</span>
+      </span>
+    </label>
+    <p class="ts-hint">施工・移動時は一時停止で Push／自動再投入をミュート</p>
   </section>`;
 }
 
@@ -595,11 +629,14 @@ function dashSignature(dash) {
     cmode: dash.customerMode,
     lightSec: dash.lightingDurationSec,
     patlite: dash.patliteThreatEnabled,
+    hbWatch: dash.heartbeatWatchEnabled,
+    monthDet: dash.monthlyDetectionCount,
     sched: `${dash.scheduleStart}-${dash.scheduleEnd}`,
     alarm: dash.alarm?.active,
     alarmMsg: dash.alarm?.message,
     notify: (dash.notifySensors || []).map((s) => `${s.id}:${s.mode}`).join(","),
     comm: dash.commHealth?.lastCommAt,
+    online: dash.commHealth?.onlineSummary,
     mainDi: (dash.main?.di || []).map((d) => d.state).join(","),
     mainDo: (dash.main?.do || [])
       .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
@@ -888,6 +925,15 @@ function patchToyoshimaDashboard(dash) {
     boardTempEl.classList.remove("is-normal", "is-caution", "is-warning");
     boardTempEl.classList.add(`is-${level}`);
   }
+  const hbWatch = $("ts-hb-watch");
+  const hbWatchLabel = $("ts-hb-watch-label");
+  if (hbWatch && !hbWatch.matches(":active")) {
+    const on = dash.heartbeatWatchEnabled !== false;
+    hbWatch.checked = on;
+    if (hbWatchLabel) {
+      hbWatchLabel.textContent = on ? "監視中（有効）" : "一時停止（無効）";
+    }
+  }
 
   const lightSlider = $("ts-lighting-duration");
   const periSlider = $("ts-perimeter-timeout");
@@ -1027,7 +1073,40 @@ function bindSettingsSliders() {
       if (lab) lab.textContent = patlite.checked ? "ON" : "OFF";
       saveSettingsDebounced();
     }
+    const hbWatch = e.target.closest("#ts-hb-watch");
+    if (hbWatch) {
+      if (isCustomerPortal()) return;
+      const on = !!hbWatch.checked;
+      const lab = $("ts-hb-watch-label");
+      if (lab) {
+        lab.textContent = on ? "監視中（有効）" : "一時停止（無効）";
+      }
+      saveHeartbeatWatch(on).catch((err) => {
+        showToast(err.message || "監視設定の保存に失敗");
+      });
+    }
   });
+}
+
+async function saveHeartbeatWatch(enabled) {
+  const res = await fetch(`${HOME_API}/toyoshima/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+      heartbeatWatchEnabled: !!enabled,
+      actor: "operator",
+    }),
+  });
+  const data = await res.json();
+  if (!data?.ok) throw new Error(data?.error || "保存に失敗しました");
+  if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+  showToast(
+    data.message ||
+      (enabled
+        ? "ハートビート死活監視を有効にしました"
+        : "ハートビート死活監視を一時停止しました")
+  );
 }
 
 export function renderToyoshimaDashboard(dash, opts = {}) {

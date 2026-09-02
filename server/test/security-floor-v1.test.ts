@@ -667,6 +667,9 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /sf-pro-shelly-auto/);
     assert.match(opHtml, /今すぐ電源を5秒切って再投入/);
     assert.match(opHtml, /Shelly自律監視スクリプト/);
+    assert.match(opHtml, /ハートビート死活監視/);
+    assert.match(opHtml, /sf-pro-hb-watch/);
+    assert.match(opHtml, /監視中（有効）/);
     assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);
@@ -687,6 +690,16 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /通知を受け取る/);
     assert.match(toyoshimaJs, /manual_lights_3min/);
     assert.match(toyoshimaJs, /patliteThreatEnabled/);
+    assert.match(toyoshimaJs, /ts-mode-segment/);
+    assert.match(toyoshimaJs, /ts-safety-card/);
+    assert.match(toyoshimaJs, /防犯カメラを見る/);
+    assert.match(toyoshimaJs, /heartbeatWatchEnabled/);
+    assert.match(toyoshimaJs, /\/toyoshima\/config/);
+    assert.match(toyoshimaJs, /ts-hb-watch/);
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /ts-customer-dash[\s\S]{0,1200}ts-hb-watch/
+    );
     assert.doesNotMatch(
       toyoshimaJs,
       /isCustomerPortal\(\)[\s\S]{0,200}擬似発報/
@@ -699,9 +712,23 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.doesNotMatch(customerJs, /heartbeatWatchEnabled|sf-pro-hb-watch/);
     assert.match(customerJs, /sf-tenant-fixed|lockSiteSelectorUi/);
     assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
     assert.doesNotMatch(customerJs, /switchCustomerSite/);
+
+    const proJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-floor-pro-tools-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(proJs, /loadHeartbeatWatch|saveHeartbeatWatch/);
+    assert.match(proJs, /\/toyoshima\/config/);
+
+    assert.doesNotMatch(customerHtml, /ハートビート死活監視/);
+    assert.doesNotMatch(customerHtml, /sf-pro-hb-watch/);
 
     const pushJs = fs.readFileSync(
       path.join(

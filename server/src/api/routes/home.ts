@@ -136,6 +136,10 @@ import {
   updateToyoshimaNotifyModeV1,
 } from "../../home/home-toyoshima-security-v1.js";
 import {
+  getToyoshimaOpsConfigV1,
+  updateToyoshimaOpsConfigV1,
+} from "../../home/home-toyoshima-ops-config-v1.js";
+import {
   buildSwitchBotHomeStatusV1,
   listSwitchBotDevicesV1,
 } from "../../home/switchbot_client.js";
@@ -1436,6 +1440,39 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         ...rules,
         guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
       },
+    });
+  });
+
+  /** 豊島邸運用設定（ハートビート監視等）取得 */
+  homeRouter.get(`${prefix}/config`, (req, res) => {
+    const siteId = String(
+      req.query.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    const config = getToyoshimaOpsConfigV1(siteId);
+    res.json({
+      ok: true,
+      config,
+      dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+    });
+  });
+
+  /** 豊島邸運用設定を即時保存 */
+  homeRouter.put(`${prefix}/config`, (req, res) => {
+    const siteId = String(
+      req.body?.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    const patch: { heartbeatWatchEnabled?: boolean } = {};
+    if (req.body?.heartbeatWatchEnabled !== undefined) {
+      patch.heartbeatWatchEnabled = Boolean(req.body.heartbeatWatchEnabled);
+    }
+    const config = updateToyoshimaOpsConfigV1(siteId, patch);
+    res.json({
+      ok: true,
+      message: config.heartbeatWatchEnabled
+        ? "ハートビート死活監視を有効にしました"
+        : "ハートビート死活監視を一時停止しました",
+      config,
+      dashboard: buildToyoshimaSecurityDashboardV1(siteId),
     });
   });
 
