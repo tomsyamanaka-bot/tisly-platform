@@ -770,6 +770,54 @@ export function applyToyoshimaManualControlV1(input: {
   return { ok: true, state: building };
 }
 
+/** DO ワンショット強制出力（配線テスト用） */
+export function pulseToyoshimaDoV1(input: {
+  siteId?: string;
+  building: ToyoshimaBuildingIdV1;
+  channel: 1 | 2 | 3;
+  durationMs?: number;
+  actor?: string;
+}): { ok: boolean; message: string } {
+  const durationMs = Math.max(
+    500,
+    Math.min(3000, Math.round(Number(input.durationMs) || 1000))
+  );
+  const onAction =
+    input.channel === 1
+      ? "do1_on"
+      : input.channel === 2
+        ? "do2_on"
+        : "do3_on";
+  const offAction =
+    input.channel === 1
+      ? "do1_off"
+      : input.channel === 2
+        ? "do2_off"
+        : "do3_off";
+
+  applyToyoshimaManualControlV1({
+    siteId: input.siteId,
+    building: input.building,
+    action: onAction,
+    actor: input.actor ?? "operator-pro",
+  });
+
+  setTimeout(() => {
+    applyToyoshimaManualControlV1({
+      siteId: input.siteId,
+      building: input.building,
+      action: offAction,
+      actor: input.actor ?? "operator-pro",
+    });
+  }, durationMs);
+
+  const building = getBuilding(input.building);
+  return {
+    ok: true,
+    message: `${building.label} DO${input.channel} を ${durationMs}ms テストON`,
+  };
+}
+
 /** 顧客向けに建物カードのラベルを整形 */
 function mapToyoshimaBuildingForCustomerV1(
   building: ToyoshimaBuildingStateV1

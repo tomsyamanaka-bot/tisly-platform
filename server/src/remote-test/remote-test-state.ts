@@ -341,6 +341,21 @@ export function queueChPulseCommand(
   return { command, channel, durationMs: ms, queuedAt };
 }
 
+/** RP2350 ソフト再起動（MicroPython/C++ ループ再起動） */
+export function queueDeviceSoftRebootV1(): {
+  ok: boolean;
+  command: string;
+  queuedAt: string;
+} {
+  const command = "device_soft_reboot";
+  const queuedAt = new Date().toISOString();
+  state.pendingCommand = command;
+  state.lastCommand = command;
+  state.lastCommandAt = queuedAt;
+  pushLog(command, "RP2350 soft reboot (pending)");
+  return { ok: true, command, queuedAt };
+}
+
 /** @deprecated Use queueChCommand(1, on) */
 export function queueCh1Command(command: "ch1_on" | "ch1_off"): void {
   queueChCommand(1, command === "ch1_on");

@@ -55,6 +55,9 @@ class ToyoshimaBaseController:
         self._set_ch = set_ch
         self._send_event = send_event
         self._di_confirm_ms = DI_DEBOUNCE_MS
+        self._debounce_di1_ms = DI_DEBOUNCE_MS
+        self._debounce_di2_ms = DI_DEBOUNCE_MS
+        self._debounce_beam_ms = DI_DEBOUNCE_MS
         self._di_confirmed = {}
         self._confirm_gen = {}
         self._get_di = None
@@ -87,8 +90,23 @@ class ToyoshimaBaseController:
         if 5000 <= ms <= 180000:
             self._output_ms = ms
         confirm = int(rules.get("diConfirmMs", DI_DEBOUNCE_MS))
-        if 50 <= confirm <= 300:
+        if 20 <= confirm <= 500:
             self._di_confirm_ms = confirm
+        d1 = int(rules.get("debounceDi1Ms", confirm))
+        if 20 <= d1 <= 500:
+            self._debounce_di1_ms = d1
+        else:
+            self._debounce_di1_ms = self._di_confirm_ms
+        d2 = int(rules.get("debounceDi2Ms", confirm))
+        if 20 <= d2 <= 500:
+            self._debounce_di2_ms = d2
+        else:
+            self._debounce_di2_ms = self._di_confirm_ms
+        beam = int(rules.get("debounceBeamMs", confirm))
+        if 20 <= beam <= 500:
+            self._debounce_beam_ms = beam
+        else:
+            self._debounce_beam_ms = self._di_confirm_ms
         return True
 
     def log(self, msg):
@@ -143,8 +161,17 @@ class ToyoshimaBaseController:
             self._confirm_gen[di] = self._confirm_gen.get(di, 0) + 1
             self._di_confirmed[di] = False
 
+    def _debounce_ms_for_di(self, di):
+        """DI 番号ごとのデバウンス ms。"""
+        if di == 1:
+            return getattr(self, "_debounce_di1_ms", self._di_confirm_ms)
+        if di == 2:
+            return getattr(self, "_debounce_di2_ms", self._di_confirm_ms)
+        return getattr(self, "_debounce_beam_ms", self._di_confirm_ms)
+
     async def _confirm_rising(self, di, gen):
-        await asyncio.sleep_ms(self._di_confirm_ms)
+        ms = self._debounce_ms_for_di(di)
+        await asyncio.sleep_ms(ms)
         if self._confirm_gen.get(di) != gen:
             return
         state = "on"
@@ -159,7 +186,7 @@ class ToyoshimaBaseController:
         if self._di_confirmed.get(di):
             return
         self._di_confirmed[di] = True
-        self.log("DI{} confirmed {}ms".format(di, self._di_confirm_ms))
+        self.log("DI{} confirmed {}ms".format(di, ms))
         self._fire_di(di)
 
     def _fire_di(self, di):
@@ -205,6 +232,10 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     DO_PATLITE = 3
     DI_BEAM_1 = 1
     DI_BEAM_2 = 2
+
+    def _debounce_ms_for_di(self, di):
+        """母屋ビームは debounceBeamMs を使用。"""
+        return getattr(self, "_debounce_beam_ms", self._di_confirm_ms)
 
     def _fire_di(self, di):
         if di not in (self.DI_BEAM_1, self.DI_BEAM_2):

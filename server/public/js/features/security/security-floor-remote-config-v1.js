@@ -343,6 +343,19 @@ function renderRules(rules, notifyPolicy) {
     "sf-di2solo-100v-seg",
     rules.di2Standalone100vMode || "steady"
   );
+
+  const debounceFields = [
+    ["sf-di-confirm-ms", "sf-di-confirm-ms-val", rules.diConfirmMs ?? 100],
+    ["sf-debounce-di1-ms", "sf-debounce-di1-ms-val", rules.debounceDi1Ms ?? rules.diConfirmMs ?? 100],
+    ["sf-debounce-di2-ms", "sf-debounce-di2-ms-val", rules.debounceDi2Ms ?? rules.diConfirmMs ?? 100],
+    ["sf-debounce-beam-ms", "sf-debounce-beam-ms-val", rules.debounceBeamMs ?? rules.diConfirmMs ?? 100],
+  ];
+  for (const [sliderId, labelId, val] of debounceFields) {
+    const slider = $(sliderId);
+    if (slider) slider.value = String(val);
+    setText(labelId, String(val));
+  }
+
   syncNotifyModesFromRules(rules, notifyPolicy);
   renderNotifyPolicy(notifyPolicy);
 }
@@ -389,6 +402,10 @@ function collectPayload(homeSiteId) {
     scheduleEnd: times.scheduleEnd,
     guardMode: guardSeg === "off" ? "off" : "always",
     securityPausedUntil: null,
+    diConfirmMs: readSlider("sf-di-confirm-ms", 100),
+    debounceDi1Ms: readSlider("sf-debounce-di1-ms", 100),
+    debounceDi2Ms: readSlider("sf-debounce-di2-ms", 100),
+    debounceBeamMs: readSlider("sf-debounce-beam-ms", 100),
   };
   return payload;
 }
@@ -510,6 +527,21 @@ function scheduleLightingDurationSync() {
   }, 3000);
 }
 
+let debounceSaveTimer = null;
+
+function scheduleDebounceSync() {
+  clearTimeout(debounceSaveTimer);
+  debounceSaveTimer = setTimeout(() => {
+    applyToDevice(state.homeSiteId)
+      .then((data) => {
+        showToast(data.message || "感応度設定を実機へ反映しました");
+      })
+      .catch((err) => {
+        showToast(err.message || "感応度の反映に失敗しました");
+      });
+  }, 600);
+}
+
 function bindRemoteConfigUi() {
   if (window.__TISLY_SF_REMOTE_BOUND) return;
   window.__TISLY_SF_REMOTE_BOUND = true;
@@ -519,6 +551,19 @@ function bindRemoteConfigUi() {
   bindSlider("sf-perimeter-timeout", "sf-perimeter-timeout-val");
   bindSlider("sf-di2-alert-duration", "sf-di2-alert-duration-val");
   bindSlider("sf-di2solo-duration", "sf-di2solo-duration-val");
+  bindSlider("sf-di-confirm-ms", "sf-di-confirm-ms-val");
+  bindSlider("sf-debounce-di1-ms", "sf-debounce-di1-ms-val");
+  bindSlider("sf-debounce-di2-ms", "sf-debounce-di2-ms-val");
+  bindSlider("sf-debounce-beam-ms", "sf-debounce-beam-ms-val");
+
+  for (const id of [
+    "sf-di-confirm-ms",
+    "sf-debounce-di1-ms",
+    "sf-debounce-di2-ms",
+    "sf-debounce-beam-ms",
+  ]) {
+    $(id)?.addEventListener("input", () => scheduleDebounceSync());
+  }
 
   $("sf-lighting-duration")?.addEventListener("input", () => {
     const sec = readSlider("sf-lighting-duration", 45);

@@ -2390,3 +2390,168 @@
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* 施工・保守 Pro（社内 /app 専用） */
+.sf-pro-tools .sf-pro-details {
+  margin-top: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.sf-pro-tools summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.sf-pro-hint {
+  margin: 8px 0 10px;
+  color: #64748b;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.sf-pro-test-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.sf-pro-pulse-btn {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.sf-pro-pulse-btn:disabled {
+  opacity: 0.6;
+}
+
+.sf-pro-pulse-label {
+  font-weight: 800;
+  color: #1e3a8a;
+  font-size: 0.88rem;
+}
+
+.sf-pro-pulse-sub {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.sf-pro-reboot-row,
+.sf-pro-photo-upload {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sf-pro-action-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1.5px solid #1e3a8a;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sf-pro-action-warn {
+  border-color: #b45309;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.sf-pro-action-ghost {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.sf-pro-photo-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin-top: 12px;
+}
+
+.sf-pro-photo-card {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.sf-pro-photo-thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: #0f172a;
+  cursor: pointer;
+}
+
+.sf-pro-photo-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.sf-pro-photo-card figcaption {
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.sf-pro-photo-card strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.sf-pro-qnap.is-synced {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.sf-pro-photo-del {
+  width: 100%;
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #b91c1c;
+  font-weight: 700;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.sf-pro-photo-lightbox {
+  border: none;
+  border-radius: 14px;
+  padding: 12px;
+  max-width: min(96vw, 720px);
+}
+
+.sf-pro-photo-lightbox::backdrop {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.sf-pro-photo-lightbox-inner {
+  display: grid;
+  gap: 10px;
+}
+
+.sf-pro-photo-lightbox-inner img {
+  width: 100%;
+  border-radius: 10px;
+}

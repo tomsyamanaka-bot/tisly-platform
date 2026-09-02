@@ -101,6 +101,18 @@ import {
   buildMonthlySecurityReportV1,
 } from "../../home/home-monthly-security-report-v1.js";
 import {
+  addHomeFieldPhotoV1,
+  deleteHomeFieldPhotoV1,
+  listHomeFieldPhotosV1,
+  syncHomeFieldPhotosToQnapV1,
+} from "../../home/home-field-photos-v1.js";
+import {
+  listHardwareTestOutputsV1,
+  pulseHardwareOutputV1,
+  shellyColdPowerCycleV1,
+  softRebootRp2350V1,
+} from "../../home/home-hardware-pro-v1.js";
+import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
   buildToyoshimaActivityReportV1,
@@ -631,6 +643,10 @@ function applyHomeSecurityRulesPatchV1(
     customerSecurityMode: body?.customerSecurityMode as
       | CustomerSecurityModeV1
       | undefined,
+    diConfirmMs: body?.diConfirmMs as number | undefined,
+    debounceDi1Ms: body?.debounceDi1Ms as number | undefined,
+    debounceDi2Ms: body?.debounceDi2Ms as number | undefined,
+    debounceBeamMs: body?.debounceBeamMs as number | undefined,
   });
   recordSystemLogV1({
     siteId,
@@ -776,6 +792,201 @@ homeRouter.get("/security/monthly-report", (req, res) => {
     return;
   }
   res.json({ ok: true, report });
+});
+
+/**
+ * 接点強制テスト — 出力一覧
+ * GET /api/home/v1/hardware/test-outputs?siteId=
+ */
+homeRouter.get("/hardware/test-outputs", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    findHomeSiteV1(siteId);
+    res.json({
+      ok: true,
+      siteId,
+      outputs: listHardwareTestOutputsV1(siteId),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * 接点強制テスト — 1秒ワンショット
+ * POST /api/home/v1/hardware/test-pulse
+ */
+homeRouter.post("/hardware/test-pulse", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    const result = pulseHardwareOutputV1({
+      siteId,
+      outputId: req.body?.outputId,
+      channel: req.body?.channel,
+      building: req.body?.building,
+      durationMs: req.body?.durationMs,
+      actor: String(req.body?.actor ?? "operator-pro"),
+    });
+    if (isToyoshimaSecuritySiteIdV1(siteId)) {
+      syncToyoshimaConfigToFirmwareV1(siteId);
+    }
+    res.json({ siteId, ...result });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * RP2350 ソフト再起動
+ * POST /api/home/v1/hardware/soft-reboot
+ */
+homeRouter.post("/hardware/soft-reboot", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    const result = softRebootRp2350V1({
+      siteId,
+      actor: String(req.body?.actor ?? "operator-pro"),
+    });
+    res.json({ siteId, ...result });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * Shelly コールドリブート（5秒OFF→ON）
+ * POST /api/home/v1/hardware/shelly-cold-reboot
+ */
+homeRouter.post("/hardware/shelly-cold-reboot", async (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    findHomeSiteV1(siteId);
+    const result = await shellyColdPowerCycleV1({
+      siteId,
+      actor: String(req.body?.actor ?? "operator-pro"),
+    });
+    res.json({ siteId, ...result });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/** 現場施工写真一覧 GET /api/home/v1/field-photos */
+homeRouter.get("/field-photos", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    res.json({
+      ok: true,
+      siteId,
+      photos: listHomeFieldPhotosV1(siteId),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/** 現場施工写真アップロード POST /api/home/v1/field-photos */
+homeRouter.post("/field-photos", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const imageBase64 = String(req.body?.imageBase64 ?? "").trim();
+  if (!siteId || !imageBase64) {
+    res.status(400).json({
+      ok: false,
+      error: "siteId と imageBase64 が必要です",
+    });
+    return;
+  }
+  try {
+    const photo = addHomeFieldPhotoV1({
+      siteId,
+      category: req.body?.category,
+      title: req.body?.title,
+      imageBase64,
+      fileName: req.body?.fileName,
+      actor: String(req.body?.actor ?? "operator-pro"),
+    });
+    res.json({ ok: true, photo });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/** 現場施工写真削除 DELETE /api/home/v1/field-photos/:photoId */
+homeRouter.delete("/field-photos/:photoId", (req, res) => {
+  const siteId = String(req.query.siteId ?? req.body?.siteId ?? "").trim();
+  const photoId = String(req.params.photoId ?? "").trim();
+  if (!siteId || !photoId) {
+    res.status(400).json({ ok: false, error: "siteId と photoId が必要です" });
+    return;
+  }
+  try {
+    const ok = deleteHomeFieldPhotoV1(siteId, photoId);
+    res.json({ ok, deleted: ok });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * 現場写真 QNAP 同期トリガー
+ * POST /api/home/v1/field-photos/qnap-sync
+ */
+homeRouter.post("/field-photos/qnap-sync", async (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    const result = await syncHomeFieldPhotosToQnapV1(siteId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 });
 
 /** RP2350 DI 検知イベント（heartbeat 以外の明示 POST） */

@@ -98,6 +98,14 @@ export interface HomeSecurityRulesV1 {
    * （away / home / disarmed）— 追記フィールド
    */
   customerSecurityMode?: "away" | "home" | "disarmed";
+  /** DI 確定デバウンス（ms）— 既定100 */
+  diConfirmMs?: number;
+  /** 外周・道路側 DI1 デバウンス（ms） */
+  debounceDi1Ms?: number;
+  /** 通路・ガレージ DI2 デバウンス（ms） */
+  debounceDi2Ms?: number;
+  /** 母屋ビーム等 外周ビーム（ms） */
+  debounceBeamMs?: number;
   updatedAt: string;
 }
 
@@ -123,6 +131,10 @@ export interface HomeSecurityRulesPatchV1 {
   securityPausedUntil?: string | null;
   /** 顧客ワンタップ警戒モード（追記） */
   customerSecurityMode?: "away" | "home" | "disarmed";
+  diConfirmMs?: number;
+  debounceDi1Ms?: number;
+  debounceDi2Ms?: number;
+  debounceBeamMs?: number;
 }
 
 /** RP2350 向けファームウェア JSON */
@@ -151,8 +163,14 @@ export interface HomeSecurityFirmwareRulesV1 {
   perimeterFlagMs: number;
   strobeOnMs: number;
   strobeOffMs: number;
-  /** DI 継続 ON 確定時間（ms）— 早歩き検知は 50ms */
+  /** DI 継続 ON 確定時間（ms）— 既定100ms */
   diConfirmMs: number;
+  /** 外周 DI1 デバウンス（ms） */
+  debounceDi1Ms: number;
+  /** 通路 DI2 デバウンス（ms） */
+  debounceDi2Ms: number;
+  /** 外周ビーム デバウンス（ms） */
+  debounceBeamMs: number;
   /** 夜間ライト点灯維持（秒）— RP2350 実機キー */
   lighting_duration_sec: number;
 }
@@ -283,6 +301,10 @@ const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   notifyStagedMode: "critical",
   notifyDi2Mode: "critical",
   securityPausedUntil: null,
+  diConfirmMs: 100,
+  debounceDi1Ms: 100,
+  debounceDi2Ms: 100,
+  debounceBeamMs: 100,
 };
 
 const rulesCache = new Map<string, HomeSecurityRulesV1>();
@@ -305,6 +327,17 @@ function clampSec(
 
 function clampPerimeterSec(value: unknown, fallback: number): number {
   return clampSec(value, fallback, 30, 180);
+}
+
+/** センサー感応度デバウンス（20〜500ms・10ms刻み） */
+export function clampDebounceMsV1(
+  value: unknown,
+  fallback: number
+): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const rounded = Math.round(n / 10) * 10;
+  return Math.max(20, Math.min(500, rounded));
 }
 
 function ensureSecurityRulesTableV1(): void {
@@ -453,6 +486,22 @@ function parseRulesJson(
       parsed.customerSecurityMode === "disarmed"
         ? parsed.customerSecurityMode
         : undefined,
+    diConfirmMs: clampDebounceMsV1(
+      parsed.diConfirmMs,
+      DEFAULT_RULES.diConfirmMs ?? 100
+    ),
+    debounceDi1Ms: clampDebounceMsV1(
+      parsed.debounceDi1Ms ?? parsed.diConfirmMs,
+      DEFAULT_RULES.debounceDi1Ms ?? 100
+    ),
+    debounceDi2Ms: clampDebounceMsV1(
+      parsed.debounceDi2Ms ?? parsed.diConfirmMs,
+      DEFAULT_RULES.debounceDi2Ms ?? 100
+    ),
+    debounceBeamMs: clampDebounceMsV1(
+      parsed.debounceBeamMs ?? parsed.diConfirmMs,
+      DEFAULT_RULES.debounceBeamMs ?? 100
+    ),
     updatedAt:
       typeof parsed.updatedAt === "string"
         ? parsed.updatedAt
@@ -662,6 +711,31 @@ export function updateHomeSecurityRulesV1(
       patch.customerSecurityMode === "disarmed"
         ? patch.customerSecurityMode
         : current.customerSecurityMode,
+    diConfirmMs:
+      patch.diConfirmMs !== undefined
+        ? clampDebounceMsV1(patch.diConfirmMs, current.diConfirmMs ?? 100)
+        : current.diConfirmMs ?? DEFAULT_RULES.diConfirmMs ?? 100,
+    debounceDi1Ms:
+      patch.debounceDi1Ms !== undefined
+        ? clampDebounceMsV1(
+            patch.debounceDi1Ms,
+            current.debounceDi1Ms ?? current.diConfirmMs ?? 100
+          )
+        : current.debounceDi1Ms ?? current.diConfirmMs ?? 100,
+    debounceDi2Ms:
+      patch.debounceDi2Ms !== undefined
+        ? clampDebounceMsV1(
+            patch.debounceDi2Ms,
+            current.debounceDi2Ms ?? current.diConfirmMs ?? 100
+          )
+        : current.debounceDi2Ms ?? current.diConfirmMs ?? 100,
+    debounceBeamMs:
+      patch.debounceBeamMs !== undefined
+        ? clampDebounceMsV1(
+            patch.debounceBeamMs,
+            current.debounceBeamMs ?? current.diConfirmMs ?? 100
+          )
+        : current.debounceBeamMs ?? current.diConfirmMs ?? 100,
     updatedAt: nowIso(),
   };
 
@@ -747,8 +821,22 @@ export function buildHomeSecurityFirmwareRulesV1(
     perimeterFlagMs: rules.perimeterTimeoutSec * 1000,
     strobeOnMs: 250,
     strobeOffMs: 250,
-    /* 短パルスでも確実に発火（早歩き対策） */
-    diConfirmMs: 50,
+    diConfirmMs: clampDebounceMsV1(
+      rules.diConfirmMs,
+      DEFAULT_RULES.diConfirmMs ?? 100
+    ),
+    debounceDi1Ms: clampDebounceMsV1(
+      rules.debounceDi1Ms ?? rules.diConfirmMs,
+      rules.diConfirmMs ?? 100
+    ),
+    debounceDi2Ms: clampDebounceMsV1(
+      rules.debounceDi2Ms ?? rules.diConfirmMs,
+      rules.diConfirmMs ?? 100
+    ),
+    debounceBeamMs: clampDebounceMsV1(
+      rules.debounceBeamMs ?? rules.diConfirmMs,
+      rules.diConfirmMs ?? 100
+    ),
     lighting_duration_sec: rules.lightingDurationSec,
   };
 }

@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2510" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2512" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2511" />
   <script type="importmap">
   {
@@ -285,6 +285,48 @@
         </div>
       </section>
 
+      <section class="sf-card sf-pro-tools" id="sf-pro-tools">
+        <p class="sf-card-label">🔧 施工・保守 Pro（社内専用）</p>
+        <p class="sf-remote-target">対象: <strong id="sf-pro-site-label">板橋自宅</strong></p>
+
+        <details class="sf-pro-details" open>
+          <summary>接点強制テスト（1秒ワンショット）</summary>
+          <p class="sf-pro-hint">盤・照明から離れた位置でも配線導通を安全に確認できます。</p>
+          <div class="sf-pro-test-grid" id="sf-pro-test-grid"></div>
+        </details>
+
+        <details class="sf-pro-details" open>
+          <summary>通信機器 遠隔復旧</summary>
+          <div class="sf-pro-reboot-row">
+            <button type="button" class="sf-pro-action-btn" id="sf-pro-soft-reboot">
+              🔄 実機ソフトリブート（RP2350再起動）
+            </button>
+            <button type="button" class="sf-pro-action-btn sf-pro-action-warn" id="sf-pro-shelly-cold">
+              ⚡ Shelly 物理電源断（5秒OFF→自動ON）
+            </button>
+          </div>
+        </details>
+
+        <details class="sf-pro-details">
+          <summary>現場施工写真・結線図ライブラリ</summary>
+          <div class="sf-pro-photo-upload">
+            <select id="sf-pro-photo-category" class="sf-mini" aria-label="カテゴリ">
+              <option value="wiring">盤内配線</option>
+              <option value="panel">端子台・結線図</option>
+              <option value="exterior">外構・設置</option>
+              <option value="memo">現場メモ</option>
+            </select>
+            <input id="sf-pro-photo-title" class="sf-mini" placeholder="タイトル（任意）" />
+            <input type="file" id="sf-pro-photo-file" accept="image/*" capture="environment" hidden />
+            <button type="button" class="sf-pro-action-btn" id="sf-pro-photo-upload">📷 写真を追加</button>
+            <button type="button" class="sf-pro-action-btn sf-pro-action-ghost" id="sf-pro-qnap-sync">
+              ☁️ QNAPへ同期
+            </button>
+          </div>
+          <div class="sf-pro-photo-grid" id="sf-pro-photo-grid"></div>
+        </details>
+      </section>
+
       <section class="sf-card sf-remote-config" id="sf-remote-config">
         <p class="sf-card-label">🛡️ 遠隔防犯ルール設定（RP2350連動）</p>
         <p class="sf-remote-target" id="sf-remote-target">実機: 板橋自宅</p>
@@ -419,6 +461,35 @@
           </div>
         </details>
 
+        <details class="sf-remote-details" open>
+          <summary>センサー感応度（デバウンス判定時間）</summary>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-di-confirm-ms">
+              共通デバウンス <strong id="sf-di-confirm-ms-val">100</strong>ms
+            </label>
+            <input type="range" id="sf-di-confirm-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+          </div>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-debounce-di1-ms">
+              外周・道路側 <strong id="sf-debounce-di1-ms-val">100</strong>ms
+            </label>
+            <input type="range" id="sf-debounce-di1-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+          </div>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-debounce-di2-ms">
+              通路・ガレージ側 <strong id="sf-debounce-di2-ms-val">100</strong>ms
+            </label>
+            <input type="range" id="sf-debounce-di2-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+          </div>
+          <div class="sf-remote-block">
+            <label class="sf-remote-label" for="sf-debounce-beam-ms">
+              外周ビーム（母屋） <strong id="sf-debounce-beam-ms-val">100</strong>ms
+            </label>
+            <input type="range" id="sf-debounce-beam-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+          </div>
+          <p class="sf-remote-hint">20〜500ms（10ms刻み）· 変更は自動保存して実機へ同期</p>
+        </details>
+
         <div class="sf-remote-block sf-notify-policy">
           <p class="sf-remote-label">🔔 Web Push 通知条件</p>
           <p class="sf-notify-policy-hint" id="sf-notify-policy-hint">
@@ -527,6 +598,13 @@
     </section>
   </div>
 
+  <dialog class="sf-pro-photo-lightbox" id="sf-pro-photo-lightbox">
+    <form method="dialog" class="sf-pro-photo-lightbox-inner">
+      <img id="sf-pro-photo-lightbox-img" alt="現場写真プレビュー" />
+      <button type="submit" class="sf-btn">閉じる</button>
+    </form>
+  </dialog>
+
   <dialog class="sf-log-dialog" id="sf-log-dialog">
     <div class="sf-log-dialog-inner">
       <div class="sf-log-dialog-head">
@@ -584,9 +662,10 @@
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2510"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2512"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2512"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2511"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2510"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2512"></script>
 </body>
 </html>
