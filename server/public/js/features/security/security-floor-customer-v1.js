@@ -1,7 +1,7 @@
 /**
  * お客様向け見守り
  * 3D俯瞰とやさしい警報表示
- * テナントセッションで物件を出し分け
+ * 物件セレクタはマスターから動的読込
  */
 
 import {
@@ -39,8 +39,12 @@ import {
   resolveSecuritySiteId,
 } from "../../customer-tenant-session-v1.js";
 
+const SITE_STORAGE_KEY = "tisly_customer_security_site_v1";
+
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
+  siteOptions: [],
+  defaultSiteId: FALLBACK_DEFAULT_SITE_ID,
   layoutSiteId: null,
   floorId: "1f",
   dash: null,
@@ -48,6 +52,7 @@ const state = {
   pollTimer: null,
   alarmSig: "",
   tenantReady: false,
+  tenantSiteId: null,
 };
 
 function $(id) {
@@ -82,66 +87,6 @@ async function fetchJson(url, opts) {
   return data;
 }
 
-function hideSiteSelectorForTenant() {
-  const sel = $("sf-site-select");
-  if (sel) {
-    sel.hidden = true;
-    sel.setAttribute("aria-hidden", "true");
-  }
-  $("sf-soc-meta")?.classList.add("sf-tenant-fixed");
-}
-
-function fillSites(sites) {
-  const sel = $("sf-site-select");
-  if (!sel) return;
-
-  if (state.tenantReady) {
-    hideSiteSelectorForTenant();
-    state.siteId = resolveSecuritySiteId() || state.siteId;
-    sel.value = state.siteId;
-    window.__TISLY_SF_SITE_ID = state.siteId;
-    return;
-  }
-
-  const allow = new Set(["SEC-JP-ITABASHI-LIVE", TOYOSHIMA_SEC_ID]);
-  const raw = sites?.length ? sites : listFallbackSites();
-  const list = [...raw]
-    .filter((s) => allow.has(s.siteId || s.id))
-    .sort((a, b) => {
-      const aid = a.siteId || a.id;
-      const bid = b.siteId || b.id;
-      if (aid === TOYOSHIMA_SEC_ID) return -1;
-      if (bid === TOYOSHIMA_SEC_ID) return 1;
-      if (aid === "SEC-JP-ITABASHI-LIVE") return 1;
-      if (bid === "SEC-JP-ITABASHI-LIVE") return -1;
-      return 0;
-    });
-  if (!list.length) {
-    list.push({
-      id: TOYOSHIMA_SEC_ID,
-      siteId: TOYOSHIMA_SEC_ID,
-      displayName: "豊島邸",
-      countryCode: "JP",
-    });
-  }
-  sel.innerHTML = list
-    .map((s) => {
-      const id = s.siteId || s.id;
-      const label =
-        id === "SEC-JP-ITABASHI-LIVE"
-          ? "板橋自宅"
-          : id === TOYOSHIMA_SEC_ID
-            ? "豊島邸"
-            : customerSiteTitle(s.displayName);
-      return `<option value="${id}">${label}</option>`;
-    })
-    .join("");
-  state.siteId = list[0]?.siteId || list[0]?.id || TOYOSHIMA_SEC_ID;
-  sel.value = state.siteId;
-  sel.disabled = list.length <= 1;
-  window.__TISLY_SF_SITE_ID = state.siteId;
-}
-
 function customerSiteTitle(label) {
   return String(label || "")
     .replace(/\s*\(HOME-JP-[^)]+\)/gi, "")
@@ -150,9 +95,78 @@ function customerSiteTitle(label) {
     .trim();
 }
 
+function normalizeSiteOption(row) {
+  const siteId = row?.siteId || row?.id || "";
+  return {
+    siteId,
+    displayName: customerSiteTitle(row?.displayName || siteId),
+    propertyId: row?.propertyId ?? row?.homeSiteId ?? null,
+    useToyoshimaDashboard: Boolean(row?.useToyoshimaDashboard),
+  };
+}
+
+function resolveInitialSiteId(options, preferredId) {
+  const ids = new Set(options.map((o) => o.siteId));
+  const saved = sessionStorage.getItem(SITE_STORAGE_KEY);
+  if (saved && ids.has(saved)) return saved;
+  if (preferredId && ids.has(preferredId)) return preferredId;
+  if (state.defaultSiteId && ids.has(state.defaultSiteId)) {
+    return state.defaultSiteId;
+  }
+  return options[0]?.siteId || FALLBACK_DEFAULT_SITE_ID;
+}
+
+function syncSiteSelectorUi() {
+  const sel = $("sf-site-select");
+  if (!sel) return;
+  sel.hidden = false;
+  sel.removeAttribute("aria-hidden");
+  $("sf-soc-meta")?.classList.remove("sf-tenant-fixed");
+  sel.disabled = state.siteOptions.length <= 1;
+  sel.value = state.siteId;
+}
+
+function fillSites(apiSites, defaultSiteId) {
+  const sel = $("sf-site-select");
+  if (!sel) return;
+
+  const raw = apiSites?.length ? apiSites : listFallbackSites();
+  state.siteOptions = raw.map(normalizeSiteOption).filter((s) => s.siteId);
+  if (defaultSiteId) state.defaultSiteId = defaultSiteId;
+
+  if (!state.siteOptions.length) {
+    state.siteOptions = listFallbackSites().map(normalizeSiteOption);
+  }
+
+  sel.innerHTML = state.siteOptions
+    .map(
+      (s) =>
+        `<option value="${s.siteId}">${escapeHtml(s.displayName)}</option>`
+    )
+    .join("");
+
+  state.siteId = resolveInitialSiteId(
+    state.siteOptions,
+    state.tenantSiteId || resolveSecuritySiteId()
+  );
+  sel.value = state.siteId;
+  window.__TISLY_SF_SITE_ID = state.siteId;
+  sessionStorage.setItem(SITE_STORAGE_KEY, state.siteId);
+  syncSiteSelectorUi();
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function syncCustomerHeaderTitle() {
-  let title = "TiSLY Security";
-  if (state.tenantReady) {
+  const row = state.siteOptions.find((s) => s.siteId === state.siteId);
+  let title = row?.displayName || "TiSLY Security";
+  if (!row && state.tenantReady) {
     const profile = JSON.parse(
       sessionStorage.getItem("tisly_tenant_profile_v1") ||
         localStorage.getItem("tisly_tenant_profile_v1") ||
@@ -161,11 +175,7 @@ function syncCustomerHeaderTitle() {
     if (profile?.displayName) {
       title = customerSiteTitle(profile.displayName);
     }
-  } else if (state.siteId === "SEC-JP-ITABASHI-LIVE") {
-    title = "板橋自宅";
-  } else if (isToyoshimaSecuritySite(state.siteId)) {
-    title = "豊島邸";
-  } else if (state.dash?.displayName) {
+  } else if (!row && state.dash?.displayName) {
     title = customerSiteTitle(state.dash.displayName);
   }
   const el = $("sf-title");
@@ -312,7 +322,7 @@ function renderDash(dash, opts = {}) {
 }
 
 function bootFallback() {
-  fillSites(listFallbackSites());
+  fillSites(listFallbackSites(), FALLBACK_DEFAULT_SITE_ID);
   applySiteLayout(true);
   if (!isToyoshimaSecuritySite(state.siteId)) {
     renderDash(getFallbackCustomerDash(state.siteId));
@@ -321,10 +331,10 @@ function bootFallback() {
 
 async function loadSites() {
   try {
-    const data = await fetchJson("/api/security-floor/v1/sites");
-    fillSites(data.sites);
+    const data = await fetchJson("/api/security-floor/v1/customer-sites");
+    fillSites(data.sites, data.defaultSiteId);
   } catch {
-    fillSites(listFallbackSites());
+    fillSites(listFallbackSites(), FALLBACK_DEFAULT_SITE_ID);
   }
 }
 
@@ -344,9 +354,33 @@ async function loadDash(opts = {}) {
   }
 }
 
+async function switchCustomerSite(nextSiteId) {
+  const allowed = state.siteOptions.some((s) => s.siteId === nextSiteId);
+  if (!allowed) return;
+  if (nextSiteId === state.siteId) return;
+
+  state.siteId = nextSiteId;
+  state.layoutSiteId = null;
+  state.dash = null;
+  state.alarmSig = "";
+  state.floorId = "1f";
+  window.__TISLY_SF_SITE_ID = nextSiteId;
+  sessionStorage.setItem(SITE_STORAGE_KEY, nextSiteId);
+
+  syncCustomerHeaderTitle();
+  applySiteLayout(true);
+
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    await loadToyoshimaDashboard();
+  } else {
+    await loadDash();
+  }
+}
+
 function startAlarmPolling() {
   if (state.pollTimer) clearInterval(state.pollTimer);
   state.pollTimer = setInterval(() => {
+    if (isToyoshimaSecuritySite(state.siteId)) return;
     loadDash({ soft: true }).catch(() => {});
   }, 2000);
 }
@@ -384,19 +418,11 @@ function bind() {
     if (id) state.floorId = id;
   });
   $("sf-site-select")?.addEventListener("change", (e) => {
-    if (state.tenantReady) return;
     const next = e.target.value;
-    const allow = new Set(["SEC-JP-ITABASHI-LIVE", TOYOSHIMA_SEC_ID]);
-    state.siteId = allow.has(next) ? next : TOYOSHIMA_SEC_ID;
-    e.target.value = state.siteId;
-    window.__TISLY_SF_SITE_ID = state.siteId;
-    applySiteLayout(true);
-    if (isToyoshimaSecuritySite(state.siteId)) {
-      loadToyoshimaDashboard().catch(() => {});
-    } else {
-      bootFallback();
-      loadDash().catch(() => {});
-    }
+    switchCustomerSite(next).catch((err) => {
+      console.warn("[security-customer] site switch", err);
+      e.target.value = state.siteId;
+    });
   });
 
   if (!window.__TISLY_SF_ALARM_BOUND) {
@@ -451,10 +477,9 @@ async function initTenantSecurity() {
     return false;
   }
   state.tenantReady = true;
-  state.siteId = siteId;
+  state.tenantSiteId = siteId;
   state.layoutSiteId = null;
   window.__TISLY_SF_SITE_ID = siteId;
-  hideSiteSelectorForTenant();
   return true;
 }
 
@@ -465,6 +490,7 @@ async function boot() {
   if (!tenantOk) return;
   await loadSites();
   applySiteLayout(true);
+  syncCustomerHeaderTitle();
   if (!isToyoshimaSecuritySite(state.siteId)) {
     await loadDash();
   }

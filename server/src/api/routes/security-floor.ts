@@ -21,6 +21,10 @@ import {
   type SecuritySensorStateV1,
 } from "../../security-floor/security-floor-sites-v1.js";
 import {
+  defaultCustomerSecuritySiteIdV1,
+  listCustomerSecuritySitesV1,
+} from "../../shared/customer/customer-security-sites-v1.js";
+import {
   ackSecurityAlarmsV1,
   demoTogglePrimaryAlertV1,
   setSecurityLightingV1,
@@ -44,6 +48,16 @@ securityFloorRouter.get("/sites", (_req, res) => {
     planStatus: s.planStatus,
   }));
   res.json({ ok: true, sites });
+});
+
+/** 顧客 Security 物件セレクタ（UI 表示対象のみ） */
+securityFloorRouter.get("/customer-sites", (_req, res) => {
+  const sites = listCustomerSecuritySitesV1();
+  res.json({
+    ok: true,
+    sites,
+    defaultSiteId: defaultCustomerSecuritySiteIdV1(),
+  });
 });
 
 securityFloorRouter.get("/customer", (req, res) => {
