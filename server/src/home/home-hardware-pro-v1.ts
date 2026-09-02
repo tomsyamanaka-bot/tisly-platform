@@ -237,6 +237,16 @@ export async function shellyColdPowerCycleV1(input?: {
   offResult?: { ok: boolean; message: string };
   onResult?: { ok: boolean; message: string };
 }> {
+  if (input?.siteId) {
+    const { runShellyColdPowerCycleFromConfigV1 } = await import(
+      "./home-shelly-failsafe-v1.js"
+    );
+    return runShellyColdPowerCycleFromConfigV1({
+      siteId: input.siteId,
+      actor: input.actor,
+      auto: false,
+    });
+  }
   const offResult = await shellyToggle({
     confirm: true,
     on: false,
@@ -246,15 +256,6 @@ export async function shellyColdPowerCycleV1(input?: {
     confirm: true,
     on: true,
   });
-  if (input?.siteId) {
-    recordSystemLogV1({
-      siteId: input.siteId,
-      category: "manual_control",
-      message: "Shelly コールドリブート（5秒OFF→ON）",
-      detail: { offResult, onResult },
-      actor: input.actor ?? "operator-pro",
-    });
-  }
   return {
     ok: offResult.ok && onResult.ok,
     message: offResult.ok && onResult.ok

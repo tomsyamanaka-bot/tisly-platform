@@ -2413,6 +2413,39 @@
   line-height: 1.45;
 }
 
+.sf-pro-switch-row,
+.sf-pro-field {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  font-weight: 700;
+  color: #334155;
+}
+
+.sf-pro-switch-row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.sf-pro-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.sf-pro-field input.sf-mini {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  background: #fff;
+  color: #0f172a;
+}
+
 .sf-pro-test-grid {
   display: grid;
   gap: 8px;

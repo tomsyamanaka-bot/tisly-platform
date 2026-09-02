@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2512" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2514" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2511" />
   <script type="importmap">
   {
@@ -310,9 +310,83 @@
               🔄 実機ソフトリブート（RP2350再起動）
             </button>
             <button type="button" class="sf-pro-action-btn sf-pro-action-warn" id="sf-pro-shelly-cold">
-              ⚡ Shelly 物理電源断（5秒OFF→自動ON）
+              ⚡ 今すぐ電源を5秒切って再投入
             </button>
           </div>
+        </details>
+
+        <details class="sf-pro-details" open id="sf-pro-shelly-failsafe">
+          <summary>⚡ 電源フェイルセーフ設定（Shelly連動）</summary>
+          <p class="sf-pro-hint">
+            主装置・子機のハートビート途絶時に、Shelly電源制御で自動再投入します。
+            クールダウン（15〜30分）で無限再起動を防止します。
+          </p>
+          <label class="sf-pro-switch-row" for="sf-pro-shelly-auto">
+            <span>自動再起動</span>
+            <span class="sf-pro-switch">
+              <input type="checkbox" id="sf-pro-shelly-auto" />
+              <span id="sf-pro-shelly-auto-label">OFF</span>
+            </span>
+          </label>
+          <label class="sf-pro-field" for="sf-pro-shelly-host">
+            <span>Shelly接続先（IP / URL）</span>
+            <input
+              type="text"
+              id="sf-pro-shelly-host"
+              class="sf-mini"
+              placeholder="例: 192.168.10.40 または http://192.168.10.40"
+              autocomplete="off"
+            />
+          </label>
+          <label class="sf-pro-field" for="sf-pro-shelly-cloud">
+            <span>クラウドID（任意）</span>
+            <input
+              type="text"
+              id="sf-pro-shelly-cloud"
+              class="sf-mini"
+              placeholder="Shelly Cloud デバイスID"
+              autocomplete="off"
+            />
+          </label>
+          <label class="sf-pro-field" for="sf-pro-shelly-auth">
+            <span>認証キー</span>
+            <input
+              type="password"
+              id="sf-pro-shelly-auth"
+              class="sf-mini"
+              placeholder="未変更時は空のまま"
+              autocomplete="off"
+            />
+            <span class="sf-pro-hint" id="sf-pro-shelly-auth-mask"></span>
+          </label>
+          <label class="sf-pro-field" for="sf-pro-shelly-cooldown">
+            <span>クールダウン（分）</span>
+            <input
+              type="number"
+              id="sf-pro-shelly-cooldown"
+              class="sf-mini"
+              min="15"
+              max="30"
+              value="20"
+            />
+          </label>
+          <div class="sf-pro-reboot-row">
+            <button type="button" class="sf-pro-action-btn" id="sf-pro-shelly-save">
+              💾 設定を保存
+            </button>
+            <button type="button" class="sf-pro-action-btn sf-pro-action-warn" id="sf-pro-shelly-manual">
+              ⚡ 今すぐ電源を5秒切って再投入
+            </button>
+            <a
+              class="sf-pro-action-btn sf-pro-action-ghost"
+              id="sf-pro-shelly-script"
+              href="#"
+              download="tisly-shelly-auto-reboot-watchdog.js"
+            >
+              📥 Shelly自律監視スクリプト
+            </a>
+          </div>
+          <p class="sf-pro-hint" id="sf-pro-shelly-last">最終自動再投入: —</p>
         </details>
 
         <details class="sf-pro-details">
@@ -671,7 +745,7 @@
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2512"></script>
-  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2512"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2514"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2510"></script>
   <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2511"></script>
   <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2512"></script>

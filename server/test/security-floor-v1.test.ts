@@ -663,6 +663,10 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /ts-dashboard-root/);
     assert.match(opHtml, /sf-pro-tools/);
     assert.match(opHtml, /security-floor-pro-tools-v1\.js/);
+    assert.match(opHtml, /電源フェイルセーフ設定/);
+    assert.match(opHtml, /sf-pro-shelly-auto/);
+    assert.match(opHtml, /今すぐ電源を5秒切って再投入/);
+    assert.match(opHtml, /Shelly自律監視スクリプト/);
     assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);

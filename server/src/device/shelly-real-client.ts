@@ -40,10 +40,11 @@ function resolveBaseUrl(override?: string): string | null {
   return base || null;
 }
 
-function authHeaders(): Record<string, string> {
+function authHeaders(authTokenOverride?: string): Record<string, string> {
   const h: Record<string, string> = { Accept: "application/json" };
-  if (config.shelly.authToken) {
-    h.Authorization = `Bearer ${config.shelly.authToken}`;
+  const token = (authTokenOverride ?? config.shelly.authToken)?.trim();
+  if (token) {
+    h.Authorization = `Bearer ${token}`;
   }
   return h;
 }
@@ -51,7 +52,8 @@ function authHeaders(): Record<string, string> {
 async function shellyRpc(
   method: string,
   params?: Record<string, unknown>,
-  baseOverride?: string
+  baseOverride?: string,
+  authTokenOverride?: string
 ): Promise<Record<string, unknown> | null> {
   const base = resolveBaseUrl(baseOverride);
   if (!base) return null;
@@ -61,7 +63,10 @@ async function shellyRpc(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      headers: {
+        ...authHeaders(authTokenOverride),
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(params ?? {}),
       signal: controller.signal,
     });
@@ -215,6 +220,7 @@ export async function shellyToggle(input: {
   dryRun?: boolean;
   on?: boolean;
   baseUrl?: string;
+  authToken?: string;
 }): Promise<ShellyActionResult> {
   const guard = assertRealActionGuard(input);
   if (guard.blocked) {
@@ -248,7 +254,12 @@ export async function shellyToggle(input: {
       message: "SHELLY_BASE_URL required",
     };
   }
-  const res = await shellyRpc("Switch.Set", { id: 0, on: input.on !== false }, base);
+  const res = await shellyRpc(
+    "Switch.Set",
+    { id: 0, on: input.on !== false },
+    base,
+    input.authToken
+  );
   return {
     ok: !!res,
     dryRun: false,

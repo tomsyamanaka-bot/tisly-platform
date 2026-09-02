@@ -177,7 +177,12 @@ function renderFieldPhotos(photos) {
 }
 
 async function refreshProToolsPanels() {
-  await Promise.all([loadTestOutputs(), loadFieldPhotos(), loadDiStatus()]);
+  await Promise.all([
+    loadTestOutputs(),
+    loadFieldPhotos(),
+    loadDiStatus(),
+    loadShellyFailsafe().catch(() => {}),
+  ]);
   startDiPolling();
 }
 
@@ -218,7 +223,86 @@ async function runShellyColdReboot() {
       actor: "operator-pro",
     }),
   });
-  toast(data.message || "Shelly コールドリブートを実行しました");
+  toast(data.message || "Shelly電源制御を実行しました");
+}
+
+function formatFailsafeLastAt(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+async function loadShellyFailsafe() {
+  const data = await fetchJson(
+    `${HOME_API}/hardware/shelly-failsafe?siteId=${encodeURIComponent(
+      currentHomeSiteId
+    )}`
+  );
+  const f = data.failsafe || {};
+  const auto = $("sf-pro-shelly-auto");
+  const autoLabel = $("sf-pro-shelly-auto-label");
+  if (auto) auto.checked = !!f.autoRebootEnabled;
+  if (autoLabel) autoLabel.textContent = f.autoRebootEnabled ? "ON" : "OFF";
+  const host = $("sf-pro-shelly-host");
+  if (host) host.value = f.shellyHost || "";
+  const cloud = $("sf-pro-shelly-cloud");
+  if (cloud) cloud.value = f.shellyCloudId || "";
+  const auth = $("sf-pro-shelly-auth");
+  if (auth) auth.value = "";
+  const mask = $("sf-pro-shelly-auth-mask");
+  if (mask) {
+    mask.textContent = f.shellyAuthKeyMasked
+      ? `登録済み: ${f.shellyAuthKeyMasked}`
+      : "認証キー未設定";
+  }
+  const cool = $("sf-pro-shelly-cooldown");
+  if (cool) cool.value = String(f.cooldownMinutes ?? 20);
+  const last = $("sf-pro-shelly-last");
+  if (last) {
+    last.textContent = `最終自動再投入: ${formatFailsafeLastAt(
+      f.lastAutoRebootAt
+    )}`;
+  }
+  const script = $("sf-pro-shelly-script");
+  if (script) {
+    const rp =
+      currentHomeSiteId.includes("TOYOSHIMA") ||
+      currentHomeSiteId.includes("TOSHIMA")
+        ? "http://192.168.1.50/"
+        : "http://192.168.1.50/";
+    script.href = `${HOME_API}/hardware/shelly-watchdog-script?siteId=${encodeURIComponent(
+      currentHomeSiteId
+    )}&rpTargetUrl=${encodeURIComponent(rp)}`;
+  }
+}
+
+async function saveShellyFailsafe() {
+  const body = {
+    siteId: currentHomeSiteId,
+    autoRebootEnabled: !!$("sf-pro-shelly-auto")?.checked,
+    shellyHost: $("sf-pro-shelly-host")?.value || "",
+    shellyCloudId: $("sf-pro-shelly-cloud")?.value || "",
+    cooldownMinutes: Number($("sf-pro-shelly-cooldown")?.value) || 20,
+    actor: "operator-pro",
+  };
+  const auth = ($("sf-pro-shelly-auth")?.value || "").trim();
+  if (auth) body.shellyAuthKey = auth;
+  const data = await fetchJson(`${HOME_API}/hardware/shelly-failsafe`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  toast(data.message || "電源フェイルセーフ設定を保存しました");
+  await loadShellyFailsafe();
 }
 
 async function uploadFieldPhoto(file, category, title) {
@@ -311,7 +395,29 @@ function bindProToolsUi() {
     try {
       await runShellyColdReboot();
     } catch (err) {
-      toast(err.message || "Shelly リブートに失敗");
+      toast(err.message || "Shelly電源制御に失敗");
+    }
+  });
+
+  $("sf-pro-shelly-manual")?.addEventListener("click", async () => {
+    try {
+      await runShellyColdReboot();
+    } catch (err) {
+      toast(err.message || "Shelly電源制御に失敗");
+    }
+  });
+
+  $("sf-pro-shelly-auto")?.addEventListener("change", () => {
+    const on = !!$("sf-pro-shelly-auto")?.checked;
+    const lab = $("sf-pro-shelly-auto-label");
+    if (lab) lab.textContent = on ? "ON" : "OFF";
+  });
+
+  $("sf-pro-shelly-save")?.addEventListener("click", async () => {
+    try {
+      await saveShellyFailsafe();
+    } catch (err) {
+      toast(err.message || "設定保存に失敗");
     }
   });
 

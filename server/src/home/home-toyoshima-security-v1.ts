@@ -112,6 +112,7 @@ export interface ToyoshimaTimelineEventV1 {
     | "patlite_test"
     | "comm_loss"
     | "comm_recovered"
+    | "shelly_auto_reboot"
     | "board_overheat"
     | "mode_change";
   title: string;
@@ -417,7 +418,7 @@ async function processToyoshimaBoardTempV1(
   }
 }
 
-/** 5分 heartbeat 監視 — 途絶時に Push と履歴を記録 */
+/** 5分 heartbeat 監視 — 途絶時に Push・履歴・Shelly自動キック */
 export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
   const now = Date.now();
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
@@ -452,6 +453,33 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
       body: `${label}から5分以上ハートビート未受信（通信途絶）`,
       eventType: "toyoshima_comm_loss",
     });
+
+    /* Shelly 電源自動復旧（設定ON・クールダウン外のみ） */
+    try {
+      const { maybeTriggerShellyAutoRebootV1 } = await import(
+        "./home-shelly-failsafe-v1.js"
+      );
+      const attempt = await maybeTriggerShellyAutoRebootV1({
+        siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        buildingLabel: label,
+        reason: `${label}ハートビート途絶`,
+      });
+      if (attempt.triggered) {
+        appendTimeline({
+          at: nowIso(),
+          building,
+          kind: "shelly_auto_reboot",
+          title: "電源自動復旧",
+          detail:
+            "⚡ RP通信途絶を検知：Shelly電源自動再投入を実行",
+        });
+      }
+    } catch (err) {
+      console.warn(
+        "[toyoshima] shelly failsafe",
+        err instanceof Error ? err.message : err
+      );
+    }
   }
 }
 

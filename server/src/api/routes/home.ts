@@ -115,6 +115,12 @@ import {
   triggerHardwareDiTestV1,
 } from "../../home/home-hardware-pro-v1.js";
 import {
+  buildShellyLocalWatchdogScriptV1,
+  getHomeShellyFailsafeV1,
+  maskHomeShellyFailsafeV1,
+  updateHomeShellyFailsafeV1,
+} from "../../home/home-shelly-failsafe-v1.js";
+import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
   buildToyoshimaActivityReportV1,
@@ -899,6 +905,114 @@ homeRouter.post("/hardware/shelly-cold-reboot", async (req, res) => {
       error: err instanceof Error ? err.message : String(err),
     });
   }
+});
+
+/**
+ * 電源フェイルセーフ設定（Shelly連動）
+ * GET /api/home/v1/hardware/shelly-failsafe?siteId=
+ */
+homeRouter.get("/hardware/shelly-failsafe", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    findHomeSiteV1(siteId);
+    const cfg = getHomeShellyFailsafeV1(siteId);
+    res.json({
+      ok: true,
+      siteId,
+      failsafe: maskHomeShellyFailsafeV1(cfg),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * PUT /api/home/v1/hardware/shelly-failsafe
+ */
+homeRouter.put("/hardware/shelly-failsafe", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    findHomeSiteV1(siteId);
+    const authKeyRaw = req.body?.shellyAuthKey;
+    const patch: {
+      autoRebootEnabled?: boolean;
+      shellyHost?: string;
+      shellyCloudId?: string;
+      shellyAuthKey?: string;
+      cooldownMinutes?: number;
+    } = {
+      autoRebootEnabled:
+        req.body?.autoRebootEnabled !== undefined
+          ? Boolean(req.body.autoRebootEnabled)
+          : undefined,
+      shellyHost:
+        req.body?.shellyHost !== undefined
+          ? String(req.body.shellyHost)
+          : undefined,
+      shellyCloudId:
+        req.body?.shellyCloudId !== undefined
+          ? String(req.body.shellyCloudId)
+          : undefined,
+      cooldownMinutes:
+        req.body?.cooldownMinutes !== undefined
+          ? Number(req.body.cooldownMinutes)
+          : undefined,
+    };
+    /* 空文字はキー未変更（マスク表示の再保存対策） */
+    if (typeof authKeyRaw === "string" && authKeyRaw.trim()) {
+      patch.shellyAuthKey = authKeyRaw.trim();
+    }
+    const cfg = updateHomeShellyFailsafeV1(siteId, patch);
+    res.json({
+      ok: true,
+      siteId,
+      failsafe: maskHomeShellyFailsafeV1(cfg),
+      message: "電源フェイルセーフ設定を保存しました",
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * Shelly ローカル自律監視スクリプト
+ * GET /api/home/v1/hardware/shelly-watchdog-script?siteId=
+ */
+homeRouter.get("/hardware/shelly-watchdog-script", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  const cfg = siteId ? getHomeShellyFailsafeV1(siteId) : null;
+  const targetUrl =
+    String(req.query.targetUrl ?? "").trim() ||
+    (cfg?.shellyHost
+      ? `http://${cfg.shellyHost.replace(/^https?:\/\//, "").split("/")[0]}/`
+      : "http://192.168.1.50/");
+  /* 監視対象は RP2350 側 URL（クエリで上書き可） */
+  const rpTarget =
+    String(req.query.rpTargetUrl ?? "").trim() ||
+    "http://192.168.1.50/";
+  const script = buildShellyLocalWatchdogScriptV1({
+    targetUrl: rpTarget || targetUrl,
+  });
+  res.type("text/plain; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    'attachment; filename="tisly-shelly-auto-reboot-watchdog.js"'
+  );
+  res.send(script);
 });
 
 /**
