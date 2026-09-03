@@ -70,6 +70,10 @@ input_states = {str(i): "off" for i in range(1, 9)}
 _lan = None
 _security = None
 _wdt = None
+_rgb = None
+_rgb_blink_on = False
+_boot_ms = time.ticks_ms()
+_last_hb_ok = False
 
 
 def log(msg):
@@ -92,19 +96,92 @@ def _device_id():
     return str(getattr(config, "DEVICE_ID", "rp2350-toyoshima-main-01"))
 
 
+def _uptime_sec():
+    return int(time.ticks_diff(time.ticks_ms(), _boot_ms) / 1000)
+
+
+def init_rgb_led():
+    """オンボード WS2812 自己診断 LED を初期化。"""
+    global _rgb
+    pin_no = int(getattr(config, "RGB_LED_PIN", 2))
+    count = int(getattr(config, "RGB_LED_COUNT", 1))
+    try:
+        import neopixel
+
+        _rgb = neopixel.NeoPixel(Pin(pin_no), count)
+        set_rgb(0, 0, 40)
+        log("RGB LED GPIO{} 初期化".format(pin_no))
+    except Exception as e:
+        _rgb = None
+        log_error("RGB LED: {}".format(e))
+
+
+def set_rgb(r, g, b):
+    """RGB を即時反映（失敗は無視）。"""
+    if _rgb is None:
+        return
+    try:
+        _rgb[0] = (int(r), int(g), int(b))
+        _rgb.write()
+    except Exception:
+        pass
+
+
+def set_rgb_status(kind):
+    """
+    青=接続中 / 緑点滅=HB正常 /
+    赤=不通またはAPIエラー
+    """
+    global _rgb_blink_on
+    if kind == "boot":
+        set_rgb(0, 0, 48)
+    elif kind == "ok":
+        _rgb_blink_on = not _rgb_blink_on
+        if _rgb_blink_on:
+            set_rgb(0, 48, 0)
+        else:
+            set_rgb(0, 0, 0)
+    elif kind == "error":
+        set_rgb(48, 0, 0)
+    else:
+        set_rgb(0, 0, 48)
+
+
 def _wait_lan(lan, timeout_sec=15):
+    """DHCP 待ち中も WDT をキック。"""
     deadline = time.ticks_add(time.ticks_ms(), int(timeout_sec * 1000))
     while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+        kick_watchdog(_wdt)
         if lan.isconnected():
             return True
         time.sleep_ms(200)
     return lan.isconnected()
 
 
+def _apply_static_ip(nic):
+    """DHCP 失敗時の固定 IP フォールバック。"""
+    ip = str(getattr(config, "STATIC_IP", "192.168.1.235"))
+    mask = str(getattr(config, "STATIC_MASK", "255.255.255.0"))
+    gw = str(getattr(config, "STATIC_GATEWAY", "192.168.1.1"))
+    dns = str(getattr(config, "STATIC_DNS", "8.8.8.8"))
+    try:
+        nic.ifconfig((ip, mask, gw, dns))
+        log("固定IP適用: {} gw={}".format(ip, gw))
+        time.sleep_ms(500)
+        kick_watchdog(_wdt)
+        return nic.ifconfig()
+    except Exception as e:
+        log_error("固定IP失敗: {}".format(e))
+        return None
+
+
 def init_ethernet():
-    """W5500 / network.LAN / WIZNET5K の順で初期化。"""
+    """DHCP → 失敗時固定IP の二重初期化。"""
     global _lan
-    log("Ethernet init")
+    set_rgb_status("boot")
+    log("Ethernet init（DHCP優先）")
+    dhcp_sec = int(getattr(config, "DHCP_TIMEOUT_SEC", 12))
+
     try:
         import network
 
@@ -115,7 +192,10 @@ def init_ethernet():
                     lan.active(True)
                 except Exception:
                     pass
-                _wait_lan(lan)
+                _wait_lan(lan, dhcp_sec)
+            if not lan.isconnected():
+                _apply_static_ip(lan)
+                _wait_lan(lan, 5)
             if lan.isconnected():
                 _lan = lan
                 return lan.ifconfig()
@@ -143,7 +223,10 @@ def init_ethernet():
             nic.ifconfig(
                 ["0.0.0.0", "255.255.255.0", "0.0.0.0", "8.8.8.8"]
             )
-        _wait_lan(nic)
+        _wait_lan(nic, dhcp_sec)
+        if not nic.isconnected():
+            _apply_static_ip(nic)
+            _wait_lan(nic, 5)
         if nic.isconnected():
             _lan = nic
             return nic.ifconfig()
@@ -301,7 +384,8 @@ def _forward_event(building, di, message):
 
 
 def send_heartbeat():
-    """5 分周期 — 豊島邸 heartbeat API。"""
+    """起動直後＆5分周期 — 豊島邸 heartbeat API。"""
+    global _last_hb_ok
     building = _building()
     payload = build_heartbeat_payload(
         building,
@@ -314,10 +398,10 @@ def send_heartbeat():
             "chStates": dict(ch_states),
             "inputStates": dict(input_states),
             "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
+            "uptime_sec": _uptime_sec(),
+            "ip": get_ip(),
         },
     )
-    # build_heartbeat_payload 内で温度取得済みだが
-    # ログ用に明示表示する
     temp = payload.get("board_temp")
     if temp is not None:
         log("board_temp={:.1f}C".format(temp))
@@ -328,14 +412,41 @@ def send_heartbeat():
         "/api/home/v1/toyoshima/heartbeat", payload
     )
     if status != 200:
+        _last_hb_ok = False
+        set_rgb_status("error")
         log_error(
             "heartbeat HTTP {} — {}".format(
                 status, (body or "")[:120]
             )
         )
         return False
-    log("heartbeat sent ({})".format(building))
+    _last_hb_ok = True
+    set_rgb_status("ok")
+    log("heartbeat sent ({}) ONLINE".format(building))
     return True
+
+
+def ensure_network_or_retry():
+    """不通時は赤表示→再初期化。"""
+    ip = get_ip()
+    if ip:
+        return ip
+    set_rgb_status("error")
+    log_error("ネットワーク不通 — 再接続を試行")
+    kick_watchdog(_wdt)
+    ifconfig = init_ethernet()
+    ip = get_ip()
+    if ip:
+        log("再接続成功 IP={}".format(ip))
+        if ifconfig:
+            log(
+                "  netmask: {}  gw: {}".format(
+                    ifconfig[1], ifconfig[2]
+                )
+            )
+        return ip
+    set_rgb_status("error")
+    return None
 
 
 def poll_security_rules():
@@ -403,7 +514,11 @@ async def async_main():
     global _security, _wdt
 
     building = _building()
-    label = "母屋（主装置）" if building == "main" else "はなれ（子機）"
+    label = (
+        "母屋（主装置・8回路）"
+        if building == "main"
+        else "はなれ（子機・6回路）"
+    )
     log("豊島邸 {} 起動".format(label))
     log(
         "TENANT={} SITE={} DEVICE={}".format(
@@ -419,8 +534,12 @@ async def async_main():
         )
     )
 
+    init_rgb_led()
+    set_rgb_status("boot")
+
     wdt_ms = int(getattr(config, "WDT_TIMEOUT_MS", WDT_TIMEOUT_MS))
     _wdt = init_watchdog(wdt_ms)
+    kick_watchdog(_wdt)
 
     for ch in sorted(CH_PINS.keys()):
         CH_PINS[ch].value(0)
@@ -430,6 +549,7 @@ async def async_main():
         input_states[str(di)] = read_di_state(di)
 
     ifconfig = init_ethernet()
+    kick_watchdog(_wdt)
     ip = get_ip()
     if ip:
         log("IP address: {}".format(ip))
@@ -440,7 +560,8 @@ async def async_main():
                 )
             )
     else:
-        log_error("Ethernet 未接続 — PoE/LAN・lib/・DHCP を確認")
+        set_rgb_status("error")
+        log_error("Ethernet 未接続 — PoE/LAN・DHCP/固定IPを確認")
 
     if building == "detached":
         _security = ToyoshimaDetachedController(
@@ -470,15 +591,32 @@ async def async_main():
     )
     poll_counter = 0
 
+    # 起動直後に 1 発目 heartbeat を即時送信
+    kick_watchdog(_wdt)
+    if get_ip():
+        send_heartbeat()
+    else:
+        set_rgb_status("error")
+
     log(
         "polling start (poll {} sec / heartbeat {} sec)".format(
             poll_interval_sec, heartbeat_interval_sec
         )
     )
-    next_heartbeat_ms = time.ticks_ms()
+    next_heartbeat_ms = time.ticks_add(
+        time.ticks_ms(), heartbeat_interval_ms
+    )
+    net_retry_every = 20
+    net_retry_counter = 0
 
     while True:
         kick_watchdog(_wdt)
+
+        net_retry_counter += 1
+        if net_retry_counter >= net_retry_every:
+            net_retry_counter = 0
+            if not get_ip():
+                ensure_network_or_retry()
 
         poll_counter += 1
         if poll_counter >= rules_sync_every:
@@ -495,13 +633,18 @@ async def async_main():
 
         now = time.ticks_ms()
         if time.ticks_diff(now, next_heartbeat_ms) >= 0:
+            if not get_ip():
+                ensure_network_or_retry()
             if send_heartbeat():
                 next_heartbeat_ms = time.ticks_add(
                     now, heartbeat_interval_ms
                 )
             else:
-                # 失敗時も短い再試行間隔を確保
-                next_heartbeat_ms = time.ticks_add(now, 30_000)
+                # 失敗時は数秒後に自動再試行
+                set_rgb_status("error")
+                next_heartbeat_ms = time.ticks_add(now, 5_000)
+        elif _last_hb_ok:
+            set_rgb_status("ok")
 
         await asyncio.sleep(poll_interval_sec)
 

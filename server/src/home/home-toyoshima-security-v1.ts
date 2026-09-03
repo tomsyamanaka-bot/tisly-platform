@@ -1101,10 +1101,15 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
       d.boardTempC >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1
   );
 
-  let onlineSummary = allOnline
-    ? "🟢 オンライン（主装置・子機 接続中）"
-    : "🔴 オフライン（通信途絶）";
-  if (allOnline && anyOverheat) {
+  let onlineSummary = "🔴 オフライン（通信途絶）";
+  const onlineDevices = devices.filter((d) => d.online);
+  if (allOnline && devices.length > 0) {
+    onlineSummary = "🟢 オンライン（主装置・子機 接続中）";
+  } else if (onlineDevices.length > 0) {
+    const names = onlineDevices.map((d) => d.label).join("・");
+    onlineSummary = `🟢 オンライン（${names} 接続中）`;
+  }
+  if (onlineDevices.length > 0 && anyOverheat) {
     onlineSummary = "⚠️ 盤内高温警告";
   }
 

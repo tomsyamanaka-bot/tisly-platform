@@ -8,6 +8,9 @@ Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython v1.28.0
 
 PoE 起動 → Ethernet 初期化 → 3 秒ごとに命令取得・DI読取 / 300 秒ごとに heartbeat → CH1〜CH8 ON/OFF 実行
 
+※ 豊島邸本番書き込みは main_toyoshima.py を
+  tools/flash_rp2350.py が main.py として転送する。
+
 """
 
 

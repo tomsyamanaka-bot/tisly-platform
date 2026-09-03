@@ -194,6 +194,19 @@ describe("toyoshima-security-v1", () => {
     });
   });
 
+  it("heartbeat API marks ONLINE and updates JST label fields", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    await recordToyoshimaHeartbeatV1({
+      building: "main",
+      boardTemp: 35.0,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.match(dash.commHealth.onlineSummary, /オンライン/);
+    assert.match(dash.commHealth.onlineSummary, /主装置/);
+    assert.ok(dash.commHealth.lastHeartbeatAt);
+    assert.equal(dash.main.online, true);
+  });
+
   it("heartbeat board_temp caution and overheat warning", async () => {
     resetToyoshimaSecurityStateForTestV1();
     await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 48.2 });

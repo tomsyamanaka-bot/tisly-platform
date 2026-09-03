@@ -37,6 +37,17 @@ heartbeat_interval_sec = HEARTBEAT_INTERVAL_SEC
 # 物理 WDT タイムアウト（ms）
 WDT_TIMEOUT_MS = 8000
 
+# DHCP 失敗時の固定 IP（フォールバック）
+STATIC_IP = "192.168.1.235"
+STATIC_MASK = "255.255.255.0"
+STATIC_GATEWAY = "192.168.1.1"
+STATIC_DNS = "8.8.8.8"
+DHCP_TIMEOUT_SEC = 12
+
+# オンボード WS2812 RGB（Waveshare ETH-8DI-8RO = GPIO2）
+RGB_LED_PIN = 2
+RGB_LED_COUNT = 1
+
 # CH1〜CH8 リレー GPIO（Waveshare 02_MQTT サンプル）
 CH_GPIO = {
     1: 17,
@@ -68,4 +79,4 @@ DI_ACTIVE_LOW = True
 DI_DEBOUNCE_MS = 100
 
 # ファームウェア版
-FIRMWARE_VERSION = "1.0.0-toyoshima-security"
+FIRMWARE_VERSION = "1.1.0-toyoshima-online"

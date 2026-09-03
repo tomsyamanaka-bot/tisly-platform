@@ -1412,9 +1412,26 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       const dashSite = String(
         req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
       ).trim();
+      const dashboard = buildToyoshimaSecurityDashboardV1(dashSite);
+      const lastHb =
+        dashboard.commHealth?.lastHeartbeatAt || new Date().toISOString();
+      const lastHeartbeatLabelJst = new Date(lastHb).toLocaleString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
       res.json({
         ok: true,
-        dashboard: buildToyoshimaSecurityDashboardV1(dashSite),
+        status: "ONLINE",
+        building,
+        lastHeartbeatAt: lastHb,
+        lastHeartbeatLabelJst,
+        onlineSummary: dashboard.commHealth?.onlineSummary,
+        dashboard,
       });
     } catch (err) {
       res.status(400).json({

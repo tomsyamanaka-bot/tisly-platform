@@ -48,16 +48,39 @@ def _find_mpremote() -> str:
 
 def _ensure_mpremote() -> list[str]:
     """mpremote 起動コマンドを返す。"""
+    # Windows は python -m が確実
+    probe = subprocess.run(
+        [sys.executable, "-m", "mpremote", "version"],
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode == 0:
+        return [sys.executable, "-m", "mpremote"]
+
     exe = _find_mpremote()
     if exe:
         return [exe]
-    # パッケージ未導入なら pip で入れる
+
     print("mpremote が見つかりません - pip install します")
-    _run([sys.executable, "-m", "pip", "install", "mpremote"])
+    _run([sys.executable, "-m", "pip", "install", "mpremote"], check=False)
+    probe2 = subprocess.run(
+        [sys.executable, "-m", "mpremote", "version"],
+        capture_output=True,
+        text=True,
+    )
+    if probe2.returncode == 0:
+        return [sys.executable, "-m", "mpremote"]
     exe = _find_mpremote()
     if exe:
         return [exe]
     return [sys.executable, "-m", "mpremote"]
+
+
+def _run_timeout(
+    cmd: list[str], timeout_sec: int = 60, check: bool = True
+) -> subprocess.CompletedProcess:
+    print("+", " ".join(cmd))
+    return subprocess.run(cmd, check=check, timeout=timeout_sec)
 
 
 def _detect_com_port() -> str | None:
@@ -122,7 +145,11 @@ def _render_config(building: str) -> str:
 
 def flash(building: str, port: str | None, dry_run: bool) -> int:
     building = "detached" if building == "detached" else "main"
-    label = "はなれ（子機）" if building == "detached" else "母屋（主装置）"
+    label = (
+        "はなれ（子機・6回路）"
+        if building == "detached"
+        else "母屋（主装置・8回路）"
+    )
     print("=== 豊島邸 RP2350 書き込み: {} ===".format(label))
 
     with tempfile.TemporaryDirectory(prefix="tisly-flash-") as tmp:
@@ -162,10 +189,34 @@ def flash(building: str, port: str | None, dry_run: bool) -> int:
             else:
                 print("COM 未指定 - mpremote の自動選択を使用")
 
+        # 書き込み前に soft-reset を短時間試行
+        try:
+            _run_timeout(
+                mp + connect + ["soft-reset"],
+                timeout_sec=8,
+                check=False,
+            )
+        except Exception:
+            print(
+                "注意: soft-reset 応答なし。"
+                " RESETボタン押下後に再実行してください"
+            )
+
         for src, dest in uploads:
             cmd = mp + connect + ["cp", str(src), dest]
             try:
-                _run(cmd)
+                _run_timeout(cmd, timeout_sec=45)
+            except subprocess.TimeoutExpired:
+                print(
+                    "書き込みタイムアウト: {}".format(dest),
+                    file=sys.stderr,
+                )
+                print(
+                    "対処: 1) Thonnyを完全終了 2) USB再挿抜"
+                    " 3) 基板RESET押下 4) 再実行",
+                    file=sys.stderr,
+                )
+                return 1
             except subprocess.CalledProcessError as exc:
                 print(
                     "書き込み失敗: {} (exit {})".format(dest, exc.returncode),
@@ -177,15 +228,16 @@ def flash(building: str, port: str | None, dry_run: bool) -> int:
                 )
                 return exc.returncode or 1
 
-        # リセットして main.py を起動
+        # ハードリセット相当で main.py を起動
         reset_cmd = mp + connect + ["reset"]
         try:
-            _run(reset_cmd, check=False)
+            _run_timeout(reset_cmd, timeout_sec=15, check=False)
         except Exception:
             pass
 
     print("書き込み完了 - 豊島邸 {} ファームを反映しました".format(label))
     print("確認: Thonny Shell に [豊島邸] 起動ログが出ること")
+    print("確認: VPS heartbeat で ONLINE / 緑点滅")
     return 0
 
 
