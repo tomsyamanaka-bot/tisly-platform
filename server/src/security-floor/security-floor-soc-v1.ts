@@ -7,6 +7,7 @@
 import {
   findSecuritySiteV1,
   listSecuritySitesV1,
+  SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
   sensorKindIconV1,
   setSecuritySensorStateV1,
   setSecuritySocSensorListenerV1,
@@ -14,6 +15,7 @@ import {
   type SecuritySiteV1,
 } from "./security-floor-sites-v1.js";
 import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
+import { getToyoshimaSocHeartbeatSnapshotV1 } from "../home/home-toyoshima-security-v1.js";
 
 /** ハートビート受信後この秒数以内ならオンライン扱い */
 /** 最終 heartbeat から 15 分以内ならオンライン
@@ -295,13 +297,25 @@ export function buildSecuritySocOverlayV1(
       enabled: f.enabled,
       z: layerZ(f.id),
     }));
-  const hb = getHeartbeatDebugSnapshot();
-  const lastHeartbeatAt = hb.lastHeartbeatAt || null;
-  const hbAgeMs = lastHeartbeatAt
-    ? Date.now() - Date.parse(lastHeartbeatAt)
-    : Number.POSITIVE_INFINITY;
-  const deviceOnline =
-    Number.isFinite(hbAgeMs) && hbAgeMs >= 0 && hbAgeMs < DEVICE_ONLINE_WINDOW_MS;
+  // 豊島邸は Toyoshima runtime を唯一の心拍ソースにする
+  const isToyoshima = site.id === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1;
+  let lastHeartbeatAt: string | null = null;
+  let deviceOnline = false;
+  if (isToyoshima) {
+    const th = getToyoshimaSocHeartbeatSnapshotV1();
+    lastHeartbeatAt = th.lastHeartbeatAt;
+    deviceOnline = th.deviceOnline;
+  } else {
+    const hb = getHeartbeatDebugSnapshot();
+    lastHeartbeatAt = hb.lastHeartbeatAt || null;
+    const hbAgeMs = lastHeartbeatAt
+      ? Date.now() - Date.parse(lastHeartbeatAt)
+      : Number.POSITIVE_INFINITY;
+    deviceOnline =
+      Number.isFinite(hbAgeMs) &&
+      hbAgeMs >= 0 &&
+      hbAgeMs < DEVICE_ONLINE_WINDOW_MS;
+  }
   return {
     layers,
     cameras: listSecurityCamerasV1(site),

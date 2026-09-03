@@ -202,9 +202,29 @@ describe("toyoshima-security-v1", () => {
     });
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.match(dash.commHealth.onlineSummary, /オンライン/);
-    assert.match(dash.commHealth.onlineSummary, /主装置/);
+    assert.match(dash.commHealth.onlineSummary, /実機稼働中|主装置/);
     assert.ok(dash.commHealth.lastHeartbeatAt);
     assert.equal(dash.main.online, true);
+    assert.match(dash.commHealth.boardTempLabel, /適温・正常|正常/);
+  });
+
+  it("null board temp shows monitoring label without fake value", () => {
+    resetToyoshimaSecurityStateForTestV1();
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.commHealth.boardTempC, null);
+    assert.match(dash.commHealth.boardTempLabel, /正常監視中/);
+  });
+
+  it("SOC heartbeat snapshot uses Toyoshima SSOT", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    const { getToyoshimaSocHeartbeatSnapshotV1 } = await import(
+      "../src/home/home-toyoshima-security-v1.js"
+    );
+    await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 36.4 });
+    const snap = getToyoshimaSocHeartbeatSnapshotV1();
+    assert.equal(snap.deviceOnline, true);
+    assert.equal(snap.boardTempC, 36.4);
+    assert.ok(snap.lastHeartbeatAt);
   });
 
   it("heartbeat board_temp caution and overheat warning", async () => {

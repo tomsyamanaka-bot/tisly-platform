@@ -223,6 +223,18 @@ function syncHeaderTitle(site) {
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
+  // 豊島邸では旧 KPI（別系統心拍）を完全除外
+  const kpi = $("sf-kpi");
+  if (kpi) {
+    if (isToyoshima) {
+      kpi.innerHTML = "";
+      kpi.hidden = true;
+      kpi.setAttribute("aria-hidden", "true");
+    } else {
+      kpi.hidden = false;
+      kpi.removeAttribute("aria-hidden");
+    }
+  }
   if (!force && state.layoutSiteId === state.siteId) return;
   state.layoutSiteId = state.siteId;
   if (isToyoshima) {
@@ -269,6 +281,16 @@ function formatHeartbeatAt(iso) {
 }
 
 function renderKpi(site, _dash) {
+  // 豊島邸は ts-health-card（commHealth SSOT）のみ表示
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    const kpi = $("sf-kpi");
+    if (kpi) {
+      kpi.innerHTML = "";
+      kpi.hidden = true;
+      kpi.setAttribute("aria-hidden", "true");
+    }
+    return;
+  }
   const soc = site.soc || {};
   const online = !!soc.deviceOnline;
   const ms =
@@ -291,7 +313,7 @@ function renderKpi(site, _dash) {
     [
       "最新ハートビート",
       formatHeartbeatAt(soc.lastHeartbeatAt),
-      isToyoshimaSecuritySite(state.siteId) ? "主装置" : "実機",
+      "実機",
       online ? "ok" : "info",
     ],
   ]
@@ -301,6 +323,11 @@ function renderKpi(site, _dash) {
       </article>`
     )
     .join("");
+  const kpi = $("sf-kpi");
+  if (kpi) {
+    kpi.hidden = false;
+    kpi.removeAttribute("aria-hidden");
+  }
   setHtml("sf-kpi", html);
   setText("sf-online", online ? "● オンライン" : "● オフライン");
 }

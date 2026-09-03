@@ -565,6 +565,12 @@
   display: none;
 }
 
+/* 豊島邸 · 旧 KPI（別系統心拍）を完全非表示 */
+.sf-body.is-toyoshima #sf-kpi,
+.sf-body.is-toyoshima .sf-kpi-row {
+  display: none !important;
+}
+
 .sf-body.is-toyoshima .sf-customer-light-card,
 .sf-body.is-toyoshima .sf-customer-camera-card,
 .sf-body.is-toyoshima .sf-customer-daily-settings {
@@ -977,6 +983,67 @@
 
 .ts-safety-metric {
   display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+/* 顧客向け · システム安心・通信ヘルス */
+#ts-customer-status-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.ts-assure-health-card {
+  border: 1.5px solid #1e3a8a;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 8px 20px rgba(30, 58, 138, 0.08);
+}
+
+.ts-assure-head {
+  color: #1e3a8a;
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.ts-assure-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.ts-assure-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.ts-assure-key {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.ts-assure-val {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.ts-assure-note {
+  margin: 10px 0 0;
+  color: #1e3a8a;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
   gap: 2px;
   padding: 10px 12px;
   border-radius: 12px;

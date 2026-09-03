@@ -91,6 +91,70 @@ function formatJstCommTime(iso) {
   }
 }
 
+/** 顧客向け · 短い最終確認時刻（例: 09/03 21:50） */
+function formatJstConfirmTime(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * 通信ヘルス表示の単一真実ソース（SSOT）
+ * dash.commHealth + クライアント往復遅延のみを使う
+ */
+function buildCommHealthView(dash) {
+  const health = dash?.commHealth || {};
+  const offline = String(health.onlineSummary || "").includes("オフライン");
+  const online = !offline && Boolean(health.lastHeartbeatAt || health.onlineSummary);
+  const latencyMs =
+    typeof clientLatencyMs === "number" && Number.isFinite(clientLatencyMs)
+      ? Math.max(0, Math.round(clientLatencyMs))
+      : null;
+  let latencyLabel = "計測中…";
+  let latencyTone = "info";
+  if (latencyMs != null) {
+    latencyTone = latencyMs <= 120 ? "ok" : latencyMs <= 300 ? "info" : "alert";
+    const quality =
+      latencyMs <= 120 ? "良好" : latencyMs <= 300 ? "普通" : "遅延あり";
+    latencyLabel = `${latencyMs} ms（${quality}）`;
+  }
+  const tempLevel = health.boardTempLevel || "normal";
+  const tempEmoji =
+    tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
+  const tempLabel = health.boardTempLabel || "正常監視中";
+  const operatorOnline =
+    health.onlineSummary ||
+    (online ? "🟢 オンライン（実機稼働中）" : "🔴 オフライン（通信途絶）");
+  const customerOnline = offline
+    ? "🔴 オフライン"
+    : "🟢 正常稼働中（オンライン）";
+  const heartbeatIso = health.lastHeartbeatAt || health.lastCommAt || null;
+  return {
+    online,
+    offline,
+    operatorOnline,
+    customerOnline,
+    latencyLabel,
+    latencyTone,
+    tempLevel,
+    tempEmoji,
+    tempLabel,
+    heartbeatIso,
+    heartbeatLabel: heartbeatIso ? formatJstCommTime(heartbeatIso) : "未受信",
+    confirmLabel: heartbeatIso ? formatJstConfirmTime(heartbeatIso) : "—",
+  };
+}
+
 function showToast(message) {
   let el = $("ts-toast");
   if (!el) {
@@ -147,10 +211,10 @@ function renderCustomerStatusBanner(dash) {
   const alerting = !!alarm.active;
   const detectLabel = dash.monthlyDetectionLabel || "0件";
   const lightLabel = dash.lightsScheduleLabel || "18:00〜06:00";
-  const online =
-    !String(dash.commHealth?.onlineSummary || "").includes("オフライン");
-  syncCustomerOnlinePill(online, alerting);
-  return `<section class="ts-card ts-safety-card ${
+  const view = buildCommHealthView(dash);
+  syncCustomerOnlinePill(view.online, alerting);
+  return `<div id="ts-customer-status-stack">
+  <section class="ts-card ts-safety-card ${
     alerting ? "is-alert" : "is-ok"
   }" id="ts-status-banner">
     <div class="ts-safety-main">
@@ -172,6 +236,37 @@ function renderCustomerStatusBanner(dash) {
         <strong class="ts-safety-metric-val">${escapeHtml(lightLabel)}自動点灯</strong>
       </div>
     </div>
+  </section>
+  ${renderCustomerAssureHealthCard(view)}
+  </div>`;
+}
+
+/**
+ * 顧客向け · システム安心・通信ヘルスカード
+ * 危険スイッチは含めず稼働状態のみ表示
+ */
+function renderCustomerAssureHealthCard(view) {
+  return `<section class="ts-card ts-assure-health-card" id="ts-customer-health-card" aria-label="システム安心・通信ヘルス">
+    <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
+    <div class="ts-assure-grid">
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">稼働ステータス</span>
+        <span class="ts-assure-val" id="ts-assure-online">${escapeHtml(view.customerOnline)}</span>
+      </div>
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">ネットワーク遅延</span>
+        <span class="ts-assure-val" id="ts-assure-latency">${escapeHtml(view.latencyLabel)}</span>
+      </div>
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">盤内温度</span>
+        <span class="ts-assure-val ts-board-temp is-${view.tempLevel}" id="ts-assure-temp">${view.tempEmoji} ${escapeHtml(view.tempLabel)}</span>
+      </div>
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">最終確認時刻</span>
+        <span class="ts-assure-val" id="ts-assure-confirm">${escapeHtml(view.confirmLabel)}</span>
+      </div>
+    </div>
+    <p class="ts-assure-note">TOMS が常時遠隔監視しています</p>
   </section>`;
 }
 
@@ -408,35 +503,26 @@ function renderAlarmCard(dash, opts = {}) {
 }
 
 function renderHealthGrid(dash) {
-  const health = dash.commHealth || {};
-  const latency =
-    clientLatencyMs != null ? `${clientLatencyMs} ms` : "計測中…";
-  const heartbeat = health.lastHeartbeatAt
-    ? formatJstCommTime(health.lastHeartbeatAt)
-    : "—";
-  const tempLevel = health.boardTempLevel || "normal";
-  const tempEmoji =
-    tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
-  const tempLabel = health.boardTempLabel || "—";
+  const view = buildCommHealthView(dash);
   const watchOn = dash.heartbeatWatchEnabled !== false;
-  return `<section class="ts-card ts-health-card" id="ts-health-card">
+  return `<section class="ts-card ts-health-card" id="ts-health-card" data-ssot="toyoshima-commHealth">
     <h3 class="ts-card-head">📡 通信ステータス</h3>
     <div class="ts-health-grid">
       <div class="ts-health-cell">
-        <span class="ts-health-key">ネットワーク遅延</span>
-        <span class="ts-health-val" id="ts-latency-val">${escapeHtml(latency)}</span>
+        <span class="ts-health-key">稼働ステータス</span>
+        <span class="ts-health-val" id="ts-online-val">${escapeHtml(view.operatorOnline)}</span>
       </div>
       <div class="ts-health-cell">
-        <span class="ts-health-key">稼働ステータス</span>
-        <span class="ts-health-val" id="ts-online-val">${escapeHtml(health.onlineSummary || "—")}</span>
+        <span class="ts-health-key">最新ハートビート</span>
+        <span class="ts-health-val" id="ts-heartbeat-val">${escapeHtml(view.heartbeatLabel)}</span>
+      </div>
+      <div class="ts-health-cell">
+        <span class="ts-health-key">ネットワーク遅延</span>
+        <span class="ts-health-val" id="ts-latency-val">${escapeHtml(view.latencyLabel)}</span>
       </div>
       <div class="ts-health-cell">
         <span class="ts-health-key">盤内温度（主装置）</span>
-        <span class="ts-health-val ts-board-temp is-${tempLevel}" id="ts-board-temp-val">${tempEmoji} ${escapeHtml(tempLabel)}</span>
-      </div>
-      <div class="ts-health-cell ts-health-cell-wide">
-        <span class="ts-health-key">最新ハートビート</span>
-        <span class="ts-health-val" id="ts-heartbeat-val">${escapeHtml(heartbeat)}</span>
+        <span class="ts-health-val ts-board-temp is-${view.tempLevel}" id="ts-board-temp-val">${view.tempEmoji} ${escapeHtml(view.tempLabel)}</span>
       </div>
     </div>
     <label class="ts-switch-row ts-hb-watch-row" for="ts-hb-watch">
@@ -631,12 +717,16 @@ function dashSignature(dash) {
     patlite: dash.patliteThreatEnabled,
     hbWatch: dash.heartbeatWatchEnabled,
     monthDet: dash.monthlyDetectionCount,
+    // 通信ヘルス SSOT を soft patch 判定に含める
+    online: dash.commHealth?.onlineSummary,
+    hbAt: dash.commHealth?.lastHeartbeatAt,
+    boardTemp: dash.commHealth?.boardTempC,
+    boardLabel: dash.commHealth?.boardTempLabel,
     sched: `${dash.scheduleStart}-${dash.scheduleEnd}`,
     alarm: dash.alarm?.active,
     alarmMsg: dash.alarm?.message,
     notify: (dash.notifySensors || []).map((s) => `${s.id}:${s.mode}`).join(","),
     comm: dash.commHealth?.lastCommAt,
-    online: dash.commHealth?.onlineSummary,
     mainDi: (dash.main?.di || []).map((d) => d.state).join(","),
     mainDo: (dash.main?.do || [])
       .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
@@ -844,8 +934,10 @@ function patchToyoshimaDashboard(dash) {
   syncSettingsState(dash);
 
   if (isCustomerPortal()) {
+    const stack = $("ts-customer-status-stack");
     const banner = $("ts-status-banner");
-    if (banner) banner.outerHTML = renderCustomerStatusBanner(dash);
+    if (stack) stack.outerHTML = renderCustomerStatusBanner(dash);
+    else if (banner) banner.outerHTML = renderCustomerStatusBanner(dash);
 
     const modeCard = $("ts-mode-card");
     if (modeCard) modeCard.outerHTML = renderCustomerModeCards(dash);
@@ -909,26 +1001,18 @@ function patchToyoshimaDashboard(dash) {
   if (heroTitle) heroTitle.textContent = dash.displayName || "豊島邸";
   if (heroActions) heroActions.innerHTML = renderHeroChips(dash);
 
-  const health = dash.commHealth || {};
-  const latency =
-    clientLatencyMs != null ? `${clientLatencyMs} ms` : "計測中…";
-  const heartbeat = health.lastHeartbeatAt
-    ? formatJstCommTime(health.lastHeartbeatAt)
-    : "—";
+  const view = buildCommHealthView(dash);
   const latencyEl = $("ts-latency-val");
   const onlineEl = $("ts-online-val");
   const heartbeatEl = $("ts-heartbeat-val");
-  if (latencyEl) latencyEl.textContent = latency;
-  if (onlineEl) onlineEl.textContent = health.onlineSummary || "—";
-  if (heartbeatEl) heartbeatEl.textContent = heartbeat;
+  if (latencyEl) latencyEl.textContent = view.latencyLabel;
+  if (onlineEl) onlineEl.textContent = view.operatorOnline;
+  if (heartbeatEl) heartbeatEl.textContent = view.heartbeatLabel;
   const boardTempEl = $("ts-board-temp-val");
   if (boardTempEl) {
-    const level = health.boardTempLevel || "normal";
-    const emoji =
-      level === "warning" ? "🔴" : level === "caution" ? "🟡" : "🟢";
-    boardTempEl.textContent = `${emoji} ${health.boardTempLabel || "—"}`;
+    boardTempEl.textContent = `${view.tempEmoji} ${view.tempLabel}`;
     boardTempEl.classList.remove("is-normal", "is-caution", "is-warning");
-    boardTempEl.classList.add(`is-${level}`);
+    boardTempEl.classList.add(`is-${view.tempLevel}`);
   }
   const hbWatch = $("ts-hb-watch");
   const hbWatchLabel = $("ts-hb-watch-label");

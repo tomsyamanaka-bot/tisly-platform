@@ -306,14 +306,15 @@ function boardTempLevelV1(
 }
 
 function formatBoardTempLabelV1(c: number | null): string {
-  if (c == null || Number.isNaN(c)) return "—";
+  // 未受信時は実測値を偽らず監視中表示
+  if (c == null || Number.isNaN(c)) return "正常監視中";
   const level = boardTempLevelV1(c);
   const suffix =
     level === "warning"
       ? "（警告）"
       : level === "caution"
         ? "（注意）"
-        : "（正常）";
+        : "（適温・正常）";
   return `${c.toFixed(1)}℃${suffix}`;
 }
 
@@ -1104,7 +1105,8 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
   let onlineSummary = "🔴 オフライン（通信途絶）";
   const onlineDevices = devices.filter((d) => d.online);
   if (allOnline && devices.length > 0) {
-    onlineSummary = "🟢 オンライン（主装置・子機 接続中）";
+    // UI 表示の SSOT · 実機稼働中を優先
+    onlineSummary = "🟢 オンライン（実機稼働中）";
   } else if (onlineDevices.length > 0) {
     const names = onlineDevices.map((d) => d.label).join("・");
     onlineSummary = `🟢 オンライン（${names} 接続中）`;
@@ -1122,6 +1124,30 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
     boardTempLabel: formatBoardTempLabelV1(mainTemp),
     boardTempLevel: mainLevel,
     devices,
+  };
+}
+
+/**
+ * Security Floor SOC 向けの豊島邸ハートビート SSOT。
+ * remote-test の別系統スナップショットと二重化しない。
+ */
+export function getToyoshimaSocHeartbeatSnapshotV1(): {
+  lastHeartbeatAt: string | null;
+  deviceOnline: boolean;
+  boardTempC: number | null;
+  boardTempLabel: string;
+  onlineSummary: string;
+} {
+  const health = buildToyoshimaCommHealthV1();
+  const online =
+    Boolean(health.lastHeartbeatAt) &&
+    !String(health.onlineSummary || "").includes("オフライン");
+  return {
+    lastHeartbeatAt: health.lastHeartbeatAt,
+    deviceOnline: online,
+    boardTempC: health.boardTempC,
+    boardTempLabel: health.boardTempLabel,
+    onlineSummary: health.onlineSummary,
   };
 }
 
