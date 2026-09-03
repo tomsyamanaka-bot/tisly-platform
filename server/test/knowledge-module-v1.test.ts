@@ -129,6 +129,11 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /マルチアングル方眼紙/);
     assert.match(mockSrc, /MOCK_MULTI_ANGLE_SKETCH_ITEMS/);
     assert.match(mockSrc, /#GeminiVision/);
+    assert.match(mockSrc, /既製品ハック（一体型）によるRS485 Modbus現場施工標準/);
+    assert.match(mockSrc, /RS485 Modbus既製品アドレス設定＆事前キッティング手順/);
+    assert.match(mockSrc, /MOCK_RS485_MODBUS_STANDARD_ITEMS/);
+    assert.match(mockSrc, /#ハード選定/);
+    assert.match(mockSrc, /#事前キッティング/);
   });
 
   it("nav script requires login before loading bundle", () => {

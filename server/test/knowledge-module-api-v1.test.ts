@@ -131,6 +131,10 @@ const {
   ATTENDANCE_NFC_MODULE_SEED_IDS,
   seedAttendanceNfcKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-attendance-nfc-seed-v1.js");
+const {
+  RS485_MODBUS_STANDARD_MODULE_SEED_IDS,
+  seedRs485ModbusStandardKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-rs485-modbus-standard-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1211,6 +1215,45 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /電気錠連動仕様/);
     assert.ok(card!.tags.includes("#RS485"));
     assert.ok(card!.tags.includes("#NFCリーダー"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends RS485 Modbus standard seed cards", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of RS485_MODBUS_STANDARD_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const hw = listed.find(
+      (x) => x.id === "kn-seed-rs485-modbus-hw-standard-001"
+    );
+    assert.ok(hw);
+    assert.match(hw!.title, /ハード選定標準/);
+    assert.ok(hw!.tags.includes("#既製品ハック"));
+    assert.ok(hw!.tags.includes("#TiSLY標準"));
+    const addr = listed.find(
+      (x) => x.id === "kn-seed-rs485-modbus-addr-kitting-001"
+    );
+    assert.ok(addr);
+    assert.match(addr!.title, /事前キッティング/);
+    assert.ok(addr!.tags.includes("#Modbusアドレス"));
+    assert.ok(addr!.tags.includes("#TiSLY運用"));
+  });
+
+  it("seedRs485ModbusStandardKnowledgeCardsV1 upserts searchable cards", () => {
+    seedRs485ModbusStandardKnowledgeCardsV1();
+    const hw = getKnowledgeCardV1("HARD-RS485-MODBUS-STANDARD-001");
+    assert.ok(hw);
+    assert.match(hw!.title, /既製品ハック/);
+    assert.ok(hw!.tags.includes("#RS485"));
+    assert.ok(hw!.tags.includes("#配線省力化"));
+    const addr = getKnowledgeCardV1("OPS-RS485-MODBUS-ADDR-KITTING-001");
+    assert.ok(addr);
+    assert.match(addr!.title, /アドレス設定/);
+    assert.ok(addr!.tags.includes("#事前キッティング"));
+    assert.ok(addr!.tags.includes("#現場トラブル防止"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

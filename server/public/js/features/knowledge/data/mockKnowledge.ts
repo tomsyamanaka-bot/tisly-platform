@@ -84,6 +84,9 @@ export const QUICK_TAGS = [
   "防犯",
   "ミリ波",
   "SIM",
+  "ハード選定",
+  "既製品ハック",
+  "事前キッティング",
 ] as const;
 
 export type QuickTag = (typeof QUICK_TAGS)[number];
@@ -1635,6 +1638,95 @@ export const MOCK_ATTENDANCE_NFC_ITEMS: KnowledgeItem[] = [
       "",
       "【電気錠連動 CH1】",
       "打刻成功と同時にリレー CH1 を約1秒パルス。",
+    ].join("\n"),
+  },
+];
+
+/** RS485 Modbus 既製品ハック標準（末尾追記） */
+export const RS485_MODBUS_STANDARD_KNOWLEDGE_TITLES = [
+  "【ハード選定標準】既製品ハック（一体型）によるRS485 Modbus現場施工標準",
+  "【現場運用標準】RS485 Modbus既製品アドレス設定＆事前キッティング手順",
+] as const;
+
+const RS485_MODBUS_STANDARD_CREATED_AT = "2026-09-03T08:00:00.000Z";
+
+/**
+ * Knowledge モジュール向けモックカード。
+ * 既存配列は改変せず、末尾に RS485 標準 2 件を保持。
+ */
+export const MOCK_RS485_MODBUS_STANDARD_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-rs485-modbus-hw-standard-001",
+    title:
+      "【ハード選定標準】既製品ハック（一体型）によるRS485 Modbus現場施工標準",
+    summary: [
+      "現場加工（基板剥き出し、ケース切削、ハンダ付け）を完全廃止。",
+      "最初から防水ケース・端子台（A/B線）を備えた産業用・市販一体型モジュール",
+      "（RS485壁掛けNFC、Modbusミリ波、DINレールpH/EC等）を採用。",
+      "RP2350の緑色端子台から2本線で数珠つなぎ（デイジーチェーン）し、",
+      "最大1.2km・ノイズフリーで伝送。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#ハード選定",
+      "#既製品ハック",
+      "#RS485",
+      "#ModbusRTU",
+      "#配線省力化",
+      "#TiSLY標準",
+    ],
+    pdf_url: null,
+    createdAt: RS485_MODBUS_STANDARD_CREATED_AT,
+    body: [
+      "【方針】",
+      "現場加工（基板剥き出し・ケース切削・ハンダ）は完全廃止。",
+      "防水ケース・端子台（A/B線）付きの産業用・市販一体型を採用。",
+      "",
+      "【採用例】",
+      "・RS485 壁掛け NFC リーダー",
+      "・Modbus ミリ波レーダー",
+      "・DIN レール pH/EC 送信機",
+      "",
+      "【配線】",
+      "RP2350 緑色端子台から A/B 2本線で数珠つなぎ",
+      "（デイジーチェーン）。最大約 1.2km・ノイズフリー伝送。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-rs485-modbus-addr-kitting-001",
+    title:
+      "【現場運用標準】RS485 Modbus既製品アドレス設定＆事前キッティング手順",
+    summary: [
+      "複数台接続時のID重複防止運用。",
+      "①DIPスイッチ型（手動切替）、",
+      "②本体ボタン・液晶型（CAL/MODE長押し➔Addr変更）、",
+      "③Modbusファンクション06コマンド書き換え。",
+      "現場高所作業を避け、事務所デスク上で事前に",
+      "アドレス割り振り＋テプラ貼付を終える運用ルール。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#Modbusアドレス",
+      "#事前キッティング",
+      "#アドレス書き換え",
+      "#現場トラブル防止",
+      "#TiSLY運用",
+    ],
+    pdf_url: null,
+    createdAt: RS485_MODBUS_STANDARD_CREATED_AT,
+    body: [
+      "【目的】",
+      "複数台接続時のスレーブ ID 重複を事前に防ぐ。",
+      "",
+      "【アドレス設定の3手段】",
+      "① DIP スイッチ型（手動切替）",
+      "② 本体ボタン・液晶型",
+      "   （CAL/MODE 長押し → Addr 変更）",
+      "③ Modbus ファンクション 06 で書き換え",
+      "",
+      "【運用ルール】",
+      "現場高所作業を避け、事務所デスク上で",
+      "アドレス割り振り＋テプラ貼付を完了させる。",
     ].join("\n"),
   },
 ];
