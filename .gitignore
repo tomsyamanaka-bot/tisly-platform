@@ -71,3 +71,18 @@ android/AAB_READY.txt
 # Play Console local AAB export (binary; regenerate with npm run build:android)
 play-console-upload/*.aab
 play-console-upload/AAB_READY.txt
+
+# Capacitor iOS (generated on macOS / GitHub Actions macos-latest)
+ios/
+www/*
+!www/.gitkeep
+!www/.gitignore
+node_modules/
+package-lock.json.bak
+*.ipa
+*.xcarchive
+*.mobileprovision
+*.p12
+*.p8
+AuthKey_*.p8
+ios-ci/**/build/

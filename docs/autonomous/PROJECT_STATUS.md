@@ -1768,3 +1768,17 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Knowledge | FACTORY-MULTI-ANGLE-SKETCH-001 append |
 | SW | tisly-pwa-v2512-multi-angle-sketch |
 | 確認 | /3d-generator · https://tisly.jp/api/health |
+
+---
+
+## Capacitor iOS / App Store Connect（追加）
+
+| 項目 | 状態 |
+|------|------|
+| Bundle ID | `jp.tisly.app` |
+| Capacitor | `capacitor.config.ts` · `webDir=www` · 本番 `server.url=https://tisly.jp` |
+| CI | `.github/workflows/ios-deploy.yml`（macos-latest · workflow_dispatch / `ios-v*` / `release/ios`） |
+| 手順書 | [../ios-deploy-guide.md](../ios-deploy-guide.md) |
+| 既存データ | 変更なし（survey_photos / completion_photos / VPS デプロイ分離） |
+| ローカル検証 | `npm run ios:check` · `npm run cap:prepare`（Xcode は CI のみ） |
+

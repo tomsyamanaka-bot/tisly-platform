@@ -1,0 +1,74 @@
+# frozen_string_literal: true
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Archive TiSLY iOS and optionally upload to App Store Connect / TestFlight"
+  lane :release do |options|
+    workspace = options[:workspace] || "App.xcworkspace"
+    scheme = options[:scheme] || "App"
+    export_options = options[:export_options] || "../ExportOptions.plist"
+    skip_upload =
+      ENV["IOS_SKIP_UPLOAD"] == "1" ||
+      [true, "true", "1"].include?(options[:skip_upload])
+
+    build_app(
+      workspace: workspace,
+      scheme: scheme,
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      export_options: export_options,
+      output_directory: "./build",
+      output_name: "TiSLY",
+      xcargs: "CODE_SIGN_STYLE=Manual"
+    )
+
+    if skip_upload
+      UI.important("Skipping App Store Connect upload (IOS_SKIP_UPLOAD=1)")
+      next
+    end
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APP_STORE_KEY_ID"),
+      issuer_id: ENV.fetch("APP_STORE_ISSUER_ID"),
+      key_content: ENV.fetch("APP_STORE_PRIVATE_KEY"),
+      is_key_content_base64: ENV["APP_STORE_PRIVATE_KEY_IS_BASE64"] == "1",
+      duration: 1200,
+      in_house: false
+    )
+
+    # TestFlight / App Store Connect へバイナリのみアップロード（審査提出は手動）
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: "./build/TiSLY.ipa",
+      skip_waiting_for_build_processing: true,
+      distribute_external: false
+    )
+  end
+
+  desc "Upload an existing IPA via altool (fallback without Fastlane deliver)"
+  lane :upload_altool do |options|
+    ipa = options[:ipa] || "./build/TiSLY.ipa"
+    key_id = ENV.fetch("APP_STORE_KEY_ID")
+    issuer = ENV.fetch("APP_STORE_ISSUER_ID")
+    # Write .p8 from secret for altool
+    p8_path = File.expand_path("./AuthKey_#{key_id}.p8")
+    key_body = ENV.fetch("APP_STORE_PRIVATE_KEY")
+    if ENV["APP_STORE_PRIVATE_KEY_IS_BASE64"] == "1"
+      require "base64"
+      key_body = Base64.decode64(key_body)
+    end
+    File.write(p8_path, key_body)
+
+    sh(
+      "xcrun", "altool", "--upload-app",
+      "--type", "ios",
+      "--file", ipa,
+      "--apiKey", key_id,
+      "--apiIssuer", issuer
+    )
+  ensure
+    File.delete(p8_path) if p8_path && File.exist?(p8_path)
+  end
+end

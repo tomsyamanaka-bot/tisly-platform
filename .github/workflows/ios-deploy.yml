@@ -1,0 +1,250 @@
+name: iOS App Store Deploy
+
+# Windows 開発機では Xcode 不可のため、macos-latest 上で
+# Capacitor iOS 生成 → 署名 → IPA → App Store Connect まで実行する。
+# 詳細: docs/ios-deploy-guide.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "App Store Connect へアップロードする"
+        type: boolean
+        default: true
+      ref:
+        description: "ビルドする ref（省略時は現在のブランチ）"
+        required: false
+        type: string
+      server_url:
+        description: "Capacitor server.url（空=https://tisly.jp / local=ローカルwww）"
+        required: false
+        default: "https://tisly.jp"
+        type: string
+  push:
+    tags:
+      - "ios-v*"
+    branches:
+      - "release/ios"
+
+concurrency:
+  group: tisly-ios-deploy
+  cancel-in-progress: false
+
+env:
+  IOS_BUNDLE_ID: jp.tisly.app
+  NODE_VERSION: "20"
+
+jobs:
+  build-and-upload:
+    name: Build IPA (macos)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          fetch-depth: 1
+
+      - name: Check iOS signing / ASC secrets
+        id: secrets
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${BUILD_CERTIFICATE_BASE64:-}" ] && missing+=("BUILD_CERTIFICATE_BASE64")
+          [ -z "${CERTIFICATE_PASSWORD:-}" ] && missing+=("CERTIFICATE_PASSWORD")
+          [ -z "${BUILD_PROVISION_PROFILE_BASE64:-}" ] && missing+=("BUILD_PROVISION_PROFILE_BASE64")
+          [ -z "${APPLE_TEAM_ID:-}" ] && missing+=("APPLE_TEAM_ID")
+
+          UPLOAD="true"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            UPLOAD="${{ github.event.inputs.upload }}"
+          fi
+
+          if [ "$UPLOAD" = "true" ]; then
+            [ -z "${APP_STORE_KEY_ID:-}" ] && missing+=("APP_STORE_KEY_ID")
+            [ -z "${APP_STORE_ISSUER_ID:-}" ] && missing+=("APP_STORE_ISSUER_ID")
+            [ -z "${APP_STORE_PRIVATE_KEY:-}" ] && missing+=("APP_STORE_PRIVATE_KEY")
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::GitHub Secrets が未設定です: ${missing[*]}"
+            echo "詳細手順: docs/ios-deploy-guide.md"
+            exit 1
+          fi
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "upload=${UPLOAD}" >> "$GITHUB_OUTPUT"
+          echo "profile_name=${PROVISIONING_PROFILE_NAME:-TiSLY App Store}" >> "$GITHUB_OUTPUT"
+          echo "keychain_password=${KEYCHAIN_PASSWORD:-tisly-ios-ci-temp}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install root (Capacitor) dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Build web / server (npm run build)
+        run: npm run build
+
+      - name: Prepare Capacitor www (from server/public)
+        run: npm run cap:prepare
+        env:
+          CAPACITOR_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.server_url || 'https://tisly.jp' }}
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          # Prefer latest stable Xcode on the runner image
+          if [ -d "/Applications/Xcode.app" ]; then
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          fi
+          xcodebuild -version
+
+      - name: Add Capacitor iOS platform (idempotent)
+        run: |
+          set -euo pipefail
+          if [ ! -d ios/App ]; then
+            npx cap add ios
+          else
+            echo "ios/ already present — skipping cap add"
+          fi
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+        env:
+          CAPACITOR_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.server_url || 'https://tisly.jp' }}
+
+      - name: Patch Info.plist (camera / push / local network)
+        run: npm run ios:patch-plist
+
+      - name: Import Apple certificate & provisioning profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ steps.secrets.outputs.keychain_password }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          # UUID from profile
+          PP_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PP_PATH")")
+          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/${PP_UUID}.mobileprovision"
+          echo "Installed provisioning profile UUID=${PP_UUID}"
+          echo "PP_UUID=${PP_UUID}" >> "$GITHUB_ENV"
+
+      - name: Render ExportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROVISIONING_PROFILE_NAME: ${{ steps.secrets.outputs.profile_name }}
+        run: node scripts/ios-render-export-options.mjs ios/ExportOptions.plist
+
+      - name: Set bundle id / team on Xcode project
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          PBX="ios/App/App.xcodeproj/project.pbxproj"
+          # Capacitor default PRODUCT_BUNDLE_IDENTIFIER is often com.getcapacitor.app / App
+          /usr/bin/sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;/g" "$PBX"
+          /usr/bin/sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
+          # Ensure CODE_SIGN_STYLE Manual appears (append if missing is hard; Fastlane xcargs also sets Manual)
+          echo "Updated bundle id + team in $PBX"
+
+      - name: Install CocoaPods
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          if [ -f Podfile ]; then
+            pod install --repo-update
+          fi
+
+      - name: Setup Ruby / Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: false
+
+      - name: Install Fastlane
+        run: gem install fastlane -N
+
+      - name: Copy Fastlane into ios/App
+        run: |
+          set -euo pipefail
+          mkdir -p ios/App/fastlane
+          cp ios-ci/fastlane/Fastfile ios/App/fastlane/Fastfile
+          cp ios-ci/fastlane/Appfile ios/App/fastlane/Appfile
+          cp ios/ExportOptions.plist ios/App/ExportOptions.plist
+
+      - name: Archive & export IPA (Fastlane)
+        working-directory: ios/App
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          APP_STORE_PRIVATE_KEY_IS_BASE64: ${{ secrets.APP_STORE_PRIVATE_KEY_IS_BASE64 }}
+          IOS_BUNDLE_ID: jp.tisly.app
+          IOS_SKIP_UPLOAD: ${{ steps.secrets.outputs.upload == 'true' && '0' || '1' }}
+          MATCH_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          fastlane release \
+            workspace:"App.xcworkspace" \
+            scheme:"App" \
+            export_options:"ExportOptions.plist" \
+            skip_upload:${{ steps.secrets.outputs.upload == 'true' && 'false' || 'true' }}
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiSLY-ios-ipa
+          path: |
+            ios/App/build/*.ipa
+            ios/App/build/*.dSYM.zip
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          SHORT="$(git rev-parse --short HEAD)"
+          echo "### TiSLY iOS build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- bundle: \`jp.tisly.app\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- upload: \`${{ steps.secrets.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- guide: docs/ios-deploy-guide.md" >> "$GITHUB_STEP_SUMMARY"

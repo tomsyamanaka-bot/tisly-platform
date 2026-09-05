@@ -24,6 +24,14 @@ Cursor が止まらずに開発を進めるための標準フォルダーです�
 | [HUMAN_TODO.md](./HUMAN_TODO.md) | 智紀さん専用の短い ToDo |
 | [VPS_AUTO_DEPLOY.md](./VPS_AUTO_DEPLOY.md) | GitHub push → VPS 自動デプロイの設定 |
 
+## 関連（ストア配布）
+
+| ドキュメント | 内容 |
+|--------------|------|
+| [../ios-deploy-guide.md](../ios-deploy-guide.md) | Capacitor iOS + GitHub Actions → App Store Connect |
+| [../android_pwa_install_guide.md](../android_pwa_install_guide.md) | Android PWA インストール（Chrome） |
+| [../../android/README.md](../../android/README.md) | Android TWA（Google Play / Bubblewrap） |
+
 ## 方針
 
 - 不明点で止まらない → 仮値で進める

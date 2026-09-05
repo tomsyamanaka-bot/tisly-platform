@@ -1,7 +1,8 @@
 {
   "name": "tisly-home-security-demo",
   "private": true,
-  "description": "TiSLY HOME Security DEMO — monorepo scripts",
+  "description": "TiSLY HOME Security DEMO — monorepo scripts + Capacitor iOS",
+  "type": "module",
   "scripts": {
     "demo": "npm run demo --prefix server",
     "dev": "npm run dev --prefix server",
@@ -11,6 +12,10 @@
     "android:keystore": "node scripts/android-keystore.mjs",
     "android:sync-assetlinks": "node scripts/android-sync-assetlinks.mjs",
     "android:open-aab": "node scripts/android-open-aab.mjs",
+    "cap:prepare": "node scripts/prepare-capacitor-www.mjs",
+    "cap:sync:ios": "npm run cap:prepare && npx cap sync ios",
+    "ios:patch-plist": "node scripts/ios-patch-info-plist.mjs",
+    "ios:check": "node scripts/ios-check-setup.mjs",
     "hash:admin-password": "npm run hash:admin-password --prefix server",
     "vapid:setup": "npm run vapid:setup --prefix server",
     "vapid:generate": "npm run vapid:generate --prefix server",
@@ -20,5 +25,19 @@
     "flash:toyoshima:js": "node scripts/flash_toyoshima_rp2350.js",
     "test:toyoshima-fw": "python rp2350/test/test_toyoshima_board_temp.py",
     "test:toyoshima": "npm run test:toyoshima --prefix server"
+  },
+  "dependencies": {
+    "@capacitor/camera": "^7.0.2",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "@capacitor/network": "^7.0.2",
+    "@capacitor/push-notifications": "^7.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
