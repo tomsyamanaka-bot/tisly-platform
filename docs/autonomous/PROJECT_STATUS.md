@@ -1782,3 +1782,13 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 既存データ | 変更なし（survey_photos / completion_photos / VPS デプロイ分離） |
 | ローカル検証 | `npm run ios:check` · `npm run cap:prepare`（Xcode は CI のみ） |
 
+
+### iOS Build & Deploy 正規 WF（追記）
+
+| 項目 | 状態 |
+|------|------|
+| 正規 WF | `.github/workflows/ios-build-deploy.yml` |
+| ASC 3キー手順 | [../IOS_SECRETS_SETUP.md](../IOS_SECRETS_SETUP.md) |
+| Info.plist テンプレ | `ios-ci/Info.plist.permissions.template.xml` |
+| 旧 WF | `ios-deploy.yml` は誘導のみ（タグ二重起動防止） |
+

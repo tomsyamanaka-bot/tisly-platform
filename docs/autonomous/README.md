@@ -29,6 +29,7 @@ Cursor が止まらずに開発を進めるための標準フォルダーです�
 | ドキュメント | 内容 |
 |--------------|------|
 | [../ios-deploy-guide.md](../ios-deploy-guide.md) | Capacitor iOS + GitHub Actions → App Store Connect |
+| [../IOS_SECRETS_SETUP.md](../IOS_SECRETS_SETUP.md) | ASC API キー 3 件（承認後に GitHub Secrets 登録） |
 | [../android_pwa_install_guide.md](../android_pwa_install_guide.md) | Android PWA インストール（Chrome） |
 | [../../android/README.md](../../android/README.md) | Android TWA（Google Play / Bubblewrap） |
 

@@ -4,8 +4,10 @@ Windows のみの開発環境でも、**GitHub Actions（`macos-latest`）** 経
 
 関連:
 
-- ワークフロー: [`.github/workflows/ios-deploy.yml`](../.github/workflows/ios-deploy.yml)
+- **正規ワークフロー**: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-deploy.yml)
+- **ASC API キー 3 件のみ**: [IOS_SECRETS_SETUP.md](./IOS_SECRETS_SETUP.md)（承認待ち中はこちらを先に読む）
 - Capacitor 設定: [`capacitor.config.ts`](../capacitor.config.ts)（`appId: jp.tisly.app`）
+- Info.plist テンプレ: [`ios-ci/Info.plist.permissions.template.xml`](../ios-ci/Info.plist.permissions.template.xml)
 - Android TWA との関係: Android は `com.tisly.app`（Bubblewrap）。iOS は別 Bundle ID `jp.tisly.app`。どちらも本番 URL `https://tisly.jp` を表示（既存 PWA・DB・写真ルールは変更なし）。
 
 ---
@@ -62,15 +64,17 @@ base64 -i TiSLY_AppStore.mobileprovision | pbcopy
 
 ## 3. ワークフローの動かし方
 
-1. GitHub → **Actions → iOS App Store Deploy → Run workflow**
+1. GitHub → **Actions → iOS Build & Deploy (Capacitor)** → **Run workflow**
 2. 入力:
-   - `upload`: App Store Connect へ上げるなら true（IPA のみなら false）
+   - `upload`: App Store Connect / TestFlight へ上げるなら true（IPA のみなら false）
    - `server_url`: 通常は `https://tisly.jp`（ローカル www のみ検証するなら `local`）
 3. 成功後:
    - Artifact `TiSLY-ios-ipa` に IPA
-   - `upload=true` なら App Store Connect（TestFlight / 配信準備）にアップロード済み
+   - `upload=true` なら TestFlight 向けにアップロード済み
 
-タグでも起動できます: `ios-v1.0.0` のような `ios-v*` タグ、またはブランチ `release/ios`。
+タグでも起動: `ios-v1.0.0` または `v1.0.0-ios`。
+
+ASC API キー（3 件）だけ先に用意する場合: [IOS_SECRETS_SETUP.md](./IOS_SECRETS_SETUP.md)
 
 ---
 

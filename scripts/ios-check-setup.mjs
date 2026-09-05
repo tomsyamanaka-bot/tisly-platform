@@ -12,14 +12,17 @@ const root = path.resolve(__dirname, "..");
 const required = [
   "capacitor.config.ts",
   "package.json",
+  ".github/workflows/ios-build-deploy.yml",
   ".github/workflows/ios-deploy.yml",
   "docs/ios-deploy-guide.md",
+  "docs/IOS_SECRETS_SETUP.md",
   "scripts/prepare-capacitor-www.mjs",
   "scripts/ios-patch-info-plist.mjs",
   "scripts/ios-render-export-options.mjs",
   "ios-ci/ExportOptions.plist",
   "ios-ci/fastlane/Fastfile",
   "ios-ci/fastlane/Appfile",
+  "ios-ci/Info.plist.permissions.template.xml",
 ];
 
 let failed = false;

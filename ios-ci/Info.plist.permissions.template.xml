@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TiSLY iOS — Info.plist パーミッション テンプレート（参照用）
+
+  実注入は CI / Mac 上で scripts/ios-patch-info-plist.mjs が
+  ios/App/App/Info.plist へ適用する（既存 PWA・API・DB は変更しない）。
+
+  用途:
+  - カメラ: 現調・完了報告写真 / OCR・QR
+  - フォトライブラリ: 現場写真の選択・保存
+  - マイク: 現場メモ音声（将来）
+  - ローカルネットワーク: RP2350 / QNAP / LAN 機器
+  - プッシュ: UIBackgroundModes remote-notification
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>現場の現調・完了報告写真の撮影およびQRコード読取・OCRに使用します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>現場写真の選択・添付に使用します。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>撮影した現場写真をフォトライブラリへ保存するために使用します。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>現場メモの音声入力に使用します。</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>現場LAN上の機器（RP2350・QNAP・PLCゲートウェイ等）との通信に使用します。</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_https._tcp</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
