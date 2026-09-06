@@ -124,8 +124,11 @@ if /usr/libexec/PlistBuddy -c "Print :signingStyle" "$EXPORT_PLIST" 2>/dev/null 
 fi
 
 # 1) Prefer local IPA with embedded provisioning (required for ITMS-90174-safe upload)
+# NOTE: use method "app-store" only — "app-store-connect" yields
+#   exportOptionsPlist error for key "method" expected one {} 
+# when the archive has no distributable methods / on some Xcode versions.
 if [ "$EXPORT_OK" -ne 1 ]; then
-  for METHOD in app-store-connect app-store; do
+  for METHOD in app-store; do
     if run_export "$METHOD" "export"; then
       EXPORT_OK=1
       break
@@ -136,7 +139,7 @@ fi
 # 2) Fallback: Xcode uploads archive to ASC directly (still signs with Distribution profile)
 if [ "$EXPORT_OK" -ne 1 ]; then
   echo "Local export failed — trying destination=upload (ASC direct)" | tee -a "$LOG"
-  for METHOD in app-store-connect app-store; do
+  for METHOD in app-store; do
     if run_export "$METHOD" "upload"; then
       EXPORT_OK=1
       echo "uploaded-via-exportArchive" > "$UPLOAD_FLAG"
@@ -159,7 +162,7 @@ if [ -n "$IPA" ]; then
 elif [ -f "$UPLOAD_FLAG" ]; then
   echo "destination=upload succeeded without local IPA — ASC already received the build"
   # Still try to produce a signed IPA for artifact/verification by re-exporting locally
-  for METHOD in app-store-connect app-store; do
+  for METHOD in app-store; do
     if run_export "$METHOD" "export"; then
       IPA="$(find "$EXPORT_DIR" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
       if [ -n "$IPA" ]; then

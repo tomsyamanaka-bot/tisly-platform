@@ -322,14 +322,14 @@ jobs:
           # Enforce Automatic Signing + local IPA export (ITMS-90174 対策)
           /usr/libexec/PlistBuddy -c "Set :destination export" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Add :destination string export" "${APP_DIR}/build/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Set :method app-store-connect" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Set :method app-store" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :method app-store" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :method string app-store" "${APP_DIR}/build/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "${APP_DIR}/build/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
-          echo "===== ExportOptions (must have teamID + automatic + app-store-connect) ====="
+          echo "===== ExportOptions (method must be app-store) ====="
           plutil -p "${APP_DIR}/build/ExportOptions.plist"
           grep -q "${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
 
@@ -367,7 +367,6 @@ jobs:
             -workspace "$WS" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
-            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH" \
@@ -378,12 +377,15 @@ jobs:
             -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
             CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}" \
             MARKETING_VERSION="1.0.${GITHUB_RUN_NUMBER}" \
             SKIP_INSTALL=NO \
             INSTALL_PATH='$(LOCAL_APPS_DIR)' \
             ONLY_ACTIVE_ARCH=NO \
+            ENABLE_BITCODE=NO \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
             archive 2>&1 | tee "$LOG"
           STATUS=${PIPESTATUS[0]}
@@ -395,9 +397,29 @@ jobs:
             exit "$STATUS"
           fi
           test -d "$ARCHIVE_PATH"
+
+          echo "===== xcarchive Info.plist ====="
+          plutil -p "${ARCHIVE_PATH}/Info.plist" || true
+          APP_IN_ARCHIVE="$(find "${ARCHIVE_PATH}/Products/Applications" -maxdepth 1 -name '*.app' -type d | head -n 1 || true)"
+          if [ -z "$APP_IN_ARCHIVE" ]; then
+            echo "::error::Products/Applications に .app がありません（配布不可アーカイブ）"
+            find "$ARCHIVE_PATH" -maxdepth 5 -print || true
+            exit 1
+          fi
+          echo "App: $APP_IN_ARCHIVE"
+          codesign -dv --verbose=2 "$APP_IN_ARCHIVE" 2>&1 | tee "${APP_DIR}/build/archive-codesign.log" || true
+          if [ ! -f "${APP_IN_ARCHIVE}/embedded.mobileprovision" ]; then
+            echo "::error::アーカイブ .app に embedded.mobileprovision がありません — Automatic Signing が効いていません"
+            exit 1
+          fi
+          # ApplicationProperties.SigningIdentity must exist for exportArchive methods to appear
+          if ! plutil -extract ApplicationProperties.SigningIdentity raw -o - "${ARCHIVE_PATH}/Info.plist" 2>/dev/null; then
+            echo "::error::xcarchive に ApplicationProperties.SigningIdentity がありません（Unknown Distribution Error の典型原因）"
+            plutil -p "${ARCHIVE_PATH}/Info.plist" || true
+            exit 1
+          fi
           echo "===== post-archive identities ====="
           security find-identity -v -p codesigning || true
-          find "$ARCHIVE_PATH" -name 'embedded.mobileprovision' -print || true
 
       - name: Export signed IPA (exportArchive)
         env:

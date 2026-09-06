@@ -321,7 +321,7 @@ if (exportPlist && fs.existsSync(exportPlist)) {
 <plist version="1.0">
 <dict>
 	<key>method</key>
-	<string>app-store-connect</string>
+	<string>app-store</string>
 	<key>destination</key>
 	<string>export</string>
 	<key>signingStyle</key>

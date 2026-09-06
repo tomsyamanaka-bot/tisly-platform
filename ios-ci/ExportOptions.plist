@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  App Store Connect 向けローカル IPA 出力。
-  signingStyle=automatic + teamID + ASC API (-allowProvisioningUpdates) で
-  Distribution プロファイルを埋め込む（ITMS-90174 対策）。
-  TEAM_ID_PLACEHOLDER は CI で置換。
--->
+<!-- method は app-store（一部 Xcode は app-store-connect を拒否し expected one {} になる） -->
 <plist version="1.0">
 <dict>
 	<key>method</key>
-	<string>app-store-connect</string>
+	<string>app-store</string>
 	<key>destination</key>
 	<string>export</string>
 	<key>signingStyle</key>
