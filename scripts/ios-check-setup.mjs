@@ -53,6 +53,24 @@ if (!wf.includes("xcodebuild") || !wf.includes("allowProvisioningUpdates")) {
 } else {
   console.log("[ios-check] xcodebuild + allowProvisioningUpdates OK");
 }
+if (!wf.includes("ios/App/build/TiSLY.ipa")) {
+  console.error("[ios-check] workflow missing canonical IPA path ios/App/build/TiSLY.ipa");
+  failed = true;
+} else {
+  console.log("[ios-check] canonical IPA path OK");
+}
+if (!wf.includes("APP_TEAM_ID") || !wf.includes("APPLE_TEAM_ID")) {
+  console.error("[ios-check] workflow must accept APPLE_TEAM_ID and APP_TEAM_ID");
+  failed = true;
+} else {
+  console.log("[ios-check] Team ID aliases OK");
+}
+if (!wf.includes("gem install cocoapods")) {
+  console.error("[ios-check] workflow should gem-install cocoapods after setup-ruby");
+  failed = true;
+} else {
+  console.log("[ios-check] gem cocoapods install OK");
+}
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const needDeps = [

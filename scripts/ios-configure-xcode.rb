@@ -17,6 +17,10 @@ project = Xcodeproj::Project.open(proj_path)
 project.targets.each do |target|
   next unless target.respond_to?(:build_configurations)
 
+  is_app =
+    target.respond_to?(:product_type) &&
+    target.product_type.to_s == "com.apple.product-type.application"
+
   target.build_configurations.each do |config|
     settings = config.build_settings
     settings["PRODUCT_BUNDLE_IDENTIFIER"] = bundle_id
@@ -25,15 +29,18 @@ project.targets.each do |target|
     settings.delete("PROVISIONING_PROFILE_SPECIFIER")
     settings.delete("PROVISIONING_PROFILE")
     settings.delete("CODE_SIGN_IDENTITY[sdk=iphoneos*]")
-    # Leave CODE_SIGN_IDENTITY empty so Automatic Signing picks Distribution when archiving
+    # Empty identity lets Automatic Signing choose Distribution when archiving
     settings["CODE_SIGN_IDENTITY"] = ""
     settings["MARKETING_VERSION"] = settings["MARKETING_VERSION"] || "1.0.0"
     settings["CURRENT_PROJECT_VERSION"] = settings["CURRENT_PROJECT_VERSION"] || "1"
     settings["IPHONEOS_DEPLOYMENT_TARGET"] = "14.0"
     settings["ENABLE_USER_SCRIPT_SANDBOXING"] = "NO"
-    # Critical: app must land in archive Products/Applications for IPA export
-    settings["SKIP_INSTALL"] = "NO"
-    settings["INSTALL_PATH"] = "$(LOCAL_APPS_DIR)"
+
+    if is_app
+      # App must appear in archive Products/Applications for exportArchive / IPA
+      settings["SKIP_INSTALL"] = "NO"
+      settings["INSTALL_PATH"] = "$(LOCAL_APPS_DIR)"
+    end
   end
 end
 
@@ -44,4 +51,4 @@ project.build_configurations.each do |config|
 end
 
 project.save
-puts "Configured #{proj_path}: bundle=#{bundle_id} team=#{team_id} Automatic Signing"
+puts "Configured #{proj_path}: bundle=#{bundle_id} team=#{team_id} Automatic Signing (app SKIP_INSTALL=NO)"

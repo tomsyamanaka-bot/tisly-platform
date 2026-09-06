@@ -9,10 +9,11 @@
 | Secret | `APP_STORE_KEY_ID` | API Key ID |
 | Secret | `APP_STORE_ISSUER_ID` | Issuer ID（UUID） |
 | Secret | `APP_STORE_PRIVATE_KEY` | `.p8` 全文 |
-| **Variable**（推奨） | `APPLE_TEAM_ID` | Team ID（10 文字・秘密ではない） |
+| **Variable**（推奨） | `APPLE_TEAM_ID` または `APP_TEAM_ID` | Team ID（10 文字・秘密ではない） |
 
-※ `APPLE_TEAM_ID` は **Variables** に登録してください（Secrets だとログが `***` になり形式チェックと紛らわしくなります）。  
-ワークフローは `env.APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}` でジョブ全体に明示バインドし、`xcodebuild DEVELOPMENT_TEAM="$APPLE_TEAM_ID"` へ渡します。
+※ Team ID は **Variables** に登録してください（Secrets だとログが `***` になり形式チェックと紛らわしくなります）。  
+解決順: `vars.APPLE_TEAM_ID` → `vars.APP_TEAM_ID` → `secrets.APPLE_TEAM_ID` → `secrets.APP_TEAM_ID`。  
+正規 IPA パス: `ios/App/build/TiSLY.ipa`（絶対パス `${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa`）。
 
 CI: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-deploy.yml)
 
@@ -26,13 +27,13 @@ CI: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-de
 ## 2. GitHub 登録
 
 **Secrets:** `APP_STORE_KEY_ID` / `APP_STORE_ISSUER_ID` / `APP_STORE_PRIVATE_KEY`  
-**Variables:** `APPLE_TEAM_ID`（Membership の Team ID）
+**Variables:** `APPLE_TEAM_ID`（または `APP_TEAM_ID`）— Membership の Team ID
 
 ## 3. 実行
 
 Actions → **iOS Build & Deploy (Capacitor)** → Run workflow  
 （`upload: false` で IPA のみも可）
 
-フロー: `npm run build` → `cap sync ios` → `xcodeproj` で bundle/team 設定 → `xcodebuild archive` → `exportArchive` → `altool --upload-app`
+`master` へ iOS 関連パス（ワークフロー / `scripts/ios-*` / `ios-ci/**`）を push した場合も自動起動します。
 
-exit 65 時は Artifact の `archive.log` を確認（Signing / Provisioning / CocoaPods の error 行）。
+フロー: `npm run build` → `cap sync ios` → gem CocoaPods → `xcodeproj` で bundle/team 設定 → `xcodebuild archive` → `exportArchive`（失敗時 Payload 梱包）→ `altool`（失敗時 iTMSTransporter）
