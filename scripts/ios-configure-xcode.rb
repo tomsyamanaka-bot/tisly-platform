@@ -31,9 +31,9 @@ project.targets.each do |target|
     settings["CURRENT_PROJECT_VERSION"] = settings["CURRENT_PROJECT_VERSION"] || "1"
     settings["IPHONEOS_DEPLOYMENT_TARGET"] = "14.0"
     settings["ENABLE_USER_SCRIPT_SANDBOXING"] = "NO"
-    # Critical for archive → IPA: app must be installed into archive Products/
+    # Critical: app must land in archive Products/Applications for IPA export
     settings["SKIP_INSTALL"] = "NO"
-    settings["BUILD_LIBRARY_FOR_DISTRIBUTION"] = "NO"
+    settings["INSTALL_PATH"] = "$(LOCAL_APPS_DIR)"
   end
 end
 

@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
-# Create ios/App/build/TiSLY.ipa from TiSLY.xcarchive.
-# 1) xcodebuild -exportArchive
-# 2) fallback: zip Payload from Products/Applications/*.app
+# Build ios/App/build/TiSLY.ipa from an existing .xcarchive.
+# Usage: ios-make-ipa.sh <ios/App dir>
 set -euo pipefail
 
-APP_DIR="${1:-${GITHUB_WORKSPACE}/ios/App}"
+APP_DIR="${1:?ios/App dir required}"
 ARCHIVE_PATH="${APP_DIR}/build/TiSLY.xcarchive"
 EXPORT_DIR="${APP_DIR}/build/ipa"
 EXPORT_PLIST="${APP_DIR}/build/ExportOptions.plist"
 LOG="${APP_DIR}/build/export.log"
 OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
-AUTH_KEY_PATH="${AUTH_KEY_PATH:-}"
-APP_STORE_KEY_ID="${APP_STORE_KEY_ID:-}"
-APP_STORE_ISSUER_ID="${APP_STORE_ISSUER_ID:-}"
 
 mkdir -p "${APP_DIR}/build"
 rm -rf "$EXPORT_DIR"
@@ -21,22 +17,25 @@ rm -f "$OUT_IPA"
 
 if [ ! -d "$ARCHIVE_PATH" ]; then
   echo "::error::archive missing: $ARCHIVE_PATH"
-  ls -laR "${APP_DIR}/build" || true
+  find "${APP_DIR}/build" -maxdepth 3 -print || true
   exit 1
 fi
 
-echo "===== archive Applications ====="
-ls -laR "$ARCHIVE_PATH/Products" || true
+echo "===== archive tree (depth 5) ====="
+find "$ARCHIVE_PATH" -maxdepth 5 \( -type d -o -name '*.app' \) -print || true
+
+# Capacitor/Xcode: normally Products/Applications/*.app — also search whole archive
 APP_IN_ARCHIVE="$(find "$ARCHIVE_PATH/Products/Applications" -maxdepth 1 -name '*.app' -type d 2>/dev/null | head -n 1 || true)"
 if [ -z "$APP_IN_ARCHIVE" ]; then
-  echo "::error::archive 内に .app がありません (SKIP_INSTALL=YES の可能性)。Products:"
-  find "$ARCHIVE_PATH" -maxdepth 4 -type d -print || true
+  APP_IN_ARCHIVE="$(find "$ARCHIVE_PATH" -name '*.app' -type d 2>/dev/null | head -n 1 || true)"
+fi
+if [ -z "$APP_IN_ARCHIVE" ]; then
+  echo "::error::archive 内に .app がありません"
   exit 1
 fi
-echo "Found app in archive: $APP_IN_ARCHIVE"
+echo "Found app: $APP_IN_ARCHIVE"
 
-EXPORT_OK=0
-if [ -f "$EXPORT_PLIST" ] && [ -n "$AUTH_KEY_PATH" ] && [ -n "$APP_STORE_KEY_ID" ] && [ -n "$APP_STORE_ISSUER_ID" ]; then
+if [ -f "$EXPORT_PLIST" ] && [ -n "${AUTH_KEY_PATH:-}" ] && [ -n "${APP_STORE_KEY_ID:-}" ] && [ -n "${APP_STORE_ISSUER_ID:-}" ]; then
   echo "===== xcodebuild -exportArchive ====="
   set +e
   xcodebuild \
@@ -49,45 +48,41 @@ if [ -f "$EXPORT_PLIST" ] && [ -n "$AUTH_KEY_PATH" ] && [ -n "$APP_STORE_KEY_ID"
     -authenticationKeyID "$APP_STORE_KEY_ID" \
     -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
     2>&1 | tee "$LOG"
-  EXPORT_OK=${PIPESTATUS[0]}
+  echo "exportArchive exit=${PIPESTATUS[0]}"
   set -e
-  echo "exportArchive exit=${EXPORT_OK}"
 else
-  echo "Skip exportArchive (missing plist or API key env); will package from archive"
-  echo "skipped exportArchive" > "$LOG"
+  echo "exportArchive skipped (plist/auth incomplete)" | tee "$LOG"
 fi
 
-echo "===== export dir ====="
 ls -laR "$EXPORT_DIR" || true
-
 IPA="$(find "$EXPORT_DIR" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
+
 if [ -n "$IPA" ]; then
   cp -f "$IPA" "$OUT_IPA"
-  echo "Using exported IPA: $IPA -> $OUT_IPA"
+  echo "Copied exported IPA -> $OUT_IPA"
 else
-  echo "No IPA from exportArchive — packaging Payload zip from archive .app"
+  echo "Packaging IPA from archive .app (Payload zip)"
   STAGE="${APP_DIR}/build/ipa-stage"
   rm -rf "$STAGE"
   mkdir -p "$STAGE/Payload"
+  # Keep original .app name inside Payload/
   cp -R "$APP_IN_ARCHIVE" "$STAGE/Payload/"
-  (
-    cd "$STAGE"
-    /usr/bin/zip -r -y -q "$OUT_IPA" Payload
-  )
-  echo "Packaged fallback IPA from $APP_IN_ARCHIVE"
+  # ditto produces a valid zip/ipa on macOS
+  /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$STAGE/Payload" "$OUT_IPA" 2>/dev/null \
+    || ( cd "$STAGE" && /usr/bin/zip -r -y -q "$OUT_IPA" Payload )
 fi
 
-if [ ! -f "$OUT_IPA" ]; then
-  echo "::error::failed to create $OUT_IPA"
+if [ ! -f "$OUT_IPA" ] || [ ! -s "$OUT_IPA" ]; then
+  echo "::error::IPA not created or empty: $OUT_IPA"
   exit 1
 fi
 
-# Sanity: IPA is a zip containing Payload/*.app
-if ! /usr/bin/unzip -l "$OUT_IPA" | grep -q 'Payload/.*\.app/'; then
-  echo "::error::IPA に Payload/*.app が含まれていません"
-  /usr/bin/unzip -l "$OUT_IPA" | head -n 40 || true
+if ! /usr/bin/unzip -l "$OUT_IPA" | grep -qE 'Payload/[^/]+\.app'; then
+  echo "::error::IPA missing Payload/*.app"
+  /usr/bin/unzip -l "$OUT_IPA" | head -n 50 || true
   exit 1
 fi
 
+# Canonical path for later steps / artifacts
 ls -lh "$OUT_IPA"
-echo "OUT_IPA=${OUT_IPA}"
+echo "OK $OUT_IPA ($(wc -c < "$OUT_IPA") bytes)"
