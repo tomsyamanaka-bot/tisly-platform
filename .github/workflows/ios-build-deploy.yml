@@ -214,7 +214,27 @@ jobs:
         working-directory: ios/App
         run: |
           set -euo pipefail
-          pod install --repo-update
+          mkdir -p "${GITHUB_WORKSPACE}/ios/App/build"
+          echo "===== Podfile ====="
+          cat Podfile
+          POST_COUNT="$(grep -c 'post_install do' Podfile || true)"
+          echo "post_install_count=${POST_COUNT}"
+          if [ "$POST_COUNT" -ne 1 ]; then
+            echo "::error::Podfile must contain exactly one post_install (got ${POST_COUNT})"
+            exit 1
+          fi
+          # repo-update is slow/flaky — try local first, then retry with update
+          set +e
+          pod install 2>&1 | tee "${GITHUB_WORKSPACE}/ios/App/build/pod-install.log"
+          POD_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$POD_STATUS" -ne 0 ]; then
+            echo "pod install failed (${POD_STATUS}) — retry with --repo-update"
+            pod install --repo-update 2>&1 | tee -a "${GITHUB_WORKSPACE}/ios/App/build/pod-install.log"
+          fi
+          test -d App.xcworkspace
+          test -f Podfile.lock
+          ls -la App.xcworkspace Podfile.lock
 
       - name: Configure Xcode project (bundle + team + Automatic)
         env:
@@ -392,6 +412,8 @@ jobs:
             ${{ github.workspace }}/ios/App/build/ipa/**
             ${{ github.workspace }}/ios/App/build/archive.log
             ${{ github.workspace }}/ios/App/build/export.log
+            ${{ github.workspace }}/ios/App/build/pod-install.log
+            ${{ github.workspace }}/ios/App/Podfile
           if-no-files-found: warn
           retention-days: 14
 
@@ -402,15 +424,25 @@ jobs:
           SHORT="$(git rev-parse --short HEAD)"
           TEAM_LEN="$(printf '%s' '${{ steps.cfg.outputs.team_id }}' | wc -c | tr -d ' ')"
           IPA="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
+          ARCHIVE="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.xcarchive"
           if [ -f "$IPA" ]; then
-            IPA_STATE="$(ls -lh "$IPA" | awk '{print $5" bytes="$5}')"
             IPA_STATE="$(stat -f%z "$IPA" 2>/dev/null || wc -c < "$IPA") bytes"
+          elif [ ! -d "$ARCHIVE" ]; then
+            IPA_STATE="missing (archive not created — check CocoaPods / xcodebuild earlier steps)"
           else
-            IPA_STATE="missing"
+            IPA_STATE="missing (archive exists but IPA packaging failed — see export.log)"
           fi
           echo "### TiSLY iOS" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- scheme: \`${{ steps.xcode.outputs.scheme }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- IPA path: \`ios/App/build/TiSLY.ipa\` (${IPA_STATE})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- archive: \`${ARCHIVE}\` ($([ -d "$ARCHIVE" ] && echo present || echo missing))" >> "$GITHUB_STEP_SUMMARY"
+          echo "- IPA path: \`${IPA}\` (${IPA_STATE})" >> "$GITHUB_STEP_SUMMARY"
           echo "- team_id len: ${TEAM_LEN}" >> "$GITHUB_STEP_SUMMARY"
           echo "- upload: \`${{ steps.cfg.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "${GITHUB_WORKSPACE}/ios/App/build/pod-install.log" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "#### pod install (tail)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 40 "${GITHUB_WORKSPACE}/ios/App/build/pod-install.log" >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
