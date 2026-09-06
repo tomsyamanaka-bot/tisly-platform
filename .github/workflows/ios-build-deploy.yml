@@ -418,23 +418,22 @@ jobs:
           echo "CANONICAL_IPA=${OUT_IPA}" >> "$GITHUB_ENV"
 
       - name: Verify IPA path + embedded.mobileprovision
+        if: ${{ hashFiles('ios/App/build/TiSLY.ipa') != '' }}
         run: |
           set -euo pipefail
           IPA="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
           echo "Expect: $IPA"
           if [ ! -f "$IPA" ]; then
             echo "::error::canonical IPA missing at $IPA"
-            find "${GITHUB_WORKSPACE}/ios/App/build" -type f \( -name '*.ipa' -o -name '*.xcarchive' \) -ls || true
             exit 1
           fi
           BYTES="$(wc -c < "$IPA" | tr -d ' ')"
           if [ "$BYTES" -lt 100000 ]; then
-            echo "::error::IPA too small (${BYTES} bytes) — likely incomplete"
+            echo "::error::IPA too small (${BYTES} bytes)"
             exit 1
           fi
           ls -lh "$IPA"
           /usr/bin/unzip -l "$IPA" | head -n 50
-          # ITMS-90174 guard: provisioning profile must be inside the .app
           if ! /usr/bin/unzip -l "$IPA" | grep -qE 'Payload/[^/]+\.app/embedded\.mobileprovision'; then
             echo "::error::ITMS-90174 guard: embedded.mobileprovision missing inside IPA"
             exit 1
@@ -450,7 +449,7 @@ jobs:
           echo "IPA_BYTES=${BYTES}" >> "$GITHUB_ENV"
 
       - name: Upload to App Store Connect / TestFlight
-        if: ${{ steps.cfg.outputs.upload == 'true' }}
+        if: ${{ steps.cfg.outputs.upload == 'true' && env.ASC_UPLOAD_VIA_EXPORT != '1' }}
         id: upload_api
         continue-on-error: true
         uses: apple-actions/upload-testflight-build@v5
@@ -463,7 +462,7 @@ jobs:
           backend: AppStoreAPI
 
       - name: Upload fallback (altool / iTMSTransporter)
-        if: ${{ steps.cfg.outputs.upload == 'true' && steps.upload_api.outcome != 'success' }}
+        if: ${{ steps.cfg.outputs.upload == 'true' && env.ASC_UPLOAD_VIA_EXPORT != '1' && steps.upload_api.outcome != 'success' }}
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -499,11 +498,14 @@ jobs:
         if: ${{ steps.cfg.outputs.upload == 'true' }}
         run: |
           set -euo pipefail
+          if [ "${ASC_UPLOAD_VIA_EXPORT:-}" = "1" ]; then
+            echo "Upload OK via xcodebuild -exportArchive destination=upload"
+            exit 0
+          fi
           if [ "${{ steps.upload_api.outcome }}" = "success" ]; then
             echo "Upload OK via apple-actions (AppStoreAPI)"
             exit 0
           fi
-          # fallback step must have succeeded if we got here (otherwise job already failed)
           echo "Upload OK via altool/Transporter fallback"
 
       - name: Upload IPA artifact

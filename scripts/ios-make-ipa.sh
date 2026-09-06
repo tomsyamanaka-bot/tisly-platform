@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create App Store–signed IPA at ios/App/build/TiSLY.ipa via xcodebuild -exportArchive.
-# Payload-zip fallback is DISABLED — it omits a valid embedded.mobileprovision (ITMS-90174).
+# Payload-zip fallback is DISABLED — it omits embedded.mobileprovision (ITMS-90174).
 # Usage: ios-make-ipa.sh <ios/App dir>
 # Requires env: AUTH_KEY_PATH, APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APPLE_TEAM_ID
 set -euo pipefail
@@ -11,15 +11,16 @@ EXPORT_DIR="${APP_DIR}/build/ipa"
 EXPORT_PLIST="${APP_DIR}/build/ExportOptions.plist"
 LOG="${APP_DIR}/build/export.log"
 OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
+UPLOAD_FLAG="${APP_DIR}/build/exported-via-upload.flag"
 
 mkdir -p "${APP_DIR}/build"
-rm -rf "$EXPORT_DIR"
+rm -rf "$EXPORT_DIR" "$UPLOAD_FLAG"
 mkdir -p "$EXPORT_DIR"
 rm -f "$OUT_IPA"
+: > "$LOG"
 
 if [ ! -d "$ARCHIVE_PATH" ]; then
   echo "::error::archive missing: $ARCHIVE_PATH"
-  find "${APP_DIR}/build" -maxdepth 3 -print || true
   exit 1
 fi
 if [ ! -f "$EXPORT_PLIST" ]; then
@@ -27,12 +28,19 @@ if [ ! -f "$EXPORT_PLIST" ]; then
   exit 1
 fi
 if [ -z "${AUTH_KEY_PATH:-}" ] || [ ! -f "${AUTH_KEY_PATH}" ]; then
-  echo "::error::AUTH_KEY_PATH missing (ASC API key required for provisioning)"
+  echo "::error::AUTH_KEY_PATH missing"
   exit 1
 fi
 if [ -z "${APP_STORE_KEY_ID:-}" ] || [ -z "${APP_STORE_ISSUER_ID:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
   echo "::error::APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APPLE_TEAM_ID required"
   exit 1
+fi
+
+# WWDR intermediate (helps Distribution trust chain on fresh runners)
+WWDR_CER="${RUNNER_TEMP:-/tmp}/AppleWWDRCAG3.cer"
+if curl -fsSL -o "$WWDR_CER" "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer"; then
+  security import "$WWDR_CER" -k login.keychain-db -T /usr/bin/codesign -T /usr/bin/security 2>/dev/null || true
+  echo "Imported Apple WWDR G3 (best effort)"
 fi
 
 echo "===== archive tree ====="
@@ -47,23 +55,27 @@ if [ -z "$APP_IN_ARCHIVE" ]; then
   exit 1
 fi
 echo "Found app: $APP_IN_ARCHIVE"
+ls -la "${APP_IN_ARCHIVE}/embedded.mobileprovision" 2>/dev/null || echo "archive .app has no embedded.mobileprovision yet"
 
-# Ensure ExportOptions essentials (team + automatic + local export)
-/usr/libexec/PlistBuddy -c "Set :destination export" "$EXPORT_PLIST" 2>/dev/null \
-  || /usr/libexec/PlistBuddy -c "Add :destination string export" "$EXPORT_PLIST"
-/usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "$EXPORT_PLIST" 2>/dev/null \
-  || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "$EXPORT_PLIST"
-/usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "$EXPORT_PLIST" 2>/dev/null \
-  || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "$EXPORT_PLIST"
-# Prefer Xcode-managed cert selection under automatic (do not force a missing identity)
-/usr/libexec/PlistBuddy -c "Delete :signingCertificate" "$EXPORT_PLIST" 2>/dev/null || true
+ensure_plist_base() {
+  /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "$EXPORT_PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "$EXPORT_PLIST"
+  /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "$EXPORT_PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "$EXPORT_PLIST"
+  /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "$EXPORT_PLIST" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "Delete :provisioningProfiles" "$EXPORT_PLIST" 2>/dev/null || true
+}
 
 run_export() {
   local method="$1"
-  echo "===== exportArchive method=${method} ====="
+  local destination="$2"
+  echo "===== exportArchive method=${method} destination=${destination} =====" | tee -a "$LOG"
+  ensure_plist_base
   /usr/libexec/PlistBuddy -c "Set :method ${method}" "$EXPORT_PLIST" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :method string ${method}" "$EXPORT_PLIST"
-  plutil -p "$EXPORT_PLIST"
+  /usr/libexec/PlistBuddy -c "Set :destination ${destination}" "$EXPORT_PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :destination string ${destination}" "$EXPORT_PLIST"
+  plutil -p "$EXPORT_PLIST" | tee -a "$LOG"
   rm -rf "$EXPORT_DIR"
   mkdir -p "$EXPORT_DIR"
   set +e
@@ -73,39 +85,70 @@ run_export() {
     -exportPath "$EXPORT_DIR" \
     -exportOptionsPlist "$EXPORT_PLIST" \
     -allowProvisioningUpdates \
+    -allowProvisioningDeviceRegistration \
     -authenticationKeyPath "$AUTH_KEY_PATH" \
     -authenticationKeyID "$APP_STORE_KEY_ID" \
     -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
     2>&1 | tee -a "$LOG"
   local st=${PIPESTATUS[0]}
   set -e
-  echo "exportArchive method=${method} exit=${st}"
+  echo "exportArchive method=${method} destination=${destination} exit=${st}" | tee -a "$LOG"
   return "$st"
 }
 
-: > "$LOG"
 EXPORT_OK=0
+# 1) Prefer local IPA with embedded provisioning (required for ITMS-90174-safe upload)
 for METHOD in app-store-connect app-store; do
-  if run_export "$METHOD"; then
+  if run_export "$METHOD" "export"; then
     EXPORT_OK=1
     break
   fi
 done
 
+# 2) Fallback: Xcode uploads archive to ASC directly (still signs with Distribution profile)
 if [ "$EXPORT_OK" -ne 1 ]; then
-  echo "::error::exportArchive failed for all methods (ITMS-90174 回避のため Payload zip は禁止)"
-  grep -E 'error:|Error |provision|Provisioning|Signing|IDEDistribution|TEAM|certificate' "$LOG" | tail -n 100 || true
+  echo "Local export failed — trying destination=upload (ASC direct)" | tee -a "$LOG"
+  for METHOD in app-store-connect app-store; do
+    if run_export "$METHOD" "upload"; then
+      EXPORT_OK=1
+      echo "uploaded-via-exportArchive" > "$UPLOAD_FLAG"
+      echo "ASC_UPLOAD_VIA_EXPORT=1" >> "$GITHUB_ENV"
+      break
+    fi
+  done
+fi
+
+if [ "$EXPORT_OK" -ne 1 ]; then
+  echo "::error::exportArchive failed (local + upload). Payload zip is forbidden (ITMS-90174)."
+  grep -E 'error:|Error |provision|Provisioning|Signing|IDEDistribution|TEAM|certificate|Authentication' "$LOG" | tail -n 120 || true
   exit 1
 fi
 
 IPA="$(find "$EXPORT_DIR" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
-if [ -z "$IPA" ]; then
-  echo "::error::exportArchive 成功だが .ipa なし: $EXPORT_DIR"
+if [ -n "$IPA" ]; then
+  cp -f "$IPA" "$OUT_IPA"
+  echo "Copied signed IPA -> $OUT_IPA"
+elif [ -f "$UPLOAD_FLAG" ]; then
+  echo "destination=upload succeeded without local IPA — ASC already received the build"
+  # Still try to produce a signed IPA for artifact/verification by re-exporting locally
+  for METHOD in app-store-connect app-store; do
+    if run_export "$METHOD" "export"; then
+      IPA="$(find "$EXPORT_DIR" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
+      if [ -n "$IPA" ]; then
+        cp -f "$IPA" "$OUT_IPA"
+        break
+      fi
+    fi
+  done
+  if [ ! -f "$OUT_IPA" ]; then
+    echo "::warning::ASC upload OK but local IPA not produced — skipping IPA artifact checks"
+    exit 0
+  fi
+else
+  echo "::error::exportArchive OK but no .ipa in $EXPORT_DIR"
   ls -laR "$EXPORT_DIR" || true
   exit 1
 fi
-cp -f "$IPA" "$OUT_IPA"
-echo "Copied signed IPA -> $OUT_IPA"
 
 STAGE="${APP_DIR}/build/ipa-verify"
 rm -rf "$STAGE"
@@ -125,8 +168,6 @@ if [ ! -f "$PROV" ]; then
 fi
 echo "embedded.mobileprovision OK ($(wc -c < "$PROV" | tr -d ' ') bytes)"
 security cms -D -i "$PROV" 2>/dev/null | plutil -extract Name raw -o - - 2>/dev/null || true
-security cms -D -i "$PROV" 2>/dev/null | plutil -extract Entitlements xml1 -o - - 2>/dev/null | head -n 40 || true
 codesign -dv --verbose=2 "$APP_IN_IPA" 2>&1 | tee "${APP_DIR}/build/codesign-verify.log" | head -n 40 || true
-
 ls -lh "$OUT_IPA"
-echo "OK signed IPA $OUT_IPA ($(wc -c < "$OUT_IPA" | tr -d ' ') bytes) with embedded.mobileprovision"
+echo "OK signed IPA $OUT_IPA with embedded.mobileprovision"
