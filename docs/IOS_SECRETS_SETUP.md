@@ -9,7 +9,10 @@
 | Secret | `APP_STORE_KEY_ID` | API Key ID |
 | Secret | `APP_STORE_ISSUER_ID` | Issuer ID（UUID） |
 | Secret | `APP_STORE_PRIVATE_KEY` | `.p8` 全文 |
-| **Variable** | `APPLE_TEAM_ID` | Team ID（10 文字・秘密ではない） |
+| **Variable**（推奨） | `APPLE_TEAM_ID` | Team ID（10 文字・秘密ではない） |
+
+※ `APPLE_TEAM_ID` は **Variables** に登録してください（Secrets だとログが `***` になり形式チェックと紛らわしくなります）。  
+ワークフローは `env.APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}` でジョブ全体に明示バインドし、`xcodebuild DEVELOPMENT_TEAM="$APPLE_TEAM_ID"` へ渡します。
 
 CI: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-deploy.yml)
 
