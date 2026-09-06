@@ -330,8 +330,7 @@ jobs:
             || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "${APP_DIR}/build/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Set :signingCertificate Apple Distribution" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :signingCertificate string Apple Distribution" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
           echo "===== ExportOptions (must have teamID + automatic + app-store-connect) ====="
           plutil -p "${APP_DIR}/build/ExportOptions.plist"
           grep -q "${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
@@ -391,7 +390,6 @@ jobs:
             -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            "CODE_SIGN_IDENTITY=Apple Distribution" \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
             CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}" \
             MARKETING_VERSION="1.0.${GITHUB_RUN_NUMBER}" \

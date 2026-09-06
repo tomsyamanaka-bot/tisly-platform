@@ -29,14 +29,9 @@ project.targets.each do |target|
     settings.delete("PROVISIONING_PROFILE_SPECIFIER")
     settings.delete("PROVISIONING_PROFILE")
     settings["CODE_SIGN_STYLE"] = "Automatic"
-    # Release → Apple Distribution so archive/export embed App Store profile (ITMS-90174)
-    if config.name.to_s.downcase.include?("release")
-      settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
-      settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "Apple Distribution"
-    else
-      settings["CODE_SIGN_IDENTITY"] = "Apple Development"
-      settings.delete("CODE_SIGN_IDENTITY[sdk=iphoneos*]")
-    end
+    # Empty identity: Automatic Signing + -allowProvisioningUpdates creates Distribution cert/profile
+    settings["CODE_SIGN_IDENTITY"] = ""
+    settings.delete("CODE_SIGN_IDENTITY[sdk=iphoneos*]")
     settings["MARKETING_VERSION"] = ENV.fetch("MARKETING_VERSION", settings["MARKETING_VERSION"] || "1.0.0")
     settings["CURRENT_PROJECT_VERSION"] = ENV.fetch("CURRENT_PROJECT_VERSION", ENV.fetch("GITHUB_RUN_NUMBER", settings["CURRENT_PROJECT_VERSION"] || "1"))
     settings["IPHONEOS_DEPLOYMENT_TARGET"] = "14.0"

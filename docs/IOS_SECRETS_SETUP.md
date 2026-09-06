@@ -36,4 +36,6 @@ Actions → **iOS Build & Deploy (Capacitor)** → Run workflow
 
 `master` へ iOS 関連パス（ワークフロー / `scripts/ios-*` / `ios-ci/**`）を push した場合も自動起動します。
 
-フロー: `npm run build` → `cap sync ios` → gem CocoaPods → `xcodeproj` で bundle/team 設定 → `xcodebuild archive` → `exportArchive`（失敗時 Payload 梱包）→ `altool`（失敗時 iTMSTransporter）
+フロー: `npm run build` → `cap sync ios` → gem CocoaPods → Automatic Signing → `xcodebuild archive`（`-allowProvisioningUpdates` + ASC API）→ **必須** `exportArchive` → IPA 内 `embedded.mobileprovision` 検証 → TestFlight アップロード
+
+ITMS-90174 対策: 未署名 Payload zip は禁止。API キーは **Admin** 推奨（証明書・プロファイル自動作成）。
