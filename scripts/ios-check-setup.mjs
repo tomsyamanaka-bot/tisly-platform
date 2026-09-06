@@ -23,6 +23,7 @@ const required = [
   "ios-ci/fastlane/Fastfile",
   "ios-ci/fastlane/Appfile",
   "ios-ci/Info.plist.permissions.template.xml",
+  "ios-ci/apple-team-id",
 ];
 
 let failed = false;

@@ -1,0 +1,4 @@
+# Apple Team ID（10文字・秘密ではない）
+# App Store Connect → ユーザとアクセス、または developer.apple.com → Membership で確認。
+# 空のままなら GitHub Actions Variables の APPLE_TEAM_ID を使用。
+# 例: AB12CD34EF

@@ -1,31 +1,26 @@
 name: iOS App Store Deploy (legacy alias)
 
-# 正規ワークフローは ios-build-deploy.yml です。
-# 二重実行を避けるため、タグ/ブランチ自動起動は無効化。
-# 手動実行時は正規 WF へ誘導します。
-# 詳細: docs/IOS_SECRETS_SETUP.md / docs/ios-deploy-guide.md
+# 正規パイプライン ios-build-deploy.yml を呼び出すだけ。
+# BUILD_CERTIFICATE 等は要求しない。
 
 on:
   workflow_dispatch:
     inputs:
-      note:
-        description: "正規パイプラインは「iOS Build & Deploy (Capacitor)」を使ってください"
+      upload:
+        description: "TestFlight へアップロードする"
+        type: boolean
+        default: true
+      server_url:
+        description: "Capacitor server.url"
         required: false
-        default: "see ios-build-deploy.yml"
+        default: "https://tisly.jp"
         type: string
 
-concurrency:
-  group: tisly-ios-deploy-legacy
-  cancel-in-progress: false
-
 jobs:
-  redirect:
-    name: Use ios-build-deploy.yml
-    runs-on: ubuntu-latest
-    steps:
-      - name: Point to canonical workflow
-        run: |
-          echo "::notice::正規の iOS ビルドは .github/workflows/ios-build-deploy.yml です。"
-          echo "Actions →「iOS Build & Deploy (Capacitor)」→ Run workflow"
-          echo "署名は ASC API キー 3 件のみ（.p12 不要）: docs/IOS_SECRETS_SETUP.md"
-          exit 1
+  call-canonical:
+    name: Delegate to ios-build-deploy
+    uses: ./.github/workflows/ios-build-deploy.yml
+    with:
+      upload: ${{ inputs.upload }}
+      server_url: ${{ inputs.server_url }}
+    secrets: inherit

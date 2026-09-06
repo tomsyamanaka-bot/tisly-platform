@@ -21,23 +21,24 @@ Windows のみでも、**GitHub Actions（`macos-latest`）** 経由で Capacito
 3. [App Store Connect](https://appstoreconnect.apple.com) でアプリ作成（Bundle ID = `jp.tisly.app`）
 4. **App Store Connect API** キーを発行（`.p8` を保存）
 
-証明書・プロファイルは **CI 上の Fastlane（cert / sigh）が API 経由で自動作成・取得**します。手元での `.p12` 書き出しは不要です。
+証明書・プロファイルの手元書き出しは**不要**です。CI は ASC API キー認証付きの **Xcode Automatic Signing**（`-allowProvisioningUpdates`）で署名します。
 
 ---
 
-## 2. GitHub Secrets（必須は 3 件）
+## 2. GitHub Secrets / Variables
 
-| Secret 名 | 必須 | 内容 |
-|-----------|------|------|
-| `APP_STORE_KEY_ID` | ✅ | API Key ID |
-| `APP_STORE_ISSUER_ID` | ✅ | Issuer ID（UUID） |
-| `APP_STORE_PRIVATE_KEY` | ✅ | `.p8` 全文 |
-| `APPLE_TEAM_ID` | 任意 | Team ID（10 文字）。未設定時は Fastlane が解決を試行 |
-| `APP_STORE_PRIVATE_KEY_IS_BASE64` | 任意 | `.p8` を Base64 で入れた場合のみ `1` |
+| 名前 | 種類 | 必須 | 内容 |
+|------|------|------|------|
+| `APP_STORE_KEY_ID` | Secret | ✅ | API Key ID |
+| `APP_STORE_ISSUER_ID` | Secret | ✅ | Issuer ID |
+| `APP_STORE_PRIVATE_KEY` | Secret | ✅ | `.p8` 全文 |
+| `APPLE_TEAM_ID` | **Variable**（推奨） | ✅※ | Team ID（10 文字・秘密ではない） |
 
-詳細な貼り付け手順: [IOS_SECRETS_SETUP.md](./IOS_SECRETS_SETUP.md)
+※ Team ID 未設定だと Xcode 自動署名が失敗します。証明書ファイルではありません。
 
-~~`BUILD_CERTIFICATE_BASE64` / `CERTIFICATE_PASSWORD` / `BUILD_PROVISION_PROFILE_BASE64` は廃止（不要）~~
+**使わない（廃止）:** `BUILD_CERTIFICATE_BASE64`, `CERTIFICATE_PASSWORD`, `BUILD_PROVISION_PROFILE_BASE64`, `PROVISIONING_PROFILE_NAME`, `KEYCHAIN_PASSWORD`
+
+詳細: [IOS_SECRETS_SETUP.md](./IOS_SECRETS_SETUP.md)
 
 ---
 

@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 
-# TiSLY iOS — App Store Connect API キーのみで署名・アップロード
-# （手元 Mac / .p12 / .mobileprovision の GitHub Secrets は不要）
-# CI 上の macos-latest が cert/sigh で証明書・プロファイルを自動取得する。
+# TiSLY iOS — App Store Connect API キーのみ（.p12 / provisioning Secrets 完全不要）
+# 署名: Xcode Automatic + -allowProvisioningUpdates + ASC authentication key
+# アップロード: Fastlane upload_to_testflight(api_key:)
+
+require "base64"
+require "fileutils"
 
 default_platform(:ios)
 
 platform :ios do
-  desc "Archive TiSLY iOS with ASC API key auth; optionally upload to TestFlight"
+  desc "Build IPA with ASC API key auth only; upload to TestFlight"
   lane :release do |options|
     workspace = options[:workspace] || "App.xcworkspace"
     scheme = options[:scheme] || "App"
@@ -16,40 +19,51 @@ platform :ios do
       ENV["IOS_SKIP_UPLOAD"] == "1" ||
       [true, "true", "1"].include?(options[:skip_upload])
 
-    # GitHub Actions 向け一時キーチェーン（ユーザーの .p12 は使わない）
+    key_id = ENV.fetch("APP_STORE_KEY_ID")
+    issuer_id = ENV.fetch("APP_STORE_ISSUER_ID")
+    key_body = ENV.fetch("APP_STORE_PRIVATE_KEY")
+    key_body = Base64.decode64(key_body) if ENV["APP_STORE_PRIVATE_KEY_IS_BASE64"] == "1"
+    # Normalize PEM: GitHub Secrets がリテラル \n のとき実改行へ
+    key_body = key_body.gsub("\\n", "\n") if key_body.include?("\\n")
+
     setup_ci if ENV["CI"]
 
     api_key = app_store_connect_api_key(
-      key_id: ENV.fetch("APP_STORE_KEY_ID"),
-      issuer_id: ENV.fetch("APP_STORE_ISSUER_ID"),
-      key_content: ENV.fetch("APP_STORE_PRIVATE_KEY"),
-      is_key_content_base64: ENV["APP_STORE_PRIVATE_KEY_IS_BASE64"] == "1",
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_content: key_body,
+      is_key_content_base64: false,
       duration: 1200,
       in_house: false
     )
 
-    # Distribution 証明書を ASC API 経由で作成/取得し CI キーチェーンへ導入
-    get_certificates(api_key: api_key)
+    # xcodebuild / altool が参照する認証キー配置（証明書ファイル Secrets は使わない）
+    auth_key_path = File.expand_path("AuthKey_#{key_id}.p8")
+    File.write(auth_key_path, key_body)
+    home_keys = File.expand_path("~/private_keys")
+    FileUtils.mkdir_p(home_keys)
+    FileUtils.cp(auth_key_path, File.join(home_keys, "AuthKey_#{key_id}.p8"))
 
-    # App Store 用プロビジョニングプロファイルを ASC API 経由で作成/取得
-    get_provisioning_profile(
-      api_key: api_key,
-      app_identifier: bundle_id
-    )
-
-    team_id =
-      ENV["APPLE_TEAM_ID"].to_s.strip.empty? ? nil : ENV["APPLE_TEAM_ID"].to_s.strip
-    team_id ||= ENV["FASTLANE_TEAM_ID"].to_s.strip
-    team_id = nil if team_id.to_s.empty?
+    team_id = resolve_team_id
 
     update_code_signing_settings(
-      use_automatic_signing: false,
+      use_automatic_signing: true,
       path: "App.xcodeproj",
       team_id: team_id,
-      code_sign_identity: "Apple Distribution",
-      profile_name: ENV["SIGH_NAME"],
-      bundle_identifier: bundle_id
+      bundle_identifier: bundle_id,
+      code_sign_identity: "Apple Distribution"
     )
+
+    auth_xcargs = [
+      "-allowProvisioningUpdates",
+      "-allowProvisioningDeviceRegistration",
+      "-authenticationKeyPath", auth_key_path,
+      "-authenticationKeyID", key_id,
+      "-authenticationKeyIssuerID", issuer_id,
+      "CODE_SIGN_STYLE=Automatic",
+      "DEVELOPMENT_TEAM=#{team_id}",
+      "PRODUCT_BUNDLE_IDENTIFIER=#{bundle_id}"
+    ].join(" ")
 
     build_app(
       workspace: workspace,
@@ -57,20 +71,26 @@ platform :ios do
       configuration: "Release",
       clean: true,
       export_method: "app-store",
+      skip_profile_detection: true,
+      xcargs: auth_xcargs,
+      export_xcargs: [
+        "-allowProvisioningUpdates",
+        "-authenticationKeyPath", auth_key_path,
+        "-authenticationKeyID", key_id,
+        "-authenticationKeyIssuerID", issuer_id
+      ].join(" "),
       export_options: {
         method: "app-store",
-        signingStyle: "manual",
-        provisioningProfiles: {
-          bundle_id => ENV.fetch("SIGH_NAME")
-        }
+        signingStyle: "automatic",
+        teamID: team_id,
+        uploadSymbols: true
       },
       output_directory: "./build",
-      output_name: "TiSLY",
-      xcargs: team_id ? "DEVELOPMENT_TEAM=#{team_id}" : nil
+      output_name: "TiSLY"
     )
 
     if skip_upload
-      UI.important("Skipping App Store Connect upload (IOS_SKIP_UPLOAD=1)")
+      UI.important("Skipping TestFlight upload (IOS_SKIP_UPLOAD=1)")
       next
     end
 
@@ -80,5 +100,37 @@ platform :ios do
       skip_waiting_for_build_processing: true,
       distribute_external: false
     )
+  ensure
+    File.delete(auth_key_path) if auth_key_path && File.exist?(auth_key_path)
   end
+end
+
+def resolve_team_id
+  from_env = ENV["APPLE_TEAM_ID"].to_s.strip
+  return from_env unless from_env.empty?
+
+  from_var = ENV["APPLE_TEAM_ID_VAR"].to_s.strip
+  return from_var unless from_var.empty?
+
+  config_path = File.expand_path("../../ios-ci/apple-team-id", __dir__)
+  # When Fastfile is copied to ios/App/fastlane, __dir__ is ios/App/fastlane
+  candidates = [
+    File.expand_path("../../../ios-ci/apple-team-id", __dir__),
+    File.expand_path("../../ios-ci/apple-team-id", __dir__),
+    File.expand_path("ios-ci/apple-team-id", Dir.pwd),
+    File.expand_path("../ios-ci/apple-team-id", Dir.pwd),
+    File.expand_path("../../ios-ci/apple-team-id", Dir.pwd)
+  ]
+  candidates.each do |path|
+    next unless File.file?(path)
+    id = File.read(path).to_s.strip.gsub(/#.*/, "").strip
+    return id unless id.empty?
+  end
+
+  UI.user_error!(
+    "APPLE_TEAM_ID が未設定です。Team ID は秘密情報ではありません。" \
+    "GitHub → Settings → Secrets and variables → Actions → Variables に APPLE_TEAM_ID を追加するか、" \
+    "ios-ci/apple-team-id に 10 文字の Team ID を書いてください。" \
+    "（developer.apple.com → Membership）。証明書 (.p12) の登録は不要です。"
+  )
 end
