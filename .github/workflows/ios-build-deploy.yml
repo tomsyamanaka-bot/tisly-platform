@@ -264,13 +264,15 @@ jobs:
       - name: Configure Xcode project (bundle + team + Automatic)
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
+          CURRENT_PROJECT_VERSION: ${{ github.run_number }}
+          MARKETING_VERSION: 1.0.${{ github.run_number }}
         run: |
           set -euo pipefail
           if [ -z "${APPLE_TEAM_ID:-}" ]; then
             echo "::error::APPLE_TEAM_ID が空です"
             exit 1
           fi
-          echo "Using APPLE_TEAM_ID length=${#APPLE_TEAM_ID}"
+          echo "Using APPLE_TEAM_ID length=${#APPLE_TEAM_ID} build=${CURRENT_PROJECT_VERSION}"
           ruby scripts/ios-configure-xcode.rb \
             ios/App/App.xcodeproj \
             jp.tisly.app \
@@ -380,6 +382,8 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}" \
+            MARKETING_VERSION="1.0.${GITHUB_RUN_NUMBER}" \
             SKIP_INSTALL=NO \
             INSTALL_PATH='$(LOCAL_APPS_DIR)' \
             ONLY_ACTIVE_ARCH=NO \
@@ -422,8 +426,21 @@ jobs:
           /usr/bin/unzip -l "$IPA" | head -n 40
           echo "IPA_BYTES=${BYTES}" >> "$GITHUB_ENV"
 
-      - name: Upload to App Store Connect
+      - name: Upload to App Store Connect / TestFlight
         if: ${{ steps.cfg.outputs.upload == 'true' }}
+        id: upload_api
+        continue-on-error: true
+        uses: apple-actions/upload-testflight-build@v5
+        with:
+          app-path: ${{ github.workspace }}/ios/App/build/TiSLY.ipa
+          issuer-id: ${{ secrets.APP_STORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          wait-for-processing: false
+          backend: AppStoreAPI
+
+      - name: Upload fallback (altool / iTMSTransporter)
+        if: ${{ steps.cfg.outputs.upload == 'true' && steps.upload_api.outcome != 'success' }}
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -432,7 +449,7 @@ jobs:
           IPA="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
           test -f "$IPA"
           test -f "${HOME}/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
-
+          echo "apple-actions upload failed — falling back to altool/Transporter"
           set +e
           xcrun altool --upload-app \
             --type ios \
@@ -442,17 +459,29 @@ jobs:
             --verbose 2>&1 | tee "${GITHUB_WORKSPACE}/ios/App/build/upload.log"
           UP_STATUS=${PIPESTATUS[0]}
           set -e
-
-          if [ "$UP_STATUS" -ne 0 ]; then
-            echo "altool failed (${UP_STATUS}) — trying iTMSTransporter"
-            xcrun iTMSTransporter \
-              -m upload \
-              -assetFile "$IPA" \
-              -apiKey "$APP_STORE_KEY_ID" \
-              -apiIssuer "$APP_STORE_ISSUER_ID" \
-              -v informational 2>&1 | tee -a "${GITHUB_WORKSPACE}/ios/App/build/upload.log"
+          if [ "$UP_STATUS" -eq 0 ]; then
+            echo "altool upload OK"
+            exit 0
           fi
-          echo "Upload finished for $IPA"
+          echo "altool failed (${UP_STATUS}) — trying iTMSTransporter"
+          xcrun iTMSTransporter \
+            -m upload \
+            -assetFile "$IPA" \
+            -apiKey "$APP_STORE_KEY_ID" \
+            -apiIssuer "$APP_STORE_ISSUER_ID" \
+            -v informational 2>&1 | tee -a "${GITHUB_WORKSPACE}/ios/App/build/upload.log"
+          echo "Transporter upload OK"
+
+      - name: Confirm upload succeeded
+        if: ${{ steps.cfg.outputs.upload == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.upload_api.outcome }}" = "success" ]; then
+            echo "Upload OK via apple-actions (AppStoreAPI)"
+            exit 0
+          fi
+          # fallback step must have succeeded if we got here (otherwise job already failed)
+          echo "Upload OK via altool/Transporter fallback"
 
       - name: Upload IPA artifact
         if: always()

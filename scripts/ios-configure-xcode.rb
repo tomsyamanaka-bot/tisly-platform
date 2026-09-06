@@ -31,8 +31,8 @@ project.targets.each do |target|
     settings.delete("CODE_SIGN_IDENTITY[sdk=iphoneos*]")
     # Empty identity lets Automatic Signing choose Distribution when archiving
     settings["CODE_SIGN_IDENTITY"] = ""
-    settings["MARKETING_VERSION"] = settings["MARKETING_VERSION"] || "1.0.0"
-    settings["CURRENT_PROJECT_VERSION"] = settings["CURRENT_PROJECT_VERSION"] || "1"
+    settings["MARKETING_VERSION"] = ENV.fetch("MARKETING_VERSION", settings["MARKETING_VERSION"] || "1.0.0")
+    settings["CURRENT_PROJECT_VERSION"] = ENV.fetch("CURRENT_PROJECT_VERSION", ENV.fetch("GITHUB_RUN_NUMBER", settings["CURRENT_PROJECT_VERSION"] || "1"))
     settings["IPHONEOS_DEPLOYMENT_TARGET"] = "14.0"
     settings["ENABLE_USER_SCRIPT_SANDBOXING"] = "NO"
 

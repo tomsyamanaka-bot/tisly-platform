@@ -71,6 +71,12 @@ if (!wf.includes("gem install cocoapods")) {
 } else {
   console.log("[ios-check] gem cocoapods install OK");
 }
+if (!wf.includes("upload-testflight-build")) {
+  console.error("[ios-check] workflow missing apple-actions/upload-testflight-build");
+  failed = true;
+} else {
+  console.log("[ios-check] TestFlight upload action OK");
+}
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const needDeps = [
