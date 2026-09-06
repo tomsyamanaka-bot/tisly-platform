@@ -1,10 +1,10 @@
 name: iOS Build & Deploy (Capacitor)
 
-# クラウド Mac（macos-latest）で Capacitor iOS をビルドし、
-# TestFlight / App Store Connect へ IPA をアップロードする正規パイプライン。
-# Secrets（3キー）: docs/IOS_SECRETS_SETUP.md
-# 全体手順: docs/ios-deploy-guide.md
-# 既存 PWA / VPS / DB は変更しない（iOS 成果物のみ）。
+# クラウド Mac（macos-latest）で Capacitor iOS をビルドし TestFlight へアップロード。
+# 署名は App Store Connect API キーのみ（.p12 / プロビジョニング Secrets 不要）。
+# Fastlane setup_ci + cert + sigh が CI 上で証明書・プロファイルを自動取得する。
+# Secrets: docs/IOS_SECRETS_SETUP.md
+# 既存 PWA / VPS / DB は変更しない。
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ env:
 
 jobs:
   build-and-upload:
-    name: Build IPA (macos)
+    name: Build IPA (macos · ASC API key)
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -47,47 +47,34 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
           fetch-depth: 1
 
-      - name: Check iOS signing / ASC secrets
+      - name: Check App Store Connect API key secrets
         id: secrets
         env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
         run: |
           set -euo pipefail
           missing=()
-          [ -z "${BUILD_CERTIFICATE_BASE64:-}" ] && missing+=("BUILD_CERTIFICATE_BASE64")
-          [ -z "${CERTIFICATE_PASSWORD:-}" ] && missing+=("CERTIFICATE_PASSWORD")
-          [ -z "${BUILD_PROVISION_PROFILE_BASE64:-}" ] && missing+=("BUILD_PROVISION_PROFILE_BASE64")
-          [ -z "${APPLE_TEAM_ID:-}" ] && missing+=("APPLE_TEAM_ID")
+          [ -z "${APP_STORE_KEY_ID:-}" ] && missing+=("APP_STORE_KEY_ID")
+          [ -z "${APP_STORE_ISSUER_ID:-}" ] && missing+=("APP_STORE_ISSUER_ID")
+          [ -z "${APP_STORE_PRIVATE_KEY:-}" ] && missing+=("APP_STORE_PRIVATE_KEY")
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::App Store Connect API キー Secrets が未設定です: ${missing[*]}"
+            echo "登録手順: docs/IOS_SECRETS_SETUP.md"
+            echo "（.p12 / プロビジョニングプロファイルは不要です）"
+            exit 1
+          fi
 
           UPLOAD="true"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             UPLOAD="${{ github.event.inputs.upload }}"
           fi
 
-          if [ "$UPLOAD" = "true" ]; then
-            [ -z "${APP_STORE_KEY_ID:-}" ] && missing+=("APP_STORE_KEY_ID")
-            [ -z "${APP_STORE_ISSUER_ID:-}" ] && missing+=("APP_STORE_ISSUER_ID")
-            [ -z "${APP_STORE_PRIVATE_KEY:-}" ] && missing+=("APP_STORE_PRIVATE_KEY")
-          fi
-
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::GitHub Secrets が未設定です: ${missing[*]}"
-            echo "詳細手順: docs/IOS_SECRETS_SETUP.md / docs/ios-deploy-guide.md"
-            exit 1
-          fi
-
           echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "upload=${UPLOAD}" >> "$GITHUB_OUTPUT"
-          echo "profile_name=${PROVISIONING_PROFILE_NAME:-TiSLY App Store}" >> "$GITHUB_OUTPUT"
-          echo "keychain_password=${KEYCHAIN_PASSWORD:-tisly-ios-ci-temp}" >> "$GITHUB_OUTPUT"
+          echo "ASC API key secrets OK (certificate/profile secrets not required)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -116,7 +103,6 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          # Prefer latest stable Xcode on the runner image
           if [ -d "/Applications/Xcode.app" ]; then
             sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           fi
@@ -139,52 +125,14 @@ jobs:
       - name: Patch Info.plist (camera / push / local network)
         run: npm run ios:patch-plist
 
-      - name: Import Apple certificate & provisioning profile
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ steps.secrets.outputs.keychain_password }}
-        run: |
-          set -euo pipefail
-          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
-          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          # UUID from profile
-          PP_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i "$PP_PATH")")
-          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/${PP_UUID}.mobileprovision"
-          echo "Installed provisioning profile UUID=${PP_UUID}"
-          echo "PP_UUID=${PP_UUID}" >> "$GITHUB_ENV"
-
-      - name: Render ExportOptions.plist
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          PROVISIONING_PROFILE_NAME: ${{ steps.secrets.outputs.profile_name }}
-        run: node scripts/ios-render-export-options.mjs ios/ExportOptions.plist
-
-      - name: Set bundle id / team on Xcode project
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Set bundle id on Xcode project
         run: |
           set -euo pipefail
           PBX="ios/App/App.xcodeproj/project.pbxproj"
-          # Capacitor default PRODUCT_BUNDLE_IDENTIFIER is often com.getcapacitor.app / App
           /usr/bin/sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;/g" "$PBX"
-          /usr/bin/sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
-          # Ensure CODE_SIGN_STYLE Manual appears (append if missing is hard; Fastlane xcargs also sets Manual)
-          echo "Updated bundle id + team in $PBX"
+          # Automatic → Fastlane が cert/sigh 後に Manual + profile を適用
+          /usr/bin/sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g" "$PBX" || true
+          echo "Updated PRODUCT_BUNDLE_IDENTIFIER in $PBX"
 
       - name: Install CocoaPods
         working-directory: ios/App
@@ -209,25 +157,23 @@ jobs:
           mkdir -p ios/App/fastlane
           cp ios-ci/fastlane/Fastfile ios/App/fastlane/Fastfile
           cp ios-ci/fastlane/Appfile ios/App/fastlane/Appfile
-          cp ios/ExportOptions.plist ios/App/ExportOptions.plist
 
-      - name: Archive & export IPA (Fastlane)
+      - name: Archive & upload (ASC API key only · Fastlane)
         working-directory: ios/App
         env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
           APP_STORE_PRIVATE_KEY_IS_BASE64: ${{ secrets.APP_STORE_PRIVATE_KEY_IS_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IOS_BUNDLE_ID: jp.tisly.app
           IOS_SKIP_UPLOAD: ${{ steps.secrets.outputs.upload == 'true' && '0' || '1' }}
-          MATCH_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          CI: "true"
         run: |
           set -euo pipefail
           fastlane release \
             workspace:"App.xcworkspace" \
             scheme:"App" \
-            export_options:"ExportOptions.plist" \
             skip_upload:${{ steps.secrets.outputs.upload == 'true' && 'false' || 'true' }}
 
       - name: Upload IPA artifact
@@ -244,9 +190,9 @@ jobs:
         run: |
           set -euo pipefail
           SHORT="$(git rev-parse --short HEAD)"
-          echo "### TiSLY iOS build" >> "$GITHUB_STEP_SUMMARY"
+          echo "### TiSLY iOS build (ASC API key only)" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- bundle: \`jp.tisly.app\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- upload: \`${{ steps.secrets.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- secrets guide: docs/IOS_SECRETS_SETUP.md" >> "$GITHUB_STEP_SUMMARY"
-          echo "- full guide: docs/ios-deploy-guide.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "- signing: Fastlane cert/sigh via App Store Connect API（.p12 不要）" >> "$GITHUB_STEP_SUMMARY"
+          echo "- secrets: docs/IOS_SECRETS_SETUP.md" >> "$GITHUB_STEP_SUMMARY"

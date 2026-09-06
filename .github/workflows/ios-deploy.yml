@@ -27,5 +27,5 @@ jobs:
         run: |
           echo "::notice::正規の iOS ビルドは .github/workflows/ios-build-deploy.yml です。"
           echo "Actions →「iOS Build & Deploy (Capacitor)」→ Run workflow"
-          echo "ASC API キー 3 件の登録: docs/IOS_SECRETS_SETUP.md"
+          echo "署名は ASC API キー 3 件のみ（.p12 不要）: docs/IOS_SECRETS_SETUP.md"
           exit 1

@@ -1,8 +1,5 @@
 # TiSLY iOS — Fastlane Appfile
-# Values are overridden by ENV in CI (see ios-deploy.yml / ios-deploy-guide.md)
+# ASC API キー運用時は apple_id 不要。team_id は任意（APPLE_TEAM_ID）。
 
 app_identifier(ENV["IOS_BUNDLE_ID"] || "jp.tisly.app")
-apple_id(ENV["APPLE_ID"] || "") # optional when using App Store Connect API key
-team_id(ENV["APPLE_TEAM_ID"] || "")
-
-itc_team_id(ENV["APP_STORE_CONNECT_TEAM_ID"] || ENV["APPLE_TEAM_ID"] || "")
+team_id(ENV["APPLE_TEAM_ID"]) if ENV["APPLE_TEAM_ID"].to_s.strip != ""

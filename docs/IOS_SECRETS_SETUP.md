@@ -1,14 +1,21 @@
 # TiSLY iOS — App Store Connect API キー（GitHub Secrets）登録手順
 
-Apple Developer Program の**承認完了後**に実施してください（現在が承認待ちなら、承認メールが来てからで十分です）。
+手元に Mac / `.p12` / プロビジョニングプロファイルは**不要**です。  
+CI（`macos-latest`）が Fastlane `cert` / `sigh` で署名資材を自動取得し、TestFlight へアップロードします。
 
-このドキュメントは次の **3 つの Secrets** だけを扱います。署名用証明書などの全体手順は [ios-deploy-guide.md](./ios-deploy-guide.md) を参照。
+必須 Secrets は次の **3 つだけ**です。
 
 | Secret 名 | 中身 |
 |-----------|------|
 | `APP_STORE_KEY_ID` | API Key の Key ID（例: `AB12CD34EF`） |
 | `APP_STORE_ISSUER_ID` | Issuer ID（UUID 形式） |
 | `APP_STORE_PRIVATE_KEY` | ダウンロードした `.p8` 秘密鍵の全文 |
+
+任意（推奨）:
+
+| Secret 名 | 中身 |
+|-----------|------|
+| `APPLE_TEAM_ID` | Apple Team ID（10 文字）。未設定でも多くの場合 Fastlane が API キーから解決 |
 
 CI ワークフロー: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-deploy.yml)
 
@@ -18,54 +25,52 @@ CI ワークフロー: [`.github/workflows/ios-build-deploy.yml`](../.github/wor
 
 1. [App Store Connect](https://appstoreconnect.apple.com) にログイン
 2. **ユーザとアクセス** → **統合**（Integrations）→ **App Store Connect API**
-3. **キーを生成**（Team 権限は **App Manager** 以上を推奨）
-4. 表示される値を控える:
-   - **Issuer ID**（ページ上部）→ 後で `APP_STORE_ISSUER_ID`
-   - **キー ID** → 後で `APP_STORE_KEY_ID`
-5. **API キーをダウンロード** → `AuthKey_XXXXXXXXXX.p8`  
-   ※ **一度きり**。紛失したらキーを失効して再発行
+3. **キーを生成**（権限は **Admin** または **App Manager** 推奨 ※証明書自動作成のため）
+4. 控える値:
+   - **Issuer ID** → `APP_STORE_ISSUER_ID`
+   - **キー ID** → `APP_STORE_KEY_ID`
+5. **API キーをダウンロード** → `AuthKey_XXXXXXXXXX.p8`（再ダウンロード不可）
 
 ---
 
 ## 2. GitHub に Secrets を登録
 
-1. GitHub リポジトリを開く
-2. **Settings** → **Secrets and variables** → **Actions**
-3. **New repository secret** を 3 回実行:
+1. リポジトリ → **Settings** → **Secrets and variables** → **Actions**
+2. **New repository secret** で 3 件を登録:
 
 ### `APP_STORE_KEY_ID`
 
-- Value: Key ID のみ（例: `AB12CD34EF`）
+Key ID のみ（例: `AB12CD34EF`）
 
 ### `APP_STORE_ISSUER_ID`
 
-- Value: Issuer ID の UUID 全文
+Issuer ID（UUID）全文
 
 ### `APP_STORE_PRIVATE_KEY`
 
-- Value: `.p8` ファイルの**全文**（次の形式をそのまま貼り付け）
+`.p8` の全文（改行そのままで可）:
 
 ```
 -----BEGIN PRIVATE KEY-----
-...複数行...
+...
 -----END PRIVATE KEY-----
 ```
 
-改行はそのままで問題ありません。  
-（Base64 で入れる場合は別 Secret `APP_STORE_PRIVATE_KEY_IS_BASE64=1` も設定。通常は平文で十分）
+（Base64 で入れる場合のみ `APP_STORE_PRIVATE_KEY_IS_BASE64=1` も設定）
 
 ---
 
-## 3. 動作確認（承認後）
+## 3. 動作確認
 
 1. Actions → **iOS Build & Deploy (Capacitor)** → **Run workflow**
-2. 初回は `upload: false` で IPA 生成だけ試し、Secrets・証明書が揃ってから `upload: true`
-3. 不足 Secret がある場合、ジョブ先頭で名前付きエラーが出ます
+2. 初回は `upload: false` で IPA 生成を確認してから `upload: true`
+3. 不足がある場合、ジョブ先頭で `APP_STORE_*` の名前付きエラーが出ます（`.p12` 系は要求しません）
 
 ---
 
 ## 注意
 
-- `.p8` / Key ID / Issuer ID を git やチャットにコミット・貼付しない
-- 既存の VPS デプロイ（`deploy-vps.yml`）・本番 DB・PWA とは独立（この 3 キー登録だけでは本番サイトは変わりません）
-- Bundle ID は `jp.tisly.app`（App Store Connect 側のアプリ作成も承認後に実施）
+- `.p8` を git / チャットにコミットしない
+- 既存 VPS デプロイ・本番 DB・PWA とは独立
+- Bundle ID: `jp.tisly.app`（App Store Connect にアプリを作成済みであること）
+- Distribution 証明書の上限（通常 3 枚）に達している場合は、不要な証明書を Apple Developer で整理してください（CI が新規作成するとき）

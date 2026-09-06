@@ -1,33 +1,23 @@
 # frozen_string_literal: true
 
+# TiSLY iOS — App Store Connect API キーのみで署名・アップロード
+# （手元 Mac / .p12 / .mobileprovision の GitHub Secrets は不要）
+# CI 上の macos-latest が cert/sigh で証明書・プロファイルを自動取得する。
+
 default_platform(:ios)
 
 platform :ios do
-  desc "Archive TiSLY iOS and optionally upload to App Store Connect / TestFlight"
+  desc "Archive TiSLY iOS with ASC API key auth; optionally upload to TestFlight"
   lane :release do |options|
     workspace = options[:workspace] || "App.xcworkspace"
     scheme = options[:scheme] || "App"
-    export_options = options[:export_options] || "../ExportOptions.plist"
+    bundle_id = ENV.fetch("IOS_BUNDLE_ID", "jp.tisly.app")
     skip_upload =
       ENV["IOS_SKIP_UPLOAD"] == "1" ||
       [true, "true", "1"].include?(options[:skip_upload])
 
-    build_app(
-      workspace: workspace,
-      scheme: scheme,
-      configuration: "Release",
-      clean: true,
-      export_method: "app-store",
-      export_options: export_options,
-      output_directory: "./build",
-      output_name: "TiSLY",
-      xcargs: "CODE_SIGN_STYLE=Manual"
-    )
-
-    if skip_upload
-      UI.important("Skipping App Store Connect upload (IOS_SKIP_UPLOAD=1)")
-      next
-    end
+    # GitHub Actions 向け一時キーチェーン（ユーザーの .p12 は使わない）
+    setup_ci if ENV["CI"]
 
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("APP_STORE_KEY_ID"),
@@ -38,37 +28,57 @@ platform :ios do
       in_house: false
     )
 
-    # TestFlight / App Store Connect へバイナリのみアップロード（審査提出は手動）
+    # Distribution 証明書を ASC API 経由で作成/取得し CI キーチェーンへ導入
+    get_certificates(api_key: api_key)
+
+    # App Store 用プロビジョニングプロファイルを ASC API 経由で作成/取得
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: bundle_id
+    )
+
+    team_id =
+      ENV["APPLE_TEAM_ID"].to_s.strip.empty? ? nil : ENV["APPLE_TEAM_ID"].to_s.strip
+    team_id ||= ENV["FASTLANE_TEAM_ID"].to_s.strip
+    team_id = nil if team_id.to_s.empty?
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "App.xcodeproj",
+      team_id: team_id,
+      code_sign_identity: "Apple Distribution",
+      profile_name: ENV["SIGH_NAME"],
+      bundle_identifier: bundle_id
+    )
+
+    build_app(
+      workspace: workspace,
+      scheme: scheme,
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        provisioningProfiles: {
+          bundle_id => ENV.fetch("SIGH_NAME")
+        }
+      },
+      output_directory: "./build",
+      output_name: "TiSLY",
+      xcargs: team_id ? "DEVELOPMENT_TEAM=#{team_id}" : nil
+    )
+
+    if skip_upload
+      UI.important("Skipping App Store Connect upload (IOS_SKIP_UPLOAD=1)")
+      next
+    end
+
     upload_to_testflight(
       api_key: api_key,
       ipa: "./build/TiSLY.ipa",
       skip_waiting_for_build_processing: true,
       distribute_external: false
     )
-  end
-
-  desc "Upload an existing IPA via altool (fallback without Fastlane deliver)"
-  lane :upload_altool do |options|
-    ipa = options[:ipa] || "./build/TiSLY.ipa"
-    key_id = ENV.fetch("APP_STORE_KEY_ID")
-    issuer = ENV.fetch("APP_STORE_ISSUER_ID")
-    # Write .p8 from secret for altool
-    p8_path = File.expand_path("./AuthKey_#{key_id}.p8")
-    key_body = ENV.fetch("APP_STORE_PRIVATE_KEY")
-    if ENV["APP_STORE_PRIVATE_KEY_IS_BASE64"] == "1"
-      require "base64"
-      key_body = Base64.decode64(key_body)
-    end
-    File.write(p8_path, key_body)
-
-    sh(
-      "xcrun", "altool", "--upload-app",
-      "--type", "ios",
-      "--file", ipa,
-      "--apiKey", key_id,
-      "--apiIssuer", issuer
-    )
-  ensure
-    File.delete(p8_path) if p8_path && File.exist?(p8_path)
   end
 end
