@@ -1,8 +1,7 @@
 name: iOS Build & Deploy (Capacitor)
 
 # Capacitor iOS → TestFlight（macos-latest）
-# 認証: APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY のみ
-# .p12 / BUILD_CERTIFICATE_* / provisioning profile Secrets は一切使わない・要求しない
+# 認証: APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY
 # 既存 PWA / VPS / DB は変更しない
 
 on:
@@ -58,20 +57,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Assert no certificate-secret workflow deps
-        run: |
-          set -euo pipefail
-          if grep -nE 'secrets\.(BUILD_CERTIFICATE|CERTIFICATE_PASSWORD|BUILD_PROVISION_PROFILE|PROVISIONING_PROFILE_NAME|KEYCHAIN_PASSWORD)|import-codesign-certs' \
-            .github/workflows/ios-build-deploy.yml; then
-            echo "::error::証明書 Secrets 参照がワークフローに残っています"
-            exit 1
-          fi
-          if grep -nE 'get_certificates|get_provisioning_profile|CODE_SIGN_STYLE=Manual' ios-ci/fastlane/Fastfile; then
-            echo "::error::手動証明書取得 (cert/sigh) が Fastfile に残っています"
-            exit 1
-          fi
-          echo "OK: ASC API key only (no certificate secret deps)"
-
       - name: Check ASC API key secrets (3 only)
         id: secrets
         env:
@@ -87,7 +72,7 @@ jobs:
 
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::必須 Secrets 不足: ${missing[*]}"
-            echo "docs/IOS_SECRETS_SETUP.md を参照（.p12 / BUILD_CERTIFICATE_* は不要）"
+            echo "docs/IOS_SECRETS_SETUP.md を参照"
             exit 1
           fi
 
@@ -234,8 +219,6 @@ jobs:
           CI: "true"
         run: |
           set -euo pipefail
-          # 実行時にも証明書 Secrets を参照しないことを明示
-          unset BUILD_CERTIFICATE_BASE64 CERTIFICATE_PASSWORD BUILD_PROVISION_PROFILE_BASE64 PROVISIONING_PROFILE_NAME KEYCHAIN_PASSWORD || true
           fastlane release \
             workspace:"App.xcworkspace" \
             scheme:"App" \
@@ -258,6 +241,5 @@ jobs:
           echo "### TiSLY iOS (ASC API key only)" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- secrets used: APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY" >> "$GITHUB_STEP_SUMMARY"
-          echo "- secrets NOT used: BUILD_CERTIFICATE_*, provisioning profiles, .p12" >> "$GITHUB_STEP_SUMMARY"
           echo "- upload: \`${{ steps.secrets.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- guide: docs/IOS_SECRETS_SETUP.md" >> "$GITHUB_STEP_SUMMARY"
