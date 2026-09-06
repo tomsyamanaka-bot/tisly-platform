@@ -1,9 +1,9 @@
 name: iOS Build & Deploy (Capacitor)
 
 # Capacitor iOS → IPA → TestFlight（macos-latest）
-# xcodebuild Automatic Signing + ASC API キーのみ（追加の署名ツール不要）。
+# xcodebuild Automatic Signing + ASC API キー（Fastlane なし）
 # Secrets: APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY
-# Variable: APPLE_TEAM_ID（Team ID・秘密ではない）
+# Variable: APPLE_TEAM_ID
 # 既存 PWA / VPS / DB は変更しない
 
 on:
@@ -44,7 +44,7 @@ jobs:
   build-and-upload:
     name: xcodebuild + ASC API key
     runs-on: macos-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,11 +74,14 @@ jobs:
           if [ -z "$TEAM" ]; then
             missing+=("APPLE_TEAM_ID")
           fi
+          # Team ID は通常 10 英数字
+          if [ -n "$TEAM" ] && ! echo "$TEAM" | grep -Eq '^[A-Z0-9]{10}$'; then
+            echo "::warning::APPLE_TEAM_ID の形式が想定外です: ${TEAM}（通常は英数字10文字）"
+          fi
 
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::未設定: ${missing[*]}"
-            echo "Secrets: APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY"
-            echo "Variable: APPLE_TEAM_ID（Team ID 10文字）— docs/IOS_SECRETS_SETUP.md"
+            echo "docs/IOS_SECRETS_SETUP.md"
             exit 1
           fi
 
@@ -95,7 +98,7 @@ jobs:
           echo "team_id=${TEAM}" >> "$GITHUB_OUTPUT"
           echo "upload=${UPLOAD}" >> "$GITHUB_OUTPUT"
           echo "server_url=${SERVER_URL}" >> "$GITHUB_OUTPUT"
-          echo "Config OK (team=${TEAM}, upload=${UPLOAD})"
+          echo "Config OK bundle=jp.tisly.app team=${TEAM} upload=${UPLOAD}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -106,7 +109,7 @@ jobs:
             package-lock.json
             server/package-lock.json
 
-      - name: Install dependencies
+      - name: Install npm deps
         run: |
           set -euo pipefail
           npm ci
@@ -123,10 +126,13 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          if [ -d "/Applications/Xcode.app" ]; then
+          if [ -d "/Applications/Xcode_16.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+          elif [ -d "/Applications/Xcode.app" ]; then
             sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           fi
           xcodebuild -version
+          xcodebuild -showsdks | head -n 40 || true
 
       - name: Capacitor add / sync ios
         env:
@@ -138,6 +144,8 @@ jobs:
           fi
           npx cap sync ios
           npm run ios:patch-plist
+          # 確認: capacitor.config appId と一致
+          grep -n "jp.tisly.app\|PRODUCT_BUNDLE_IDENTIFIER\|DEVELOPMENT_TEAM" ios/App/App.xcodeproj/project.pbxproj | head -n 40 || true
 
       - name: Write ASC API key (.p8)
         env:
@@ -150,39 +158,67 @@ jobs:
           if [ "${APP_STORE_PRIVATE_KEY_IS_BASE64:-}" = "1" ]; then
             echo -n "$APP_STORE_PRIVATE_KEY" | base64 --decode > "$KEY_PATH"
           else
-            # GitHub Secrets のリテラル \n を実改行に
             printf '%s\n' "$APP_STORE_PRIVATE_KEY" | sed 's/\\n/\n/g' > "$KEY_PATH"
           fi
-          # altool / xcodebuild 標準探索パス
-          mkdir -p "${HOME}/private_keys" "${HOME}/.appstoreconnect/private_keys" "${RUNNER_TEMP}/private_keys"
+          # PEM ヘッダ確認
+          if ! grep -q "BEGIN PRIVATE KEY" "$KEY_PATH"; then
+            echo "::error::APP_STORE_PRIVATE_KEY が PEM 形式ではありません"
+            exit 1
+          fi
+          mkdir -p "${HOME}/private_keys" "${HOME}/.appstoreconnect/private_keys" "./private_keys"
           cp "$KEY_PATH" "${HOME}/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
           cp "$KEY_PATH" "${HOME}/.appstoreconnect/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
-          cp "$KEY_PATH" "${RUNNER_TEMP}/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
+          cp "$KEY_PATH" "./private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
           echo "AUTH_KEY_PATH=${KEY_PATH}" >> "$GITHUB_ENV"
-          echo "Wrote AuthKey_${APP_STORE_KEY_ID}.p8"
+          ls -la "$KEY_PATH"
 
-      - name: Configure Xcode project (bundle id + automatic signing)
+      - name: Prepare CI keychain (codesign)
+        run: |
+          set -euo pipefail
+          KC="${RUNNER_TEMP}/tisly-ci.keychain-db"
+          KP="tisly-ci-temp"
+          security delete-keychain "$KC" 2>/dev/null || true
+          security create-keychain -p "$KP" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KP" "$KC"
+          security list-keychains -d user -s "$KC" login.keychain-db
+          security default-keychain -s "$KC"
+          echo "KEYCHAIN_PATH=${KC}" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PASSWORD=${KP}" >> "$GITHUB_ENV"
+
+      - name: Setup Ruby + xcodeproj
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: false
+
+      - name: Install xcodeproj gem
+        run: gem install xcodeproj -N
+
+      - name: Patch Podfile for CI (disable Pods code sign)
+        run: bash scripts/ios-patch-podfile.sh ios/App/Podfile
+
+      - name: CocoaPods install
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          pod install --repo-update
+
+      - name: Configure Xcode project (bundle + team + Automatic)
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
-          PBX="ios/App/App.xcodeproj/project.pbxproj"
-          /usr/bin/sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;/g" "$PBX"
-          /usr/bin/sed -i '' "s/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g" "$PBX" || true
-          if grep -q "DEVELOPMENT_TEAM =" "$PBX"; then
-            /usr/bin/sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
-          else
-            /usr/bin/sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;\n\t\t\t\tDEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
-          fi
-          echo "bundle=jp.tisly.app team=${APPLE_TEAM_ID} style=Automatic"
-
-      - name: CocoaPods
-        working-directory: ios/App
-        run: |
-          set -euo pipefail
-          if [ -f Podfile ]; then
-            pod install --repo-update
-          fi
+          ruby scripts/ios-configure-xcode.rb \
+            ios/App/App.xcodeproj \
+            jp.tisly.app \
+            "$APPLE_TEAM_ID"
+          # Shared scheme 確認
+          xcodebuild -workspace ios/App/App.xcworkspace -list
+          # Build settings スナップショット
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -showBuildSettings 2>/dev/null \
+            | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|MARKETING_VERSION|CURRENT_PROJECT_VERSION' \
+            | head -n 40 || true
 
       - name: Render ExportOptions.plist
         env:
@@ -202,12 +238,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build
+          set +e
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$PWD/build/TiSLY.xcarchive" \
+            -resultBundlePath "$PWD/build/TiSLY.xcresult" \
             -allowProvisioningUpdates \
             -allowProvisioningDeviceRegistration \
             -authenticationKeyPath "$AUTH_KEY_PATH" \
@@ -216,7 +255,21 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
-            archive
+            ONLY_ACTIVE_ARCH=NO \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO \
+            archive 2>&1 | tee build/archive.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::xcodebuild archive failed with exit ${STATUS}"
+            echo "===== archive.log (errors) ====="
+            grep -E 'error:|warning:|ARCHIVE FAILED|Provisioning|Signing|bundle|Team' build/archive.log | tail -n 80 || true
+            echo "===== xcresult ====="
+            if [ -d build/TiSLY.xcresult ]; then
+              xcrun xcresulttool get --path build/TiSLY.xcresult --format json 2>/dev/null | head -c 8000 || true
+            fi
+            exit "$STATUS"
+          fi
 
       - name: Export IPA (xcodebuild)
         working-directory: ios/App
@@ -225,6 +278,7 @@ jobs:
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
         run: |
           set -euo pipefail
+          set +e
           xcodebuild \
             -exportArchive \
             -archivePath "$PWD/build/TiSLY.xcarchive" \
@@ -233,8 +287,15 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath "$AUTH_KEY_PATH" \
             -authenticationKeyID "$APP_STORE_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID"
-          # Normalize IPA name
+            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
+            2>&1 | tee build/export.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::xcodebuild export failed with exit ${STATUS}"
+            grep -E 'error:|Export|Provisioning|Signing' build/export.log | tail -n 80 || true
+            exit "$STATUS"
+          fi
           IPA="$(find "$PWD/build/export" -name '*.ipa' | head -n 1)"
           if [ -z "$IPA" ]; then
             echo "::error::IPA が生成されませんでした"
@@ -252,7 +313,6 @@ jobs:
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
         run: |
           set -euo pipefail
-          # altool は ~/private_keys/AuthKey_<KEY_ID>.p8 を自動参照
           xcrun altool --upload-app \
             --type ios \
             --file "$PWD/build/TiSLY.ipa" \
@@ -261,19 +321,24 @@ jobs:
             --verbose
 
       - name: Upload IPA artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: TiSLY-ios-ipa
-          path: ios/App/build/TiSLY.ipa
+          path: |
+            ios/App/build/TiSLY.ipa
+            ios/App/build/archive.log
+            ios/App/build/export.log
           if-no-files-found: warn
           retention-days: 14
 
       - name: Summary
+        if: always()
         run: |
           set -euo pipefail
           SHORT="$(git rev-parse --short HEAD)"
           echo "### TiSLY iOS (xcodebuild + ASC API key)" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- bundle: \`jp.tisly.app\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- team: \`${{ steps.cfg.outputs.team_id }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- upload: \`${{ steps.cfg.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- auth: ASC API key + Automatic Signing" >> "$GITHUB_STEP_SUMMARY"

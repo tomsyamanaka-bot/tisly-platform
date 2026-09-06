@@ -30,4 +30,6 @@ CI: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-de
 Actions → **iOS Build & Deploy (Capacitor)** → Run workflow  
 （`upload: false` で IPA のみも可）
 
-フロー: `npm run build` → `cap sync ios` → `xcodebuild archive` → `xcodebuild -exportArchive` → `xcrun altool --upload-app`
+フロー: `npm run build` → `cap sync ios` → `xcodeproj` で bundle/team 設定 → `xcodebuild archive` → `exportArchive` → `altool --upload-app`
+
+exit 65 時は Artifact の `archive.log` を確認（Signing / Provisioning / CocoaPods の error 行）。

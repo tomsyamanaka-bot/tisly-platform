@@ -18,6 +18,8 @@ const required = [
   "docs/IOS_SECRETS_SETUP.md",
   "scripts/prepare-capacitor-www.mjs",
   "scripts/ios-patch-info-plist.mjs",
+  "scripts/ios-configure-xcode.rb",
+  "scripts/ios-patch-podfile.sh",
   "ios-ci/ExportOptions.plist",
   "ios-ci/Info.plist.permissions.template.xml",
   "ios-ci/apple-team-id",

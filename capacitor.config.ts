@@ -41,6 +41,7 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
     allowsLinkPreview: false,
+    // Xcode scheme name (Capacitor default). Bundle ID is appId: jp.tisly.app
     scheme: 'App',
   },
 };
