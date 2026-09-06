@@ -290,9 +290,10 @@ jobs:
           APP_DIR="${GITHUB_WORKSPACE}/ios/App"
           WS="${APP_DIR}/App.xcworkspace"
           ARCHIVE_PATH="${APP_DIR}/build/TiSLY.xcarchive"
-          RESULT_PATH="${APP_DIR}/build/TiSLY.xcresult"
+          DERIVED_DATA="${APP_DIR}/build/DerivedData"
           LOG="${APP_DIR}/build/archive.log"
           mkdir -p "${APP_DIR}/build"
+          rm -rf "$ARCHIVE_PATH" "$DERIVED_DATA"
           cd "$APP_DIR"
 
           if [ -z "${APPLE_TEAM_ID:-}" ]; then
@@ -308,8 +309,8 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH" \
-            -resultBundlePath "$RESULT_PATH" \
             -allowProvisioningUpdates \
             -allowProvisioningDeviceRegistration \
             -authenticationKeyPath "$AUTH_KEY_PATH" \
@@ -318,6 +319,7 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
+            SKIP_INSTALL=NO \
             ONLY_ACTIVE_ARCH=NO \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
             archive 2>&1 | tee "$LOG"
@@ -326,7 +328,7 @@ jobs:
 
           if [ "$STATUS" -ne 0 ]; then
             echo "::error::xcodebuild archive failed with exit ${STATUS}"
-            grep -E 'error:|warning:|ARCHIVE FAILED|Provisioning|Signing|bundle|Team' "$LOG" | tail -n 80 || true
+            grep -E 'error:|warning:|ARCHIVE FAILED|Provisioning|Signing|bundle|Team|SKIP_INSTALL' "$LOG" | tail -n 80 || true
             exit "$STATUS"
           fi
           if [ ! -d "$ARCHIVE_PATH" ]; then
@@ -334,76 +336,23 @@ jobs:
             ls -laR "${APP_DIR}/build" || true
             exit 1
           fi
-          echo "Archive OK:"
-          ls -la "$ARCHIVE_PATH"
-          ls -la "$ARCHIVE_PATH/Products/Applications" 2>/dev/null || true
+          echo "Archive OK — Applications:"
+          ls -laR "$ARCHIVE_PATH/Products/Applications" || {
+            echo "::error::Products/Applications が空です (SKIP_INSTALL)"
+            find "$ARCHIVE_PATH" -maxdepth 5 -print || true
+            exit 1
+          }
 
-      - name: Export IPA (xcodebuild)
+      - name: Export / package IPA → ios/App/build/TiSLY.ipa
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
-          APP_DIR="${GITHUB_WORKSPACE}/ios/App"
-          ARCHIVE_PATH="${APP_DIR}/build/TiSLY.xcarchive"
-          EXPORT_DIR="${APP_DIR}/build/ipa"
-          EXPORT_PLIST="${APP_DIR}/build/ExportOptions.plist"
-          LOG="${APP_DIR}/build/export.log"
-          OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
-
-          rm -rf "$EXPORT_DIR"
-          mkdir -p "$EXPORT_DIR"
-
-          if [ ! -d "$ARCHIVE_PATH" ]; then
-            echo "::error::export 前に archive がありません: $ARCHIVE_PATH"
-            exit 1
-          fi
-          if [ ! -f "$EXPORT_PLIST" ]; then
-            echo "::error::ExportOptions.plist がありません: $EXPORT_PLIST"
-            exit 1
-          fi
-
-          echo "exportArchive archive=${ARCHIVE_PATH}"
-          echo "exportPath=${EXPORT_DIR}"
-          plutil -p "$EXPORT_PLIST"
-
-          set +e
-          xcodebuild \
-            -exportArchive \
-            -archivePath "$ARCHIVE_PATH" \
-            -exportPath "$EXPORT_DIR" \
-            -exportOptionsPlist "$EXPORT_PLIST" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$AUTH_KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
-            2>&1 | tee "$LOG"
-          STATUS=${PIPESTATUS[0]}
-          set -e
-
-          echo "===== export dir listing ====="
-          ls -laR "$EXPORT_DIR" || true
-          ls -laR "${APP_DIR}/build" || true
-
-          # IPA を広い範囲で探索（App.ipa / TiSLY.ipa など scheme 由来の名前）
-          IPA="$(find "$EXPORT_DIR" "${APP_DIR}/build" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
-
-          if [ "$STATUS" -ne 0 ] && [ -z "$IPA" ]; then
-            echo "::error::xcodebuild export failed with exit ${STATUS} and no IPA"
-            grep -E 'error:|Export|Provisioning|Signing|IPA' "$LOG" | tail -n 100 || true
-            exit "$STATUS"
-          fi
-
-          if [ -z "$IPA" ]; then
-            echo "::error::IPA が見つかりません（exportPath=${EXPORT_DIR}）"
-            grep -E 'error:|Export|IPA|\.ipa' "$LOG" | tail -n 100 || true
-            exit 1
-          fi
-
-          cp -f "$IPA" "$OUT_IPA"
-          echo "Found IPA: ${IPA}"
-          ls -lh "$OUT_IPA"
+          bash "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh" "${GITHUB_WORKSPACE}/ios/App"
+          test -f "${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
+          ls -lh "${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
 
       - name: Upload to App Store Connect
         if: ${{ steps.cfg.outputs.upload == 'true' }}
@@ -445,12 +394,15 @@ jobs:
           SHORT="$(git rev-parse --short HEAD)"
           TEAM_LEN="$(printf '%s' '${{ steps.cfg.outputs.team_id }}' | wc -c | tr -d ' ')"
           IPA="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
-          IPA_STATE="missing"
-          if [ -f "$IPA" ]; then IPA_STATE="$(ls -lh "$IPA" | awk '{print $5}')"; fi
+          if [ -f "$IPA" ]; then
+            IPA_STATE="$(ls -lh "$IPA" | awk '{print $5}')"
+          else
+            IPA_STATE="missing"
+          fi
           echo "### TiSLY iOS (xcodebuild + ASC API key)" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- bundle: \`jp.tisly.app\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- scheme: \`${{ steps.xcode.outputs.scheme }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- IPA: \`${IPA_STATE}\` at \`ios/App/build/TiSLY.ipa\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- APPLE_TEAM_ID: bound from \`vars.APPLE_TEAM_ID\` (len=${TEAM_LEN})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- IPA: \`${IPA_STATE}\` → \`ios/App/build/TiSLY.ipa\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- APPLE_TEAM_ID: vars (len=${TEAM_LEN})" >> "$GITHUB_STEP_SUMMARY"
           echo "- upload: \`${{ steps.cfg.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
