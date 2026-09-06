@@ -21,6 +21,7 @@ const required = [
   "scripts/ios-configure-xcode.rb",
   "scripts/ios-patch-podfile.sh",
   "scripts/ios-make-ipa.sh",
+  "scripts/ios-asc-prepare-signing.mjs",
   "ios-ci/ExportOptions.plist",
   "ios-ci/Info.plist.permissions.template.xml",
   "ios-ci/apple-team-id",

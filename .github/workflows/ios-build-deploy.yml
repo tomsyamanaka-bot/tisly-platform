@@ -404,18 +404,56 @@ jobs:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
+          IOS_BUNDLE_ID: jp.tisly.app
+          EXPORT_PLIST: ${{ github.workspace }}/ios/App/build/ExportOptions.plist
         run: |
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
           APP_DIR="${GITHUB_WORKSPACE}/ios/App"
           OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
-          export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID
+          export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST
+
+          echo "===== identities before ASC prepare ====="
+          security find-identity -v -p codesigning || true
+
+          # Ensure IOS_DISTRIBUTION cert + App Store profile exist (ITMS-90174)
+          set +e
+          node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs"
+          PREP=$?
+          set -e
+          if [ "$PREP" -ne 0 ]; then
+            echo "::warning::ASC prepare failed (exit=${PREP}) — continuing with Automatic export only"
+          fi
+
+          echo "===== identities after ASC prepare ====="
+          security find-identity -v -p codesigning || true
+
           chmod +x "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh"
+          set +e
           bash "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh" "$APP_DIR"
-          test -f "$OUT_IPA"
-          test -s "$OUT_IPA"
-          ls -lh "$OUT_IPA"
-          echo "CANONICAL_IPA=${OUT_IPA}" >> "$GITHUB_ENV"
+          MAKE=$?
+          set -e
+          if [ "$MAKE" -ne 0 ]; then
+            echo "::error::exportArchive failed — dumping export.log"
+            if [ -f "${APP_DIR}/build/export.log" ]; then
+              # Surface concrete xcodebuild lines in the Actions UI
+              grep -E 'error:|Error |Failed|provision|Provisioning|Signing|IDEDistribution|certificate|Authentication|Team' \
+                "${APP_DIR}/build/export.log" | tail -n 80 | while IFS= read -r line; do
+                echo "::error::${line}"
+              done
+              tail -n 120 "${APP_DIR}/build/export.log" || true
+            fi
+            exit "$MAKE"
+          fi
+          if [ -f "$OUT_IPA" ]; then
+            ls -lh "$OUT_IPA"
+            echo "CANONICAL_IPA=${OUT_IPA}" >> "$GITHUB_ENV"
+          elif [ "${ASC_UPLOAD_VIA_EXPORT:-}" = "1" ] || [ -f "${APP_DIR}/build/exported-via-upload.flag" ]; then
+            echo "ASC upload via exportArchive OK (no local IPA)"
+          else
+            echo "::error::no IPA and no ASC upload flag"
+            exit 1
+          fi
 
       - name: Verify IPA path + embedded.mobileprovision
         if: ${{ hashFiles('ios/App/build/TiSLY.ipa') != '' }}

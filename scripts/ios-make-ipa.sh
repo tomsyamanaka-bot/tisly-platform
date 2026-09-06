@@ -97,13 +97,41 @@ run_export() {
 }
 
 EXPORT_OK=0
-# 1) Prefer local IPA with embedded provisioning (required for ITMS-90174-safe upload)
-for METHOD in app-store-connect app-store; do
-  if run_export "$METHOD" "export"; then
+
+# 0) If ASC prepare already wrote manual ExportOptions, try it first (do not overwrite)
+if /usr/libexec/PlistBuddy -c "Print :signingStyle" "$EXPORT_PLIST" 2>/dev/null | grep -qi manual; then
+  echo "===== exportArchive using pre-prepared manual ExportOptions =====" | tee -a "$LOG"
+  plutil -p "$EXPORT_PLIST" | tee -a "$LOG"
+  rm -rf "$EXPORT_DIR"
+  mkdir -p "$EXPORT_DIR"
+  set +e
+  xcodebuild \
+    -exportArchive \
+    -archivePath "$ARCHIVE_PATH" \
+    -exportPath "$EXPORT_DIR" \
+    -exportOptionsPlist "$EXPORT_PLIST" \
+    -allowProvisioningUpdates \
+    -allowProvisioningDeviceRegistration \
+    -authenticationKeyPath "$AUTH_KEY_PATH" \
+    -authenticationKeyID "$APP_STORE_KEY_ID" \
+    -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
+    2>&1 | tee -a "$LOG"
+  st=${PIPESTATUS[0]}
+  set -e
+  if [ "$st" -eq 0 ]; then
     EXPORT_OK=1
-    break
   fi
-done
+fi
+
+# 1) Prefer local IPA with embedded provisioning (required for ITMS-90174-safe upload)
+if [ "$EXPORT_OK" -ne 1 ]; then
+  for METHOD in app-store-connect app-store; do
+    if run_export "$METHOD" "export"; then
+      EXPORT_OK=1
+      break
+    fi
+  done
+fi
 
 # 2) Fallback: Xcode uploads archive to ASC directly (still signs with Distribution profile)
 if [ "$EXPORT_OK" -ne 1 ]; then
