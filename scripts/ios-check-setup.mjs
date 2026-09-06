@@ -78,6 +78,23 @@ if (!wf.includes("upload-testflight-build")) {
   console.log("[ios-check] TestFlight upload action OK");
 }
 
+const makeIpa = fs.readFileSync(path.join(root, "scripts/ios-make-ipa.sh"), "utf8");
+if (/Packaging IPA from archive|ditto -c -k/.test(makeIpa) && !/Payload zip fallback is DISABLED|DISABLED/.test(makeIpa)) {
+  console.error("[ios-check] ios-make-ipa.sh must not Payload-zip without provisioning (ITMS-90174)");
+  failed = true;
+} else if (!makeIpa.includes("embedded.mobileprovision")) {
+  console.error("[ios-check] ios-make-ipa.sh must verify embedded.mobileprovision");
+  failed = true;
+} else {
+  console.log("[ios-check] IPA provisioning checks OK");
+}
+if (!wf.includes("embedded.mobileprovision")) {
+  console.error("[ios-check] workflow must verify embedded.mobileprovision before upload");
+  failed = true;
+} else {
+  console.log("[ios-check] workflow ITMS-90174 guard OK");
+}
+
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const needDeps = [
   "@capacitor/core",
