@@ -267,6 +267,8 @@ jobs:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
           IOS_BUNDLE_ID: jp.tisly.app
           EXPORT_PLIST: ${{ github.workspace }}/ios/App/build/ExportOptions.plist
+          IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
         run: |
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true

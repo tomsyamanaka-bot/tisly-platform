@@ -115,63 +115,109 @@ const hasDistIdentity = /Apple Distribution|iPhone Distribution/.test(
   idBefore.stdout || ""
 );
 
-// --- Certificates (IOS_DISTRIBUTION) ---
-const certs = await asc(
-  "GET",
-  "/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=50"
-);
 let certItem = null;
 let keyPemPath = null;
+const p12B64 = process.env.IOS_DIST_CERT_P12_BASE64 || "";
+const p12Pass = process.env.IOS_DIST_CERT_PASSWORD || "";
 
-// Existing ASC certs are useless without the private key. Always create a CI cert
-// when login keychain has no Apple Distribution identity.
-if (hasDistIdentity && (certs.data || []).length) {
-  certItem = certs.data[0];
-  console.log("Distribution identity already in keychain; using ASC cert", certItem.id);
-} else {
-  console.log(
-    "Creating new IOS_DISTRIBUTION cert via CSR (required for CI Manual signing)"
-  );
-  const { privateKey } = crypto.generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-  });
-  keyPemPath = path.join(tmp, "dist.key");
-  fs.writeFileSync(
-    keyPemPath,
-    privateKey.export({ type: "pkcs8", format: "pem" })
-  );
-  const csrPath = path.join(tmp, "dist.csr");
-  const r = spawnSync(
-    "openssl",
+if (p12B64) {
+  console.log("Importing IOS_DIST_CERT_P12_BASE64 into login keychain");
+  const p12Path = path.join(tmp, "provided.p12");
+  fs.writeFileSync(p12Path, Buffer.from(p12B64.replace(/\s/g, ""), "base64"));
+  run("security", [
+    "import",
+    p12Path,
+    "-k",
+    "login.keychain-db",
+    "-P",
+    p12Pass,
+    "-T",
+    "/usr/bin/codesign",
+    "-T",
+    "/usr/bin/security",
+  ]);
+  run(
+    "security",
     [
-      "req",
-      "-new",
-      "-key",
-      keyPemPath,
-      "-out",
-      csrPath,
-      "-subj",
-      "/CN=TiSLY CI Distribution/O=TiSLY/C=JP",
+      "set-key-partition-list",
+      "-S",
+      "apple-tool:,apple:,codesign:",
+      "-s",
+      "-k",
+      "",
+      "login.keychain-db",
     ],
-    { encoding: "utf8" }
+    { allowFail: true }
   );
-  if (r.status !== 0) die(r.stderr || "openssl csr failed");
-  const csrB64 = Buffer.from(fs.readFileSync(csrPath)).toString("base64");
-  try {
-    const created = await asc("POST", "/v1/certificates", {
-      data: {
-        type: "certificates",
-        attributes: {
-          certificateType: "IOS_DISTRIBUTION",
-          csrContent: csrB64,
-        },
-      },
-    });
-    certItem = created.data;
-  } catch (e) {
+  const certsAfterP12 = await asc(
+    "GET",
+    "/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=50"
+  );
+  certItem = (certsAfterP12.data || [])[0];
+  if (!certItem) {
     die(
-      "Failed to create IOS_DISTRIBUTION certificate. Use an Admin ASC API key, and if you already have 3 distribution certs, revoke an unused one in developer.apple.com → Certificates."
+      "P12 imported but no IOS_DISTRIBUTION certificate found on App Store Connect for profile creation"
     );
+  }
+} else {
+  // --- Certificates (IOS_DISTRIBUTION) via ASC API ---
+  const certs = await asc(
+    "GET",
+    "/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=50"
+  );
+
+  if (hasDistIdentity && (certs.data || []).length) {
+    certItem = certs.data[0];
+    console.log(
+      "Distribution identity already in keychain; using ASC cert",
+      certItem.id
+    );
+  } else {
+    console.log(
+      "Creating new IOS_DISTRIBUTION cert via CSR (required for CI Manual signing)"
+    );
+    const { privateKey } = crypto.generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    });
+    keyPemPath = path.join(tmp, "dist.key");
+    fs.writeFileSync(
+      keyPemPath,
+      privateKey.export({ type: "pkcs8", format: "pem" })
+    );
+    const csrPath = path.join(tmp, "dist.csr");
+    const r = spawnSync(
+      "openssl",
+      [
+        "req",
+        "-new",
+        "-key",
+        keyPemPath,
+        "-out",
+        csrPath,
+        "-subj",
+        "/CN=TiSLY CI Distribution/O=TiSLY/C=JP",
+      ],
+      { encoding: "utf8" }
+    );
+    if (r.status !== 0) die(r.stderr || "openssl csr failed");
+    const csrB64 = Buffer.from(fs.readFileSync(csrPath)).toString("base64");
+    try {
+      const created = await asc("POST", "/v1/certificates", {
+        data: {
+          type: "certificates",
+          attributes: {
+            certificateType: "IOS_DISTRIBUTION",
+            csrContent: csrB64,
+          },
+        },
+      });
+      certItem = created.data;
+    } catch (e) {
+      const detail = JSON.stringify(e.body || e.message || e).slice(0, 1500);
+      die(
+        `Failed to create IOS_DISTRIBUTION certificate. Need Admin ASC API key; or revoke an unused distribution cert (max 3); or set Secrets IOS_DIST_CERT_P12_BASE64 + IOS_DIST_CERT_PASSWORD. Detail: ${detail}`
+      );
+    }
   }
 }
 
