@@ -107,16 +107,31 @@ function writePlistBuddy(plist, commands) {
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tisly-asc-"));
 console.log("ASC signing prep in", tmp);
 
-// --- Certificates (Apple Distribution = IOS_DISTRIBUTION) ---
+console.log("===== codesigning identities (before) =====");
+const idBefore = run("security", ["find-identity", "-v", "-p", "codesigning"], {
+  allowFail: true,
+});
+const hasDistIdentity = /Apple Distribution|iPhone Distribution/.test(
+  idBefore.stdout || ""
+);
+
+// --- Certificates (IOS_DISTRIBUTION) ---
 const certs = await asc(
   "GET",
   "/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=50"
 );
-let certItem = (certs.data || [])[0];
+let certItem = null;
 let keyPemPath = null;
 
-if (!certItem) {
-  console.log("No IOS_DISTRIBUTION cert — creating via CSR");
+// Existing ASC certs are useless without the private key. Always create a CI cert
+// when login keychain has no Apple Distribution identity.
+if (hasDistIdentity && (certs.data || []).length) {
+  certItem = certs.data[0];
+  console.log("Distribution identity already in keychain; using ASC cert", certItem.id);
+} else {
+  console.log(
+    "Creating new IOS_DISTRIBUTION cert via CSR (required for CI Manual signing)"
+  );
   const { privateKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 2048,
   });
@@ -141,8 +156,7 @@ if (!certItem) {
     { encoding: "utf8" }
   );
   if (r.status !== 0) die(r.stderr || "openssl csr failed");
-  const csrPem = fs.readFileSync(csrPath, "utf8");
-  const csrB64 = Buffer.from(csrPem).toString("base64");
+  const csrB64 = Buffer.from(fs.readFileSync(csrPath)).toString("base64");
   try {
     const created = await asc("POST", "/v1/certificates", {
       data: {
@@ -155,13 +169,10 @@ if (!certItem) {
     });
     certItem = created.data;
   } catch (e) {
-    console.error(
-      "Certificate create failed — API key needs Admin (or Account Holder) to create IOS_DISTRIBUTION certs"
+    die(
+      "Failed to create IOS_DISTRIBUTION certificate. Use an Admin ASC API key, and if you already have 3 distribution certs, revoke an unused one in developer.apple.com → Certificates."
     );
-    throw e;
   }
-} else {
-  console.log("Found existing IOS_DISTRIBUTION cert", certItem.id);
 }
 
 
@@ -360,3 +371,17 @@ const out = {
 fs.writeFileSync(path.join(tmp, "result.json"), JSON.stringify(out, null, 2));
 console.log("ASC_PREPARE_OK", JSON.stringify(out));
 console.log(`PROFILE_NAME=${profileName}`);
+
+// Expose to subsequent GitHub Actions steps
+if (process.env.GITHUB_ENV) {
+  fs.appendFileSync(
+    process.env.GITHUB_ENV,
+    `IOS_PROFILE_NAME=${profileName}\nIOS_SIGNING_STYLE=Manual\n`
+  );
+}
+if (process.env.GITHUB_OUTPUT) {
+  fs.appendFileSync(
+    process.env.GITHUB_OUTPUT,
+    `profile_name=${profileName}\n`
+  );
+}

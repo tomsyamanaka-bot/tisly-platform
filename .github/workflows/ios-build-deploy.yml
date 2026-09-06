@@ -259,25 +259,58 @@ jobs:
           test -f Podfile.lock
           ls -la App.xcworkspace Podfile.lock
 
-      - name: Configure Xcode project (bundle + team + Automatic)
+      - name: Prepare ASC Distribution cert + App Store profile
+        id: signing
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
+          IOS_BUNDLE_ID: jp.tisly.app
+          EXPORT_PLIST: ${{ github.workspace }}/ios/App/build/ExportOptions.plist
+        run: |
+          set -euo pipefail
+          security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
+          mkdir -p "${GITHUB_WORKSPACE}/ios/App/build"
+          sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist \
+            > "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist"
+          export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST
+          node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs" | tee "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log"
+          # GITHUB_ENV is applied to *next* steps; load profile name for this job env now
+          if [ -z "${IOS_PROFILE_NAME:-}" ]; then
+            IOS_PROFILE_NAME="$(grep -E '^PROFILE_NAME=' "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log" | tail -n 1 | cut -d= -f2-)"
+            echo "IOS_PROFILE_NAME=${IOS_PROFILE_NAME}" >> "$GITHUB_ENV"
+          fi
+          test -n "${IOS_PROFILE_NAME:-}"
+          echo "Manual signing profile: ${IOS_PROFILE_NAME}"
+          security find-identity -v -p codesigning || true
+
+      - name: Configure Xcode project (Manual Distribution signing)
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
           CURRENT_PROJECT_VERSION: ${{ github.run_number }}
           MARKETING_VERSION: 1.0.${{ github.run_number }}
+          IOS_PROFILE_NAME: ${{ env.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           if [ -z "${APPLE_TEAM_ID:-}" ]; then
             echo "::error::APPLE_TEAM_ID が空です"
             exit 1
           fi
-          echo "Using APPLE_TEAM_ID length=${#APPLE_TEAM_ID} build=${CURRENT_PROJECT_VERSION}"
+          if [ -z "${IOS_PROFILE_NAME:-}" ]; then
+            echo "::error::IOS_PROFILE_NAME が空です（ASC prepare を確認）"
+            exit 1
+          fi
+          echo "Using team_len=${#APPLE_TEAM_ID} build=${CURRENT_PROJECT_VERSION} profile=${IOS_PROFILE_NAME}"
+          CODE_SIGN_STYLE=Manual \
+          CODE_SIGN_IDENTITY="Apple Distribution" \
+          PROVISIONING_PROFILE_SPECIFIER="${IOS_PROFILE_NAME}" \
           ruby scripts/ios-configure-xcode.rb \
             ios/App/App.xcodeproj \
             jp.tisly.app \
             "$APPLE_TEAM_ID"
           xcodebuild -workspace ios/App/App.xcworkspace -list
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -showBuildSettings 2>/dev/null \
-            | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|SKIP_INSTALL|MARKETING_VERSION|CURRENT_PROJECT_VERSION' \
+            | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE|SKIP_INSTALL|MARKETING_VERSION|CURRENT_PROJECT_VERSION' \
             | head -n 50 || true
 
       - name: Resolve Xcode scheme
@@ -314,24 +347,49 @@ jobs:
       - name: Render ExportOptions.plist
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
+          IOS_PROFILE_NAME: ${{ env.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           APP_DIR="${GITHUB_WORKSPACE}/ios/App"
           mkdir -p "${APP_DIR}/build/ipa"
-          sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist > "${APP_DIR}/build/ExportOptions.plist"
-          # Enforce Automatic Signing + local IPA export (ITMS-90174 対策)
-          /usr/libexec/PlistBuddy -c "Set :destination export" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :destination string export" "${APP_DIR}/build/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Set :method app-store" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :method string app-store" "${APP_DIR}/build/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "${APP_DIR}/build/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
-          echo "===== ExportOptions (method must be app-store) ====="
+          # Keep Manual ExportOptions from ASC prepare when present
+          if [ -f "${APP_DIR}/build/ExportOptions.plist" ] && \
+             /usr/libexec/PlistBuddy -c "Print :signingStyle" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null | grep -qi manual; then
+            echo "Keeping Manual ExportOptions from ASC prepare"
+            /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
+          else
+            cat > "${APP_DIR}/build/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>jp.tisly.app</key>
+              <string>${IOS_PROFILE_NAME}</string>
+            </dict>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+          fi
+          echo "===== ExportOptions ====="
           plutil -p "${APP_DIR}/build/ExportOptions.plist"
-          grep -q "${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
 
       - name: Archive (xcodebuild)
         env:
@@ -339,6 +397,7 @@ jobs:
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
           XCODE_SCHEME: ${{ steps.xcode.outputs.scheme }}
+          IOS_PROFILE_NAME: ${{ env.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
@@ -353,11 +412,11 @@ jobs:
           mkdir -p "${APP_DIR}/build/ipa"
           cd "$APP_DIR"
 
-          if [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${XCODE_SCHEME:-}" ] || [ -z "${AUTH_KEY_PATH:-}" ]; then
-            echo "::error::missing APPLE_TEAM_ID / XCODE_SCHEME / AUTH_KEY_PATH"
+          if [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${XCODE_SCHEME:-}" ] || [ -z "${AUTH_KEY_PATH:-}" ] || [ -z "${IOS_PROFILE_NAME:-}" ]; then
+            echo "::error::missing APPLE_TEAM_ID / XCODE_SCHEME / AUTH_KEY_PATH / IOS_PROFILE_NAME"
             exit 1
           fi
-          echo "scheme=${XCODE_SCHEME} archivePath=${ARCHIVE_PATH} team_len=${#APPLE_TEAM_ID}"
+          echo "scheme=${XCODE_SCHEME} archivePath=${ARCHIVE_PATH} profile=${IOS_PROFILE_NAME} team_len=${#APPLE_TEAM_ID}"
           test -d "$WS"
           test -f "$AUTH_KEY_PATH"
           security find-identity -v -p codesigning || true
@@ -376,7 +435,9 @@ jobs:
             -authenticationKeyID "$APP_STORE_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${IOS_PROFILE_NAME}" \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
@@ -435,21 +496,6 @@ jobs:
           OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
           export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST
 
-          echo "===== identities before ASC prepare ====="
-          security find-identity -v -p codesigning || true
-
-          # Ensure IOS_DISTRIBUTION cert + App Store profile exist (ITMS-90174)
-          set +e
-          node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs"
-          PREP=$?
-          set -e
-          if [ "$PREP" -ne 0 ]; then
-            echo "::warning::ASC prepare failed (exit=${PREP}) — continuing with Automatic export only"
-          fi
-
-          echo "===== identities after ASC prepare ====="
-          security find-identity -v -p codesigning || true
-
           chmod +x "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh"
           set +e
           bash "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh" "$APP_DIR"
@@ -458,7 +504,6 @@ jobs:
           if [ "$MAKE" -ne 0 ]; then
             echo "::error::exportArchive failed — dumping export.log"
             if [ -f "${APP_DIR}/build/export.log" ]; then
-              # Surface concrete xcodebuild lines in the Actions UI
               grep -E 'error:|Error |Failed|provision|Provisioning|Signing|IDEDistribution|certificate|Authentication|Team' \
                 "${APP_DIR}/build/export.log" | tail -n 80 | while IFS= read -r line; do
                 echo "::error::${line}"
