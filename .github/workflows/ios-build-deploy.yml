@@ -201,21 +201,19 @@ jobs:
           echo "AUTH_KEY_PATH=${KEY_PATH}" >> "$GITHUB_ENV"
           ls -la "$KEY_PATH"
 
-      - name: Prepare CI keychain (codesign)
+      - name: Prepare keychain for Automatic Signing
         run: |
           set -euo pipefail
-          KC="${RUNNER_TEMP}/tisly-ci.keychain-db"
-          KP="tisly-ci-temp"
-          security delete-keychain "$KC" 2>/dev/null || true
-          security create-keychain -p "$KP" "$KC"
-          security set-keychain-settings -lut 21600 "$KC"
-          security unlock-keychain -p "$KP" "$KC"
-          security list-keychains -d user -s "$KC" login.keychain-db
-          security default-keychain -s "$KC"
-          # Allow codesign without UI prompts
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KP" "$KC" 2>/dev/null || true
-          echo "KEYCHAIN_PATH=${KC}" >> "$GITHUB_ENV"
-          echo "KEYCHAIN_PASSWORD=${KP}" >> "$GITHUB_ENV"
+          # Do NOT replace the default keychain with an empty one — that breaks
+          # Automatic Signing / Distribution cert creation (ITMS-90174 root cause).
+          # Keep login + System keychains searchable; unlock login for codesign.
+          security list-keychains -d user -s login.keychain-db /Library/Keychains/System.keychain
+          security default-keychain -s login.keychain-db
+          security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
+          security set-keychain-settings -lut 21600 login.keychain-db 2>/dev/null || true
+          echo "===== keychains ====="
+          security list-keychains -d user
+          security find-identity -v -p codesigning || true
 
       - name: Setup Ruby + CocoaPods + xcodeproj
         uses: ruby/setup-ruby@v1
@@ -335,7 +333,7 @@ jobs:
           plutil -p "${APP_DIR}/build/ExportOptions.plist"
           grep -q "${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
 
-      - name: Archive (xcodebuild) + write TiSLY.ipa
+      - name: Archive (xcodebuild)
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -343,19 +341,15 @@ jobs:
           XCODE_SCHEME: ${{ steps.xcode.outputs.scheme }}
         run: |
           set -euo pipefail
-          # Re-unlock CI keychain for codesign
-          if [ -n "${KEYCHAIN_PATH:-}" ] && [ -n "${KEYCHAIN_PASSWORD:-}" ]; then
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
-          fi
+          security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
 
           APP_DIR="${GITHUB_WORKSPACE}/ios/App"
           WS="${APP_DIR}/App.xcworkspace"
           ARCHIVE_PATH="${APP_DIR}/build/TiSLY.xcarchive"
           DERIVED_DATA="${APP_DIR}/build/DerivedData"
-          OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
           LOG="${APP_DIR}/build/archive.log"
           mkdir -p "${APP_DIR}/build"
-          rm -rf "$ARCHIVE_PATH" "$DERIVED_DATA" "$OUT_IPA" "${APP_DIR}/build/ipa"
+          rm -rf "$ARCHIVE_PATH" "$DERIVED_DATA" "${APP_DIR}/build/TiSLY.ipa" "${APP_DIR}/build/ipa"
           mkdir -p "${APP_DIR}/build/ipa"
           cd "$APP_DIR"
 
@@ -363,15 +357,9 @@ jobs:
             echo "::error::missing APPLE_TEAM_ID / XCODE_SCHEME / AUTH_KEY_PATH"
             exit 1
           fi
-          echo "scheme=${XCODE_SCHEME}"
-          echo "workspace=${WS}"
-          echo "archivePath=${ARCHIVE_PATH}"
-          echo "outIpa=${OUT_IPA}"
-          echo "authKey=${AUTH_KEY_PATH}"
-          echo "team_len=${#APPLE_TEAM_ID}"
+          echo "scheme=${XCODE_SCHEME} archivePath=${ARCHIVE_PATH} team_len=${#APPLE_TEAM_ID}"
           test -d "$WS"
           test -f "$AUTH_KEY_PATH"
-          echo "===== codesigning identities ====="
           security find-identity -v -p codesigning || true
 
           set +e
@@ -407,12 +395,23 @@ jobs:
             exit "$STATUS"
           fi
           test -d "$ARCHIVE_PATH"
+          echo "===== post-archive identities ====="
+          security find-identity -v -p codesigning || true
+          find "$ARCHIVE_PATH" -name 'embedded.mobileprovision' -print || true
 
-          # exportArchive 必須（Payload zip 禁止）— Team/ASC を明示渡す
+      - name: Export signed IPA (exportArchive)
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
+        run: |
+          set -euo pipefail
+          security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
+          APP_DIR="${GITHUB_WORKSPACE}/ios/App"
+          OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
           export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID
           chmod +x "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh"
           bash "${GITHUB_WORKSPACE}/scripts/ios-make-ipa.sh" "$APP_DIR"
-
           test -f "$OUT_IPA"
           test -s "$OUT_IPA"
           ls -lh "$OUT_IPA"
