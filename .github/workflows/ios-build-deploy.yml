@@ -235,38 +235,81 @@ jobs:
             | grep -E 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|MARKETING_VERSION|CURRENT_PROJECT_VERSION' \
             | head -n 40 || true
 
+      - name: Resolve Xcode scheme
+        id: xcode
+        run: |
+          set -euo pipefail
+          WS="${GITHUB_WORKSPACE}/ios/App/App.xcworkspace"
+          if [ ! -d "$WS" ]; then
+            echo "::error::workspace がありません: $WS"
+            ls -la "${GITHUB_WORKSPACE}/ios/App" || true
+            exit 1
+          fi
+          LIST="$(xcodebuild -workspace "$WS" -list)"
+          echo "$LIST"
+          # Prefer scheme App (Capacitor default), then TiSLY, then first listed scheme
+          SCHEME="App"
+          if ! echo "$LIST" | grep -E '^\s+App\s*$' >/dev/null; then
+            if echo "$LIST" | grep -E '^\s+TiSLY\s*$' >/dev/null; then
+              SCHEME="TiSLY"
+            else
+              SCHEME="$(echo "$LIST" | awk '/Schemes:/{f=1;next} f && NF{gsub(/^ +/,""); print; exit}')"
+            fi
+          fi
+          if [ -z "$SCHEME" ]; then
+            echo "::error::Xcode scheme を検出できませんでした"
+            exit 1
+          fi
+          echo "scheme=${SCHEME}" >> "$GITHUB_OUTPUT"
+          echo "workspace=${WS}" >> "$GITHUB_OUTPUT"
+          echo "app_dir=${GITHUB_WORKSPACE}/ios/App" >> "$GITHUB_OUTPUT"
+          echo "Resolved scheme=${SCHEME}"
+
       - name: Render ExportOptions.plist
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
-          mkdir -p ios/App/build
-          sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist > ios/App/build/ExportOptions.plist
-          grep -n "teamID\|signingStyle\|method" ios/App/build/ExportOptions.plist
+          APP_DIR="${GITHUB_WORKSPACE}/ios/App"
+          mkdir -p "${APP_DIR}/build/ipa"
+          sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist > "${APP_DIR}/build/ExportOptions.plist"
+          # destination must be export to produce a local .ipa
+          /usr/libexec/PlistBuddy -c "Set :destination export" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :destination string export" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Set :method app-store" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
+          plutil -p "${APP_DIR}/build/ExportOptions.plist"
 
       - name: Archive (xcodebuild)
-        working-directory: ios/App
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
+          XCODE_SCHEME: ${{ steps.xcode.outputs.scheme }}
         run: |
           set -euo pipefail
+          APP_DIR="${GITHUB_WORKSPACE}/ios/App"
+          WS="${APP_DIR}/App.xcworkspace"
+          ARCHIVE_PATH="${APP_DIR}/build/TiSLY.xcarchive"
+          RESULT_PATH="${APP_DIR}/build/TiSLY.xcresult"
+          LOG="${APP_DIR}/build/archive.log"
+          mkdir -p "${APP_DIR}/build"
+          cd "$APP_DIR"
+
           if [ -z "${APPLE_TEAM_ID:-}" ]; then
             echo "::error::APPLE_TEAM_ID empty at archive step"
             exit 1
           fi
-          echo "archive DEVELOPMENT_TEAM length=${#APPLE_TEAM_ID}"
-          mkdir -p build
+          echo "scheme=${XCODE_SCHEME} archivePath=${ARCHIVE_PATH} team_len=${#APPLE_TEAM_ID}"
+
           set +e
           xcodebuild \
-            -workspace App.xcworkspace \
-            -scheme App \
+            -workspace "$WS" \
+            -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -archivePath "$PWD/build/TiSLY.xcarchive" \
-            -resultBundlePath "$PWD/build/TiSLY.xcresult" \
+            -archivePath "$ARCHIVE_PATH" \
+            -resultBundlePath "$RESULT_PATH" \
             -allowProvisioningUpdates \
             -allowProvisioningDeviceRegistration \
             -authenticationKeyPath "$AUTH_KEY_PATH" \
@@ -277,66 +320,107 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
             ONLY_ACTIVE_ARCH=NO \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
-            archive 2>&1 | tee build/archive.log
+            archive 2>&1 | tee "$LOG"
           STATUS=${PIPESTATUS[0]}
           set -e
+
           if [ "$STATUS" -ne 0 ]; then
             echo "::error::xcodebuild archive failed with exit ${STATUS}"
-            echo "===== archive.log (errors) ====="
-            grep -E 'error:|warning:|ARCHIVE FAILED|Provisioning|Signing|bundle|Team' build/archive.log | tail -n 80 || true
-            echo "===== xcresult ====="
-            if [ -d build/TiSLY.xcresult ]; then
-              xcrun xcresulttool get --path build/TiSLY.xcresult --format json 2>/dev/null | head -c 8000 || true
-            fi
+            grep -E 'error:|warning:|ARCHIVE FAILED|Provisioning|Signing|bundle|Team' "$LOG" | tail -n 80 || true
             exit "$STATUS"
           fi
+          if [ ! -d "$ARCHIVE_PATH" ]; then
+            echo "::error::archive が作成されませんでした: $ARCHIVE_PATH"
+            ls -laR "${APP_DIR}/build" || true
+            exit 1
+          fi
+          echo "Archive OK:"
+          ls -la "$ARCHIVE_PATH"
+          ls -la "$ARCHIVE_PATH/Products/Applications" 2>/dev/null || true
 
       - name: Export IPA (xcodebuild)
-        working-directory: ios/App
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
+          APP_DIR="${GITHUB_WORKSPACE}/ios/App"
+          ARCHIVE_PATH="${APP_DIR}/build/TiSLY.xcarchive"
+          EXPORT_DIR="${APP_DIR}/build/ipa"
+          EXPORT_PLIST="${APP_DIR}/build/ExportOptions.plist"
+          LOG="${APP_DIR}/build/export.log"
+          OUT_IPA="${APP_DIR}/build/TiSLY.ipa"
+
+          rm -rf "$EXPORT_DIR"
+          mkdir -p "$EXPORT_DIR"
+
+          if [ ! -d "$ARCHIVE_PATH" ]; then
+            echo "::error::export 前に archive がありません: $ARCHIVE_PATH"
+            exit 1
+          fi
+          if [ ! -f "$EXPORT_PLIST" ]; then
+            echo "::error::ExportOptions.plist がありません: $EXPORT_PLIST"
+            exit 1
+          fi
+
+          echo "exportArchive archive=${ARCHIVE_PATH}"
+          echo "exportPath=${EXPORT_DIR}"
+          plutil -p "$EXPORT_PLIST"
+
           set +e
           xcodebuild \
             -exportArchive \
-            -archivePath "$PWD/build/TiSLY.xcarchive" \
-            -exportPath "$PWD/build/export" \
-            -exportOptionsPlist "$PWD/build/ExportOptions.plist" \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_DIR" \
+            -exportOptionsPlist "$EXPORT_PLIST" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$AUTH_KEY_PATH" \
             -authenticationKeyID "$APP_STORE_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
-            2>&1 | tee build/export.log
+            2>&1 | tee "$LOG"
           STATUS=${PIPESTATUS[0]}
           set -e
-          if [ "$STATUS" -ne 0 ]; then
-            echo "::error::xcodebuild export failed with exit ${STATUS}"
-            grep -E 'error:|Export|Provisioning|Signing' build/export.log | tail -n 80 || true
+
+          echo "===== export dir listing ====="
+          ls -laR "$EXPORT_DIR" || true
+          ls -laR "${APP_DIR}/build" || true
+
+          # IPA を広い範囲で探索（App.ipa / TiSLY.ipa など scheme 由来の名前）
+          IPA="$(find "$EXPORT_DIR" "${APP_DIR}/build" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
+
+          if [ "$STATUS" -ne 0 ] && [ -z "$IPA" ]; then
+            echo "::error::xcodebuild export failed with exit ${STATUS} and no IPA"
+            grep -E 'error:|Export|Provisioning|Signing|IPA' "$LOG" | tail -n 100 || true
             exit "$STATUS"
           fi
-          IPA="$(find "$PWD/build/export" -name '*.ipa' | head -n 1)"
+
           if [ -z "$IPA" ]; then
-            echo "::error::IPA が生成されませんでした"
-            ls -laR build || true
+            echo "::error::IPA が見つかりません（exportPath=${EXPORT_DIR}）"
+            grep -E 'error:|Export|IPA|\.ipa' "$LOG" | tail -n 100 || true
             exit 1
           fi
-          cp "$IPA" "$PWD/build/TiSLY.ipa"
-          ls -lh "$PWD/build/TiSLY.ipa"
+
+          cp -f "$IPA" "$OUT_IPA"
+          echo "Found IPA: ${IPA}"
+          ls -lh "$OUT_IPA"
 
       - name: Upload to App Store Connect
         if: ${{ steps.cfg.outputs.upload == 'true' }}
-        working-directory: ios/App
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
         run: |
           set -euo pipefail
+          IPA="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
+          if [ ! -f "$IPA" ]; then
+            echo "::error::upload 用 IPA がありません: $IPA"
+            find "${GITHUB_WORKSPACE}/ios/App/build" -name '*.ipa' -ls || true
+            exit 1
+          fi
           xcrun altool --upload-app \
             --type ios \
-            --file "$PWD/build/TiSLY.ipa" \
+            --file "$IPA" \
             --apiKey "$APP_STORE_KEY_ID" \
             --apiIssuer "$APP_STORE_ISSUER_ID" \
             --verbose
@@ -348,6 +432,7 @@ jobs:
           name: TiSLY-ios-ipa
           path: |
             ios/App/build/TiSLY.ipa
+            ios/App/build/ipa/**
             ios/App/build/archive.log
             ios/App/build/export.log
           if-no-files-found: warn
@@ -359,8 +444,13 @@ jobs:
           set -euo pipefail
           SHORT="$(git rev-parse --short HEAD)"
           TEAM_LEN="$(printf '%s' '${{ steps.cfg.outputs.team_id }}' | wc -c | tr -d ' ')"
+          IPA="${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa"
+          IPA_STATE="missing"
+          if [ -f "$IPA" ]; then IPA_STATE="$(ls -lh "$IPA" | awk '{print $5}')"; fi
           echo "### TiSLY iOS (xcodebuild + ASC API key)" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- bundle: \`jp.tisly.app\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- scheme: \`${{ steps.xcode.outputs.scheme }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- IPA: \`${IPA_STATE}\` at \`ios/App/build/TiSLY.ipa\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- APPLE_TEAM_ID: bound from \`vars.APPLE_TEAM_ID\` (len=${TEAM_LEN})" >> "$GITHUB_STEP_SUMMARY"
           echo "- upload: \`${{ steps.cfg.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
