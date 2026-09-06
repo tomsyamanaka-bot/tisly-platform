@@ -1,13 +1,12 @@
 name: iOS App Store Deploy (legacy alias)
 
-# 正規パイプライン ios-build-deploy.yml を呼び出すだけ。
-# BUILD_CERTIFICATE 等は要求しない。
+# 正規パイプライン（xcodebuild）へ委譲
 
 on:
   workflow_dispatch:
     inputs:
       upload:
-        description: "TestFlight へアップロードする"
+        description: "App Store Connect へアップロードする"
         type: boolean
         default: true
       server_url:

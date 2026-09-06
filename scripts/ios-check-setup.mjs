@@ -18,10 +18,7 @@ const required = [
   "docs/IOS_SECRETS_SETUP.md",
   "scripts/prepare-capacitor-www.mjs",
   "scripts/ios-patch-info-plist.mjs",
-  "scripts/ios-render-export-options.mjs",
   "ios-ci/ExportOptions.plist",
-  "ios-ci/fastlane/Fastfile",
-  "ios-ci/fastlane/Appfile",
   "ios-ci/Info.plist.permissions.template.xml",
   "ios-ci/apple-team-id",
 ];
@@ -35,6 +32,23 @@ for (const rel of required) {
   } else {
     console.log(`[ios-check] OK: ${rel}`);
   }
+}
+
+const wf = fs.readFileSync(
+  path.join(root, ".github/workflows/ios-build-deploy.yml"),
+  "utf8"
+);
+if (/\b(gem install fastlane|fastlane release|uses:.*fastlane)/i.test(wf)) {
+  console.error("[ios-check] ios-build-deploy.yml still invokes fastlane");
+  failed = true;
+} else {
+  console.log("[ios-check] workflow does not invoke fastlane");
+}
+if (!wf.includes("xcodebuild") || !wf.includes("allowProvisioningUpdates")) {
+  console.error("[ios-check] workflow missing xcodebuild / allowProvisioningUpdates");
+  failed = true;
+} else {
+  console.log("[ios-check] xcodebuild + allowProvisioningUpdates OK");
 }
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));

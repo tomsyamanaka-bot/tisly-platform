@@ -1,22 +1,20 @@
 name: iOS Build & Deploy (Capacitor)
 
-# Capacitor iOS → TestFlight（macos-latest）
-# 認証: APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY
+# Capacitor iOS → IPA → TestFlight（macos-latest）
+# xcodebuild Automatic Signing + ASC API キーのみ（追加の署名ツール不要）。
+# Secrets: APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY
+# Variable: APPLE_TEAM_ID（Team ID・秘密ではない）
 # 既存 PWA / VPS / DB は変更しない
 
 on:
   workflow_dispatch:
     inputs:
       upload:
-        description: "TestFlight へアップロードする"
+        description: "App Store Connect / TestFlight へアップロードする"
         type: boolean
         default: true
-      ref:
-        description: "ビルドする ref（省略時は現在のブランチ）"
-        required: false
-        type: string
       server_url:
-        description: "Capacitor server.url（default=https://tisly.jp）"
+        description: "Capacitor server.url"
         required: false
         default: "https://tisly.jp"
         type: string
@@ -25,10 +23,6 @@ on:
       upload:
         type: boolean
         default: true
-      ref:
-        type: string
-        required: false
-        default: ""
       server_url:
         type: string
         required: false
@@ -48,7 +42,7 @@ env:
 
 jobs:
   build-and-upload:
-    name: Build & upload (ASC API key only)
+    name: xcodebuild + ASC API key
     runs-on: macos-latest
     timeout-minutes: 75
     steps:
@@ -57,12 +51,14 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Check ASC API key secrets (3 only)
-        id: secrets
+      - name: Check secrets / team id
+        id: cfg
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          VAR_TEAM: ${{ vars.APPLE_TEAM_ID }}
+          SECRET_TEAM: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           missing=()
@@ -70,30 +66,36 @@ jobs:
           [ -z "${APP_STORE_ISSUER_ID:-}" ] && missing+=("APP_STORE_ISSUER_ID")
           [ -z "${APP_STORE_PRIVATE_KEY:-}" ] && missing+=("APP_STORE_PRIVATE_KEY")
 
+          TEAM="${VAR_TEAM:-}"
+          if [ -z "$TEAM" ]; then TEAM="${SECRET_TEAM:-}"; fi
+          if [ -z "$TEAM" ] && [ -f ios-ci/apple-team-id ]; then
+            TEAM="$(grep -v '^#' ios-ci/apple-team-id | tr -d '[:space:]' || true)"
+          fi
+          if [ -z "$TEAM" ]; then
+            missing+=("APPLE_TEAM_ID")
+          fi
+
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::必須 Secrets 不足: ${missing[*]}"
-            echo "docs/IOS_SECRETS_SETUP.md を参照"
+            echo "::error::未設定: ${missing[*]}"
+            echo "Secrets: APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY"
+            echo "Variable: APPLE_TEAM_ID（Team ID 10文字）— docs/IOS_SECRETS_SETUP.md"
             exit 1
           fi
 
           UPLOAD="true"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            UPLOAD="${{ github.event.inputs.upload }}"
-          elif [ "${{ github.event_name }}" = "workflow_call" ]; then
-            UPLOAD="${{ inputs.upload }}"
-          fi
-
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-          echo "upload=${UPLOAD}" >> "$GITHUB_OUTPUT"
-
           SERVER_URL="https://tisly.jp"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            UPLOAD="${{ github.event.inputs.upload }}"
             SERVER_URL="${{ github.event.inputs.server_url }}"
           elif [ "${{ github.event_name }}" = "workflow_call" ]; then
+            UPLOAD="${{ inputs.upload }}"
             SERVER_URL="${{ inputs.server_url }}"
           fi
+
+          echo "team_id=${TEAM}" >> "$GITHUB_OUTPUT"
+          echo "upload=${UPLOAD}" >> "$GITHUB_OUTPUT"
           echo "server_url=${SERVER_URL}" >> "$GITHUB_OUTPUT"
-          echo "ASC API keys OK — certificate secrets are NOT used"
+          echo "Config OK (team=${TEAM}, upload=${UPLOAD})"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -104,12 +106,11 @@ jobs:
             package-lock.json
             server/package-lock.json
 
-      - name: Install root (Capacitor) dependencies
-        run: npm ci
-
-      - name: Install server dependencies
-        run: npm ci
-        working-directory: server
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          npm ci
+          npm ci --prefix server
 
       - name: Build web / server
         run: npm run build
@@ -117,7 +118,7 @@ jobs:
       - name: Prepare Capacitor www
         run: npm run cap:prepare
         env:
-          CAPACITOR_SERVER_URL: ${{ steps.secrets.outputs.server_url }}
+          CAPACITOR_SERVER_URL: ${{ steps.cfg.outputs.server_url }}
 
       - name: Select Xcode
         run: |
@@ -127,58 +128,55 @@ jobs:
           fi
           xcodebuild -version
 
-      - name: Add Capacitor iOS platform (idempotent)
+      - name: Capacitor add / sync ios
+        env:
+          CAPACITOR_SERVER_URL: ${{ steps.cfg.outputs.server_url }}
         run: |
           set -euo pipefail
           if [ ! -d ios/App ]; then
             npx cap add ios
-          else
-            echo "ios/ already present"
           fi
+          npx cap sync ios
+          npm run ios:patch-plist
 
-      - name: Sync Capacitor iOS
-        run: npx cap sync ios
+      - name: Write ASC API key (.p8)
         env:
-          CAPACITOR_SERVER_URL: ${{ steps.secrets.outputs.server_url }}
-
-      - name: Patch Info.plist
-        run: npm run ios:patch-plist
-
-      - name: Resolve Apple Team ID (public · not a certificate)
-        id: team
-        env:
-          VAR_TEAM: ${{ vars.APPLE_TEAM_ID }}
-          SECRET_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          APP_STORE_PRIVATE_KEY_IS_BASE64: ${{ secrets.APP_STORE_PRIVATE_KEY_IS_BASE64 }}
         run: |
           set -euo pipefail
-          TEAM="${VAR_TEAM:-}"
-          if [ -z "$TEAM" ]; then TEAM="${SECRET_TEAM:-}"; fi
-          if [ -z "$TEAM" ] && [ -f ios-ci/apple-team-id ]; then
-            TEAM="$(grep -v '^#' ios-ci/apple-team-id | tr -d '[:space:]' || true)"
-          fi
-          echo "team_id=${TEAM}" >> "$GITHUB_OUTPUT"
-          if [ -n "$TEAM" ]; then
-            echo "Apple Team ID resolved (${#TEAM} chars)"
+          KEY_PATH="${RUNNER_TEMP}/AuthKey_${APP_STORE_KEY_ID}.p8"
+          if [ "${APP_STORE_PRIVATE_KEY_IS_BASE64:-}" = "1" ]; then
+            echo -n "$APP_STORE_PRIVATE_KEY" | base64 --decode > "$KEY_PATH"
           else
-            echo "::warning::APPLE_TEAM_ID 未設定。GitHub Variables に APPLE_TEAM_ID（Team ID・秘密ではない）を追加してください。docs/IOS_SECRETS_SETUP.md"
+            # GitHub Secrets のリテラル \n を実改行に
+            printf '%s\n' "$APP_STORE_PRIVATE_KEY" | sed 's/\\n/\n/g' > "$KEY_PATH"
           fi
+          # altool / xcodebuild 標準探索パス
+          mkdir -p "${HOME}/private_keys" "${HOME}/.appstoreconnect/private_keys" "${RUNNER_TEMP}/private_keys"
+          cp "$KEY_PATH" "${HOME}/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
+          cp "$KEY_PATH" "${HOME}/.appstoreconnect/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
+          cp "$KEY_PATH" "${RUNNER_TEMP}/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8"
+          echo "AUTH_KEY_PATH=${KEY_PATH}" >> "$GITHUB_ENV"
+          echo "Wrote AuthKey_${APP_STORE_KEY_ID}.p8"
 
-      - name: Set bundle id + automatic signing on Xcode project
+      - name: Configure Xcode project (bundle id + automatic signing)
         env:
-          APPLE_TEAM_ID: ${{ steps.team.outputs.team_id }}
+          APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
           PBX="ios/App/App.xcodeproj/project.pbxproj"
           /usr/bin/sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;/g" "$PBX"
           /usr/bin/sed -i '' "s/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g" "$PBX" || true
-          if [ -n "${APPLE_TEAM_ID:-}" ]; then
-            if grep -q "DEVELOPMENT_TEAM =" "$PBX"; then
-              /usr/bin/sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
-            fi
-            echo "DEVELOPMENT_TEAM=${APPLE_TEAM_ID}"
+          if grep -q "DEVELOPMENT_TEAM =" "$PBX"; then
+            /usr/bin/sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
+          else
+            /usr/bin/sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;/PRODUCT_BUNDLE_IDENTIFIER = jp.tisly.app;\n\t\t\t\tDEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" "$PBX"
           fi
+          echo "bundle=jp.tisly.app team=${APPLE_TEAM_ID} style=Automatic"
 
-      - name: Install CocoaPods
+      - name: CocoaPods
         working-directory: ios/App
         run: |
           set -euo pipefail
@@ -186,51 +184,87 @@ jobs:
             pod install --repo-update
           fi
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2"
-          bundler-cache: false
-
-      - name: Install Fastlane
-        run: gem install fastlane -N
-
-      - name: Copy Fastlane + team id into ios/App
+      - name: Render ExportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
-          mkdir -p ios/App/fastlane ios/App/ios-ci
-          cp ios-ci/fastlane/Fastfile ios/App/fastlane/Fastfile
-          cp ios-ci/fastlane/Appfile ios/App/fastlane/Appfile
-          cp ios-ci/apple-team-id ios/App/ios-ci/apple-team-id
-          # Also at repo-relative path Fastfile resolve_team_id checks
-          mkdir -p ios/ios-ci
-          cp ios-ci/apple-team-id ios/ios-ci/apple-team-id
+          mkdir -p ios/App/build
+          sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist > ios/App/build/ExportOptions.plist
+          cat ios/App/build/ExportOptions.plist
 
-      - name: Archive & TestFlight (API key only)
+      - name: Archive (xcodebuild)
         working-directory: ios/App
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
-          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
-          APP_STORE_PRIVATE_KEY_IS_BASE64: ${{ secrets.APP_STORE_PRIVATE_KEY_IS_BASE64 }}
-          APPLE_TEAM_ID: ${{ steps.team.outputs.team_id }}
-          IOS_BUNDLE_ID: jp.tisly.app
-          IOS_SKIP_UPLOAD: ${{ steps.secrets.outputs.upload == 'true' && '0' || '1' }}
-          CI: "true"
+          APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
         run: |
           set -euo pipefail
-          fastlane release \
-            workspace:"App.xcworkspace" \
-            scheme:"App" \
-            skip_upload:${{ steps.secrets.outputs.upload == 'true' && 'false' || 'true' }}
+          mkdir -p build
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/TiSLY.xcarchive" \
+            -allowProvisioningUpdates \
+            -allowProvisioningDeviceRegistration \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$APP_STORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
+            archive
+
+      - name: Export IPA (xcodebuild)
+        working-directory: ios/App
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$PWD/build/TiSLY.xcarchive" \
+            -exportPath "$PWD/build/export" \
+            -exportOptionsPlist "$PWD/build/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$APP_STORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID"
+          # Normalize IPA name
+          IPA="$(find "$PWD/build/export" -name '*.ipa' | head -n 1)"
+          if [ -z "$IPA" ]; then
+            echo "::error::IPA が生成されませんでした"
+            ls -laR build || true
+            exit 1
+          fi
+          cp "$IPA" "$PWD/build/TiSLY.ipa"
+          ls -lh "$PWD/build/TiSLY.ipa"
+
+      - name: Upload to App Store Connect
+        if: ${{ steps.cfg.outputs.upload == 'true' }}
+        working-directory: ios/App
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          # altool は ~/private_keys/AuthKey_<KEY_ID>.p8 を自動参照
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$PWD/build/TiSLY.ipa" \
+            --apiKey "$APP_STORE_KEY_ID" \
+            --apiIssuer "$APP_STORE_ISSUER_ID" \
+            --verbose
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: TiSLY-ios-ipa
-          path: |
-            ios/App/build/*.ipa
-            ios/App/build/*.dSYM.zip
+          path: ios/App/build/TiSLY.ipa
           if-no-files-found: warn
           retention-days: 14
 
@@ -238,8 +272,8 @@ jobs:
         run: |
           set -euo pipefail
           SHORT="$(git rev-parse --short HEAD)"
-          echo "### TiSLY iOS (ASC API key only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### TiSLY iOS (xcodebuild + ASC API key)" >> "$GITHUB_STEP_SUMMARY"
           echo "- commit: \`${SHORT}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- secrets used: APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY" >> "$GITHUB_STEP_SUMMARY"
-          echo "- upload: \`${{ steps.secrets.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- guide: docs/IOS_SECRETS_SETUP.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "- team: \`${{ steps.cfg.outputs.team_id }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- upload: \`${{ steps.cfg.outputs.upload }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- auth: ASC API key + Automatic Signing" >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- TiSLY iOS — Xcode Automatic Signing + ASC API key（手動プロファイル不要） -->
 <plist version="1.0">
 <dict>
 	<key>method</key>
@@ -7,17 +8,12 @@
 	<key>destination</key>
 	<string>export</string>
 	<key>signingStyle</key>
-	<string>manual</string>
+	<string>automatic</string>
 	<key>teamID</key>
-	<string>$(APPLE_TEAM_ID)</string>
+	<string>TEAM_ID_PLACEHOLDER</string>
 	<key>uploadSymbols</key>
 	<true/>
 	<key>manageAppVersionAndBuildNumber</key>
 	<true/>
-	<key>provisioningProfiles</key>
-	<dict>
-		<key>jp.tisly.app</key>
-		<string>$(PROVISIONING_PROFILE_NAME)</string>
-	</dict>
 </dict>
 </plist>
