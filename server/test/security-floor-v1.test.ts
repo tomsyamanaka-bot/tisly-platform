@@ -622,7 +622,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2516/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2516/);
+    assert.match(customerHtml, /security-time-range-v1\.js\?v=2517/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2517/);
     assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2516/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
     assert.doesNotMatch(customerHtml, /擬似発報/);

@@ -545,6 +545,10 @@ export const MOCK_OPS_INSIGHT_ITEMS: KnowledgeItem[] = [
       "指定時間外はライト消灯し、Web Push と",
       "ログのみ記録する。夜間点灯秒数は",
       "PWA スライダー（5〜180 秒）で同期する。",
+      "",
+      "【日またぎ判定 isWithinTimeRange】",
+      "板橋自宅向けに同日は区間内判定、",
+      "日跨ぎは OR 判定。評価は常に JST。",
     ].join("\n"),
   },
   {

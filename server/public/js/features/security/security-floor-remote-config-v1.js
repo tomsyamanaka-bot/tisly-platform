@@ -301,6 +301,29 @@ function writeScheduleTimes(start, end) {
   const endEl = $("sf-schedule-end");
   if (startEl) startEl.value = s;
   if (endEl) endEl.value = e;
+  syncScheduleWindowHint(s, e);
+}
+
+/** 日またぎ判定の現在ステータスを表示 */
+function syncScheduleWindowHint(start, end) {
+  const hint = $("sf-schedule-window-hint");
+  if (!hint) return;
+  const api = window.TislySecurityTimeRangeV1;
+  const s = normalizeTimeHm(start, state.scheduleStart || "18:00");
+  const e = normalizeTimeHm(end, state.scheduleEnd || "06:00");
+  const overnight =
+    (() => {
+      const [sh, sm] = s.split(":").map(Number);
+      const [eh, em] = e.split(":").map(Number);
+      return sh * 60 + sm > eh * 60 + em;
+    })();
+  let active = true;
+  if (api && typeof api.isWithinTimeRange === "function") {
+    active = api.isWithinTimeRange(s, e, new Date());
+  }
+  const modeLabel = overnight ? "日またぎ" : "同日内";
+  const activeLabel = active ? "現在は点灯時間帯内" : "現在は点灯時間帯外";
+  hint.textContent = `${modeLabel}（${s}〜${e}）· ${activeLabel}`;
 }
 
 function renderRules(rules, notifyPolicy) {

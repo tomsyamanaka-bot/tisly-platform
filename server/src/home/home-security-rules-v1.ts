@@ -8,6 +8,9 @@
 
 import { getDatabase } from "../db/database.js";
 import { findHomeSiteV1 } from "./home-sites-v1.js";
+import { isWithinTimeRange } from "./home-security-time-range-v1.js";
+
+export { isWithinTimeRange } from "./home-security-time-range-v1.js";
 
 /** 警戒モード（PWA 表示用）
  * night_only は scheduled の互換エイリアス */
@@ -209,12 +212,6 @@ export function parseHomeScheduleHmV1(
   return `${m[1].padStart(2, "0")}:${m[2]}`;
 }
 
-function hmToMinutesV1(hm: string): number {
-  const [h, m] = hm.split(":").map((n) => Number(n));
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
-  return h * 60 + m;
-}
-
 /** JST 現在が開始〜終了の窓内か（日跨ぎ対応） */
 export function isHomeScheduleWindowActiveV1(
   startHm: string,
@@ -229,19 +226,8 @@ export function isHomeScheduleWindowActiveV1(
     endHm,
     HOME_GUARD_SCHEDULE_END_DEFAULT_V1
   );
-  const jstHm = at.toLocaleString("en-GB", {
-    timeZone: "Asia/Tokyo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const now = hmToMinutesV1(jstHm.replace(".", ":"));
-  const s = hmToMinutesV1(start);
-  const e = hmToMinutesV1(end);
-  if (s === e) return true;
-  if (s < e) return now >= s && now < e;
-  /* 日跨ぎ（例: 19:00〜06:00） */
-  return now >= s || now < e;
+  /* isWithinTimeRange: 同日 / 日またぎを分岐 */
+  return isWithinTimeRange(start, end, at);
 }
 const DI1_MODES: HomeDi1LightModeV1[] = [
   "steady",
