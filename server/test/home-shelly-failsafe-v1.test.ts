@@ -17,6 +17,7 @@ import {
   runToyoshimaHeartbeatWatchdogV1,
   setToyoshimaHeartbeatAtForTestV1,
   TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1,
+  TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1,
   buildToyoshimaSecurityDashboardV1,
 } from "../src/home/home-toyoshima-security-v1.js";
 import fs from "node:fs";
@@ -33,7 +34,7 @@ describe("home-shelly-failsafe-v1", () => {
       shellyHost: "",
       shellyCloudId: "",
       shellyAuthKey: "",
-      cooldownMinutes: 20,
+      cooldownMinutes: 30,
       lastAutoRebootAt: null,
     });
   });
@@ -101,7 +102,7 @@ describe("home-shelly-failsafe-v1", () => {
     assert.ok(attempt.config.lastAutoRebootAt);
   });
 
-  it("watchdog appends shelly_auto_reboot timeline on offline", async () => {
+  it("watchdog marks offline at 5m30s without Shelly kick yet", async () => {
     updateHomeShellyFailsafeV1(SITE, {
       autoRebootEnabled: true,
       shellyHost: "192.168.10.40",
@@ -114,11 +115,30 @@ describe("home-shelly-failsafe-v1", () => {
     await runToyoshimaHeartbeatWatchdogV1();
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.ok(dash.timeline.some((t) => t.kind === "comm_loss"));
+    assert.equal(
+      dash.timeline.some((t) => t.kind === "shelly_auto_reboot"),
+      false
+    );
+  });
+
+  it("watchdog appends shelly_auto_reboot timeline after 10m threshold", async () => {
+    updateHomeShellyFailsafeV1(SITE, {
+      autoRebootEnabled: true,
+      shellyHost: "192.168.10.40",
+      lastAutoRebootAt: null,
+    });
+    const stale = new Date(
+      Date.now() - TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1 - 1000
+    ).toISOString();
+    setToyoshimaHeartbeatAtForTestV1("main", stale);
+    await runToyoshimaHeartbeatWatchdogV1();
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.ok(dash.timeline.some((t) => t.kind === "comm_loss"));
     assert.ok(
       dash.timeline.some(
         (t) =>
           t.kind === "shelly_auto_reboot" &&
-          /Shelly電源自動再投入/.test(t.detail || "")
+          /10分未受信検知：ShellyによるPoE電源再投入/.test(t.detail || "")
       )
     );
   });

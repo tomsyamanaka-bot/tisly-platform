@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   TISLY_HEARTBEAT_INTERVAL_SEC_V1,
   TISLY_HEARTBEAT_OFFLINE_MS_V1,
+  TISLY_SHELLY_AUTO_REBOOT_MS_V1,
+  TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1,
   buildHeartbeatCommLossPushBodyV1,
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
@@ -10,7 +12,11 @@ import {
 import {
   TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1,
   TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1,
+  TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1,
 } from "../src/home/home-toyoshima-security-v1.js";
+import {
+  SHELLY_FAILSAFE_COOLDOWN_MIN_V1,
+} from "../src/home/home-shelly-failsafe-v1.js";
 import {
   applyCustomerSiteProfileCloneV1,
   buildCustomerSiteProfileCloneV1,
@@ -21,6 +27,9 @@ describe("home-heartbeat-standard-v1", () => {
   it("uses 300s interval and 5m30s offline window", () => {
     assert.equal(TISLY_HEARTBEAT_INTERVAL_SEC_V1, 300);
     assert.equal(TISLY_HEARTBEAT_OFFLINE_MS_V1, 330_000);
+    assert.equal(TISLY_SHELLY_AUTO_REBOOT_MS_V1, 630_000);
+    assert.equal(TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1, 2);
+    assert.equal(SHELLY_FAILSAFE_COOLDOWN_MIN_V1, 30);
     assert.equal(
       TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1,
       TISLY_HEARTBEAT_INTERVAL_SEC_V1
@@ -28,6 +37,10 @@ describe("home-heartbeat-standard-v1", () => {
     assert.equal(
       TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1,
       TISLY_HEARTBEAT_OFFLINE_MS_V1
+    );
+    assert.equal(
+      TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1,
+      TISLY_SHELLY_AUTO_REBOOT_MS_V1
     );
   });
 

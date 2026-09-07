@@ -10,10 +10,12 @@ import { getDatabase } from "../db/database.js";
 import { shellyToggle } from "../device/shelly-real-client.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 
-/** 自動再起動クールダウン既定（分） */
-export const SHELLY_FAILSAFE_COOLDOWN_MIN_V1 = 20;
+/** 自動再起動クールダウン既定（分）· 無限再起動防止 */
+export const SHELLY_FAILSAFE_COOLDOWN_MIN_V1 = 30;
 /** OFF→ON 間隔（秒） */
 export const SHELLY_FAILSAFE_OFF_SEC_V1 = 5;
+/** 同一途絶期間の最大自動キック回数 */
+export const SHELLY_FAILSAFE_MAX_RETRIES_V1 = 2;
 
 export interface HomeShellyFailsafeConfigV1 {
   siteId: string;

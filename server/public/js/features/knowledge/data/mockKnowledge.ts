@@ -1862,3 +1862,41 @@ export const MOCK_STATUS_REFRESH_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const SHELLY_FAILSAFE_KNOWLEDGE_TITLES = [
+  "【保守フェイルセーフ】5分ハートビート死活監視 ＆ Shelly Gen3による10分未受信時コールドリブート標準仕様",
+] as const;
+
+const SHELLY_FAILSAFE_CREATED_AT = "2026-09-07T09:00:00.000Z";
+
+/** Shelly Gen3 コールドリブート仕様（末尾追記） */
+export const MOCK_SHELLY_FAILSAFE_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-shelly-failsafe-cold-reboot-001",
+    title:
+      "【保守フェイルセーフ】5分ハートビート死活監視 ＆ Shelly Gen3による10分未受信時コールドリブート標準仕様",
+    summary: [
+      "5分周期ハートビートに対して一時的揺らぎを許容し、",
+      "2回連続未受信（10分〜10分30秒経過）でShelly 1 Mini Gen3",
+      "リレーをOFF ➔ 5秒後Auto-ONキック。残留電荷を完全放電させて",
+      "RP2350を自動復旧。無限再起動防止（リトライ最大2回・30分クールダウン）",
+      "のセーフティガード仕様。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#死活監視",
+      "#ShellyGen3",
+      "#コールドリブート",
+      "#PoE再起動",
+      "#フェイルセーフ",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: SHELLY_FAILSAFE_CREATED_AT,
+    body: [
+      "【Shelly 自動キック】",
+      "しきい値 10 分 30 秒 · OFF 5 秒 → ON。",
+      "リトライ最大 2 回 · クールダウン 30 分。",
+    ].join("\n"),
+  },
+];

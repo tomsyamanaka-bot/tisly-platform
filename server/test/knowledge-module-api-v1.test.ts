@@ -147,6 +147,10 @@ const {
   STATUS_REFRESH_MODULE_SEED_IDS,
   seedStatusRefreshKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-status-refresh-seed-v1.js");
+const {
+  SHELLY_FAILSAFE_MODULE_SEED_IDS,
+  seedShellyFailsafeKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-shelly-failsafe-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1349,6 +1353,33 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /0秒ハートビート/);
     assert.ok(card!.tags.includes("#PWA"));
     assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends shelly failsafe cold reboot seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of SHELLY_FAILSAFE_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-shelly-failsafe-cold-reboot-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /Shelly Gen3/);
+    assert.ok(card!.tags.includes("#コールドリブート"));
+    assert.ok(card!.tags.includes("#PoE再起動"));
+  });
+
+  it("seedShellyFailsafeKnowledgeCardsV1 upserts searchable cards", () => {
+    seedShellyFailsafeKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-SHELLY-FAILSAFE-COLD-REBOOT-001");
+    assert.ok(card);
+    assert.match(card!.title, /10分未受信時コールドリブート/);
+    assert.ok(card!.tags.includes("#ShellyGen3"));
+    assert.ok(card!.tags.includes("#フェイルセーフ"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

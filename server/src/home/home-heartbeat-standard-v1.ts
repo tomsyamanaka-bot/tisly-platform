@@ -17,6 +17,18 @@ export const TISLY_HEARTBEAT_OFFLINE_MS_V1 = 5 * 60 * 1000 + 30 * 1000;
 export const TISLY_HEARTBEAT_OFFLINE_LABEL_V1 = "5分30秒";
 
 /**
+ * Shelly 自動コールドリブートしきい値（ms）
+ * 2 回連続未受信（10 分）+ 30 秒揺らぎ = 10 分 30 秒
+ */
+export const TISLY_SHELLY_AUTO_REBOOT_MS_V1 = 10 * 60 * 1000 + 30 * 1000;
+
+/** Shelly キック表示ラベル */
+export const TISLY_SHELLY_AUTO_REBOOT_LABEL_V1 = "10分30秒";
+
+/** Shelly 自動キック最大回数（同一途絶期間） */
+export const TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1 = 2;
+
+/**
  * 途絶 Push タイトル
  * 例: ⚠️ 【緊急】豊島邸：主装置との通信が途絶えました
  */

@@ -11,6 +11,8 @@ import { sendWebPush } from "../notification/channels/web-push.js";
 import {
   TISLY_HEARTBEAT_INTERVAL_SEC_V1,
   TISLY_HEARTBEAT_OFFLINE_MS_V1,
+  TISLY_SHELLY_AUTO_REBOOT_MS_V1,
+  TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1,
   buildHeartbeatCommLossPushBodyV1,
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
@@ -75,6 +77,10 @@ export const TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 =
 /** 通信途絶猶予（ms）— 標準 5分30秒 */
 export const TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 =
   TISLY_HEARTBEAT_OFFLINE_MS_V1;
+
+/** Shelly 自動キックしきい値（10分30秒） */
+export const TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1 =
+  TISLY_SHELLY_AUTO_REBOOT_MS_V1;
 
 /** 盤内温度 — 注意（℃） */
 export const TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1 = 45;
@@ -219,6 +225,8 @@ interface ToyoshimaDeviceCommRuntimeV1 {
   online: boolean;
   /** 途絶 Push を送ったか */
   offlineNotified: boolean;
+  /** 同一途絶期間の Shelly キック回数 */
+  shellyKickCount: number;
   /** 最新盤内温度（℃） */
   boardTempC: number | null;
   /** 過熱 Push を送ったか（温度低下で解除） */
@@ -301,6 +309,7 @@ function defaultDeviceComm(): ToyoshimaDeviceCommRuntimeV1 {
     lastHeartbeatAt: at,
     online: true,
     offlineNotified: false,
+    shellyKickCount: 0,
     boardTempC: null,
     overheatNotified: false,
   };
@@ -376,6 +385,8 @@ export async function recordToyoshimaHeartbeatV1(input: {
     lastHeartbeatAt: at,
     online: true,
     offlineNotified: false,
+    /* 通信復旧で Shelly リトライ枠をリセット */
+    shellyKickCount: 0,
   };
   getBuilding(input.building).online = true;
   if (wasOffline && prev.lastHeartbeatAt) {
@@ -440,7 +451,7 @@ async function processToyoshimaBoardTempV1(
   }
 }
 
-/** 5分 heartbeat 監視 — 途絶時に Push・履歴・Shelly自動キック */
+/** 5分 heartbeat 監視 — 途絶 Push / 10分で Shelly 自動キック */
 export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
   /* 施工中などは監視OFFで通知・自動再投入を抑止 */
   if (!isToyoshimaHeartbeatWatchEnabledV1(HOME_JP_TOYOSHIMA_SITE_ID_V1)) {
@@ -461,28 +472,37 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
       comm.online = false;
       getBuilding(building).online = false;
     }
-    if (comm.offlineNotified) {
+    /* 5分30秒: オフライン化 + Push（1回） */
+    if (!comm.offlineNotified) {
+      comm.offlineNotified = true;
+      appendTimeline({
+        at: nowIso(),
+        building,
+        kind: "comm_loss",
+        title: "通信断検知",
+        detail: `${label}：5分以上ハートビート未受信`,
+      });
+      const siteName = "豊島邸";
+      await sendToyoshimaPush({
+        title: buildHeartbeatCommLossPushTitleV1({
+          siteDisplayName: siteName,
+          deviceLabel: label,
+        }),
+        body: buildHeartbeatCommLossPushBodyV1({ deviceLabel: label }),
+        eventType: "toyoshima_comm_loss",
+      });
+    }
+
+    /* 10分30秒: Shelly PoE コールドリブート（最大2回） */
+    if (elapsed < TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1) {
       continue;
     }
-    comm.offlineNotified = true;
-    appendTimeline({
-      at: nowIso(),
-      building,
-      kind: "comm_loss",
-      title: "通信断検知",
-      detail: `${label}：5分以上ハートビート未受信`,
-    });
-    const siteName = "豊島邸";
-    await sendToyoshimaPush({
-      title: buildHeartbeatCommLossPushTitleV1({
-        siteDisplayName: siteName,
-        deviceLabel: label,
-      }),
-      body: buildHeartbeatCommLossPushBodyV1({ deviceLabel: label }),
-      eventType: "toyoshima_comm_loss",
-    });
+    if (
+      (comm.shellyKickCount ?? 0) >= TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1
+    ) {
+      continue;
+    }
 
-    /* Shelly 電源自動復旧（設定ON・クールダウン外のみ） */
     try {
       const { maybeTriggerShellyAutoRebootV1 } = await import(
         "./home-shelly-failsafe-v1.js"
@@ -490,16 +510,30 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
       const attempt = await maybeTriggerShellyAutoRebootV1({
         siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
         buildingLabel: label,
-        reason: `${label}ハートビート途絶`,
+        reason: `${label}ハートビート10分未受信`,
       });
       if (attempt.triggered) {
+        comm.shellyKickCount = (comm.shellyKickCount ?? 0) + 1;
+        const detail =
+          "⚡ 10分未受信検知：ShellyによるPoE電源再投入（5秒リブート）を実行";
         appendTimeline({
           at: nowIso(),
           building,
           kind: "shelly_auto_reboot",
           title: "電源自動復旧",
-          detail:
-            "⚡ RP通信途絶を検知：Shelly電源自動再投入を実行",
+          detail,
+        });
+        recordSystemLogV1({
+          siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+          category: "rp2350_comm",
+          message: detail,
+          detail: {
+            building,
+            label,
+            elapsedMs: elapsed,
+            kickCount: comm.shellyKickCount,
+          },
+          actor: "failsafe-worker",
         });
       }
     } catch (err) {

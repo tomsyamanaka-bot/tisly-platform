@@ -125,6 +125,10 @@ import {
   STATUS_REFRESH_MODULE_SEED_IDS,
   getStatusRefreshModuleSeedItemsV1,
 } from "./knowledge-status-refresh-seed-v1.js";
+import {
+  SHELLY_FAILSAFE_MODULE_SEED_IDS,
+  getShellyFailsafeModuleSeedItemsV1,
+} from "./knowledge-shelly-failsafe-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -1591,6 +1595,48 @@ function mergeStatusRefreshSeed(
   return { items: next, changed };
 }
 
+/**
+ * Shelly Gen3 フェイルセーフナレッジを末尾追記。
+ */
+function mergeShellyFailsafeSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(SHELLY_FAILSAFE_MODULE_SEED_IDS);
+  const seeds = getShellyFailsafeModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -1658,7 +1704,10 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedStatusRefresh = mergeStatusRefreshSeed(
     mergedHeartbeatClone.items
   );
-  const mergedGenre = mergeUnifiedGenreBindings(mergedStatusRefresh.items);
+  const mergedShellyFailsafe = mergeShellyFailsafeSeed(
+    mergedStatusRefresh.items
+  );
+  const mergedGenre = mergeUnifiedGenreBindings(mergedShellyFailsafe.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -1690,6 +1739,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedCustomerDevices.changed ||
     mergedHeartbeatClone.changed ||
     mergedStatusRefresh.changed ||
+    mergedShellyFailsafe.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

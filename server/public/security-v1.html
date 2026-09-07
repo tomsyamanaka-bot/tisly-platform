@@ -328,7 +328,8 @@
           <summary>💓 ハートビート死活監視（豊島邸）</summary>
           <p class="sf-pro-hint">
             施工・電源工事・実機移動時は一時停止にすると、
-            5分未受信の Web Push と Shelly 自動電源再投入を抑止します。
+            5分未受信の Web Push を抑止し、
+            Shelly 自動電源再投入（10分未受信）も停止します。
           </p>
           <label class="sf-pro-switch-row" for="sf-pro-hb-watch">
             <span id="sf-pro-hb-watch-caption">監視中（有効）</span>
@@ -342,8 +343,9 @@
         <details class="sf-pro-details" open id="sf-pro-shelly-failsafe">
           <summary>⚡ 電源フェイルセーフ設定（Shelly連動）</summary>
           <p class="sf-pro-hint">
-            主装置・子機のハートビート途絶時に、Shelly電源制御で自動再投入します。
-            クールダウン（15〜30分）で無限再起動を防止します。
+            主装置・子機のハートビートが約10分未受信のとき、
+            Shelly 1 Mini Gen3 で PoE 電源を5秒OFF→ONします。
+            リトライ最大2回・クールダウン30分で無限再起動を防止します。
           </p>
           <label class="sf-pro-switch-row" for="sf-pro-shelly-auto">
             <span>自動再起動</span>
@@ -391,7 +393,7 @@
               class="sf-mini"
               min="15"
               max="30"
-              value="20"
+              value="30"
             />
           </label>
           <div class="sf-pro-reboot-row">
