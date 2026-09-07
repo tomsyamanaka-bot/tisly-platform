@@ -744,6 +744,44 @@ function exportReport() {
   a.click();
 }
 
+function flashStatusToast(message) {
+  let el = $("sf-status-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "sf-status-toast";
+    el.className = "ts-toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add("is-visible");
+  clearTimeout(flashStatusToast._timer);
+  flashStatusToast._timer = setTimeout(
+    () => el.classList.remove("is-visible"),
+    2800
+  );
+}
+
+async function refreshOperatorStatus(btn) {
+  if (!btn) return;
+  btn.disabled = true;
+  btn.classList.add("is-spinning");
+  try {
+    if (isToyoshimaSecuritySite(state.siteId)) {
+      await loadToyoshimaDashboard();
+    } else {
+      await loadOperator();
+    }
+    flashStatusToast("最新の接続状態を取得しました");
+  } catch (err) {
+    console.warn("[security-floor] refresh", err);
+    flashStatusToast("状態の取得に失敗しました");
+  } finally {
+    btn.classList.remove("is-spinning");
+    btn.disabled = false;
+  }
+}
+
 function bind() {
   document.addEventListener("tisly-sf-floor", (e) => {
     const id = e.detail?.id;
@@ -755,6 +793,10 @@ function bind() {
       console.warn("[security-floor] site switch", err);
       e.target.value = state.siteId;
     });
+  });
+
+  $("sf-status-refresh")?.addEventListener("click", () => {
+    refreshOperatorStatus($("sf-status-refresh")).catch(() => {});
   });
 
   const bindAlarmControls = () => {

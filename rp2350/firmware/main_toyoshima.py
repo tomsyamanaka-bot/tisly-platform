@@ -591,8 +591,9 @@ async def async_main():
     )
     poll_counter = 0
 
-    # 起動直後に 1 発目 heartbeat を即時送信
+    # 起動直後に 1 発目 heartbeat を即時送信（0 秒・待機ループ前）
     kick_watchdog(_wdt)
+    log("boot heartbeat (0 sec) — before poll loop")
     if get_ip():
         send_heartbeat()
     else:

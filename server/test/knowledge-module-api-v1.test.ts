@@ -143,6 +143,10 @@ const {
   HEARTBEAT_CLONE_MODULE_SEED_IDS,
   seedHeartbeatCloneKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-heartbeat-clone-seed-v1.js");
+const {
+  STATUS_REFRESH_MODULE_SEED_IDS,
+  seedStatusRefreshKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-status-refresh-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1317,6 +1321,33 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card);
     assert.match(card!.title, /現場プロファイルクローン/);
     assert.ok(card!.tags.includes("#WebPush"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends status refresh boot hb seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of STATUS_REFRESH_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-status-refresh-boot-hb-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /手動ステータス即時更新/);
+    assert.ok(card!.tags.includes("#手動更新"));
+    assert.ok(card!.tags.includes("#即時復旧"));
+  });
+
+  it("seedStatusRefreshKnowledgeCardsV1 upserts searchable cards", () => {
+    seedStatusRefreshKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-STATUS-REFRESH-BOOT-HB-001");
+    assert.ok(card);
+    assert.match(card!.title, /0秒ハートビート/);
+    assert.ok(card!.tags.includes("#PWA"));
     assert.ok(card!.tags.includes("#TiSLY_Core"));
   });
 

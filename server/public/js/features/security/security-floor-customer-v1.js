@@ -640,11 +640,53 @@ function bindCustomerCamera() {
   });
 }
 
+/** ヘッダー／カード共通 · 最新状態トースト */
+function flashStatusToast(message) {
+  let el = $("sf-status-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "sf-status-toast";
+    el.className = "ts-toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add("is-visible");
+  clearTimeout(flashStatusToast._timer);
+  flashStatusToast._timer = setTimeout(
+    () => el.classList.remove("is-visible"),
+    2800
+  );
+}
+
+async function refreshCustomerStatus(btn) {
+  if (!btn) return;
+  btn.disabled = true;
+  btn.classList.add("is-spinning");
+  try {
+    if (isToyoshimaSecuritySite(state.siteId)) {
+      await loadToyoshimaDashboard();
+    } else {
+      await loadDash();
+    }
+    flashStatusToast("最新の接続状態を取得しました");
+  } catch (err) {
+    console.warn("[security-customer] refresh", err);
+    flashStatusToast("状態の取得に失敗しました");
+  } finally {
+    btn.classList.remove("is-spinning");
+    btn.disabled = false;
+  }
+}
+
 function bind() {
   bindCustomerLightSlider();
   bindCustomerSchedule();
   bindCustomerManualLights();
   bindCustomerCamera();
+  $("sf-status-refresh")?.addEventListener("click", () => {
+    refreshCustomerStatus($("sf-status-refresh")).catch(() => {});
+  });
   document.addEventListener("tisly-sf-floor", (e) => {
     const id = e.detail?.id;
     if (id) state.floorId = id;

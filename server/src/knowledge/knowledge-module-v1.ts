@@ -121,6 +121,10 @@ import {
   HEARTBEAT_CLONE_MODULE_SEED_IDS,
   getHeartbeatCloneModuleSeedItemsV1,
 } from "./knowledge-heartbeat-clone-seed-v1.js";
+import {
+  STATUS_REFRESH_MODULE_SEED_IDS,
+  getStatusRefreshModuleSeedItemsV1,
+} from "./knowledge-status-refresh-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -1545,6 +1549,48 @@ function mergeHeartbeatCloneSeed(
   return { items: next, changed };
 }
 
+/**
+ * 手動ステータス更新・0秒HB復帰ナレッジを末尾追記。
+ */
+function mergeStatusRefreshSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(STATUS_REFRESH_MODULE_SEED_IDS);
+  const seeds = getStatusRefreshModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -1609,7 +1655,10 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedHeartbeatClone = mergeHeartbeatCloneSeed(
     mergedCustomerDevices.items
   );
-  const mergedGenre = mergeUnifiedGenreBindings(mergedHeartbeatClone.items);
+  const mergedStatusRefresh = mergeStatusRefreshSeed(
+    mergedHeartbeatClone.items
+  );
+  const mergedGenre = mergeUnifiedGenreBindings(mergedStatusRefresh.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -1640,6 +1689,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedRs485.changed ||
     mergedCustomerDevices.changed ||
     mergedHeartbeatClone.changed ||
+    mergedStatusRefresh.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

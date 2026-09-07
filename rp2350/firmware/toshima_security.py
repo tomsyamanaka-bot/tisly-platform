@@ -14,6 +14,7 @@ from toyoshima_security import (  # noqa: F401
     init_watchdog,
     kick_watchdog,
     read_board_temperature_c,
+    run_boot_heartbeat_once,
     send_toyoshima_event,
     send_toyoshima_heartbeat,
 )

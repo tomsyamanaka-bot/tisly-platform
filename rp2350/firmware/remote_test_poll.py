@@ -184,7 +184,11 @@ def main():
     poll_interval_sec = int(POLL_INTERVAL_SEC)
     heartbeat_interval_sec = max(int(HEARTBEAT_INTERVAL_SEC), poll_interval_sec)
     heartbeat_interval_ms = heartbeat_interval_sec * 1000
-    next_heartbeat_ms = time.ticks_ms()
+
+    # 起動直後 0 秒 — 待機ループ前に即時 heartbeat
+    log("boot heartbeat (0 sec) — before poll loop")
+    send_heartbeat()
+    next_heartbeat_ms = time.ticks_add(time.ticks_ms(), heartbeat_interval_ms)
 
     while True:
         cmd = fetch_command()

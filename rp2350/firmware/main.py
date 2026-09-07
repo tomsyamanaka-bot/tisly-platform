@@ -1022,9 +1022,17 @@ async def async_main():
 
 
 
-    # 初回ループで 1 回だけ即時 heartbeat（以降は heartbeat_interval_sec 周期）
+    # 電源投入・再接続直後: 5分待機の前に 0 秒で即時 heartbeat
 
-    next_heartbeat_ms = time.ticks_ms()
+    log("boot heartbeat (0 sec) — before poll loop")
+
+    send_heartbeat()
+
+    next_heartbeat_ms = time.ticks_add(
+
+        time.ticks_ms(), heartbeat_interval_ms
+
+    )
 
 
 

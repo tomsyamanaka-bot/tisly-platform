@@ -37,6 +37,7 @@ import { seedAttendanceNfcKnowledgeCardsV1 } from "./knowledge-attendance-nfc-se
 import { seedRs485ModbusStandardKnowledgeCardsV1 } from "./knowledge-rs485-modbus-standard-seed-v1.js";
 import { seedCustomerDevicesKnowledgeCardsV1 } from "./knowledge-customer-devices-seed-v1.js";
 import { seedHeartbeatCloneKnowledgeCardsV1 } from "./knowledge-heartbeat-clone-seed-v1.js";
+import { seedStatusRefreshKnowledgeCardsV1 } from "./knowledge-status-refresh-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -190,6 +191,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   rs485ModbusStandardCreated: number;
   customerDevicesCreated: number;
   heartbeatCloneCreated: number;
+  statusRefreshCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -220,6 +222,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const rs485ModbusStandard = seedRs485ModbusStandardKnowledgeCardsV1();
   const customerDevices = seedCustomerDevicesKnowledgeCardsV1();
   const heartbeatClone = seedHeartbeatCloneKnowledgeCardsV1();
+  const statusRefresh = seedStatusRefreshKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -250,5 +253,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     rs485ModbusStandardCreated: rs485ModbusStandard.length,
     customerDevicesCreated: customerDevices.length,
     heartbeatCloneCreated: heartbeatClone.length,
+    statusRefreshCreated: statusRefresh.length,
   };
 }

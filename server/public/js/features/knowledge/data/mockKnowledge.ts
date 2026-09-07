@@ -1823,3 +1823,42 @@ export const MOCK_HEARTBEAT_CLONE_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const STATUS_REFRESH_KNOWLEDGE_TITLES = [
+  "【保守DX】PWA手動ステータス即時更新ボタン ＆ 電源投入時0秒ハートビート即時復帰仕様",
+] as const;
+
+const STATUS_REFRESH_CREATED_AT = "2026-09-07T08:00:00.000Z";
+
+/** 手動更新・0秒HB復帰（末尾追記） */
+export const MOCK_STATUS_REFRESH_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-status-refresh-boot-hb-001",
+    title:
+      "【保守DX】PWA手動ステータス即時更新ボタン ＆ 電源投入時0秒ハートビート即時復帰仕様",
+    summary: [
+      "現場施工・電源抜き差し時のダウンタイム解消。",
+      "実機起動直後の即時ハートビート発報と、",
+      "PWA画面上のワンタップ強制再取得ボタンによる",
+      "即時オンライン同期アーキテクチャ。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#死活監視",
+      "#手動更新",
+      "#ハートビート",
+      "#即時復旧",
+      "#PWA",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: STATUS_REFRESH_CREATED_AT,
+    body: [
+      "【PWA 手動更新】",
+      "🔄 最新状態に更新で通信ヘルスを即時再取得。",
+      "",
+      "【実機 0 秒 HB】",
+      "5分待機前に boot heartbeat を POST。",
+    ].join("\n"),
+  },
+];

@@ -249,7 +249,13 @@ function renderCustomerStatusBanner(dash) {
  */
 function renderCustomerAssureHealthCard(view) {
   return `<section class="ts-card ts-assure-health-card" id="ts-customer-health-card" aria-label="システム安心・通信ヘルス">
-    <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
+    <div class="ts-assure-head-row">
+      <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
+      <button type="button" class="ts-refresh-btn" data-ts-action="refresh_status" aria-label="最新状態に更新">
+        <span class="ts-refresh-ico" aria-hidden="true">🔄</span>
+        <span class="ts-refresh-label">最新状態に更新</span>
+      </button>
+    </div>
     <div class="ts-assure-grid">
       <div class="ts-assure-row">
         <span class="ts-assure-key">稼働ステータス</span>
@@ -517,7 +523,13 @@ function renderHealthGrid(dash) {
   const view = buildCommHealthView(dash);
   const watchOn = dash.heartbeatWatchEnabled !== false;
   return `<section class="ts-card ts-health-card" id="ts-health-card" data-ssot="toyoshima-commHealth">
-    <h3 class="ts-card-head">📡 通信ステータス</h3>
+    <div class="ts-assure-head-row">
+      <h3 class="ts-card-head">📡 通信ステータス</h3>
+      <button type="button" class="ts-refresh-btn" data-ts-action="refresh_status" aria-label="最新状態に更新">
+        <span class="ts-refresh-ico" aria-hidden="true">🔄</span>
+        <span class="ts-refresh-label">最新状態に更新</span>
+      </button>
+    </div>
     <div class="ts-health-grid">
       <div class="ts-health-cell">
         <span class="ts-health-key">稼働ステータス</span>
@@ -1700,6 +1712,19 @@ function bindToyoshimaControls() {
           else await refreshToyoshimaDashboard();
           showToast("擬似ハートビートを送信しました（オンライン同期）");
         } finally {
+          actionBtn.disabled = false;
+        }
+        return;
+      }
+      if (action === "refresh_status") {
+        actionBtn.disabled = true;
+        actionBtn.classList.add("is-spinning");
+        try {
+          lastDashSig = "";
+          await refreshToyoshimaDashboard({ soft: false });
+          showToast("最新の接続状態を取得しました");
+        } finally {
+          actionBtn.classList.remove("is-spinning");
           actionBtn.disabled = false;
         }
         return;

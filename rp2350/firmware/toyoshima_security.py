@@ -408,18 +408,34 @@ def send_toyoshima_event(http_post, building, di, message, site_id=None, device_
     return status == 200
 
 
+def run_boot_heartbeat_once(send_heartbeat, building="main"):
+    """
+    電源投入・USB 再接続直後の 0 秒 heartbeat。
+    5 分待機ループに入る前に必ず呼ぶ。
+    """
+    try:
+        print("[豊島邸 security] boot heartbeat 0sec")
+        return bool(send_heartbeat(building))
+    except Exception as exc:
+        print("[豊島邸 security] boot heartbeat err:", exc)
+        return False
+
+
 async def heartbeat_loop(send_heartbeat, building="main"):
     """
     RP2350 メインループから起動する 5 分周期 heartbeat。
+    起動直後 0 秒で 1 発送信し、以降は HEARTBEAT_INTERVAL_SEC。
 
     send_heartbeat: callable(building) -> bool
     """
+    # 待機ループ前に即時送信（電源投入時の即時オンライン復帰）
+    run_boot_heartbeat_once(send_heartbeat, building)
     while True:
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)
         try:
             send_heartbeat(building)
         except Exception as exc:
             print("[豊島邸 security] heartbeat err:", exc)
-        await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)
 
 
 # ── 物理ウォッチドッグ（WDT） ──

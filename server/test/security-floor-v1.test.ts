@@ -622,11 +622,12 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
-    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2518/);
-    assert.match(customerHtml, /security-time-range-v1\.js\?v=2518/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2518/);
-    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2518/);
-    assert.match(customerHtml, /security-floor-light-v1\.js\?v=2518/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2519/);
+    assert.match(customerHtml, /security-time-range-v1\.js\?v=2519/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2519/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2519/);
+    assert.match(customerHtml, /security-floor-light-v1\.js\?v=2519/);
+    assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
     assert.doesNotMatch(customerHtml, /擬似発報/);
     assert.doesNotMatch(customerHtml, /デバウンス/);
@@ -712,6 +713,8 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /\/toyoshima\/sync-config/);
     assert.match(toyoshimaJs, /ts-hb-watch/);
     assert.match(toyoshimaJs, /sim_heartbeat|擬似ハートビート送信/);
+    assert.match(toyoshimaJs, /refresh_status|最新状態に更新/);
+    assert.match(toyoshimaJs, /最新の接続状態を取得しました/);
     assert.match(toyoshimaJs, /activeCustomerPane|restoreActiveCustomerPane/);
     assert.match(toyoshimaJs, /setToyoshimaCustomerPane/);
     assert.match(toyoshimaJs, /sf-mobile-tabs button/);
@@ -736,7 +739,9 @@ describe("security-floor-v1", () => {
     );
     assert.match(customerJs, /setToyoshimaCustomerPane\(state\.pane\)/);
     assert.match(customerJs, /__TISLY_SF_SITE_ID/);
+    assert.match(customerJs, /sf-status-refresh|refreshCustomerStatus/);
     assert.match(opJs, /__TISLY_SF_SITE_ID/);
+    assert.match(opJs, /sf-status-refresh|refreshOperatorStatus/);
     assert.doesNotMatch(customerJs, /heartbeatWatchEnabled|sf-pro-hb-watch/);
     assert.match(customerJs, /forceRefreshOnDeployedCommit|ensureSecurityServiceWorker/);
     assert.match(customerJs, /SKIP_WAITING|tisly-security-customer-commit/);
