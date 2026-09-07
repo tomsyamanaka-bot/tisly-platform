@@ -208,6 +208,28 @@ describe("toyoshima-security-v1", () => {
     assert.match(dash.commHealth.boardTempLabel, /適温・正常|正常/);
   });
 
+  it("stale offline recovers to ONLINE after both-building heartbeat", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    const {
+      TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1,
+    } = await import("../src/home/home-toyoshima-security-v1.js");
+    const stale = new Date(
+      Date.now() - TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 - 5_000
+    ).toISOString();
+    setToyoshimaHeartbeatAtForTestV1("main", stale);
+    setToyoshimaHeartbeatAtForTestV1("detached", stale);
+    const offline = buildToyoshimaSecurityDashboardV1();
+    assert.match(offline.commHealth.onlineSummary, /オフライン/);
+
+    await recordToyoshimaHeartbeatV1({ building: "main" });
+    await recordToyoshimaHeartbeatV1({ building: "detached" });
+    const online = buildToyoshimaSecurityDashboardV1();
+    assert.match(online.commHealth.onlineSummary, /オンライン/);
+    assert.equal(online.main.online, true);
+    assert.equal(online.detached.online, true);
+    assert.ok(online.commHealth.lastHeartbeatAt);
+  });
+
   it("null board temp shows monitoring label without fake value", () => {
     resetToyoshimaSecurityStateForTestV1();
     const dash = buildToyoshimaSecurityDashboardV1();

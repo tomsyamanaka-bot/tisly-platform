@@ -223,6 +223,7 @@ function syncHeaderTitle(site) {
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
+  window.__TISLY_SF_SITE_ID = state.siteId;
   // 豊島邸では旧 KPI（別系統心拍）を完全除外
   const kpi = $("sf-kpi");
   if (kpi) {
@@ -824,12 +825,16 @@ function bind() {
   });
   document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.pane = btn.getAttribute("data-pane");
+      state.pane = btn.getAttribute("data-pane") || "map";
       document
         .querySelectorAll(".sf-mobile-tabs button")
         .forEach((b) => b.classList.toggle("is-on", b === btn));
       document.body.setAttribute("data-pane", state.pane);
-      if (isToyoshimaSecuritySite(state.siteId)) {
+      const toyoshimaUi =
+        isToyoshimaSecuritySite(state.siteId) ||
+        document.body.classList.contains("is-toyoshima") ||
+        $("ts-dashboard-root")?.dataset?.mounted === "1";
+      if (toyoshimaUi) {
         setToyoshimaCustomerPane(state.pane);
         return;
       }

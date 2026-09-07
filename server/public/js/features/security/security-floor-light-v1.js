@@ -221,21 +221,27 @@
         });
       });
     $("sf-export") && $("sf-export").addEventListener("click", exportCsv);
-    document.querySelectorAll(".sf-mobile-tabs button").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var pane = btn.getAttribute("data-pane");
-        document.querySelectorAll(".sf-mobile-tabs button").forEach(function (b) {
-          b.classList.toggle("is-on", b === btn);
+    /* sf-soc は customer/operator モジュールがタブSSOTを担当。
+     * light-v1 が二重バインドすると豊島邸ペイン切替が壊れる。 */
+    if (!document.body.classList.contains("sf-soc")) {
+      document.querySelectorAll(".sf-mobile-tabs button").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var pane = btn.getAttribute("data-pane");
+          document
+            .querySelectorAll(".sf-mobile-tabs button")
+            .forEach(function (b) {
+              b.classList.toggle("is-on", b === btn);
+            });
+          document.body.setAttribute("data-pane", pane);
+          var target = document.querySelector(
+            '.sf-soc-shell [data-pane="' + pane + '"]'
+          );
+          if (target && target.scrollIntoView) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         });
-        document.body.setAttribute("data-pane", pane);
-        var target = document.querySelector(
-          '.sf-soc-shell [data-pane="' + pane + '"]'
-        );
-        if (target && target.scrollIntoView) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
       });
-    });
+    }
   }
 
   function hideHomeFab() {

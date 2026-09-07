@@ -32,6 +32,8 @@ function syncSettingsState(dash) {
 
 let lastDashSig = "";
 let clientLatencyMs = null;
+/** 顧客/社内タブの単一真実ソース（家のようす/お知らせ/履歴） */
+let activeCustomerPane = "map";
 let scheduleState = {
   homeSiteId: TOYOSHIMA_HOME_ID,
   guardMode: "scheduled",
@@ -481,10 +483,17 @@ function renderSnapshotThumb(ev) {
 function renderAlarmCard(dash, opts = {}) {
   const customer = !!opts.customer;
   const alarm = dash.alarm || { active: false, message: "発報はありません" };
+  const view = buildCommHealthView(dash);
   const snaps = latestSnapshots(dash.timeline, 3);
-  return `<section class="ts-card ts-alarm-card ${alarm.active ? "is-live" : ""}" id="ts-alarm-card">
+  const commAlert = view.offline
+    ? `<p class="ts-alarm-status is-alert" id="ts-comm-alert">
+        ⚠️ 通信障害：主装置との通信が途絶えています
+      </p>`
+    : "";
+  return `<section class="ts-card ts-alarm-card ${alarm.active || view.offline ? "is-live" : ""}" id="ts-alarm-card">
     <h3 class="ts-card-head">🚨 ${customer ? "いまのお知らせ" : "アラーム発報"}</h3>
     <p class="ts-alarm-status ${alarm.active ? "is-alert" : ""}" id="ts-alarm-status">${escapeHtml(alarm.message)}</p>
+    ${commAlert}
     ${
       snaps.length
         ? `<div class="ts-snap-row" id="ts-alarm-snaps">${snaps
@@ -494,7 +503,9 @@ function renderAlarmCard(dash, opts = {}) {
     }
     ${
       customer
-        ? ""
+        ? `<div class="ts-btn-row">
+      <button type="button" class="ts-btn" data-ts-action="test_notify">🔔 通知テスト</button>
+    </div>`
         : `<button type="button" class="ts-btn ts-btn-ghost" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
       アラーム対応完了
     </button>`
@@ -535,7 +546,12 @@ function renderHealthGrid(dash) {
         }</span>
       </span>
     </label>
-    <p class="ts-hint">施工・移動時は一時停止で Push／自動再投入をミュート</p>
+    <div class="ts-btn-row ts-hb-sim-row">
+      <button type="button" class="ts-btn" data-ts-action="sim_heartbeat">
+        💓 擬似ハートビート送信
+      </button>
+    </div>
+    <p class="ts-hint">擬似送信後、顧客画面の稼働ステータスも即時同期されます</p>
   </section>`;
 }
 
@@ -934,16 +950,51 @@ function patchToyoshimaDashboard(dash) {
   syncSettingsState(dash);
 
   if (isCustomerPortal()) {
-    const stack = $("ts-customer-status-stack");
-    const banner = $("ts-status-banner");
-    if (stack) stack.outerHTML = renderCustomerStatusBanner(dash);
-    else if (banner) banner.outerHTML = renderCustomerStatusBanner(dash);
+    const view = buildCommHealthView(dash);
+    const assureOnline = $("ts-assure-online");
+    const assureLatency = $("ts-assure-latency");
+    const assureTemp = $("ts-assure-temp");
+    const assureConfirm = $("ts-assure-confirm");
+    /* 稼働ステータスは DOM 差分更新で即時反映（タブ維持） */
+    if (assureOnline) {
+      assureOnline.textContent = view.customerOnline;
+      syncCustomerOnlinePill(view.online, !!dash.alarm?.active);
+      if (assureLatency) assureLatency.textContent = view.latencyLabel;
+      if (assureConfirm) assureConfirm.textContent = view.confirmLabel;
+      if (assureTemp) {
+        assureTemp.textContent = `${view.tempEmoji} ${view.tempLabel}`;
+        assureTemp.classList.remove("is-normal", "is-caution", "is-warning");
+        assureTemp.classList.add(`is-${view.tempLevel}`);
+      }
+      const banner = $("ts-status-banner");
+      if (banner) {
+        banner.classList.toggle("is-alert", !!dash.alarm?.active);
+        banner.classList.toggle("is-ok", !dash.alarm?.active);
+        const head = banner.querySelector(".ts-status-head");
+        const sub = banner.querySelector(".ts-status-sub");
+        if (head) {
+          head.textContent = dash.alarm?.active
+            ? "発報があります"
+            : "安全確認：異常なし";
+        }
+        if (sub) {
+          sub.textContent =
+            dash.alarm?.message || "すべてのセンサーが正常に動作しています";
+        }
+      }
+    } else {
+      const stack = $("ts-customer-status-stack");
+      const banner = $("ts-status-banner");
+      if (stack) stack.outerHTML = renderCustomerStatusBanner(dash);
+      else if (banner) banner.outerHTML = renderCustomerStatusBanner(dash);
+    }
 
     const modeCard = $("ts-mode-card");
     if (modeCard) modeCard.outerHTML = renderCustomerModeCards(dash);
 
     /* 詳細設定が欠落したらフル再マウント */
     if (!ensureCustomerDailySettingsMounted(dash)) {
+      restoreActiveCustomerPane();
       return;
     }
 
@@ -993,6 +1044,7 @@ function patchToyoshimaDashboard(dash) {
         .map(renderSnapshotThumb)
         .join("");
     }
+    restoreActiveCustomerPane();
     return;
   }
 
@@ -1067,6 +1119,7 @@ function patchToyoshimaDashboard(dash) {
       .map(renderSnapshotThumb)
       .join("");
   }
+  restoreActiveCustomerPane();
 }
 
 function patchBuildingCard(building) {
@@ -1082,14 +1135,42 @@ export function isToyoshimaSecuritySite(siteId) {
   return String(siteId || "").trim() === TOYOSHIMA_SEC_ID;
 }
 
-/** 顧客タブ（家のようす / お知らせ / 履歴）切替 */
+/**
+ * 顧客タブ（家のようす / お知らせ / 履歴）切替
+ * ボタン・ペイン・body 属性を同一ステートへ同期
+ */
 export function setToyoshimaCustomerPane(pane) {
-  const id = String(pane || "map").trim();
+  const allowed = new Set(["map", "alert", "log"]);
+  const raw = String(pane || "map").trim();
+  const id = allowed.has(raw) ? raw : "map";
+  activeCustomerPane = id;
+  document.body.setAttribute("data-pane", id);
+  document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
+    const match = btn.getAttribute("data-pane") === id;
+    btn.classList.toggle("is-on", match);
+    btn.setAttribute("aria-selected", match ? "true" : "false");
+  });
   document.querySelectorAll(".ts-tab-pane").forEach((el) => {
     el.classList.toggle("is-on", el.getAttribute("data-ts-pane") === id);
   });
   const root = $("ts-dashboard-root");
   if (root) root.setAttribute("data-ts-active-pane", id);
+  const panes = $("ts-tab-panes");
+  if (panes) panes.setAttribute("data-ts-active-pane", id);
+}
+
+/** 現在のタブID（テスト・再同期用） */
+export function getToyoshimaCustomerPane() {
+  return activeCustomerPane || "map";
+}
+
+/** soft patch / 再描画後にタブ表示を復元 */
+function restoreActiveCustomerPane() {
+  setToyoshimaCustomerPane(
+    activeCustomerPane ||
+      document.body.getAttribute("data-pane") ||
+      "map"
+  );
 }
 
 async function syncFirmwareConfigAfterSave() {
@@ -1318,9 +1399,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     ensureCustomerDailySettingsMounted(dash);
   }
   bindToyoshimaControls();
-  setToyoshimaCustomerPane(
-    document.body.getAttribute("data-pane") || "map"
-  );
+  restoreActiveCustomerPane();
 }
 
 export function hideToyoshimaDashboard() {
@@ -1334,6 +1413,7 @@ export function hideToyoshimaDashboard() {
   }
   lastDashSig = "";
   clientLatencyMs = null;
+  activeCustomerPane = "map";
 }
 
 async function refreshToyoshimaDashboard(opts = {}) {
@@ -1602,6 +1682,28 @@ function bindToyoshimaControls() {
         actionBtn.disabled = false;
         return;
       }
+      if (action === "sim_heartbeat") {
+        actionBtn.disabled = true;
+        try {
+          /* 主装置・子機の双方へ擬似 HB を送り即時オンライン化 */
+          let lastDash = null;
+          for (const building of ["main", "detached"]) {
+            const data = await postJson("/toyoshima/heartbeat", {
+              siteId: TOYOSHIMA_HOME_ID,
+              building,
+              deviceId: `sim-${building}`,
+              actor: "operator-sim",
+            });
+            lastDash = data.dashboard || lastDash;
+          }
+          if (lastDash) renderToyoshimaDashboard(lastDash);
+          else await refreshToyoshimaDashboard();
+          showToast("擬似ハートビートを送信しました（オンライン同期）");
+        } finally {
+          actionBtn.disabled = false;
+        }
+        return;
+      }
       if (action === "bulk_lights_on" || action === "bulk_lights_off") {
         const data = await postJson("/toyoshima/bulk-lights", {
           siteId: TOYOSHIMA_HOME_ID,
@@ -1725,11 +1827,24 @@ export function stopToyoshimaPolling() {
 
 export function startToyoshimaPolling() {
   if (window.__TISLY_TOYOSHIMA_POLL) return;
-  window.__TISLY_TOYOSHIMA_POLL = setInterval(() => {
-    if (isToyoshimaSecuritySite(window.__TISLY_SF_SITE_ID)) {
-      refreshToyoshimaDashboard({ soft: true }).catch(() => {});
-    }
-  }, 3000);
+  const tick = () => {
+    const root = $("ts-dashboard-root");
+    const active =
+      isToyoshimaSecuritySite(window.__TISLY_SF_SITE_ID) ||
+      document.body.classList.contains("is-toyoshima") ||
+      root?.dataset?.mounted === "1";
+    if (!active) return;
+    refreshToyoshimaDashboard({ soft: true }).catch(() => {});
+  };
+  /* 1.5 秒周期で HB 復旧・タブ外ステータスを即時同期 */
+  window.__TISLY_TOYOSHIMA_POLL = setInterval(tick, 1500);
+  if (!window.__TISLY_TOYOSHIMA_VIS_BOUND) {
+    window.__TISLY_TOYOSHIMA_VIS_BOUND = true;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") tick();
+    });
+  }
+  tick();
 }
 
 export { TOYOSHIMA_SEC_ID };

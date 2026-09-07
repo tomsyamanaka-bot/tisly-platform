@@ -1308,6 +1308,8 @@ homeRouter.get("/activity-timeline", (req, res) => {
 /** 豊島邸 Security ダッシュボード */
 function registerToyoshimaHomeRoutes(prefix: string): void {
   homeRouter.get(`${prefix}/dashboard`, (req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     const siteId = String(req.query.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1).trim();
     if (!isToyoshimaSecuritySiteIdV1(siteId)) {
       res.status(404).json({ ok: false, error: "豊島邸サイトではありません" });

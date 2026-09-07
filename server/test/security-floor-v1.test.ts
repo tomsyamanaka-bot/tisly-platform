@@ -403,7 +403,8 @@ describe("security-floor-v1", () => {
       path.resolve("src/security-floor/security-floor-soc-v1.ts"),
       "utf8"
     );
-    assert.match(socTs, /DEVICE_ONLINE_WINDOW_MS\s*=\s*900_000/);
+    assert.match(socTs, /DEVICE_ONLINE_WINDOW_MS\s*=\s*TISLY_HEARTBEAT_OFFLINE_MS_V1/);
+    assert.match(socTs, /TISLY_HEARTBEAT_OFFLINE_MS_V1/);
     assert.doesNotMatch(html, /sf-live-feed|sf-cam-thumbs|sf-cam-expand|ライブカメラ/);
     assert.doesNotMatch(html, /勝手口カメラ 01/);
     assert.match(html, /sf-push-reregister/);
@@ -621,10 +622,11 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
-    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2516/);
-    assert.match(customerHtml, /security-time-range-v1\.js\?v=2517/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2517/);
-    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2516/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2518/);
+    assert.match(customerHtml, /security-time-range-v1\.js\?v=2518/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2518/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2518/);
+    assert.match(customerHtml, /security-floor-light-v1\.js\?v=2518/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
     assert.doesNotMatch(customerHtml, /擬似発報/);
     assert.doesNotMatch(customerHtml, /デバウンス/);
@@ -709,6 +711,11 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /ensureCustomerDailySettingsMounted|syncFirmwareConfigAfterSave/);
     assert.match(toyoshimaJs, /\/toyoshima\/sync-config/);
     assert.match(toyoshimaJs, /ts-hb-watch/);
+    assert.match(toyoshimaJs, /sim_heartbeat|擬似ハートビート送信/);
+    assert.match(toyoshimaJs, /activeCustomerPane|restoreActiveCustomerPane/);
+    assert.match(toyoshimaJs, /setToyoshimaCustomerPane/);
+    assert.match(toyoshimaJs, /sf-mobile-tabs button/);
+    assert.match(toyoshimaJs, /visibilitychange/);
     assert.doesNotMatch(
       toyoshimaJs,
       /ts-customer-dash[\s\S]{0,1200}ts-hb-watch/
@@ -718,6 +725,8 @@ describe("security-floor-v1", () => {
       /isCustomerPortal\(\)[\s\S]{0,200}擬似発報/
     );
 
+    assert.match(lightJs, /二重バインド|sf-soc/);
+
     const customerJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -725,6 +734,9 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.match(customerJs, /setToyoshimaCustomerPane\(state\.pane\)/);
+    assert.match(customerJs, /__TISLY_SF_SITE_ID/);
+    assert.match(opJs, /__TISLY_SF_SITE_ID/);
     assert.doesNotMatch(customerJs, /heartbeatWatchEnabled|sf-pro-hb-watch/);
     assert.match(customerJs, /forceRefreshOnDeployedCommit|ensureSecurityServiceWorker/);
     assert.match(customerJs, /SKIP_WAITING|tisly-security-customer-commit/);
