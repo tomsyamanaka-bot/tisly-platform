@@ -35,6 +35,7 @@ import { seedTopDownOrientKnowledgeCardsV1 } from "./knowledge-top-down-orient-s
 import { seedPartOffsetOrientKnowledgeCardsV1 } from "./knowledge-part-offset-orient-seed-v1.js";
 import { seedAttendanceNfcKnowledgeCardsV1 } from "./knowledge-attendance-nfc-seed-v1.js";
 import { seedRs485ModbusStandardKnowledgeCardsV1 } from "./knowledge-rs485-modbus-standard-seed-v1.js";
+import { seedCustomerDevicesKnowledgeCardsV1 } from "./knowledge-customer-devices-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -186,6 +187,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   partOffsetOrientCreated: number;
   attendanceNfcCreated: number;
   rs485ModbusStandardCreated: number;
+  customerDevicesCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -214,6 +216,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const partOffsetOrient = seedPartOffsetOrientKnowledgeCardsV1();
   const attendanceNfc = seedAttendanceNfcKnowledgeCardsV1();
   const rs485ModbusStandard = seedRs485ModbusStandardKnowledgeCardsV1();
+  const customerDevices = seedCustomerDevicesKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -242,5 +245,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     partOffsetOrientCreated: partOffsetOrient.length,
     attendanceNfcCreated: attendanceNfc.length,
     rs485ModbusStandardCreated: rs485ModbusStandard.length,
+    customerDevicesCreated: customerDevices.length,
   };
 }

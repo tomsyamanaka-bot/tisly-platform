@@ -1,0 +1,13 @@
+---
+description: 顧客名指定時は CUSTOMER_DEVICES.md を必ず参照
+alwaysApply: true
+---
+
+# TiSLY Customer Devices Chart
+
+ユーザー指示に顧客名・現場名（豊島邸、板橋自宅、
+TOYOSHIMA001、TOMS001、ITABASHI 等）が含まれる
+保守・障害・設定変更タスクでは、実装前に必ず
+`docs/CUSTOMER_DEVICES.md` を読み、customerCode・
+homeSiteId / securitySiteId・DI/DO・稼働パラメータを
+特定してから変更すること。別物件の端子を推測で触らない。

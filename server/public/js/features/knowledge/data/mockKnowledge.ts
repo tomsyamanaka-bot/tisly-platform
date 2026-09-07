@@ -1734,3 +1734,51 @@ export const MOCK_RS485_MODBUS_STANDARD_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const CUSTOMER_DEVICES_KNOWLEDGE_TITLES = [
+  "【運用DX】現場別機器マスター台帳（CUSTOMER_DEVICES.md）によるAI遠隔保守・障害自走対応仕様",
+] as const;
+
+const CUSTOMER_DEVICES_CREATED_AT = "2026-09-07T06:00:00.000Z";
+
+/**
+ * 顧客機器マスター台帳ナレッジ（末尾追記）
+ * docs/CUSTOMER_DEVICES.md と同期する。
+ */
+export const MOCK_CUSTOMER_DEVICES_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-customer-devices-master-001",
+    title:
+      "【運用DX】現場別機器マスター台帳（CUSTOMER_DEVICES.md）によるAI遠隔保守・障害自走対応仕様",
+    summary: [
+      "顧客名（現場名）をトリガーとして、AIが物件固有の",
+      "RP2350端子番号・Modbus ID・パラメータ・通信構成を",
+      "即座に参照し、ピンポイントで障害解析・設定変更・",
+      "自動デプロイを完結させる保守DXパイプライン。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#顧客台帳",
+      "#障害対応",
+      "#現場カルテ",
+      "#遠隔保守",
+      "#運用DX",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: CUSTOMER_DEVICES_CREATED_AT,
+    body: [
+      "【台帳の正】",
+      "docs/CUSTOMER_DEVICES.md を現場カルテの正とする。",
+      "豊島邸（TOYOSHIMA001）と板橋自宅（TOMS001）を収録。",
+      "",
+      "【顧客名トリガー】",
+      "指示に現場名が含まれる場合は必ず台帳を参照し、",
+      "customerCode / siteId / DI·DO を特定してから変更する。",
+      "",
+      "【自走パイプライン】",
+      "台帳参照 → 設定変更 → build/test → commit/push →",
+      "https://tisly.jp/api/health の commitShort 確認。",
+    ].join("\n"),
+  },
+];

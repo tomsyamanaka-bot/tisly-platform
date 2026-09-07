@@ -135,6 +135,10 @@ const {
   RS485_MODBUS_STANDARD_MODULE_SEED_IDS,
   seedRs485ModbusStandardKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-rs485-modbus-standard-seed-v1.js");
+const {
+  CUSTOMER_DEVICES_MODULE_SEED_IDS,
+  seedCustomerDevicesKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-customer-devices-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1254,6 +1258,35 @@ describe("knowledge-module-v1 store", () => {
     assert.match(addr!.title, /アドレス設定/);
     assert.ok(addr!.tags.includes("#事前キッティング"));
     assert.ok(addr!.tags.includes("#現場トラブル防止"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends customer devices master seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of CUSTOMER_DEVICES_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-customer-devices-master-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /CUSTOMER_DEVICES/);
+    assert.ok(card!.tags.includes("#顧客台帳"));
+    assert.ok(card!.tags.includes("#現場カルテ"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+    assert.match(String(card!.body ?? ""), /TOYOSHIMA001/);
+  });
+
+  it("seedCustomerDevicesKnowledgeCardsV1 upserts searchable cards", () => {
+    seedCustomerDevicesKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-CUSTOMER-DEVICES-001");
+    assert.ok(card);
+    assert.match(card!.title, /現場別機器マスター台帳/);
+    assert.ok(card!.tags.includes("#遠隔保守"));
+    assert.ok(card!.tags.includes("#運用DX"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
