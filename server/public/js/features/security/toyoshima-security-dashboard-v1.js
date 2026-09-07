@@ -630,6 +630,31 @@ function renderOpsCard() {
   </section>`;
 }
 
+/** 社内 · Guard Viewer / EZCloud 共有リンク設定 */
+function renderCloudStreamCard() {
+  return `<section class="ts-card ts-cloud-stream-card" id="ts-cloud-stream-card">
+    <h3 class="ts-card-head">📷 Guard Viewer / EZCloud ライブ共有</h3>
+    <p class="ts-hint">方法A: クラウド共有プレビュー URL を貼り付けて保存（ポート開放不要）</p>
+    <label class="ts-field" for="ts-cloud-stream-url">
+      <span class="ts-label">cloudStreamUrl（共有プレビュー URL）</span>
+      <input type="url" id="ts-cloud-stream-url" class="ts-input" placeholder="https://…（EZCloud / Guard Viewer 共有リンク）" autocomplete="off" />
+    </label>
+    <label class="ts-field" for="ts-nvr-app-url">
+      <span class="ts-label">アプリ起動 URL（任意）</span>
+      <input type="url" id="ts-nvr-app-url" class="ts-input" placeholder="ストア / ディープリンク" autocomplete="off" />
+    </label>
+    <div class="ts-btn-row">
+      <button type="button" class="ts-btn ts-btn-primary" data-ts-action="save_cloud_stream">
+        共有リンクを保存
+      </button>
+      <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="reload_cloud_stream">
+        再読込
+      </button>
+    </div>
+    <p class="ts-hint" id="ts-cloud-stream-status">未読込</p>
+  </section>`;
+}
+
 function renderActivityLog(timeline, limit = 10) {
   const rows = (timeline || []).slice(0, limit);
   if (!rows.length) {
@@ -951,6 +976,57 @@ async function postJson(path, body) {
   const data = await res.json();
   if (!data?.ok) throw new Error(data?.error || "操作に失敗しました");
   return data;
+}
+
+/** 社内 · クラウド共有リンクをフォームへ読込 */
+async function loadCloudStreamForm() {
+  const statusEl = $("ts-cloud-stream-status");
+  const urlEl = $("ts-cloud-stream-url");
+  const appEl = $("ts-nvr-app-url");
+  if (!urlEl) return;
+  const res = await fetch(`${HOME_API}/toyoshima/cloud-stream`, {
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data?.ok) {
+    if (statusEl) statusEl.textContent = "読込失敗";
+    throw new Error(data?.error || "共有リンクの取得に失敗");
+  }
+  urlEl.value = data.cloudStreamUrl || data.shareUrl || "";
+  if (appEl) appEl.value = data.nvrAppOpenUrl || "";
+  if (statusEl) {
+    statusEl.textContent = data.embedReady
+      ? "埋め込み可能（顧客画面に反映済み）"
+      : "未設定（顧客画面では案内を表示）";
+  }
+}
+
+/** 社内 · クラウド共有リンクを即時保存 */
+async function saveCloudStreamForm() {
+  const urlEl = $("ts-cloud-stream-url");
+  const appEl = $("ts-nvr-app-url");
+  const statusEl = $("ts-cloud-stream-status");
+  if (!urlEl) return;
+  const cloudStreamUrl = String(urlEl.value || "").trim();
+  const nvrAppOpenUrl = String(appEl?.value || "").trim();
+  const res = await fetch(`${HOME_API}/toyoshima/cloud-stream`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cloudStreamUrl,
+      shareUrl: cloudStreamUrl,
+      nvrAppOpenUrl,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data?.ok) {
+    throw new Error(data?.error || "共有リンクの保存に失敗");
+  }
+  if (statusEl) {
+    statusEl.textContent = data.embedReady
+      ? "保存完了 · 埋め込み可能"
+      : "保存完了 · 未設定（案内表示）";
+  }
 }
 
 async function postControl(building, action) {
@@ -1382,6 +1458,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         </button>
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
         <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
+        ${renderCloudStreamCard()}
         ${renderBuildingCard(dash.main)}
         ${renderBuildingCard(dash.detached)}
       </div>
@@ -1406,6 +1483,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     bindToyoshimaPush();
     refreshToyoshimaPushDiag();
     loadMonthlyReportIntoDash(dash).catch(() => {});
+    loadCloudStreamForm().catch(() => {});
   } else {
     bindCustomerCamera();
     ensureCustomerDailySettingsMounted(dash);
@@ -1725,6 +1803,21 @@ function bindToyoshimaControls() {
           showToast("最新の接続状態を取得しました");
         } finally {
           actionBtn.classList.remove("is-spinning");
+          actionBtn.disabled = false;
+        }
+        return;
+      }
+      if (action === "reload_cloud_stream") {
+        await loadCloudStreamForm();
+        showToast("共有リンク設定を再読込しました");
+        return;
+      }
+      if (action === "save_cloud_stream") {
+        actionBtn.disabled = true;
+        try {
+          await saveCloudStreamForm();
+          showToast("クラウド共有リンクを保存しました");
+        } finally {
           actionBtn.disabled = false;
         }
         return;

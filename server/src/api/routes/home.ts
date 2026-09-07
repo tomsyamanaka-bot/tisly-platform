@@ -140,6 +140,11 @@ import {
   updateToyoshimaOpsConfigV1,
 } from "../../home/home-toyoshima-ops-config-v1.js";
 import {
+  getCustomerTenantBindingsV1,
+  resolveCloudStreamUrlV1,
+  upsertCustomerTenantBindingsV1,
+} from "../../shared/customer/customer-tenant-bindings-v1.js";
+import {
   buildSwitchBotHomeStatusV1,
   listSwitchBotDevicesV1,
 } from "../../home/switchbot_client.js";
@@ -1492,6 +1497,69 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         : "ハートビート死活監視を一時停止しました",
       config,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+    });
+  });
+
+  /** Guard Viewer / EZCloud 共有リンク取得（豊島邸） */
+  homeRouter.get(`${prefix}/cloud-stream`, (_req, res) => {
+    const code = "TOYOSHIMA001";
+    const bindings = getCustomerTenantBindingsV1(code);
+    const cloudStreamUrl = resolveCloudStreamUrlV1(bindings);
+    res.json({
+      ok: true,
+      customerCode: code,
+      cloudStreamUrl,
+      shareUrl: bindings.shareUrl ?? cloudStreamUrl,
+      nvrAppOpenUrl: bindings.nvrAppOpenUrl ?? null,
+      embedReady: Boolean(cloudStreamUrl),
+    });
+  });
+
+  /** Guard Viewer / EZCloud 共有リンク保存（豊島邸） */
+  homeRouter.put(`${prefix}/cloud-stream`, (req, res) => {
+    const code = "TOYOSHIMA001";
+    const body = req.body ?? {};
+    const patch: {
+      customerCode: string;
+      cloudStreamUrl?: string | null;
+      shareUrl?: string | null;
+      nvrAppOpenUrl?: string | null;
+    } = { customerCode: code };
+    if (body.cloudStreamUrl !== undefined) {
+      patch.cloudStreamUrl = String(body.cloudStreamUrl ?? "").trim() || null;
+    }
+    if (body.shareUrl !== undefined) {
+      patch.shareUrl = String(body.shareUrl ?? "").trim() || null;
+    }
+    if (body.nvrAppOpenUrl !== undefined) {
+      patch.nvrAppOpenUrl = String(body.nvrAppOpenUrl ?? "").trim() || null;
+    }
+    // cloud と share を揃える（片側のみ更新時）
+    if (
+      patch.cloudStreamUrl !== undefined &&
+      body.shareUrl === undefined
+    ) {
+      patch.shareUrl = patch.cloudStreamUrl;
+    }
+    if (
+      patch.shareUrl !== undefined &&
+      body.cloudStreamUrl === undefined &&
+      patch.cloudStreamUrl === undefined
+    ) {
+      patch.cloudStreamUrl = patch.shareUrl;
+    }
+    const bindings = upsertCustomerTenantBindingsV1(patch);
+    const cloudStreamUrl = resolveCloudStreamUrlV1(bindings);
+    res.json({
+      ok: true,
+      message: cloudStreamUrl
+        ? "クラウド共有リンクを保存しました"
+        : "クラウド共有リンクをクリアしました",
+      customerCode: code,
+      cloudStreamUrl,
+      shareUrl: bindings.shareUrl ?? cloudStreamUrl,
+      nvrAppOpenUrl: bindings.nvrAppOpenUrl ?? null,
+      embedReady: Boolean(cloudStreamUrl),
     });
   });
 

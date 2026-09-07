@@ -100,6 +100,17 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | 通知 | 24h（ライトのみ時間帯制限） |
 | 日中挙動 | 通知＋パトライトのみ（ライト省略） |
 
+### 2.6 Guard Viewer / EZCloud ライブ共有（方法A）
+
+| 項目 | 値 |
+|------|-----|
+| `cloudStreamUrl` | （未設定 · プレースホルダー）Guard Viewer / EZCloud 共有プレビュー URL を登録 |
+| `shareUrl` | `cloudStreamUrl` の別名（互換） |
+| `nvrAppOpenUrl` | （任意）ネイティブアプリ起動 URL / ストアリンク |
+| 埋め込み方式 | PWA `<iframe>` / HLS（`.m3u8`）· 16:9 · ポート開放不要 |
+| 社内設定 UI | `/app` 豊島邸ダッシュボード「Guard Viewer / EZCloud ライブ共有」 |
+| API | `GET/PUT /api/home/v1/toyoshima/cloud-stream` |
+
 ---
 
 ## 3. 板橋自宅（TOMS001 / HOME-JP-ITABASHI-LIVE）
@@ -205,3 +216,4 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 |------|------|
 | 2026-09-07 | 初版作成（豊島邸 / 板橋自宅の現場カルテ） |
 | 2026-09-07 | HB 途絶を 5分30秒に標準化 · クローン自走ルール追記 |
+| 2026-09-07 | 豊島邸 `cloudStreamUrl` / Guard Viewer·EZCloud 埋め込み（方法A）追記 |

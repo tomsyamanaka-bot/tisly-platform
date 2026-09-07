@@ -106,6 +106,8 @@ function showNewForm() {
       <label>RP2350 はなれ ID<input name="rp2350DetachedId" placeholder="任意" /></label>
       <label>NVR ラベル<input name="nvrLabel" placeholder="H.View NVR" /></label>
       <label>RTSP ベース<input name="nvrRtspBase" placeholder="rtsp://192.168.x.x:554" /></label>
+      <label>クラウド共有 URL（cloudStreamUrl）<input name="cloudStreamUrl" placeholder="https://… Guard Viewer / EZCloud" /></label>
+      <label>アプリ起動 URL<input name="nvrAppOpenUrl" placeholder="任意 · ストア / ディープリンク" /></label>
       <div class="cm-actions">
         <button type="submit" class="cm-btn primary">登録</button>
         <button type="button" class="cm-btn" id="cm-cancel-new">キャンセル</button>
@@ -129,6 +131,9 @@ function showNewForm() {
           rp2350DetachedId: fd.get("rp2350DetachedId") || null,
           nvrLabel: fd.get("nvrLabel") || null,
           nvrRtspBase: fd.get("nvrRtspBase") || null,
+          cloudStreamUrl: fd.get("cloudStreamUrl") || null,
+          shareUrl: fd.get("cloudStreamUrl") || null,
+          nvrAppOpenUrl: fd.get("nvrAppOpenUrl") || null,
         },
       });
       toast("登録しました");
@@ -158,6 +163,8 @@ function showEditForm(account) {
       <label>NVR ホスト<input name="nvrHost" value="${escapeHtml(b.nvrHost || "")}" /></label>
       <label>NVR ラベル<input name="nvrLabel" value="${escapeHtml(b.nvrLabel || "")}" /></label>
       <label>RTSP ベース<input name="nvrRtspBase" value="${escapeHtml(b.nvrRtspBase || "")}" /></label>
+      <label>クラウド共有 URL（cloudStreamUrl）<input name="cloudStreamUrl" value="${escapeHtml(b.cloudStreamUrl || b.shareUrl || "")}" placeholder="https://… Guard Viewer / EZCloud" /></label>
+      <label>アプリ起動 URL<input name="nvrAppOpenUrl" value="${escapeHtml(b.nvrAppOpenUrl || "")}" placeholder="任意 · ストア / ディープリンク" /></label>
       <hr />
       <label>PW再発行 — ユーザー<input name="pwUser" value="${escapeHtml(account.users?.[0]?.username || "")}" /></label>
       <label>新パスワード<input name="pwNew" type="password" minlength="8" placeholder="8文字以上" /></label>
@@ -184,6 +191,9 @@ function showEditForm(account) {
           nvrHost: fd.get("nvrHost") || null,
           nvrLabel: fd.get("nvrLabel") || null,
           nvrRtspBase: fd.get("nvrRtspBase") || null,
+          cloudStreamUrl: fd.get("cloudStreamUrl") || null,
+          shareUrl: fd.get("cloudStreamUrl") || null,
+          nvrAppOpenUrl: fd.get("nvrAppOpenUrl") || null,
         },
       });
       const pw = String(fd.get("pwNew") || "");

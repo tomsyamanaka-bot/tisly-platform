@@ -1280,6 +1280,32 @@
   border-color: #1e3a8a;
 }
 
+/* 社内 · Guard Viewer / EZCloud 共有リンク入力 */
+.ts-cloud-stream-card .ts-field {
+  display: block;
+  margin: 10px 0;
+  text-align: left;
+}
+
+.ts-cloud-stream-card .ts-input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+.ts-cloud-stream-card .ts-input:focus {
+  outline: 2px solid #1e3a8a;
+  outline-offset: 1px;
+  border-color: #1e3a8a;
+}
+
 @media (max-width: 520px) {
   .ts-schedule-inline {
     grid-template-columns: 1fr;

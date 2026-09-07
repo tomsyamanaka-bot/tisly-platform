@@ -1,7 +1,87 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T08:11:51.667Z",
+  "updatedAt": "2026-09-07T13:00:59.401Z",
   "entries": [
+    {
+      "id": "CAM-GUARD-VIEWER-EZCLOUD-EMBED-001",
+      "title": "【防犯カメラ】Guard Viewer（EZCloud）公式共有リンクを活用したポート開放不要のPWAインライン埋め込み仕様",
+      "category": "防犯カメラ",
+      "tags": [
+        "#防犯カメラ",
+        "#GuardViewer",
+        "#EZCloud",
+        "#PWA埋め込み",
+        "#ポート開放不要",
+        "#TiSLY_Security"
+      ],
+      "summary": "NVR側のP2Pクラウド機能から発行される共有WebプレビューURLをPWAへiframe/Webプレイヤーとして統合。ルーターのポート開放やローカル中継サーバーなしで完全遠隔ライブ映像を実現する省力化アーキテクチャ。\n\n【方法A · クラウド共有埋め込み】\nGuard Viewer / EZCloud で発行した共有プレビュー URL を\nテナント bindings.cloudStreamUrl（別名 shareUrl）へ登録。\n顧客 PWA は 16:9 iframe / HLS（.m3u8）でインライン再生。\n\n【メリット】\n· ルーターのポート開放が不要\n· WebRTC 中継サーバー不要\n· 社内 /app から URL をコピペ即時反映\n\n【未設定時】\n案内文と Guard Viewer / EZCloud アプリ起動フォールバックを表示。\n\n【台帳】\ndocs/CUSTOMER_DEVICES.md · TOYOSHIMA001 §2.6",
+      "updatedAt": "2026-09-07",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-CUSTOMER-DEVICES-001",
+      "title": "【運用DX】現場別機器マスター台帳（CUSTOMER_DEVICES.md）によるAI遠隔保守・障害自走対応仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#顧客台帳",
+        "#障害対応",
+        "#現場カルテ",
+        "#遠隔保守",
+        "#運用DX",
+        "#TiSLY_Core"
+      ],
+      "summary": "顧客名（現場名）をトリガーとして、AIが物件固有のRP2350端子番号・Modbus ID・パラメータ・通信構成を即座に参照し、ピンポイントで障害解析・設定変更・自動デプロイを完結させる保守DXパイプライン。\n\n【台帳の正】\ndocs/CUSTOMER_DEVICES.md を現場カルテの正とする。\n豊島邸（TOYOSHIMA001）と板橋自宅（TOMS001）を収録。\n\n【顧客名トリガー】\n指示に「豊島邸」「板橋自宅」等が含まれる場合、\n必ず台帳から customerCode / siteId / DI·DO を特定。\n別物件の端子を推測で変更してはならない。\n\n【豊島邸の要点】\n主装置 8ch: DI1/DI2 ビーム、DO1/DO2 ライト、DO3 パト。\n子機 6ch: DI1 道路、DI2 通路、DO1 ライト、DO2 パト。\nRS485 Modbus スレーブ ID:01（はなれ現場割当）。\n点灯 18:00〜06:00 · 45秒 · デバウンス 100ms。\n\n【板橋自宅の要点】\nDI1 駐車場、DI2 ガレージ、CH1 電気錠ワンショット。\nTD-SM5030CT-BSH / HomeLink 連動。\n日またぎ点灯判定（isWithinTimeRange）· 維持 45秒。\n\n【自走パイプライン】\n台帳参照 → 設定変更 → build/test → commit/push →\nhttps://tisly.jp/api/health の commitShort 確認。",
+      "updatedAt": "2026-09-07",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-HEARTBEAT-CLONE-001",
+      "title": "【運用DX】5分ハートビート死活監視標準 ＆ 現場プロファイルクローン展開仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#死活監視",
+        "#ハートビート",
+        "#WebPush",
+        "#現場クローン",
+        "#顧客台帳",
+        "#TiSLY_Core"
+      ],
+      "summary": "300秒周期ハートビートによる5分超過通信途絶の自動Web Push警報。既存現場（豊島邸・板橋自宅等）の設定をベースに、プロンプト指示1行で新規顧客へ複製・微調整展開する保守DX仕様。\n\n【死活監視標準】\n実機 HEARTBEAT_INTERVAL_SEC = 300（5分）。\nVPS 途絶判定 = 5分30秒（揺らぎ余裕）。\n途絶時ステータス: 🔴 オフライン（通信途絶）。\nPush: ⚠️ 【緊急】〇〇邸：主装置との通信が\n途絶えました（5分以上ハートビート未受信）。\n\n【現場クローン】\n指示例: 新規顧客［佐藤邸］を［豊島邸］と同じ\n機器構成で作成。ただし点灯45秒・DI1玄関…\n→ buildCustomerSiteProfileCloneV1 で複製し、\n差分のみ上書き・台帳へ append。",
+      "updatedAt": "2026-09-07",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-SHELLY-FAILSAFE-COLD-REBOOT-001",
+      "title": "【保守フェイルセーフ】5分ハートビート死活監視 ＆ Shelly Gen3による10分未受信時コールドリブート標準仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#死活監視",
+        "#ShellyGen3",
+        "#コールドリブート",
+        "#PoE再起動",
+        "#フェイルセーフ",
+        "#TiSLY_Core"
+      ],
+      "summary": "5分周期ハートビートに対して一時的揺らぎを許容し、2回連続未受信（10分〜10分30秒経過）でShelly 1 Mini Gen3リレーをOFF ➔ 5秒後Auto-ONキック。残留電荷を完全放電させてRP2350を自動復旧。無限再起動防止（リトライ最大2回・30分クールダウン）のセーフティガード仕様。\n\n【死活監視】\n実機 HB 300 秒。VPS 途絶 Push = 5 分 30 秒。\n\n【Shelly 自動キック】\nしきい値 = 10 分 30 秒（2 回未受信 + 揺らぎ）。\n動作: Switch OFF → 5 秒 → Auto ON（PoE 再投入）。\nログ: ⚡ 10分未受信検知：ShellyによるPoE電源再投入\n（5秒リブート）を実行。\n\n【セーフティ】\n同一途絶期間のリトライ最大 2 回。\nクールダウン既定 30 分。",
+      "updatedAt": "2026-09-07",
+      "sourceType": "manual"
+    },
+    {
+      "id": "OPS-STATUS-REFRESH-BOOT-HB-001",
+      "title": "【保守DX】PWA手動ステータス即時更新ボタン ＆ 電源投入時0秒ハートビート即時復帰仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#死活監視",
+        "#手動更新",
+        "#ハートビート",
+        "#即時復旧",
+        "#PWA",
+        "#TiSLY_Core"
+      ],
+      "summary": "現場施工・電源抜き差し時のダウンタイム解消。実機起動直後の即時ハートビート発報と、PWA画面上のワンタップ強制再取得ボタンによる即時オンライン同期アーキテクチャ。\n\n【PWA 手動更新】\n顧客 /customer · 社内 /app に\n「🔄 最新状態に更新」を配置。\nタップでダッシュボードを no-store 再取得し、\n稼働ステータス・遅延・盤内温度・最終確認時刻を更新。\n完了トースト: 最新の接続状態を取得しました。\n\n【実機 0 秒 HB】\nmain.py / main_toyoshima.py / toyoshima_security.py\nは 5 分待機ループ前に boot heartbeat を POST。\nUSB・LAN 再接続直後にサーバーが即時オンライン復帰。",
+      "updatedAt": "2026-09-07",
+      "sourceType": "manual"
+    },
     {
       "id": "HARD-RS485-MODBUS-STANDARD-001",
       "title": "【ハード選定標準】既製品ハック（一体型）によるRS485 Modbus現場施工標準",

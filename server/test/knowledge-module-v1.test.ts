@@ -134,6 +134,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /MOCK_RS485_MODBUS_STANDARD_ITEMS/);
     assert.match(mockSrc, /#ハード選定/);
     assert.match(mockSrc, /#事前キッティング/);
+    assert.match(mockSrc, /MOCK_GUARD_VIEWER_EMBED_ITEMS/);
+    assert.match(mockSrc, /Guard Viewer（EZCloud）公式共有リンク/);
+    assert.match(mockSrc, /#ポート開放不要/);
   });
 
   it("nav script requires login before loading bundle", () => {

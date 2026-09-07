@@ -129,6 +129,10 @@ import {
   SHELLY_FAILSAFE_MODULE_SEED_IDS,
   getShellyFailsafeModuleSeedItemsV1,
 } from "./knowledge-shelly-failsafe-seed-v1.js";
+import {
+  GUARD_VIEWER_EMBED_MODULE_SEED_IDS,
+  getGuardViewerEmbedModuleSeedItemsV1,
+} from "./knowledge-guard-viewer-embed-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -1637,6 +1641,48 @@ function mergeShellyFailsafeSeed(
   return { items: next, changed };
 }
 
+/**
+ * Guard Viewer / EZCloud 埋め込みナレッジを末尾追記。
+ */
+function mergeGuardViewerEmbedSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(GUARD_VIEWER_EMBED_MODULE_SEED_IDS);
+  const seeds = getGuardViewerEmbedModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -1707,7 +1753,10 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedShellyFailsafe = mergeShellyFailsafeSeed(
     mergedStatusRefresh.items
   );
-  const mergedGenre = mergeUnifiedGenreBindings(mergedShellyFailsafe.items);
+  const mergedGuardViewer = mergeGuardViewerEmbedSeed(
+    mergedShellyFailsafe.items
+  );
+  const mergedGenre = mergeUnifiedGenreBindings(mergedGuardViewer.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -1740,6 +1789,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedHeartbeatClone.changed ||
     mergedStatusRefresh.changed ||
     mergedShellyFailsafe.changed ||
+    mergedGuardViewer.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

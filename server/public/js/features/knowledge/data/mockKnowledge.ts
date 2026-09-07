@@ -1900,3 +1900,35 @@ export const MOCK_SHELLY_FAILSAFE_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+const GUARD_VIEWER_EMBED_CREATED_AT = "2026-09-07T12:00:00.000Z";
+
+/** Guard Viewer / EZCloud 埋め込み仕様（末尾追記） */
+export const MOCK_GUARD_VIEWER_EMBED_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-guard-viewer-ezcloud-embed-001",
+    title:
+      "【防犯カメラ】Guard Viewer（EZCloud）公式共有リンクを活用したポート開放不要のPWAインライン埋め込み仕様",
+    summary: [
+      "NVR側のP2Pクラウド機能から発行される共有WebプレビューURLを",
+      "PWAへiframe/Webプレイヤーとして統合。ルーターのポート開放や",
+      "ローカル中継サーバーなしで完全遠隔ライブ映像を実現する",
+      "省力化アーキテクチャ。",
+    ].join(""),
+    genre: "防犯カメラ",
+    tags: [
+      "#防犯カメラ",
+      "#GuardViewer",
+      "#EZCloud",
+      "#PWA埋め込み",
+      "#ポート開放不要",
+      "#TiSLY_Security",
+    ],
+    pdf_url: null,
+    createdAt: GUARD_VIEWER_EMBED_CREATED_AT,
+    body: [
+      "【方法A】cloudStreamUrl を PWA iframe / HLS で埋め込み。",
+      "ポート開放・WebRTC 中継不要。",
+    ].join("\n"),
+  },
+];

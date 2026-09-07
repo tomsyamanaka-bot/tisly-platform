@@ -7,6 +7,7 @@
 
 import {
   getCustomerTenantBindingsV1,
+  resolveCloudStreamUrlV1,
 } from "../shared/customer/customer-tenant-bindings-v1.js";
 import { resolveCustomerTenantProfileV1 } from "../shared/customer/customer-tenant-profile-v1.js";
 
@@ -20,8 +21,19 @@ export interface CameraPreviewTileV1 {
   status: CameraPreviewStatusV1;
   statusLabel: string;
   rtspSubstreamUrl: string;
-  webrtcMode: "mock" | "webrtc";
+  webrtcMode: "mock" | "webrtc" | "cloud";
   posterHue: number;
+}
+
+export interface CameraCloudEmbedV1 {
+  /** Guard Viewer / EZCloud 共有 URL */
+  cloudStreamUrl: string | null;
+  /** 別名 */
+  shareUrl: string | null;
+  /** ネイティブアプリ起動 URL */
+  nvrAppOpenUrl: string | null;
+  /** iframe 埋め込み可否 */
+  embedReady: boolean;
 }
 
 export interface CameraPreviewSessionV1 {
@@ -29,12 +41,16 @@ export interface CameraPreviewSessionV1 {
   label: string;
   status: CameraPreviewStatusV1;
   statusLabel: string;
-  webrtcMode: "mock" | "webrtc";
+  webrtcMode: "mock" | "webrtc" | "cloud";
   /** モック再生用シグナル URL（将来: WHEP 等） */
   streamUrl: string;
   rtspSubstreamUrl: string;
   nvrLabel: string;
   fullscreenSupported: boolean;
+  /** 方法A: クラウド共有埋め込み */
+  cloudStreamUrl: string | null;
+  shareUrl: string | null;
+  nvrAppOpenUrl: string | null;
 }
 
 /** 顧客別カメラ定義（追記のみ） */
@@ -116,12 +132,31 @@ function buildRtspUrl(base: string | null | undefined, channel: number): string 
 
 function enrichTile(
   preset: Omit<CameraPreviewTileV1, "rtspSubstreamUrl" | "webrtcMode">,
-  rtspBase: string | null | undefined
+  rtspBase: string | null | undefined,
+  cloudUrl: string | null
 ): CameraPreviewTileV1 {
   return {
     ...preset,
     rtspSubstreamUrl: buildRtspUrl(rtspBase, preset.channel),
-    webrtcMode: "mock",
+    webrtcMode: cloudUrl ? "cloud" : "mock",
+  };
+}
+
+/** 顧客のクラウド共有埋め込み設定 */
+export function getCameraCloudEmbedForCustomerV1(
+  customerCode: string
+): CameraCloudEmbedV1 {
+  const code = resolvePresetCode(customerCode);
+  const bindings = getCustomerTenantBindingsV1(code);
+  const cloudStreamUrl = resolveCloudStreamUrlV1(bindings);
+  const shareUrl = String(bindings.shareUrl ?? "").trim() || cloudStreamUrl;
+  const nvrAppOpenUrl =
+    String(bindings.nvrAppOpenUrl ?? "").trim() || null;
+  return {
+    cloudStreamUrl,
+    shareUrl,
+    nvrAppOpenUrl,
+    embedReady: Boolean(cloudStreamUrl),
   };
 }
 
@@ -130,6 +165,7 @@ export function listCameraPreviewsForCustomerV1(
 ): CameraPreviewTileV1[] {
   const code = resolvePresetCode(customerCode);
   const bindings = getCustomerTenantBindingsV1(code);
+  const cloudUrl = resolveCloudStreamUrlV1(bindings);
   const presets = CAMERA_PRESETS_BY_CODE_V1[code] ?? [
     {
       id: "cam-1",
@@ -141,7 +177,7 @@ export function listCameraPreviewsForCustomerV1(
       posterHue: 210,
     },
   ];
-  return presets.map((p) => enrichTile(p, bindings.nvrRtspBase));
+  return presets.map((p) => enrichTile(p, bindings.nvrRtspBase, cloudUrl));
 }
 
 export function buildCameraPreviewSessionV1(input: {
@@ -158,17 +194,21 @@ export function buildCameraPreviewSessionV1(input: {
     bindings.nvrLabel ??
     profile?.displayName ??
     code;
+  const cloud = getCameraCloudEmbedForCustomerV1(code);
 
   return {
     cameraId: tile.id,
     label: tile.label,
     status: tile.status,
     statusLabel: tile.statusLabel,
-    webrtcMode: "mock",
+    webrtcMode: cloud.embedReady ? "cloud" : "mock",
     streamUrl: `/api/camera-preview/v1/mock-stream-auth/${encodeURIComponent(tile.id)}`,
     rtspSubstreamUrl: tile.rtspSubstreamUrl,
     nvrLabel,
     fullscreenSupported: true,
+    cloudStreamUrl: cloud.cloudStreamUrl,
+    shareUrl: cloud.shareUrl,
+    nvrAppOpenUrl: cloud.nvrAppOpenUrl,
   };
 }
 

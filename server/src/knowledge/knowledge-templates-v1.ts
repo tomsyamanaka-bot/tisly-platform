@@ -39,6 +39,7 @@ import { seedCustomerDevicesKnowledgeCardsV1 } from "./knowledge-customer-device
 import { seedHeartbeatCloneKnowledgeCardsV1 } from "./knowledge-heartbeat-clone-seed-v1.js";
 import { seedStatusRefreshKnowledgeCardsV1 } from "./knowledge-status-refresh-seed-v1.js";
 import { seedShellyFailsafeKnowledgeCardsV1 } from "./knowledge-shelly-failsafe-seed-v1.js";
+import { seedGuardViewerEmbedKnowledgeCardsV1 } from "./knowledge-guard-viewer-embed-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -194,6 +195,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   heartbeatCloneCreated: number;
   statusRefreshCreated: number;
   shellyFailsafeCreated: number;
+  guardViewerEmbedCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -226,6 +228,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const heartbeatClone = seedHeartbeatCloneKnowledgeCardsV1();
   const statusRefresh = seedStatusRefreshKnowledgeCardsV1();
   const shellyFailsafe = seedShellyFailsafeKnowledgeCardsV1();
+  const guardViewerEmbed = seedGuardViewerEmbedKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -258,5 +261,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     heartbeatCloneCreated: heartbeatClone.length,
     statusRefreshCreated: statusRefresh.length,
     shellyFailsafeCreated: shellyFailsafe.length,
+    guardViewerEmbedCreated: guardViewerEmbed.length,
   };
 }

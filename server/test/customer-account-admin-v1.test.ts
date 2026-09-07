@@ -114,12 +114,44 @@ describe("customer account admin + camera preview v1", () => {
     });
     assert.ok(session);
     assert.match(session!.streamUrl, /mock-stream-auth/);
+    assert.equal(session!.cloudStreamUrl, null);
 
     const res = await request(app)
       .get("/api/camera-preview/v1/session/cam-entrance?customerCode=TOMS001")
       .set("Authorization", `Bearer ${tomsAdmin}`);
     assert.equal(res.status, 200);
     assert.match(res.body.session.streamUrl, /mock-stream-auth/);
+  });
+
+  it("toyoshima cloud stream bindings round-trip", async () => {
+    const {
+      upsertCustomerTenantBindingsV1,
+      getCustomerTenantBindingsV1,
+      resolveCloudStreamUrlV1,
+    } = await import("../src/shared/customer/customer-tenant-bindings-v1.js");
+    upsertCustomerTenantBindingsV1({
+      customerCode: "TOYOSHIMA001",
+      cloudStreamUrl: "https://example.com/ezcloud-share-demo",
+      shareUrl: "https://example.com/ezcloud-share-demo",
+    });
+    const b = getCustomerTenantBindingsV1("TOYOSHIMA001");
+    assert.equal(
+      resolveCloudStreamUrlV1(b),
+      "https://example.com/ezcloud-share-demo"
+    );
+    const session = buildCameraPreviewSessionV1({
+      customerCode: "TOYOSHIMA001",
+      cameraId: "cam-main-gate",
+    });
+    assert.ok(session);
+    assert.equal(session!.webrtcMode, "cloud");
+    assert.match(session!.cloudStreamUrl || "", /ezcloud-share-demo/);
+    // 後続テスト影響を避けるためクリア
+    upsertCustomerTenantBindingsV1({
+      customerCode: "TOYOSHIMA001",
+      cloudStreamUrl: null,
+      shareUrl: null,
+    });
   });
 
   it("mock-stream-auth returns SVG for authenticated customer", async () => {

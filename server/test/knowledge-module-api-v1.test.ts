@@ -151,6 +151,10 @@ const {
   SHELLY_FAILSAFE_MODULE_SEED_IDS,
   seedShellyFailsafeKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-shelly-failsafe-seed-v1.js");
+const {
+  GUARD_VIEWER_EMBED_MODULE_SEED_IDS,
+  seedGuardViewerEmbedKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-guard-viewer-embed-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1380,6 +1384,33 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /10分未受信時コールドリブート/);
     assert.ok(card!.tags.includes("#ShellyGen3"));
     assert.ok(card!.tags.includes("#フェイルセーフ"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends guard viewer ezcloud embed seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of GUARD_VIEWER_EMBED_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-guard-viewer-ezcloud-embed-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /Guard Viewer/);
+    assert.ok(card!.tags.includes("#EZCloud"));
+    assert.ok(card!.tags.includes("#ポート開放不要"));
+  });
+
+  it("seedGuardViewerEmbedKnowledgeCardsV1 upserts searchable cards", () => {
+    seedGuardViewerEmbedKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("CAM-GUARD-VIEWER-EZCLOUD-EMBED-001");
+    assert.ok(card);
+    assert.match(card!.title, /PWAインライン埋め込み/);
+    assert.ok(card!.tags.includes("#GuardViewer"));
+    assert.ok(card!.tags.includes("#TiSLY_Security"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

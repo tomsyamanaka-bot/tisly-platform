@@ -1,6 +1,7 @@
 /**
- * H.View カメラ WebRTC プレビュー v1
- * モック SVG ストリーム + 状態バッジ
+ * H.View カメラ プレビュー v1
+ * Guard Viewer / EZCloud 共有リンク埋め込み優先
+ * （未設定時は案内 + アプリ起動フォールバック）
  */
 
 import {
@@ -46,53 +47,35 @@ function closeOverlay() {
   document.getElementById("cw-camera-overlay")?.remove();
 }
 
-async function fetchStreamBlob(url) {
-  const res = await fetch(url, { headers: authHeaders(), cache: "no-store" });
-  if (!res.ok) throw new Error("映像の取得に失敗しました");
-  return res.blob();
+function resolveCloudUrl(src) {
+  const cloud = String(src?.cloudStreamUrl ?? "").trim();
+  if (cloud) return cloud;
+  return String(src?.shareUrl ?? "").trim() || "";
 }
 
-function startStreamPoll(imgEl, streamUrl) {
-  cleanupStream();
-  const tick = async () => {
-    try {
-      const blob = await fetchStreamBlob(streamUrl);
-      if (activeBlobUrl) URL.revokeObjectURL(activeBlobUrl);
-      activeBlobUrl = URL.createObjectURL(blob);
-      imgEl.src = activeBlobUrl;
-    } catch {
-      /* 次回リトライ */
-    }
-  };
-  tick();
-  activePollTimer = setInterval(tick, 2000);
+function isHlsUrl(url) {
+  return /\.m3u8(\?|#|$)/i.test(String(url || ""));
 }
 
-function renderPreviewView(container, camera, session) {
-  const badgeClass = STATUS_CLASS[camera.status] || STATUS_CLASS.normal;
-  container.innerHTML = `
-    <div class="cw-back-row">
-      <button type="button" class="cw-btn" id="cw-back-list">← カメラ一覧</button>
-    </div>
-    <div class="cw-preview-wrap" id="cw-preview-stage">
-      <img id="cw-stream-img" alt="${escapeHtml(camera.label)}" />
-    </div>
-    <div class="cw-preview-bar">
-      <span class="cw-badge ${badgeClass}">${escapeHtml(camera.statusLabel)}</span>
-      <button type="button" class="cw-btn primary" id="cw-fullscreen">全画面</button>
-    </div>
-    <p class="cw-meta">${escapeHtml(camera.label)} · ${escapeHtml(camera.location)}</p>
-    <p class="cw-meta">NVR: ${escapeHtml(session.nvrLabel || "")}</p>
-  `;
+function openAppFallback(nvrAppOpenUrl, cloudUrl) {
+  const app = String(nvrAppOpenUrl || "").trim();
+  if (app) {
+    window.open(app, "_blank", "noopener,noreferrer");
+    return;
+  }
+  if (cloudUrl) {
+    window.open(cloudUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+  // 既定: Guard Viewer / EZCloud 検索（ストア導線）
+  window.open(
+    "https://www.google.com/search?q=Guard+Viewer+EZCloud+app",
+    "_blank",
+    "noopener,noreferrer"
+  );
+}
 
-  const img = container.querySelector("#cw-stream-img");
-  startStreamPoll(img, session.streamUrl);
-
-  container.querySelector("#cw-back-list")?.addEventListener("click", () => {
-    cleanupStream();
-    renderCameraList(container, container.__cameras || [], container.__customerCode);
-  });
-
+function bindStageControls(container, opts = {}) {
   container.querySelector("#cw-fullscreen")?.addEventListener("click", () => {
     const stage = document.getElementById("cw-preview-stage");
     if (!stage) return;
@@ -102,12 +85,153 @@ function renderPreviewView(container, camera, session) {
     }
     stage.requestFullscreen?.().catch(() => {});
   });
+
+  container.querySelector("#cw-reload")?.addEventListener("click", () => {
+    const frame = container.querySelector("#cw-cloud-frame");
+    const video = container.querySelector("#cw-hls-video");
+    if (frame) {
+      const src = frame.getAttribute("src") || "";
+      frame.setAttribute("src", src);
+      return;
+    }
+    if (video) {
+      try {
+        video.load();
+        video.play?.().catch(() => {});
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if (typeof opts.onReload === "function") opts.onReload();
+  });
+
+  container
+    .querySelector("#cw-open-app")
+    ?.addEventListener("click", () => {
+      openAppFallback(opts.nvrAppOpenUrl, opts.cloudUrl);
+    });
 }
 
-function renderCameraList(container, cameras, customerCode) {
+function renderCloudPlayerHtml(cloudUrl, label) {
+  if (isHlsUrl(cloudUrl)) {
+    return `<video
+      id="cw-hls-video"
+      class="cw-hls-video"
+      controls
+      playsinline
+      autoplay
+      muted
+      src="${escapeHtml(cloudUrl)}"
+      title="${escapeHtml(label || "ライブ映像")}"
+    ></video>`;
+  }
+  return `<iframe
+    id="cw-cloud-frame"
+    class="cw-cloud-frame"
+    src="${escapeHtml(cloudUrl)}"
+    title="${escapeHtml(label || "Guard Viewer / EZCloud ライブ")}"
+    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+    referrerpolicy="no-referrer-when-downgrade"
+    loading="eager"
+  ></iframe>`;
+}
+
+function renderEmptyCloudHint(nvrAppOpenUrl) {
+  return `
+    <div class="cw-empty-cloud">
+      <p class="cw-empty-lead">
+        💡 Guard ViewerまたはEZCloudの共有リンクを設定するとライブ映像が表示されます
+      </p>
+      <p class="cw-empty-sub">
+        社内台帳の cloudStreamUrl に共有プレビュー URL を登録してください（ポート開放不要）
+      </p>
+      <button type="button" class="cw-btn primary" id="cw-open-app">
+        Guard Viewer / EZCloud を開く
+      </button>
+    </div>`;
+}
+
+function renderPreviewView(container, camera, session) {
+  const badgeClass = STATUS_CLASS[camera.status] || STATUS_CLASS.normal;
+  const cloudUrl = resolveCloudUrl(session);
+  const nvrAppOpenUrl = session.nvrAppOpenUrl || "";
+
+  let stageInner = "";
+  if (cloudUrl) {
+    stageInner = renderCloudPlayerHtml(cloudUrl, camera.label);
+  } else {
+    stageInner = renderEmptyCloudHint(nvrAppOpenUrl);
+  }
+
+  container.innerHTML = `
+    <div class="cw-back-row">
+      <button type="button" class="cw-btn" id="cw-back-list">← カメラ一覧</button>
+    </div>
+    <div class="cw-preview-wrap ${cloudUrl ? "has-cloud" : "is-empty"}" id="cw-preview-stage">
+      ${stageInner}
+    </div>
+    <div class="cw-preview-bar">
+      <span class="cw-badge ${badgeClass}">${escapeHtml(camera.statusLabel)}</span>
+      <div class="cw-bar-actions">
+        ${
+          cloudUrl
+            ? `<button type="button" class="cw-btn" id="cw-reload">更新</button>`
+            : ""
+        }
+        <button type="button" class="cw-btn primary" id="cw-fullscreen">全画面</button>
+      </div>
+    </div>
+    <p class="cw-meta">${escapeHtml(camera.label)} · ${escapeHtml(camera.location)}</p>
+    <p class="cw-meta">NVR: ${escapeHtml(session.nvrLabel || "")}${
+      cloudUrl ? " · Guard Viewer / EZCloud 埋め込み" : ""
+    }</p>
+  `;
+
+  cleanupStream();
+  bindStageControls(container, { nvrAppOpenUrl, cloudUrl });
+
+  container.querySelector("#cw-back-list")?.addEventListener("click", () => {
+    cleanupStream();
+    renderCameraList(
+      container,
+      container.__cameras || [],
+      container.__customerCode,
+      container.__cloudMeta || {}
+    );
+  });
+}
+
+function renderCameraList(container, cameras, customerCode, cloudMeta = {}) {
   container.__cameras = cameras;
   container.__customerCode = customerCode;
+  container.__cloudMeta = cloudMeta;
+
+  const cloudUrl = resolveCloudUrl(cloudMeta);
+  const nvrAppOpenUrl = cloudMeta.nvrAppOpenUrl || "";
+
+  const embedBlock = cloudUrl
+    ? `<div class="cw-live-block">
+        <div class="cw-preview-wrap has-cloud" id="cw-preview-stage">
+          ${renderCloudPlayerHtml(cloudUrl, "ライブ共有")}
+        </div>
+        <div class="cw-preview-bar">
+          <span class="cw-badge is-normal">ライブ共有</span>
+          <div class="cw-bar-actions">
+            <button type="button" class="cw-btn" id="cw-reload">更新</button>
+            <button type="button" class="cw-btn primary" id="cw-fullscreen">全画面</button>
+          </div>
+        </div>
+        <p class="cw-meta">Guard Viewer / EZCloud · ポート開放不要</p>
+      </div>`
+    : `<div class="cw-live-block">
+        <div class="cw-preview-wrap is-empty" id="cw-preview-stage">
+          ${renderEmptyCloudHint(nvrAppOpenUrl)}
+        </div>
+      </div>`;
+
   container.innerHTML = `
+    ${embedBlock}
     <div class="cw-grid">
       ${cameras
         .map(
@@ -122,6 +246,8 @@ function renderCameraList(container, cameras, customerCode) {
         )
         .join("")}
     </div>`;
+
+  bindStageControls(container, { nvrAppOpenUrl, cloudUrl });
 
   container.querySelectorAll(".cw-tile").forEach((tile) => {
     tile.addEventListener("click", async () => {
@@ -138,7 +264,14 @@ function renderCameraList(container, cameras, customerCode) {
         if (!res.ok || !data.session) {
           throw new Error(data.error || "セッション取得に失敗");
         }
-        renderPreviewView(container, camera, data.session);
+        renderPreviewView(container, camera, {
+          ...data.session,
+          cloudStreamUrl:
+            data.session.cloudStreamUrl || cloudMeta.cloudStreamUrl,
+          shareUrl: data.session.shareUrl || cloudMeta.shareUrl,
+          nvrAppOpenUrl:
+            data.session.nvrAppOpenUrl || cloudMeta.nvrAppOpenUrl,
+        });
       } catch (err) {
         container.insertAdjacentHTML(
           "afterbegin",
@@ -190,11 +323,16 @@ export async function openCustomerCameraPreview(opts = {}) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "カメラ一覧の取得に失敗");
     const cameras = data.cameras || [];
-    if (!cameras.length) {
+    const cloudMeta = {
+      cloudStreamUrl: data.cloudStreamUrl || "",
+      shareUrl: data.shareUrl || "",
+      nvrAppOpenUrl: data.nvrAppOpenUrl || "",
+    };
+    if (!cameras.length && !resolveCloudUrl(cloudMeta)) {
       body.innerHTML = `<p class="cw-meta">カメラが登録されていません</p>`;
       return;
     }
-    renderCameraList(body, cameras, code);
+    renderCameraList(body, cameras, code, cloudMeta);
   } catch (err) {
     body.innerHTML = `<p class="cw-meta" style="color:#dc2626">${escapeHtml(err.message)}</p>`;
   }

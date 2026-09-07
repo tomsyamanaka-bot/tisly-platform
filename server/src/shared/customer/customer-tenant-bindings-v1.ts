@@ -18,6 +18,18 @@ export interface CustomerTenantBindingsV1 {
   nvrLabel?: string | null;
   /** H.View RTSP ベース（例: rtsp://192.168.1.50:554） */
   nvrRtspBase?: string | null;
+  /**
+   * Guard Viewer / EZCloud 共有プレビュー URL
+   * （PWA iframe / Web 埋め込み用 · 方法A）
+   */
+  cloudStreamUrl?: string | null;
+  /** cloudStreamUrl の別名（互換） */
+  shareUrl?: string | null;
+  /**
+   * ネイティブアプリ起動用 URL
+   * （ストアリンク / ディープリンク）
+   */
+  nvrAppOpenUrl?: string | null;
   updatedAt?: string;
 }
 
@@ -39,8 +51,26 @@ const DEFAULT_BINDINGS_V1: Record<
     nvrHost: "192.168.10.50",
     nvrLabel: "H.View NVR（豊島邸）",
     nvrRtspBase: "rtsp://192.168.10.50:554",
+    // 方法A: Guard Viewer / EZCloud 共有リンク
+    // （未設定時は PWA で設定案内を表示）
+    cloudStreamUrl: null,
+    shareUrl: null,
+    nvrAppOpenUrl: null,
   },
 };
+
+/** 共有プレビュー URL を正規化（cloud / share 統合） */
+export function resolveCloudStreamUrlV1(
+  bindings: Pick<
+    CustomerTenantBindingsV1,
+    "cloudStreamUrl" | "shareUrl"
+  > | null | undefined
+): string | null {
+  const cloud = String(bindings?.cloudStreamUrl ?? "").trim();
+  if (cloud) return cloud;
+  const share = String(bindings?.shareUrl ?? "").trim();
+  return share || null;
+}
 
 export function ensureCustomerTenantBindingsTableV1(): void {
   getDatabase().exec(`
@@ -65,6 +95,11 @@ function mergeBindings(
     nvrHost: stored?.nvrHost ?? defaults.nvrHost ?? null,
     nvrLabel: stored?.nvrLabel ?? defaults.nvrLabel ?? null,
     nvrRtspBase: stored?.nvrRtspBase ?? defaults.nvrRtspBase ?? null,
+    cloudStreamUrl:
+      stored?.cloudStreamUrl ?? defaults.cloudStreamUrl ?? null,
+    shareUrl: stored?.shareUrl ?? defaults.shareUrl ?? null,
+    nvrAppOpenUrl:
+      stored?.nvrAppOpenUrl ?? defaults.nvrAppOpenUrl ?? null,
     updatedAt: stored?.updatedAt,
   };
 }
@@ -108,6 +143,18 @@ export function upsertCustomerTenantBindingsV1(
     nvrHost: input.nvrHost ?? current.nvrHost ?? null,
     nvrLabel: input.nvrLabel ?? current.nvrLabel ?? null,
     nvrRtspBase: input.nvrRtspBase ?? current.nvrRtspBase ?? null,
+    cloudStreamUrl:
+      input.cloudStreamUrl !== undefined
+        ? input.cloudStreamUrl || null
+        : (current.cloudStreamUrl ?? null),
+    shareUrl:
+      input.shareUrl !== undefined
+        ? input.shareUrl || null
+        : (current.shareUrl ?? null),
+    nvrAppOpenUrl:
+      input.nvrAppOpenUrl !== undefined
+        ? input.nvrAppOpenUrl || null
+        : (current.nvrAppOpenUrl ?? null),
     updatedAt: now,
   };
   const { updatedAt: _u, customerCode: _c, ...payload } = merged;

@@ -9,6 +9,7 @@ import {
   buildMockCameraStreamSvgV1,
   findCameraPresetHueV1,
   findCameraPresetStatusV1,
+  getCameraCloudEmbedForCustomerV1,
   listCameraPreviewsForCustomerV1,
 } from "../../camera/camera-preview-v1.js";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
@@ -30,10 +31,15 @@ cameraPreviewV1Router.get(
       res.status(403).json({ status: "error", error: "他テナントのカメラは閲覧できません" });
       return;
     }
+    const cloud = getCameraCloudEmbedForCustomerV1(code);
     res.json({
       status: "ok",
       customerCode: code,
       cameras: listCameraPreviewsForCustomerV1(code),
+      cloudStreamUrl: cloud.cloudStreamUrl,
+      shareUrl: cloud.shareUrl,
+      nvrAppOpenUrl: cloud.nvrAppOpenUrl,
+      embedReady: cloud.embedReady,
     });
   }
 );
