@@ -9,6 +9,13 @@
 import { v4 as uuid } from "uuid";
 import { sendWebPush } from "../notification/channels/web-push.js";
 import {
+  TISLY_HEARTBEAT_INTERVAL_SEC_V1,
+  TISLY_HEARTBEAT_OFFLINE_MS_V1,
+  buildHeartbeatCommLossPushBodyV1,
+  buildHeartbeatCommLossPushTitleV1,
+  isHeartbeatOnlineV1,
+} from "./home-heartbeat-standard-v1.js";
+import {
   buildHomeSecurityFirmwareRulesV1,
   getHomeSecurityRulesV1,
   homeGuardModeLabelJaV1,
@@ -61,11 +68,13 @@ export const TOYOSHIMA_DI_DEBOUNCE_MS_V1 = 100;
 /** パトライト点滅周期（ms） */
 export const TOYOSHIMA_PATLITE_BLINK_MS_V1 = 500;
 
-/** 実機 heartbeat 送信周期（秒）— toyoshima_security.py と同期 */
-export const TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 = 300;
+/** 実機 heartbeat 送信周期（秒）— 標準 300s */
+export const TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 =
+  TISLY_HEARTBEAT_INTERVAL_SEC_V1;
 
-/** 通信途絶とみなす猶予（ms）— 5分周期 + 1分余裕 */
-export const TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 = 6 * 60 * 1000;
+/** 通信途絶猶予（ms）— 標準 5分30秒 */
+export const TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 =
+  TISLY_HEARTBEAT_OFFLINE_MS_V1;
 
 /** 盤内温度 — 注意（℃） */
 export const TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1 = 45;
@@ -463,12 +472,13 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
       title: "通信断検知",
       detail: `${label}：5分以上ハートビート未受信`,
     });
+    const siteName = "豊島邸";
     await sendToyoshimaPush({
-      title:
-        building === "main"
-          ? "⚠️ 豊島邸：主装置との通信が途絶えました"
-          : "⚠️ 豊島邸：子機との通信が途絶えました",
-      body: `${label}から5分以上ハートビート未受信（通信途絶）`,
+      title: buildHeartbeatCommLossPushTitleV1({
+        siteDisplayName: siteName,
+        deviceLabel: label,
+      }),
+      body: buildHeartbeatCommLossPushBodyV1({ deviceLabel: label }),
       eventType: "toyoshima_comm_loss",
     });
 
@@ -1063,9 +1073,11 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
   ).map((building) => {
     const comm = runtime.deviceComm[building];
     const hbAt = comm.lastHeartbeatAt;
-    const elapsed = hbAt ? now - Date.parse(hbAt) : 0;
-    const online =
-      Boolean(hbAt) && elapsed < TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1;
+    const online = isHeartbeatOnlineV1(
+      hbAt,
+      now,
+      TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1
+    );
     comm.online = online;
     getBuilding(building).online = online;
     const boardTempC = comm.boardTempC;

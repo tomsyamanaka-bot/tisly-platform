@@ -55,7 +55,7 @@
 | BUILDING | `main` / `detached` |
 | H.View NVR | `192.168.10.50` · RTSP `rtsp://192.168.10.50:554` |
 | API 基点 | `/api/home/v1/toyoshima` |
-| Heartbeat | 300 秒（5 分）· オフライン判定約 6 分 |
+| Heartbeat | 300 秒（5 分）· オフライン判定 **5 分 30 秒** |
 
 ### 2.2 主装置（母屋 RP2350 8ch）
 
@@ -166,6 +166,36 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 4. **デプロイ:** `master` push → VPS Auto Deploy。確認は https://tisly.jp/api/health の `commitShort`。
 5. **台帳更新:** 端子・NVR・パラメータ変更後は本ファイルへ **追記**（既存行の削除禁止）。
 6. **SaaS 見据え:** 顧客ごとデバイス・プラン状態はテナント分離を維持する。
+7. **死活監視標準:** 実機 HB **300 秒** · VPS 途絶判定 **5 分 30 秒** ·
+   Push は `⚠️ 【緊急】〇〇邸：主装置との通信が途絶えました（5分以上ハートビート未受信）`。
+
+---
+
+## 4.1 現場プロファイル複製（クローン設定）— AI 自走ルール
+
+### 指示書式例
+
+```
+新規顧客［佐藤邸］を［豊島邸］と同じ機器構成で作成して。
+ただしライト点灯時間は45秒、DI1は玄関センサーに変更して
+```
+
+別名: `板橋自宅` を複製元にしてもよい。
+
+### Cursor 自走処理（必須）
+
+1. 複製元（豊島邸=`TOYOSHIMA001` / 板橋自宅=`TOMS001`）の
+   機器構成・Modbus・通知・配線を完全コピー。
+2. 新規 `customerCode`（例: `SATO001`）と初期ログイン案を発行。
+3. ユーザー指定の差分のみピンポイント上書き
+   （点灯秒数・センサー名・端子ラベル等）。
+4. `docs/CUSTOMER_DEVICES.md` と
+   `customer-tenant-profile-v1.ts`（ランタイム追記）へ **非破壊 append**。
+5. `/customer` ログイン時に差分設定で動的描画されるよう配線。
+
+実装エントリ:
+`server/src/shared/customer/customer-site-profile-clone-v1.ts`
+（`buildCustomerSiteProfileCloneV1` / `applyCustomerSiteProfileCloneV1`）
 
 ---
 
@@ -174,3 +204,4 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | 日付 | 内容 |
 |------|------|
 | 2026-09-07 | 初版作成（豊島邸 / 板橋自宅の現場カルテ） |
+| 2026-09-07 | HB 途絶を 5分30秒に標準化 · クローン自走ルール追記 |

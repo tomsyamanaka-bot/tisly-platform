@@ -1,0 +1,19 @@
+{
+  "id": "OPS-HEARTBEAT-CLONE-001",
+  "title": "【運用DX】5分ハートビート死活監視標準 ＆ 現場プロファイルクローン展開仕様",
+  "category": "IOT関連",
+  "tags": [
+    "#死活監視",
+    "#ハートビート",
+    "#WebPush",
+    "#現場クローン",
+    "#顧客台帳",
+    "#TiSLY_Core"
+  ],
+  "summary": "300秒周期ハートビートによる5分超過通信途絶の自動Web Push警報。既存現場（豊島邸・板橋自宅等）の設定をベースに、プロンプト指示1行で新規顧客へ複製・微調整展開する保守DX仕様。\n\n【死活監視標準】\n実機 HEARTBEAT_INTERVAL_SEC = 300（5分）。\nVPS 途絶判定 = 5分30秒（揺らぎ余裕）。\n途絶時ステータス: 🔴 オフライン（通信途絶）。\nPush: ⚠️ 【緊急】〇〇邸：主装置との通信が\n途絶えました（5分以上ハートビート未受信）。\n\n【現場クローン】\n指示例: 新規顧客［佐藤邸］を［豊島邸］と同じ\n機器構成で作成。ただし点灯45秒・DI1玄関…\n→ buildCustomerSiteProfileCloneV1 で複製し、\n差分のみ上書き・台帳へ append。",
+  "files": [],
+  "updatedAt": "2026-09-07",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending",
+  "body": "【死活監視標準】\n実機 HEARTBEAT_INTERVAL_SEC = 300（5分）。\nVPS 途絶判定 = 5分30秒（揺らぎ余裕）。\n途絶時ステータス: 🔴 オフライン（通信途絶）。\nPush: ⚠️ 【緊急】〇〇邸：主装置との通信が\n途絶えました（5分以上ハートビート未受信）。\n\n【現場クローン】\n指示例: 新規顧客［佐藤邸］を［豊島邸］と同じ\n機器構成で作成。ただし点灯45秒・DI1玄関…\n→ buildCustomerSiteProfileCloneV1 で複製し、\n差分のみ上書き・台帳へ append。"
+}

@@ -11,3 +11,22 @@ TOYOSHIMA001、TOMS001、ITABASHI 等）が含まれる
 `docs/CUSTOMER_DEVICES.md` を読み、customerCode・
 homeSiteId / securitySiteId・DI/DO・稼働パラメータを
 特定してから変更すること。別物件の端子を推測で触らない。
+
+## 現場プロファイル複製（クローン）
+
+次のような指示を受けたら、確認なしでクローン自走する:
+
+「新規顧客［〇〇邸］を［豊島邸（または板橋自宅）］と
+同じ機器構成で作成して。ただし …」
+
+手順:
+1. `customer-site-profile-clone-v1.ts` で複製元をコピー
+2. 差分のみ上書き
+3. プロファイルをランタイム追記（既存は削除禁止）
+4. `docs/CUSTOMER_DEVICES.md` へ Markdown 追記
+5. build / test / commit / push / health 確認
+
+## 死活監視標準
+
+実機 HB 300 秒 · VPS 途絶 5 分 30 秒 ·
+Push 文言は `home-heartbeat-standard-v1.ts` に従う。

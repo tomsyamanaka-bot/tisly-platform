@@ -139,6 +139,10 @@ const {
   CUSTOMER_DEVICES_MODULE_SEED_IDS,
   seedCustomerDevicesKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-customer-devices-seed-v1.js");
+const {
+  HEARTBEAT_CLONE_MODULE_SEED_IDS,
+  seedHeartbeatCloneKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-heartbeat-clone-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1287,6 +1291,33 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /現場別機器マスター台帳/);
     assert.ok(card!.tags.includes("#遠隔保守"));
     assert.ok(card!.tags.includes("#運用DX"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends heartbeat clone ops seed card", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of HEARTBEAT_CLONE_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-heartbeat-clone-ops-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /ハートビート死活監視/);
+    assert.ok(card!.tags.includes("#死活監視"));
+    assert.ok(card!.tags.includes("#現場クローン"));
+  });
+
+  it("seedHeartbeatCloneKnowledgeCardsV1 upserts searchable cards", () => {
+    seedHeartbeatCloneKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-HEARTBEAT-CLONE-001");
+    assert.ok(card);
+    assert.match(card!.title, /現場プロファイルクローン/);
+    assert.ok(card!.tags.includes("#WebPush"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

@@ -1782,3 +1782,44 @@ export const MOCK_CUSTOMER_DEVICES_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const HEARTBEAT_CLONE_KNOWLEDGE_TITLES = [
+  "【運用DX】5分ハートビート死活監視標準 ＆ 現場プロファイルクローン展開仕様",
+] as const;
+
+const HEARTBEAT_CLONE_CREATED_AT = "2026-09-07T07:00:00.000Z";
+
+/** 死活監視・クローン仕様（末尾追記） */
+export const MOCK_HEARTBEAT_CLONE_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-heartbeat-clone-ops-001",
+    title:
+      "【運用DX】5分ハートビート死活監視標準 ＆ 現場プロファイルクローン展開仕様",
+    summary: [
+      "300秒周期ハートビートによる5分超過通信途絶の",
+      "自動Web Push警報。既存現場（豊島邸・板橋自宅等）の",
+      "設定をベースに、プロンプト指示1行で新規顧客へ",
+      "複製・微調整展開する保守DX仕様。",
+    ].join("\n"),
+    genre: "IOT関連",
+    tags: [
+      "#死活監視",
+      "#ハートビート",
+      "#WebPush",
+      "#現場クローン",
+      "#顧客台帳",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: HEARTBEAT_CLONE_CREATED_AT,
+    body: [
+      "【死活監視標準】",
+      "実機 300 秒 · VPS 途絶 5 分 30 秒。",
+      "Push は【緊急】付き標準文言を使用。",
+      "",
+      "【現場クローン】",
+      "customer-site-profile-clone-v1 で複製し、",
+      "差分のみ上書き・台帳へ append。",
+    ].join("\n"),
+  },
+];

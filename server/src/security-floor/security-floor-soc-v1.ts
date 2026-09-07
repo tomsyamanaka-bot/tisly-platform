@@ -16,11 +16,11 @@ import {
 } from "./security-floor-sites-v1.js";
 import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
 import { getToyoshimaSocHeartbeatSnapshotV1 } from "../home/home-toyoshima-security-v1.js";
+import { TISLY_HEARTBEAT_OFFLINE_MS_V1 } from "../home/home-heartbeat-standard-v1.js";
 
-/** ハートビート受信後この秒数以内ならオンライン扱い */
-/** 最終 heartbeat から 15 分以内ならオンライン
- * （RP2350 は 5 分周期送信） */
-const DEVICE_ONLINE_WINDOW_MS = 900_000;
+/** 最終 heartbeat から標準猶予内ならオンライン
+ * （RP2350 は 5 分周期送信 · 途絶 5分30秒） */
+const DEVICE_ONLINE_WINDOW_MS = TISLY_HEARTBEAT_OFFLINE_MS_V1;
 
 export type SecurityAlarmStatusV1 =
   | "open"
