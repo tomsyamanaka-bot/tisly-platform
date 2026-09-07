@@ -1,0 +1,19 @@
+{
+  "id": "OPS-CUSTOMER-DEVICES-001",
+  "title": "【運用DX】現場別機器マスター台帳（CUSTOMER_DEVICES.md）によるAI遠隔保守・障害自走対応仕様",
+  "category": "IOT関連",
+  "tags": [
+    "#顧客台帳",
+    "#障害対応",
+    "#現場カルテ",
+    "#遠隔保守",
+    "#運用DX",
+    "#TiSLY_Core"
+  ],
+  "summary": "顧客名（現場名）をトリガーとして、AIが物件固有のRP2350端子番号・Modbus ID・パラメータ・通信構成を即座に参照し、ピンポイントで障害解析・設定変更・自動デプロイを完結させる保守DXパイプライン。\n\n【台帳の正】\ndocs/CUSTOMER_DEVICES.md を現場カルテの正とする。\n豊島邸（TOYOSHIMA001）と板橋自宅（TOMS001）を収録。\n\n【顧客名トリガー】\n指示に「豊島邸」「板橋自宅」等が含まれる場合、\n必ず台帳から customerCode / siteId / DI·DO を特定。\n別物件の端子を推測で変更してはならない。\n\n【豊島邸の要点】\n主装置 8ch: DI1/DI2 ビーム、DO1/DO2 ライト、DO3 パト。\n子機 6ch: DI1 道路、DI2 通路、DO1 ライト、DO2 パト。\nRS485 Modbus スレーブ ID:01（はなれ現場割当）。\n点灯 18:00〜06:00 · 45秒 · デバウンス 100ms。\n\n【板橋自宅の要点】\nDI1 駐車場、DI2 ガレージ、CH1 電気錠ワンショット。\nTD-SM5030CT-BSH / HomeLink 連動。\n日またぎ点灯判定（isWithinTimeRange）· 維持 45秒。\n\n【自走パイプライン】\n台帳参照 → 設定変更 → build/test → commit/push →\nhttps://tisly.jp/api/health の commitShort 確認。",
+  "body": "【台帳の正】\ndocs/CUSTOMER_DEVICES.md を現場カルテの正とする。\n豊島邸（TOYOSHIMA001）と板橋自宅（TOMS001）を収録。\n\n【顧客名トリガー】\n指示に「豊島邸」「板橋自宅」等が含まれる場合、\n必ず台帳から customerCode / siteId / DI·DO を特定。\n別物件の端子を推測で変更してはならない。\n\n【豊島邸の要点】\n主装置 8ch: DI1/DI2 ビーム、DO1/DO2 ライト、DO3 パト。\n子機 6ch: DI1 道路、DI2 通路、DO1 ライト、DO2 パト。\nRS485 Modbus スレーブ ID:01（はなれ現場割当）。\n点灯 18:00〜06:00 · 45秒 · デバウンス 100ms。\n\n【板橋自宅の要点】\nDI1 駐車場、DI2 ガレージ、CH1 電気錠ワンショット。\nTD-SM5030CT-BSH / HomeLink 連動。\n日またぎ点灯判定（isWithinTimeRange）· 維持 45秒。\n\n【自走パイプライン】\n台帳参照 → 設定変更 → build/test → commit/push →\nhttps://tisly.jp/api/health の commitShort 確認。",
+  "files": [],
+  "updatedAt": "2026-09-07",
+  "sourceType": "manual",
+  "qnapSyncStatus": "pending"
+}
