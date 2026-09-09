@@ -1,6 +1,8 @@
 # TiSLY iOS — App Store Connect API / 署名 Secrets
 
-ITMS-90174（プロビジョニングなし）を防ぐため、CI は **Automatic Signing + 署名付き archive + exportArchive** のみ許可します（未署名 Payload zip 禁止）。
+ITMS-90174（プロビジョニングなし）を防ぐため、CI は **Manual Distribution 署名 + 署名付き archive + exportArchive** のみ許可します（未署名 Payload zip 禁止）。
+
+> Xcode 26 の Automatic Signing は GHA 上で CodeSign を飛ばし `code object is not signed at all` になるため、ASC API で証明書・プロファイルを用意して Manual 署名します（`-allowProvisioningUpdates` + API キー認証は必須）。
 
 ## 必須
 
@@ -16,8 +18,8 @@ ITMS-90174（プロビジョニングなし）を防ぐため、CI は **Automat
 
 ## API キー権限（重要）
 
-キーは **Admin** にしてください。Automatic Signing が Distribution 証明書・プロファイルを更新するのに必要です。  
-既に Distribution 証明書が **3 つ**ある場合は [Certificates](https://developer.apple.com/account/resources/certificates/list) で未使用を失効させてから再実行してください。
+キーは **Admin** にしてください。証明書（IOS_DISTRIBUTION）作成・失効に必要です。  
+既に Distribution 証明書が **3 つ**ある場合、CI は最古を失効して枠を空けます（または下記 P12 を設定）。
 
 ## 任意（証明書作成ができない場合）
 
@@ -35,4 +37,4 @@ base64 -i AuthKey_or_dist.p12 | pbcopy   # macOS
 
 Actions → **iOS Build & Deploy (Capacitor)** → Run workflow  
 
-フロー: ASC API キー認証 →（任意）証明書/プロファイルを keychain にシード → **Automatic Signing** で `archive`（`-allowProvisioningUpdates`）→ `exportArchive`（`signingStyle=automatic` / `method=app-store`）→ IPA 内 `embedded.mobileprovision` 検証 → TestFlight アップロード
+フロー: ASC API で Distribution 証明書（CSR）+ App Store プロファイル作成 → keychain / MobileDevice へ import → **Manual** で `archive`（`-allowProvisioningUpdates`）→ `exportArchive`（`signingStyle=manual` + `provisioningProfiles`）→ IPA 内 `embedded.mobileprovision` 検証 → TestFlight アップロード

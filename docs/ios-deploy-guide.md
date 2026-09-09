@@ -2,7 +2,7 @@
 
 Windows のみでも GitHub Actions（`macos-latest`）で IPA を作り TestFlight へ上げられます。
 
-**構成:** Capacitor + **xcodebuild**（Automatic Signing）+ ASC API キー。**Fastlane は使いません。**
+**構成:** Capacitor + **xcodebuild**（Manual Distribution + ASC API キー / `-allowProvisioningUpdates`）。**Fastlane は使いません。**
 
 - 正規 WF: [`.github/workflows/ios-build-deploy.yml`](../.github/workflows/ios-build-deploy.yml)
 - Secrets 手順: [IOS_SECRETS_SETUP.md](./IOS_SECRETS_SETUP.md)

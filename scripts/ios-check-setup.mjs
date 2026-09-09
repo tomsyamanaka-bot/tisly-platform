@@ -89,11 +89,11 @@ if (/Packaging IPA from archive|ditto -c -k/.test(makeIpa) && !/Payload zip fall
 } else {
   console.log("[ios-check] IPA provisioning checks OK");
 }
-if (!wf.includes("CODE_SIGN_STYLE=Automatic")) {
-  console.error("[ios-check] workflow must use CODE_SIGN_STYLE=Automatic");
+if (!wf.includes("CODE_SIGN_STYLE=Manual")) {
+  console.error("[ios-check] workflow must use CODE_SIGN_STYLE=Manual (Xcode 26 Automatic skips CodeSign on GHA)");
   failed = true;
 } else {
-  console.log("[ios-check] CODE_SIGN_STYLE=Automatic OK");
+  console.log("[ios-check] CODE_SIGN_STYLE=Manual OK");
 }
 if (!wf.includes("authenticationKeyPath") || !wf.includes("authenticationKeyID")) {
   console.error("[ios-check] workflow missing ASC authenticationKey* on xcodebuild");
@@ -107,16 +107,28 @@ if (!wf.includes("embedded.mobileprovision")) {
 } else {
   console.log("[ios-check] workflow ITMS-90174 guard OK");
 }
+if (!wf.includes("ios-asc-prepare-signing.mjs")) {
+  console.error("[ios-check] workflow must run ios-asc-prepare-signing.mjs before archive");
+  failed = true;
+} else {
+  console.log("[ios-check] ASC prepare step OK");
+}
 
 const exportTpl = fs.readFileSync(
   path.join(root, "ios-ci/ExportOptions.plist"),
   "utf8"
 );
-if (!exportTpl.includes("<string>automatic</string>")) {
-  console.error("[ios-check] ios-ci/ExportOptions.plist must use signingStyle=automatic");
+if (!exportTpl.includes("<string>manual</string>")) {
+  console.error("[ios-check] ios-ci/ExportOptions.plist must use signingStyle=manual");
   failed = true;
 } else {
-  console.log("[ios-check] ExportOptions automatic OK");
+  console.log("[ios-check] ExportOptions manual OK");
+}
+if (!exportTpl.includes("provisioningProfiles")) {
+  console.error("[ios-check] ios-ci/ExportOptions.plist must include provisioningProfiles");
+  failed = true;
+} else {
+  console.log("[ios-check] ExportOptions provisioningProfiles OK");
 }
 
 if (!makeIpa.includes("allowProvisioningUpdates") || !makeIpa.includes("authenticationKeyPath")) {
@@ -125,11 +137,11 @@ if (!makeIpa.includes("allowProvisioningUpdates") || !makeIpa.includes("authenti
 } else {
   console.log("[ios-check] exportArchive auth flags OK");
 }
-if (!makeIpa.includes("ensure_automatic_plist")) {
-  console.error("[ios-check] ios-make-ipa.sh must enforce automatic ExportOptions");
+if (!makeIpa.includes("ensure_manual_plist")) {
+  console.error("[ios-check] ios-make-ipa.sh must enforce manual ExportOptions");
   failed = true;
 } else {
-  console.log("[ios-check] ios-make-ipa.sh Automatic ExportOptions OK");
+  console.log("[ios-check] ios-make-ipa.sh Manual ExportOptions OK");
 }
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));

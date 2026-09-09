@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- CI seeds Manual ExportOptions via ios-asc-prepare-signing.mjs (profile name filled in). -->
 <!-- method は app-store（一部 Xcode は app-store-connect を拒否し expected one {} になる） -->
 <plist version="1.0">
 <dict>
@@ -8,9 +9,16 @@
 	<key>destination</key>
 	<string>export</string>
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
 	<key>teamID</key>
 	<string>TEAM_ID_PLACEHOLDER</string>
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>jp.tisly.app</key>
+		<string>PROFILE_NAME_PLACEHOLDER</string>
+	</dict>
 	<key>uploadSymbols</key>
 	<true/>
 	<key>compileBitcode</key>
