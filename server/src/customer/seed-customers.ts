@@ -10,6 +10,7 @@ import {
   ensureCanonicalCustomersV1,
   retireObsoleteDemoCustomersV1,
 } from "./retire-obsolete-demo-customers-v1.js";
+import { ensureTester001CustomerV1 } from "./seed-tester001-v1.js";
 
 /** 正規デモ顧客 — 板橋自宅 / 豊島邸 のみ */
 const DEMO_CUSTOMERS = [
@@ -197,5 +198,8 @@ export function seedProRemoteCustomers(): void {
   // 既存 DB でも不要デモを退役し2件へ正規化
   retireObsoleteDemoCustomersV1();
   ensureCanonicalCustomersV1();
+  // テスター専用テナントは末尾追記
+  // （板橋・豊島の既存行は改変しない）
+  ensureTester001CustomerV1();
   ensureProFloorLayersSeed();
 }

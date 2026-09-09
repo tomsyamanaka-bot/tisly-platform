@@ -15,6 +15,7 @@ import {
 import { upsertCustomerMasterV1 } from "../shared/customer/customer-master-v1.js";
 import { upsertEnabledModulesV1 } from "../tenant/customer-enabled-modules-store-v1.js";
 import { upsertCustomerTenantBindingsV1 } from "../shared/customer/customer-tenant-bindings-v1.js";
+import { isTesterTenantV1 } from "../shared/customer/tester-tenant-v1.js";
 
 /** 顧客リストから除外する旧デモコード */
 export const OBSOLETE_DEMO_CUSTOMER_CODES_V1 = [
@@ -42,6 +43,8 @@ export function isObsoleteDemoCustomerCodeV1(code: string): boolean {
   if ((CANONICAL_CUSTOMER_CODES_V1 as readonly string[]).includes(c)) {
     return false;
   }
+  // テスター専用テナントは退役対象外
+  if (isTesterTenantV1(c)) return false;
   if ((OBSOLETE_DEMO_CUSTOMER_CODES_V1 as readonly string[]).includes(c)) {
     return true;
   }

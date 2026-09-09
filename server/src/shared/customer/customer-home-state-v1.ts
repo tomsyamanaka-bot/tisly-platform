@@ -19,6 +19,10 @@ import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.
 import type { CustomerContactV1, CustomerHomeCardV1, CustomerHomeViewV1 } from "./customer-view-model-v1.js";
 import { decodeCustomerShareIdV1 } from "./customer-share-id-v1.js";
 import type { CustomerNotificationV1 } from "./customer-notifications-v1.js";
+import {
+  isTesterHomeCardVisibleV1,
+  isTesterTenantV1,
+} from "./tester-tenant-v1.js";
 
 function buildCardUrl(
   shareId: string,
@@ -48,15 +52,19 @@ export function buildCustomerHomeStateV1(opts: {
   notifications?: CustomerNotificationV1[];
   /** 契約モジュール。未指定時は全カード表示 */
   enabledModules?: string[] | null;
+  /** テスター限定カード判定用 */
+  customerCode?: string | null;
 }): CustomerHomeViewV1 {
   const ref = opts.ref ?? decodeCustomerShareIdV1(opts.shareId);
   const monitoring = buildCustomerMonitoringDetailV1(opts.shareId, opts.propertyName, ref);
   const systemKey = monitoring.systemStatus as CustomerSystemStatusKeyV1;
   const system = CUSTOMER_SYSTEM_STATUS_V1[systemKey];
+  const testerLimited = isTesterTenantV1(opts.customerCode);
 
-  const cards: CustomerHomeCardV1[] = CUSTOMER_HOME_CARDS_V1.filter((c) =>
-    isCustomerHomeCardEnabledV1(c.id, opts.enabledModules)
-  ).map((c) => ({
+  const cards: CustomerHomeCardV1[] = CUSTOMER_HOME_CARDS_V1.filter((c) => {
+    if (testerLimited && !isTesterHomeCardVisibleV1(c.id)) return false;
+    return isCustomerHomeCardEnabledV1(c.id, opts.enabledModules);
+  }).map((c) => ({
     id: c.id,
     emoji: c.emoji,
     label: c.label,

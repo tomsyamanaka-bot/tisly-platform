@@ -296,7 +296,7 @@ async function dispatchPatternPushV1(input: {
   di: 1 | 2;
 }): Promise<boolean> {
   const { siteId, pattern, armed, lightsActive, rules, di } = input;
-  const url = `/security-v1.html?siteId=${encodeURIComponent(siteId)}`;
+  const url = "/customer/security";
 
   if (!armed) {
     console.log(

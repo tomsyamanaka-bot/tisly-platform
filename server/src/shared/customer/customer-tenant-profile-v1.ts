@@ -46,6 +46,13 @@ const CUSTOMER_TENANT_PROFILES_V1: Record<
     useToyoshimaDashboard: false,
   },
   TOYOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
+  // テスター専用：板橋自宅実機へ直結
+  TESTER001: {
+    displayName: "板橋自宅（テスト）",
+    securitySiteId: SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
+    homeSiteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+    useToyoshimaDashboard: false,
+  },
 };
 
 /** クローン展開などで追記するランタイム枠（削除禁止） */
@@ -102,6 +109,13 @@ export function resolveCustomerSecuritySiteIdV1(
   customerCode: string | null | undefined
 ): string | null {
   return resolveCustomerTenantProfileV1(customerCode)?.securitySiteId ?? null;
+}
+
+/** HOME 画面用サイト ID */
+export function resolveCustomerHomeSiteIdV1(
+  customerCode: string | null | undefined
+): string | null {
+  return resolveCustomerTenantProfileV1(customerCode)?.homeSiteId ?? null;
 }
 
 /** 登録済み顧客コード一覧（静的 + ランタイム追記） */

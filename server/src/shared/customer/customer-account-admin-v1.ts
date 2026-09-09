@@ -34,6 +34,7 @@ import {
   upsertCustomerTenantBindingsV1,
 } from "./customer-tenant-bindings-v1.js";
 import { resolveCustomerTenantProfileV1 } from "./customer-tenant-profile-v1.js";
+import { isTesterTenantV1 } from "./tester-tenant-v1.js";
 import {
   buildModulesFromPortalTogglesV1,
   defaultPortalModulesForNewCustomerV1,
@@ -72,8 +73,11 @@ export function listCustomerAccountsAdminV1(opts?: {
     .trim()
     .toUpperCase();
   const customers = listCustomers(true).filter((c) => {
+    const code = c.customer_code.toUpperCase();
+    // テスターは社内顧客一覧の既定から除外
+    if (!filter && isTesterTenantV1(code)) return false;
     if (!filter) return true;
-    return c.customer_code.toUpperCase().includes(filter);
+    return code.includes(filter);
   });
   return customers.map((c) => {
     const code = c.customer_code.toUpperCase();

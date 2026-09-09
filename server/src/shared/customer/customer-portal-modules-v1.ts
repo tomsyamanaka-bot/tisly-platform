@@ -10,6 +10,10 @@ import {
   resolveDefaultEnabledModulesV1,
 } from "../../tenant/customer-enabled-modules-v1.js";
 import { getStoredEnabledModulesV1 } from "../../tenant/customer-enabled-modules-store-v1.js";
+import {
+  isTesterTenantV1,
+  sanitizeTesterEnabledModulesV1,
+} from "./tester-tenant-v1.js";
 
 /** TOMS 顧客台帳 — ポータルカード ON/OFF（追記） */
 export const PORTAL_CARD_TOGGLES_V1 = [
@@ -63,6 +67,13 @@ export const CUSTOMER_PORTAL_DEFAULTS_BY_CODE_V1: Record<string, string[]> = {
     "camera_preview_v1",
     "customer_portal",
   ],
+  /** テスター: Security / HOME / カメラ（見積・3D なし） */
+  TESTER001: [
+    "security_floor_v1",
+    "tisly_home_v1",
+    "camera_preview_v1",
+    "customer_portal",
+  ],
 };
 
 /** 一般顧客の Security 単体既定（追記） */
@@ -112,16 +123,26 @@ export function getCustomerPortalModulesV1(
   const stored = getStoredEnabledModulesV1(code);
   // 社内 "*" は /customer カード既定へ展開
   if (stored?.enabledModules?.includes("*")) {
-    return resolveDefaultCustomerPortalModulesV1(code);
+    const expanded = resolveDefaultCustomerPortalModulesV1(code);
+    return isTesterTenantV1(code)
+      ? sanitizeTesterEnabledModulesV1(expanded)
+      : expanded;
   }
   if (stored?.enabledModules?.length) {
     const normalized = normalizeStoredPortalModulesV1(
       code,
       stored.enabledModules
     );
-    if (normalized) return normalized;
+    if (normalized) {
+      return isTesterTenantV1(code)
+        ? sanitizeTesterEnabledModulesV1(normalized)
+        : normalized;
+    }
   }
-  return resolveDefaultCustomerPortalModulesV1(code);
+  const fallback = resolveDefaultCustomerPortalModulesV1(code);
+  return isTesterTenantV1(code)
+    ? sanitizeTesterEnabledModulesV1(fallback)
+    : fallback;
 }
 
 /** 旧 app 既定と同一の保存値はポータル既定へ移行 */
@@ -152,6 +173,16 @@ function normalizeStoredPortalModulesV1(
     .join(",");
   if (storedCore === legacyCore && legacyCore.length > 0) {
     return null;
+  }
+  // 豊島邸の旧 HOME+Security 保存値は
+  // ポータル既定（Security+カメラ）へ移行する
+  if (customerCode === "TOYOSHIMA001") {
+    const oldHomeSecurityCore = ["security_floor_v1", "tisly_home_v1"]
+      .sort()
+      .join(",");
+    if (storedCore === oldHomeSecurityCore) {
+      return null;
+    }
   }
   return ensurePortalBase(stored);
 }

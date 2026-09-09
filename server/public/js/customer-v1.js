@@ -15,6 +15,12 @@ import {
   loginCustomer,
 } from "./customer-tenant-session-v1.js";
 import {
+  bindTesterPushBar,
+  filterTesterHomeCards,
+  isTesterCustomerCode,
+  renderTesterPushBarHtml,
+} from "./customer-tester-push-v1.js";
+import {
   openCustomerCameraPreview,
   isCameraNavHref,
 } from "./camera-webrtc-viewer-v1.js";
@@ -101,20 +107,25 @@ function renderLogin(errorMsg = "") {
 }
 
 function renderHome(data) {
+  const code = getCustomerCode() || "";
   document.getElementById("page-title").textContent = data.title;
-  document.getElementById("page-subtitle").textContent =
-    getCustomerCode() || "";
+  document.getElementById("page-subtitle").textContent = code;
+  const cards = isTesterCustomerCode(code)
+    ? filterTesterHomeCards(data.cards)
+    : data.cards;
 
   main.innerHTML = `
     ${renderHomeStatus(data)}
     ${renderNotifications(data.notifications)}
-    ${renderHomeCards(data.cards)}
+    ${isTesterCustomerCode(code) ? renderTesterPushBarHtml() : ""}
+    ${renderHomeCards(cards)}
     <p class="cv-logout-row">
       <button type="button" id="cv-logout-btn" class="cv-logout-btn">ログアウト</button>
     </p>
   `;
 
   bindCustomerNavLinks();
+  bindTesterPushBar(code);
   document.querySelectorAll(".cv-big-card").forEach((el) => {
     el.addEventListener("click", (e) => {
       const href = el.getAttribute("href") || "";

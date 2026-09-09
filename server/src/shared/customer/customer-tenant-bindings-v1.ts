@@ -45,6 +45,14 @@ const DEFAULT_BINDINGS_V1: Record<
     nvrLabel: "H.View NVR（板橋自宅）",
     nvrRtspBase: "rtsp://192.168.1.80:554",
   },
+  // テスターは板橋自宅 RP2350 と同一結線
+  TESTER001: {
+    rp2350MainId: "rp2350-itabashi-main-01",
+    rp2350DetachedId: null,
+    nvrHost: "192.168.1.80",
+    nvrLabel: "H.View NVR（板橋自宅）",
+    nvrRtspBase: "rtsp://192.168.1.80:554",
+  },
   TOYOSHIMA001: {
     rp2350MainId: "rp2350-toyoshima-main-01",
     rp2350DetachedId: "rp2350-toyoshima-detached-01",

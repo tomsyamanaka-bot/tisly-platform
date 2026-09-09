@@ -1,7 +1,7 @@
 # TiSLY 顧客・機器マスター台帳（現場カルテ）
 
-**最終更新:** 2026-09-07  
-**対象:** 正規顧客 2 件（豊島邸 / 板橋自宅）  
+**最終更新:** 2026-09-10  
+**対象:** 正規顧客 2 件（豊島邸 / 板橋自宅）+ テスター専用 1 件（`TESTER001`）  
 **入口:** お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app`
 
 ---
@@ -32,12 +32,13 @@
 
 ---
 
-## 1. 顧客一覧（正規 2 件）
+## 1. 顧客一覧（正規 2 件 + テスター）
 
 | 表示名 | customerCode | HOME siteId | Security siteId | 専用 UI |
 |--------|--------------|-------------|-----------------|--------|
 | 豊島邸 | `TOYOSHIMA001`（旧別名 `TOSHIMA001`→正規化） | `HOME-JP-TOYOSHIMA` | `SEC-JP-TOYOSHIMA-001` | 豊島ダッシュボード |
 | 板橋自宅 | `TOMS001`（旧別名 `HOME001`→正規化） | `HOME-JP-ITABASHI-LIVE` | `SEC-JP-ITABASHI-LIVE` | 標準 Security Floor |
+| テスター専用 | `TESTER001`（板橋実機ミラー） | `HOME-JP-ITABASHI-LIVE` | `SEC-JP-ITABASHI-LIVE` | お客様 `/customer` 限定スコープ |
 
 ---
 
@@ -169,6 +170,23 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 
 ---
 
+## 3.6 テスター専用テナント（TESTER001）
+
+板橋自宅の **実機ミラー**。既存の TOMS001 / TOYOSHIMA001 行は削除しない。
+
+| 項目 | 値 |
+|------|-----|
+| customerCode | `TESTER001` |
+| ログイン | `tester.user` / `tisly-test-2026` |
+| 入口 | `https://tisly.jp/customer`（社内 `/app` の見積・3D・事業カードは非表示） |
+| HOME / Security | `HOME-JP-ITABASHI-LIVE` / `SEC-JP-ITABASHI-LIVE` |
+| RP2350 | `rp2350-itabashi-main-01`（板橋主装置と同一） |
+| 表示モジュール | Security · HOME · カメラ · 基本ダッシュボード |
+| 非表示 | 見積もり · 事業内容 · 3Dプリンター関連 |
+| 通知 | 板橋 DI/DO 発報の Web Push を実配信（`home-security` 購読） |
+
+---
+
 ## 4. 共通運用ルール
 
 1. **顧客名トリガー:** 修正指示に現場名がある場合は本カルテを開く。
@@ -214,6 +232,7 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-10 | テスター専用 `TESTER001` を追記（板橋実機ミラー・メニュー制限） |
 | 2026-09-07 | 初版作成（豊島邸 / 板橋自宅の現場カルテ） |
 | 2026-09-07 | HB 途絶を 5分30秒に標準化 · クローン自走ルール追記 |
 | 2026-09-07 | 豊島邸 `cloudStreamUrl` / Guard Viewer·EZCloud 埋め込み（方法A）追記 |

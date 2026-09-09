@@ -9,6 +9,10 @@ import {
   resolveDefaultEnabledModulesV1,
   type ModuleCatalogEntryV1,
 } from "./customer-enabled-modules-v1.js";
+import {
+  isTesterTenantV1,
+  sanitizeTesterEnabledModulesV1,
+} from "../shared/customer/tester-tenant-v1.js";
 
 export interface CustomerEnabledModulesRowV1 {
   customerCode: string;
@@ -70,10 +74,14 @@ export function getEnabledModulesForCustomerV1(
   customerCode: string
 ): string[] {
   const stored = getStoredEnabledModulesV1(customerCode);
-  if (stored?.enabledModules?.length) {
-    return stored.enabledModules;
+  const resolved = stored?.enabledModules?.length
+    ? stored.enabledModules
+    : resolveDefaultEnabledModulesV1(customerCode);
+  // テスターは見積・3D 等を強制除外
+  if (isTesterTenantV1(customerCode)) {
+    return sanitizeTesterEnabledModulesV1(resolved);
   }
-  return resolveDefaultEnabledModulesV1(customerCode);
+  return resolved;
 }
 
 export function upsertEnabledModulesV1(input: {

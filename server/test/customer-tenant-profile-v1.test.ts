@@ -43,6 +43,14 @@ describe("customer-tenant-profile-v1", () => {
     );
   });
 
+  it("maps TESTER001 to the same Itabashi live site", () => {
+    const profile = resolveCustomerTenantProfileV1("TESTER001");
+    assert.ok(profile);
+    assert.equal(profile?.securitySiteId, "SEC-JP-ITABASHI-LIVE");
+    assert.equal(profile?.homeSiteId, "HOME-JP-ITABASHI-LIVE");
+    assert.equal(profile?.useToyoshimaDashboard, false);
+  });
+
   it("session-home returns tenant profile for logged-in customer", async () => {
     getDatabase();
     const login = await request(app)

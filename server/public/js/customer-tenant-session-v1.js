@@ -45,6 +45,14 @@ const LOCAL_TENANT_MAP = {
     homeSiteId: "HOME-JP-TOYOSHIMA",
     useToyoshimaDashboard: true,
   },
+  // テスター専用：板橋自宅実機へ直結
+  TESTER001: {
+    customerCode: "TESTER001",
+    displayName: "板橋自宅（テスト）",
+    securitySiteId: "SEC-JP-ITABASHI-LIVE",
+    homeSiteId: "HOME-JP-ITABASHI-LIVE",
+    useToyoshimaDashboard: false,
+  },
 };
 
 export function getCustomerToken() {

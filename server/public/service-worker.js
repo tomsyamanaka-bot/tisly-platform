@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2520-tenant-skeleton-hb";
+const SW_VERSION = "tisly-pwa-v2521-tester-itabashi-live";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2520-tenant-skeleton-hb
  * tisly-pwa-v2516-comm-health-ssot
  * tisly-pwa-v2515-customer-daily-mount
  * tisly-pwa-v2512-multi-angle-sketch
@@ -170,6 +171,8 @@ const SHELL_URLS = [
   "/customer-document-v1.html",
   "/customer-monitoring-v1.html",
   "/js/customer-v1.js",
+  "/js/customer-tester-push-v1.js",
+  "/js/customer-tenant-session-v1.js",
   "/js/customer-home-v1.js",
   "/js/customer-project-v1.js",
   "/js/customer-document-v1.js",

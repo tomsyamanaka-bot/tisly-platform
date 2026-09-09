@@ -117,6 +117,7 @@ export function buildCustomerSessionHomeV1(
     contact: buildContactFromMasterV1(code),
     notifications: listCustomerNotificationsForHomeV1(code),
     enabledModules: getCustomerPortalModulesV1(code),
+    customerCode: code,
   });
 }
 
@@ -324,6 +325,7 @@ export function buildCustomerHomeByShareIdV1(
     notifications: listCustomerNotificationsForHomeV1(customerCode),
     // 物件の顧客コードで契約機能のみ表示
     enabledModules: getCustomerPortalModulesV1(customerCode),
+    customerCode,
   });
 }
 

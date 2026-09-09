@@ -369,3 +369,26 @@
   cursor: pointer;
 }
 
+.cv-tester-push {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+.cv-tester-push-status {
+  margin: 0 0 0.75rem;
+  color: #334155;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.cv-tester-push-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+.cv-tester-push-actions .cv-login-btn,
+.cv-tester-push-actions .cv-logout-btn {
+  width: 100%;
+  margin: 0;
+}
+
