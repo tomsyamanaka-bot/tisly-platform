@@ -768,7 +768,7 @@ async function refreshOperatorStatus(btn) {
   btn.classList.add("is-spinning");
   try {
     if (isToyoshimaSecuritySite(state.siteId)) {
-      await loadToyoshimaDashboard();
+      await loadToyoshimaDashboard({ forceHealthSync: true });
     } else {
       await loadOperator();
     }

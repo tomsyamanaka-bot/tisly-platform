@@ -137,6 +137,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /MOCK_GUARD_VIEWER_EMBED_ITEMS/);
     assert.match(mockSrc, /Guard Viewer（EZCloud）公式共有リンク/);
     assert.match(mockSrc, /#ポート開放不要/);
+    assert.match(mockSrc, /MOCK_PWA_TENANT_SKELETON_ITEMS/);
+    assert.match(mockSrc, /マルチテナント初期描画チラつき防止/);
+    assert.match(mockSrc, /#初期描画最適化/);
   });
 
   it("nav script requires login before loading bundle", () => {

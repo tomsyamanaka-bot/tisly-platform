@@ -2791,3 +2791,9 @@
   font-size: 1rem;
   cursor: pointer;
 }
+
+body.is-resolving-tenant .sf-soc-shell,
+body.is-resolving-tenant .sf-mobile-tabs {
+  visibility: hidden;
+  pointer-events: none;
+}

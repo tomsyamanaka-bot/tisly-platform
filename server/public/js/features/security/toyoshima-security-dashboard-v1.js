@@ -110,14 +110,41 @@ function formatJstConfirmTime(iso) {
   }
 }
 
+/** 5分以内は即時オンライン */
+const HB_FRESH_MS = 5 * 60 * 1000;
+/** 標準途絶（5分30秒） */
+const HB_OFFLINE_MS = 5 * 60 * 1000 + 30 * 1000;
+
+function heartbeatAgeMs(iso, now = Date.now()) {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return Number.POSITIVE_INFINITY;
+  return now - at;
+}
+
+/**
+ * lastHeartbeat からオンラインを再判定
+ * キャッシュされた onlineSummary は使わない
+ */
+function isHeartbeatOnlineNow(iso, now = Date.now()) {
+  return heartbeatAgeMs(iso, now) < HB_OFFLINE_MS;
+}
+
 /**
  * 通信ヘルス表示の単一真実ソース（SSOT）
  * dash.commHealth + クライアント往復遅延のみを使う
  */
 function buildCommHealthView(dash) {
   const health = dash?.commHealth || {};
-  const offline = String(health.onlineSummary || "").includes("オフライン");
-  const online = !offline && Boolean(health.lastHeartbeatAt || health.onlineSummary);
+  const heartbeatIso = health.lastHeartbeatAt || health.lastCommAt || null;
+  const ageMs = heartbeatAgeMs(heartbeatIso);
+  const freshWithin5min = ageMs < HB_FRESH_MS;
+  const summaryOffline = String(health.onlineSummary || "").includes(
+    "オフライン"
+  );
+  const online =
+    freshWithin5min || isHeartbeatOnlineNow(heartbeatIso);
+  const offline = !online && (summaryOffline || !heartbeatIso);
   const latencyMs =
     typeof clientLatencyMs === "number" && Number.isFinite(clientLatencyMs)
       ? Math.max(0, Math.round(clientLatencyMs))
@@ -134,13 +161,14 @@ function buildCommHealthView(dash) {
   const tempEmoji =
     tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
   const tempLabel = health.boardTempLabel || "正常監視中";
-  const operatorOnline =
-    health.onlineSummary ||
-    (online ? "🟢 オンライン（実機稼働中）" : "🔴 オフライン（通信途絶）");
-  const customerOnline = offline
-    ? "🔴 オフライン"
-    : "🟢 正常稼働中（オンライン）";
-  const heartbeatIso = health.lastHeartbeatAt || health.lastCommAt || null;
+  const operatorOnline = online
+    ? summaryOffline
+      ? "🟢 オンライン（実機稼働中）"
+      : health.onlineSummary || "🟢 オンライン（実機稼働中）"
+    : "🔴 オフライン（通信途絶）";
+  const customerOnline = online
+    ? "🟢 正常稼働中（オンライン）"
+    : "🔴 オフライン";
   return {
     online,
     offline,
@@ -1506,15 +1534,32 @@ export function hideToyoshimaDashboard() {
   activeCustomerPane = "map";
 }
 
-async function refreshToyoshimaDashboard(opts = {}) {
+async function fetchToyoshimaDashboardJson(force = false) {
   const t0 = performance.now();
+  const qs = new URLSearchParams({
+    siteId: TOYOSHIMA_SEC_ID,
+    _fresh: String(Date.now()),
+  });
+  if (force) qs.set("forceSync", "1");
   const res = await fetch(
-    `${HOME_API}/toyoshima/dashboard?siteId=${encodeURIComponent(TOYOSHIMA_SEC_ID)}`,
-    { cache: "no-store" }
+    `${HOME_API}/toyoshima/dashboard?${qs.toString()}`,
+    {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-store",
+        Pragma: "no-cache",
+      },
+    }
   );
   clientLatencyMs = Math.round(performance.now() - t0);
-  const data = await res.json();
+  return res.json();
+}
+
+async function refreshToyoshimaDashboard(opts = {}) {
+  const force = !!opts.forceHealthSync || !opts.soft;
+  const data = await fetchToyoshimaDashboardJson(force);
   if (data?.ok && data.dashboard) {
+    if (force) lastDashSig = "";
     renderToyoshimaDashboard(data.dashboard, opts);
     if (!opts.soft) {
       if (!isCustomerPortal()) {
@@ -1799,7 +1844,10 @@ function bindToyoshimaControls() {
         actionBtn.classList.add("is-spinning");
         try {
           lastDashSig = "";
-          await refreshToyoshimaDashboard({ soft: false });
+          await refreshToyoshimaDashboard({
+            soft: false,
+            forceHealthSync: true,
+          });
           showToast("最新の接続状態を取得しました");
         } finally {
           actionBtn.classList.remove("is-spinning");
@@ -1917,17 +1965,13 @@ function bindToyoshimaControls() {
   });
 }
 
-export async function loadToyoshimaDashboard() {
+export async function loadToyoshimaDashboard(opts = {}) {
   try {
-    const t0 = performance.now();
-    const res = await fetch(
-      `${HOME_API}/toyoshima/dashboard?siteId=${encodeURIComponent(TOYOSHIMA_SEC_ID)}`,
-      { cache: "no-store" }
-    );
-    clientLatencyMs = Math.round(performance.now() - t0);
-    const data = await res.json();
+    lastDashSig = "";
+    const force = opts.forceHealthSync !== false;
+    const data = await fetchToyoshimaDashboardJson(force);
     if (data?.ok && data.dashboard) {
-      renderToyoshimaDashboard(data.dashboard);
+      renderToyoshimaDashboard(data.dashboard, { soft: false });
       return data.dashboard;
     }
   } catch (err) {

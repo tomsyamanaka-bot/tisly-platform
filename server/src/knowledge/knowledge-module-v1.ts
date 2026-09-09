@@ -133,6 +133,10 @@ import {
   GUARD_VIEWER_EMBED_MODULE_SEED_IDS,
   getGuardViewerEmbedModuleSeedItemsV1,
 } from "./knowledge-guard-viewer-embed-seed-v1.js";
+import {
+  PWA_TENANT_SKELETON_MODULE_SEED_IDS,
+  getPwaTenantSkeletonModuleSeedItemsV1,
+} from "./knowledge-pwa-tenant-skeleton-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -1683,6 +1687,49 @@ function mergeGuardViewerEmbedSeed(
   return { items: next, changed };
 }
 
+/**
+ * PWA テナント初期描画スケルトン
+ * ＆ HB 強制同期ナレッジを末尾追記。
+ */
+function mergePwaTenantSkeletonSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(PWA_TENANT_SKELETON_MODULE_SEED_IDS);
+  const seeds = getPwaTenantSkeletonModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -1756,7 +1803,10 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedGuardViewer = mergeGuardViewerEmbedSeed(
     mergedShellyFailsafe.items
   );
-  const mergedGenre = mergeUnifiedGenreBindings(mergedGuardViewer.items);
+  const mergedPwaSkeleton = mergePwaTenantSkeletonSeed(
+    mergedGuardViewer.items
+  );
+  const mergedGenre = mergeUnifiedGenreBindings(mergedPwaSkeleton.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -1790,6 +1840,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedStatusRefresh.changed ||
     mergedShellyFailsafe.changed ||
     mergedGuardViewer.changed ||
+    mergedPwaSkeleton.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

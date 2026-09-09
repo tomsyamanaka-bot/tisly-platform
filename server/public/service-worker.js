@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2516-comm-health-ssot";
+const SW_VERSION = "tisly-pwa-v2520-tenant-skeleton-hb";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2516-comm-health-ssot
  * tisly-pwa-v2515-customer-daily-mount
  * tisly-pwa-v2512-multi-angle-sketch
  * tisly-pwa-v2511-text-to-3d-prompt
@@ -24,9 +25,9 @@ const SW_VERSION = "tisly-pwa-v2516-comm-health-ssot";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2516-comm-health-ssot";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2516-comm-health-ssot";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2516-comm-health-ssot";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2520-tenant-skeleton-hb";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2520-tenant-skeleton-hb";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2520-tenant-skeleton-hb";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */

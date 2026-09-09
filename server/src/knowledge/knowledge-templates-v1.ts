@@ -40,6 +40,7 @@ import { seedHeartbeatCloneKnowledgeCardsV1 } from "./knowledge-heartbeat-clone-
 import { seedStatusRefreshKnowledgeCardsV1 } from "./knowledge-status-refresh-seed-v1.js";
 import { seedShellyFailsafeKnowledgeCardsV1 } from "./knowledge-shelly-failsafe-seed-v1.js";
 import { seedGuardViewerEmbedKnowledgeCardsV1 } from "./knowledge-guard-viewer-embed-seed-v1.js";
+import { seedPwaTenantSkeletonKnowledgeCardsV1 } from "./knowledge-pwa-tenant-skeleton-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -196,6 +197,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   statusRefreshCreated: number;
   shellyFailsafeCreated: number;
   guardViewerEmbedCreated: number;
+  pwaTenantSkeletonCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -229,6 +231,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const statusRefresh = seedStatusRefreshKnowledgeCardsV1();
   const shellyFailsafe = seedShellyFailsafeKnowledgeCardsV1();
   const guardViewerEmbed = seedGuardViewerEmbedKnowledgeCardsV1();
+  const pwaTenantSkeleton = seedPwaTenantSkeletonKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -262,5 +265,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     statusRefreshCreated: statusRefresh.length,
     shellyFailsafeCreated: shellyFailsafe.length,
     guardViewerEmbedCreated: guardViewerEmbed.length,
+    pwaTenantSkeletonCreated: pwaTenantSkeleton.length,
   };
 }

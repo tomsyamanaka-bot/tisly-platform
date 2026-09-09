@@ -155,6 +155,10 @@ const {
   GUARD_VIEWER_EMBED_MODULE_SEED_IDS,
   seedGuardViewerEmbedKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-guard-viewer-embed-seed-v1.js");
+const {
+  PWA_TENANT_SKELETON_MODULE_SEED_IDS,
+  seedPwaTenantSkeletonKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-pwa-tenant-skeleton-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1411,6 +1415,36 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /PWAインライン埋め込み/);
     assert.ok(card!.tags.includes("#GuardViewer"));
     assert.ok(card!.tags.includes("#TiSLY_Security"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends pwa tenant skeleton hb seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of PWA_TENANT_SKELETON_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-pwa-tenant-skeleton-hb-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /初期描画チラつき防止/);
+    assert.ok(card!.tags.includes("#PWA"));
+    assert.ok(card!.tags.includes("#マルチテナント"));
+    assert.ok(card!.tags.includes("#初期描画最適化"));
+    assert.ok(card!.tags.includes("#死活監視"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("seedPwaTenantSkeletonKnowledgeCardsV1 upserts searchable cards", () => {
+    seedPwaTenantSkeletonKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-PWA-TENANT-SKELETON-HB-001");
+    assert.ok(card);
+    assert.match(card!.title, /ハートビート強制同期/);
+    assert.ok(card!.tags.includes("#PWA"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

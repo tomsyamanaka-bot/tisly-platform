@@ -1,7 +1,22 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-07T13:00:59.401Z",
+  "updatedAt": "2026-09-09T08:46:20.141Z",
   "entries": [
+    {
+      "id": "OPS-PWA-TENANT-SKELETON-HB-001",
+      "title": "【PWA最適化】マルチテナント初期描画チラつき防止スケルトン ＆ ハートビート強制同期仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#PWA",
+        "#マルチテナント",
+        "#初期描画最適化",
+        "#死活監視",
+        "#TiSLY_Core"
+      ],
+      "summary": "顧客用共通URL（/customer）における非同期テナント解決時のデフォルト仮コンポーネント露出防止処理と、現場手動更新による最新通信ヘルス即時同期アーキテクチャ。\n\n【初期描画】\nテナント認証・顧客プロファイル確定前は\n白×navy スケルトンのみ表示。\nTiSLY Security 仮間取りは出さない。\n豊島邸は「豊島邸の安心ステータスを確認中...」。\n\n【手動同期】\n🔄 最新状態に更新で HB を no-store 再取得。\n差分 5 分以内なら即時\n🟢 正常稼働中（オンライン）へ再描画。\n古い最終確認時刻（例: 17:01）は破棄。",
+      "updatedAt": "2026-09-09",
+      "sourceType": "manual"
+    },
     {
       "id": "CAM-GUARD-VIEWER-EZCLOUD-EMBED-001",
       "title": "【防犯カメラ】Guard Viewer（EZCloud）公式共有リンクを活用したポート開放不要のPWAインライン埋め込み仕様",

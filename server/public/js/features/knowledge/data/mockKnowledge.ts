@@ -1932,3 +1932,40 @@ export const MOCK_GUARD_VIEWER_EMBED_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const PWA_TENANT_SKELETON_KNOWLEDGE_TITLES = [
+  "【PWA最適化】マルチテナント初期描画チラつき防止スケルトン ＆ ハートビート強制同期仕様",
+] as const;
+
+const PWA_TENANT_SKELETON_CREATED_AT = "2026-09-09T08:00:00.000Z";
+
+/** テナント初期描画スケルトン＆HB同期（末尾追記） */
+export const MOCK_PWA_TENANT_SKELETON_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-pwa-tenant-skeleton-hb-001",
+    title:
+      "【PWA最適化】マルチテナント初期描画チラつき防止スケルトン ＆ ハートビート強制同期仕様",
+    summary: [
+      "顧客用共通URL（/customer）における",
+      "非同期テナント解決時のデフォルト仮コンポーネント露出防止処理と、",
+      "現場手動更新による最新通信ヘルス即時同期アーキテクチャ。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#PWA",
+      "#マルチテナント",
+      "#初期描画最適化",
+      "#死活監視",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: PWA_TENANT_SKELETON_CREATED_AT,
+    body: [
+      "【初期描画】",
+      "テナント確定前は白×navy スケルトンのみ。",
+      "",
+      "【手動同期】",
+      "5分以内の HB なら即時オンライン再描画。",
+    ].join("\n"),
+  },
+];

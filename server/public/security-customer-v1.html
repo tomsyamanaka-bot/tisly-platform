@@ -11,9 +11,27 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2519" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2519" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2520" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2520" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
+  <style id="sf-tenant-skeleton-critical">
+    /* テナント確定前は仮間取りを出さない */
+    body.is-resolving-tenant .sf-soc-shell,
+    body.is-resolving-tenant .sf-mobile-tabs {
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    body.is-resolving-tenant .sf-title,
+    body.is-resolving-tenant .sf-online-pill,
+    body.is-resolving-tenant .sf-status-refresh,
+    body.is-resolving-tenant .sf-site-fixed-label {
+      visibility: hidden !important;
+    }
+    #sf-tenant-skeleton { display: none; }
+    body.is-resolving-tenant #sf-tenant-skeleton {
+      display: flex;
+    }
+  </style>
   <script type="importmap">
   {
     "imports": {
@@ -23,7 +41,7 @@
   }
   </script>
 </head>
-<body class="sf-body sf-soc sf-customer" data-hqs-skip="1">
+<body class="sf-body sf-soc sf-customer is-resolving-tenant" data-hqs-skip="1">
   <header class="sf-soc-header">
     <a class="sf-back" href="/customer">← 戻る</a>
     <div class="sf-soc-brand">
@@ -55,6 +73,38 @@
       </button>
     </div>
   </header>
+
+  <div
+    id="sf-tenant-skeleton"
+    class="sf-tenant-skeleton"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+  >
+    <div class="sf-tenant-skeleton-inner">
+      <span class="sf-tenant-spinner" aria-hidden="true"></span>
+      <p id="sf-tenant-skeleton-msg">安心ステータスを確認中...</p>
+    </div>
+  </div>
+  <script>
+    (function () {
+      try {
+        var code = (
+          sessionStorage.getItem("tisly_customer_code") ||
+          localStorage.getItem("tisly_customer_code") ||
+          ""
+        ).toUpperCase();
+        if (code === "TOSHIMA001") code = "TOYOSHIMA001";
+        var msg = document.getElementById("sf-tenant-skeleton-msg");
+        if (!msg) return;
+        if (code === "TOYOSHIMA001") {
+          msg.textContent = "豊島邸の安心ステータスを確認中...";
+        } else if (code === "TOMS001" || code === "HOME001") {
+          msg.textContent = "板橋自宅の安心ステータスを確認中...";
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <nav class="sf-mobile-tabs" aria-label="画面切替">
     <button type="button" class="is-on" data-pane="map">家のようす</button>
@@ -353,12 +403,12 @@
     </div>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2519"></script>
-  <script src="/js/features/security/security-time-range-v1.js?v=2519"></script>
-  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2519"></script>
-  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2519"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2519"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2519"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2519"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2520"></script>
+  <script src="/js/features/security/security-time-range-v1.js?v=2520"></script>
+  <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2520"></script>
+  <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2520"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2520"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2520"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2520"></script>
 </body>
 </html>

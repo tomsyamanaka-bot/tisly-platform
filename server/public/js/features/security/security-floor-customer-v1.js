@@ -306,12 +306,6 @@ function applySiteLayout(force = false) {
     /* 物件名と重複するカプセルを豊島邸では非表示 */
     fixed.hidden = isToyoshima;
   }
-  if (isToyoshima) {
-    const online = $("sf-online");
-    if (online && !online.textContent.includes("発報")) {
-      online.textContent = "🟢 正常に稼働中（オンライン）";
-    }
-  }
 
   if (!force && state.layoutSiteId === state.siteId) {
     return;
@@ -665,7 +659,7 @@ async function refreshCustomerStatus(btn) {
   btn.classList.add("is-spinning");
   try {
     if (isToyoshimaSecuritySite(state.siteId)) {
-      await loadToyoshimaDashboard();
+      await loadToyoshimaDashboard({ forceHealthSync: true });
     } else {
       await loadDash();
     }
@@ -735,6 +729,30 @@ function bind() {
   });
 }
 
+function setTenantResolving(on, profileName) {
+  document.body.classList.toggle("is-resolving-tenant", !!on);
+  const skel = $("sf-tenant-skeleton");
+  if (skel) {
+    skel.setAttribute("aria-busy", on ? "true" : "false");
+  }
+  const msg = $("sf-tenant-skeleton-msg");
+  if (msg && on) {
+    const name =
+      profileName ||
+      customerSiteTitle(loadTenantProfile()?.displayName || "");
+    msg.textContent = name
+      ? `${name}の安心ステータスを確認中...`
+      : "安心ステータスを確認中...";
+  }
+}
+
+function revealTenantUi() {
+  document.body.classList.remove("is-resolving-tenant");
+  const skel = $("sf-tenant-skeleton");
+  if (skel) skel.setAttribute("aria-busy", "false");
+  markSecurityUiReady();
+}
+
 async function initTenantSecurity() {
   if (!requireCustomerSession()) return false;
   if (!isLoggedIn()) return false;
@@ -752,23 +770,30 @@ async function initTenantSecurity() {
 }
 
 async function boot() {
+  setTenantResolving(true);
   await forceRefreshOnDeployedCommit();
   await ensureSecurityServiceWorker();
   bind();
   document.body.setAttribute("data-pane", state.pane || "map");
   const tenantOk = await initTenantSecurity();
   if (!tenantOk) return;
+  const profile = loadTenantProfile();
+  setTenantResolving(true, customerSiteTitle(profile?.displayName || ""));
   await loadTenantSites();
   applySiteLayout(true);
   syncCustomerHeaderTitle();
-  if (!isToyoshimaSecuritySite(state.siteId)) {
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    await loadToyoshimaDashboard({ forceHealthSync: true });
+  } else {
     await loadDash();
     await loadCustomerLightDuration();
   }
   startAlarmPolling();
+  revealTenantUi();
 }
 
 boot().catch((err) => {
   bootFallback();
+  revealTenantUi();
   console.warn("[security-customer] boot", err);
 });

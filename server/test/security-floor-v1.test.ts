@@ -622,11 +622,11 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
-    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2519/);
-    assert.match(customerHtml, /security-time-range-v1\.js\?v=2519/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2519/);
-    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2519/);
-    assert.match(customerHtml, /security-floor-light-v1\.js\?v=2519/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2520/);
+    assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2520/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2520/);
+    assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
     assert.doesNotMatch(customerHtml, /擬似発報/);
@@ -653,6 +653,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /sf-log-compact/);
     assert.match(customerHtml, /data-room-id="my-1f-katte"/);
     assert.match(customerHtml, /data-focus="1f"/);
+    assert.match(customerHtml, /is-resolving-tenant|sf-tenant-skeleton/);
+    assert.match(customerHtml, /安心ステータスを確認中/);
     assert.doesNotMatch(customerHtml, /読み込み中/);
     assert.doesNotMatch(customerHtml, /home-quick-switch/);
 
@@ -714,6 +716,8 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /ts-hb-watch/);
     assert.match(toyoshimaJs, /sim_heartbeat|擬似ハートビート送信/);
     assert.match(toyoshimaJs, /refresh_status|最新状態に更新/);
+    assert.match(toyoshimaJs, /forceHealthSync|_fresh|forceSync/);
+    assert.match(toyoshimaJs, /HB_FRESH_MS|isHeartbeatOnlineNow/);
     assert.match(toyoshimaJs, /最新の接続状態を取得しました/);
     assert.match(toyoshimaJs, /activeCustomerPane|restoreActiveCustomerPane/);
     assert.match(toyoshimaJs, /setToyoshimaCustomerPane/);
@@ -740,6 +744,8 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /setToyoshimaCustomerPane\(state\.pane\)/);
     assert.match(customerJs, /__TISLY_SF_SITE_ID/);
     assert.match(customerJs, /sf-status-refresh|refreshCustomerStatus/);
+    assert.match(customerJs, /setTenantResolving|revealTenantUi|is-resolving-tenant/);
+    assert.match(customerJs, /forceHealthSync/);
     assert.match(opJs, /__TISLY_SF_SITE_ID/);
     assert.match(opJs, /sf-status-refresh|refreshOperatorStatus/);
     assert.doesNotMatch(customerJs, /heartbeatWatchEnabled|sf-pro-hb-watch/);

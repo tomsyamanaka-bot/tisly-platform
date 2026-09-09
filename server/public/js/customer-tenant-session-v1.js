@@ -110,7 +110,7 @@ export function loadTenantProfile() {
     /* ignore */
   }
   const code = getCustomerCode();
-  return LOCAL_TENANT_MAP[code] ?? LOCAL_TENANT_MAP.TOSHIMA001 ?? null;
+  return LOCAL_TENANT_MAP[code] || null;
 }
 
 export function resolveSecuritySiteId() {
