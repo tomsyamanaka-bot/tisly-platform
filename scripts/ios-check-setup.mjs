@@ -101,6 +101,18 @@ if (!wf.includes("IOS_DIST_CERT_P12_BASE64")) {
 } else {
   console.log("[ios-check] P12 secret wiring OK");
 }
+if (!wf.includes("IOS_PROVISIONING_PROFILE_BASE64")) {
+  console.error("[ios-check] workflow must require IOS_PROVISIONING_PROFILE_BASE64");
+  failed = true;
+} else {
+  console.log("[ios-check] provisioning profile secret wiring OK");
+}
+if (wf.includes("Prepare keychain for Automatic Signing")) {
+  console.error("[ios-check] workflow keychain step must not target Automatic Signing");
+  failed = true;
+} else {
+  console.log("[ios-check] keychain step is Manual P12 OK");
+}
 if (!wf.includes("authenticationKeyPath") || !wf.includes("authenticationKeyID")) {
   console.error("[ios-check] workflow missing ASC authenticationKey* on xcodebuild");
   failed = true;
@@ -131,8 +143,11 @@ if (/POST["'`]?\s*,\s*["'`]\/v1\/certificates|certificateType:\s*["']IOS_DISTRIB
 } else if (!ascPrep.includes("IOS_DIST_CERT_P12_BASE64")) {
   console.error("[ios-check] ios-asc-prepare-signing.mjs must require IOS_DIST_CERT_P12_BASE64");
   failed = true;
+} else if (!ascPrep.includes("IOS_PROVISIONING_PROFILE_BASE64")) {
+  console.error("[ios-check] ios-asc-prepare-signing.mjs must require IOS_PROVISIONING_PROFILE_BASE64");
+  failed = true;
 } else {
-  console.log("[ios-check] no auto cert create / P12 required OK");
+  console.log("[ios-check] no auto cert create / P12+profile required OK");
 }
 
 const exportTpl = fs.readFileSync(

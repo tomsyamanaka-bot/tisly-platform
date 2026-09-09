@@ -1,11 +1,14 @@
 name: iOS Build & Deploy (Capacitor)
 
-# Capacitor iOS → IPA → App Store Connect / TestFlight（macos-latest）
-# Manual Distribution signing via P12 + existing profile (no ASC cert create)
-# Secrets: APP_STORE_* + IOS_DIST_CERT_P12_BASE64 + IOS_DIST_CERT_PASSWORD
-# Optional: IOS_PROVISIONING_PROFILE_BASE64 / IOS_PROFILE_NAME
-# Variables: APPLE_TEAM_ID（推奨）または APP_TEAM_ID
-# Canonical IPA: ${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa
+# Capacitor iOS → IPA → TestFlight（macos-latest）
+# 手動署名のみ（Automatic / CSR 作成は廃止）
+# 必須 Secrets:
+#   APP_STORE_* /
+#   IOS_DIST_CERT_P12_BASE64 /
+#   IOS_DIST_CERT_PASSWORD /
+#   IOS_PROVISIONING_PROFILE_BASE64
+# Variables: APPLE_TEAM_ID（または APP_TEAM_ID）
+# IPA: ios/App/build/TiSLY.ipa
 # 既存 PWA / VPS / DB は変更しない
 
 on:
@@ -202,12 +205,12 @@ jobs:
           echo "AUTH_KEY_PATH=${KEY_PATH}" >> "$GITHUB_ENV"
           ls -la "$KEY_PATH"
 
-      - name: Prepare keychain for Automatic Signing
+      - name: Prepare keychain for Manual P12 import
         run: |
           set -euo pipefail
-          # Do NOT replace the default keychain with an empty one — that breaks
-          # Automatic Signing / Distribution cert creation (ITMS-90174 root cause).
-          # Keep login + System keychains searchable; unlock login for codesign.
+          # 空キーチェーンで置換しない
+          # （p12 import / codesign が失敗する）
+          # login + System を検索対象に残す
           security list-keychains -d user -s login.keychain-db /Library/Keychains/System.keychain
           security default-keychain -s login.keychain-db
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
@@ -276,15 +279,27 @@ jobs:
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
           mkdir -p "${GITHUB_WORKSPACE}/ios/App/build"
+          # p12 / プロファイル未設定なら即失敗
+          # （ASC 証明書自動作成は行わない）
           if [ -z "${IOS_DIST_CERT_P12_BASE64:-}" ]; then
-            echo "::error::Secret IOS_DIST_CERT_P12_BASE64 が未設定です。証明書の自動作成は無効です。docs/IOS_SECRETS_SETUP.md を参照して Apple Distribution .p12 を登録してください。"
+            echo "::error::Secret IOS_DIST_CERT_P12_BASE64 が未設定です。"
+            echo "証明書の自動作成は無効です。"
+            echo "docs/IOS_SECRETS_SETUP.md を参照し、"
+            echo "Apple Distribution .p12 を登録してください。"
+            exit 1
+          fi
+          if [ -z "${IOS_PROVISIONING_PROFILE_BASE64:-}" ]; then
+            echo "::error::Secret IOS_PROVISIONING_PROFILE_BASE64 が未設定です。"
+            echo "App Store 用 .mobileprovision を"
+            echo "base64 で登録してください。"
+            echo "docs/IOS_SECRETS_SETUP.md を参照。"
             exit 1
           fi
           sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g; s/PROFILE_NAME_PLACEHOLDER/TiSLY/g" \
             ios-ci/ExportOptions.plist > "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist"
           export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST
           export IOS_DIST_CERT_P12_BASE64 IOS_DIST_CERT_PASSWORD IOS_PROVISIONING_PROFILE_BASE64
-          # Optional name override from secret; empty means decode from .mobileprovision
+          # 名前上書きは任意（空ならプロファイルから読取）
           export IOS_PROFILE_NAME="${IOS_PROFILE_NAME:-}"
           node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs" 2>&1 \
             | tee "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log"
