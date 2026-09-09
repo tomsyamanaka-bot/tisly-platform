@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 /**
- * Prepare Apple Distribution cert + App Store profile via ASC API,
- * import into login keychain / MobileDevice profiles for Manual signing.
+ * Import manually provided Apple Distribution .p12 + App Store profile for CI Manual signing.
  *
- * Xcode 26 Automatic Signing on GHA produces unsigned archives
- * ("code object is not signed at all"). CI therefore uses Manual +
- * -allowProvisioningUpdates + ASC API key auth for archive/export.
+ * Does NOT create IOS_DISTRIBUTION certificates via ASC (avoids Invalid Certificate /
+ * Admin / max-3 failures). Certificate private key must come from Secrets.
  *
- * Env:
- *   AUTH_KEY_PATH, APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APPLE_TEAM_ID
- *   IOS_BUNDLE_ID (default jp.tisly.app)
- *   EXPORT_PLIST (path to ExportOptions.plist — rewritten for Manual)
- *   IOS_DIST_CERT_P12_BASE64 / IOS_DIST_CERT_PASSWORD (optional)
+ * Required env:
+ *   IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD
+ *   APPLE_TEAM_ID
+ *   AUTH_KEY_PATH, APP_STORE_KEY_ID, APP_STORE_ISSUER_ID (for optional ASC profile download)
+ *
+ * Profile (one of):
+ *   IOS_PROVISIONING_PROFILE_BASE64  — preferred (.mobileprovision base64)
+ *   or download an existing IOS_APP_STORE profile for IOS_BUNDLE_ID via ASC (no create)
+ *
+ * Optional:
+ *   IOS_PROFILE_NAME — ExportOptions / PROVISIONING_PROFILE_SPECIFIER override
+ *   EXPORT_PLIST — rewrite Manual ExportOptions
+ *   IOS_BUNDLE_ID — default jp.tisly.app
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -25,14 +31,22 @@ const issuerId = process.env.APP_STORE_ISSUER_ID;
 const teamId = process.env.APPLE_TEAM_ID;
 const bundleId = process.env.IOS_BUNDLE_ID || "jp.tisly.app";
 const exportPlist = process.env.EXPORT_PLIST;
+const p12B64 = (process.env.IOS_DIST_CERT_P12_BASE64 || "").replace(/\s/g, "");
+const p12Pass = process.env.IOS_DIST_CERT_PASSWORD || "";
+const profileB64Env = (process.env.IOS_PROVISIONING_PROFILE_BASE64 || "").replace(/\s/g, "");
+const profileNameOverride = (process.env.IOS_PROFILE_NAME || "").trim();
 
 function die(msg) {
   console.error(`::error::${msg}`);
   process.exit(1);
 }
 
-if (!keyPath || !fs.existsSync(keyPath)) die("AUTH_KEY_PATH missing");
-if (!keyId || !issuerId || !teamId) die("APP_STORE_KEY_ID / ISSUER_ID / APPLE_TEAM_ID required");
+if (!teamId) die("APPLE_TEAM_ID required");
+if (!p12B64) {
+  die(
+    "IOS_DIST_CERT_P12_BASE64 is required. CI no longer creates Distribution certificates. Export Apple Distribution .p12 from Keychain Access and set Secrets IOS_DIST_CERT_P12_BASE64 + IOS_DIST_CERT_PASSWORD (see docs/IOS_SECRETS_SETUP.md)."
+  );
+}
 
 function b64url(input) {
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(input);
@@ -44,6 +58,9 @@ function b64url(input) {
 }
 
 function makeJwt() {
+  if (!keyPath || !fs.existsSync(keyPath) || !keyId || !issuerId) {
+    return null;
+  }
   const header = { alg: "ES256", kid: keyId, typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
@@ -63,6 +80,7 @@ function makeJwt() {
 
 async function asc(method, urlPath, body) {
   const token = makeJwt();
+  if (!token) die("ASC API key env missing (AUTH_KEY_PATH / APP_STORE_KEY_ID / APP_STORE_ISSUER_ID)");
   const res = await fetch(`https://api.appstoreconnect.apple.com${urlPath}`, {
     method,
     headers: {
@@ -131,238 +149,143 @@ function findDistIdentity() {
   return /Apple Distribution|iPhone Distribution/.test(out);
 }
 
+function plistBuddyPrint(plistPath, key) {
+  const r = run("/usr/libexec/PlistBuddy", ["-c", `Print ${key}`, plistPath], {
+    allowFail: true,
+  });
+  return (r.stdout || "").trim();
+}
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tisly-asc-"));
-console.log("ASC signing prep in", tmp);
+console.log("Manual signing prep (P12 + existing profile) in", tmp);
 unlockKeychain();
 
 console.log("===== codesigning identities (before) =====");
 findDistIdentity();
 
-let certItem = null;
-let keyPemPath = null;
-const p12B64 = process.env.IOS_DIST_CERT_P12_BASE64 || "";
-const p12PassEnv = process.env.IOS_DIST_CERT_PASSWORD || "";
+// --- Import Distribution .p12 (required; no CSR / no ASC cert create) ---
+console.log("Importing IOS_DIST_CERT_P12_BASE64 into login keychain");
+const p12Path = path.join(tmp, "dist.p12");
+fs.writeFileSync(p12Path, Buffer.from(p12B64, "base64"));
+run("security", [
+  "import",
+  p12Path,
+  "-k",
+  "login.keychain-db",
+  "-P",
+  p12Pass,
+  "-T",
+  "/usr/bin/codesign",
+  "-T",
+  "/usr/bin/security",
+  "-T",
+  "/usr/bin/productbuild",
+]);
+unlockKeychain();
 
-if (p12B64) {
-  console.log("Importing IOS_DIST_CERT_P12_BASE64 into login keychain");
-  const p12Path = path.join(tmp, "provided.p12");
-  fs.writeFileSync(p12Path, Buffer.from(p12B64.replace(/\s/g, ""), "base64"));
-  run("security", [
-    "import",
-    p12Path,
-    "-k",
-    "login.keychain-db",
-    "-P",
-    p12PassEnv,
-    "-T",
-    "/usr/bin/codesign",
-    "-T",
-    "/usr/bin/security",
-  ]);
-  unlockKeychain();
-  const certsAfterP12 = await asc(
-    "GET",
-    "/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=50"
+console.log("===== codesigning identities after P12 import =====");
+if (!findDistIdentity()) {
+  die(
+    "P12 imported but no Apple Distribution identity found. Confirm the .p12 contains an Apple Distribution certificate + private key and IOS_DIST_CERT_PASSWORD is correct."
   );
-  certItem = (certsAfterP12.data || [])[0];
-  if (!certItem) {
-    die(
-      "P12 imported but no IOS_DISTRIBUTION certificate found on App Store Connect for profile creation"
-    );
-  }
+}
+
+// --- Install provisioning profile ---
+let profileBuf = null;
+let profileSource = "";
+
+if (profileB64Env) {
+  console.log("Using IOS_PROVISIONING_PROFILE_BASE64 secret");
+  profileBuf = Buffer.from(profileB64Env, "base64");
+  profileSource = "secret";
 } else {
-  // Always create a CSR-backed Distribution cert so the private key is on this runner.
-  // Reusing an ASC cert without its private key yields unsigned archives.
-  const certs = await asc(
-    "GET",
-    "/v1/certificates?filter[certificateType]=IOS_DISTRIBUTION&limit=50"
-  );
-  const existing = certs.data || [];
-  console.log(`Existing IOS_DISTRIBUTION certs: ${existing.length}`);
-
-  // Free a slot if at Apple's limit (3)
-  if (existing.length >= 3) {
-    console.log("At Distribution cert limit — revoking oldest to free a slot for CI");
-    const sorted = [...existing].sort((a, b) =>
-      String(a.attributes?.expirationDate || "").localeCompare(
-        String(b.attributes?.expirationDate || "")
-      )
+  console.log("No IOS_PROVISIONING_PROFILE_BASE64 — downloading existing App Store profile via ASC");
+  try {
+    const listed = await asc(
+      "GET",
+      "/v1/profiles?filter[profileType]=IOS_APP_STORE&filter[profileState]=ACTIVE&limit=200"
     );
-    const toRevoke = sorted[0];
-    try {
-      await asc("DELETE", `/v1/certificates/${toRevoke.id}`);
-      console.log("Revoked certificate", toRevoke.id);
-    } catch (e) {
-      console.error("Revoke failed", e.body || e.message);
+    const profiles = listed.data || [];
+    console.log(`ASC App Store profiles: ${profiles.length}`);
+
+    // Prefer name match / bundle via relationships when possible
+    let chosen =
+      profiles.find((p) =>
+        String(p.attributes?.name || "")
+          .toLowerCase()
+          .includes("tisly")
+      ) || null;
+
+    if (!chosen) {
+      for (const p of profiles) {
+        try {
+          const detail = await asc(
+            "GET",
+            `/v1/profiles/${p.id}/relationships/bundleId`
+          );
+          const bid = detail?.data?.id;
+          if (!bid) continue;
+          const b = await asc("GET", `/v1/bundleIds/${bid}`);
+          if (b?.data?.attributes?.identifier === bundleId) {
+            chosen = p;
+            break;
+          }
+        } catch {
+          /* continue */
+        }
+      }
+    }
+
+    if (!chosen) chosen = profiles[0] || null;
+    if (!chosen) {
       die(
-        "Cannot create Distribution cert (max 3). Set Secrets IOS_DIST_CERT_P12_BASE64 + IOS_DIST_CERT_PASSWORD, or revoke a cert manually."
+        `No active IOS_APP_STORE profile on ASC for ${bundleId}. Create one in Apple Developer (App Store) for the same Distribution cert as your P12, or set Secret IOS_PROVISIONING_PROFILE_BASE64.`
       );
     }
-  }
 
-  console.log("Creating new IOS_DISTRIBUTION cert via CSR (private key stays on runner)");
-  const { privateKey } = crypto.generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-  });
-  keyPemPath = path.join(tmp, "dist.key");
-  fs.writeFileSync(
-    keyPemPath,
-    privateKey.export({ type: "pkcs8", format: "pem" })
-  );
-  const csrPath = path.join(tmp, "dist.csr");
-  const r = spawnSync(
-    "openssl",
-    [
-      "req",
-      "-new",
-      "-key",
-      keyPemPath,
-      "-out",
-      csrPath,
-      "-subj",
-      "/CN=TiSLY CI Distribution/O=TiSLY/C=JP",
-    ],
-    { encoding: "utf8" }
-  );
-  if (r.status !== 0) die(r.stderr || "openssl csr failed");
-  const csrB64 = Buffer.from(fs.readFileSync(csrPath)).toString("base64");
-  try {
-    const created = await asc("POST", "/v1/certificates", {
-      data: {
-        type: "certificates",
-        attributes: {
-          certificateType: "IOS_DISTRIBUTION",
-          csrContent: csrB64,
-        },
-      },
-    });
-    certItem = created.data;
+    // Re-fetch full profile to ensure profileContent is present
+    const full = await asc("GET", `/v1/profiles/${chosen.id}`);
+    const content = full?.data?.attributes?.profileContent;
+    if (!content) {
+      die("ASC profile missing profileContent");
+    }
+    profileBuf = Buffer.from(content, "base64");
+    profileSource = `asc:${chosen.id}:${full.data.attributes.name}`;
+    console.log("Selected ASC profile", profileSource);
   } catch (e) {
     const detail = JSON.stringify(e.body || e.message || e).slice(0, 1500);
     die(
-      `Failed to create IOS_DISTRIBUTION certificate. Need Admin ASC API key; or set Secrets IOS_DIST_CERT_P12_BASE64 + IOS_DIST_CERT_PASSWORD. Detail: ${detail}`
+      `Failed to download existing App Store profile via ASC. Set Secret IOS_PROVISIONING_PROFILE_BASE64 instead. Detail: ${detail}`
     );
   }
 }
 
-const certContent = certItem.attributes.certificateContent;
-const cerPath = path.join(tmp, "dist.cer");
-fs.writeFileSync(cerPath, Buffer.from(certContent, "base64"));
+const decodedXml = (() => {
+  const p = path.join(tmp, "prov.mobileprovision");
+  fs.writeFileSync(p, profileBuf);
+  const r = run("security", ["cms", "-D", "-i", p], { allowFail: false });
+  return r.stdout;
+})();
 
-run(
-  "security",
-  [
-    "import",
-    cerPath,
-    "-k",
-    "login.keychain-db",
-    "-T",
-    "/usr/bin/codesign",
-    "-T",
-    "/usr/bin/security",
-  ],
-  { allowFail: true }
+const decodedPlist = path.join(tmp, "prov.plist");
+fs.writeFileSync(decodedPlist, decodedXml);
+const profileName =
+  profileNameOverride ||
+  plistBuddyPrint(decodedPlist, ":Name") ||
+  "TiSLY App Store";
+const profileUuid = plistBuddyPrint(decodedPlist, ":UUID");
+if (!profileUuid) die("Could not read UUID from provisioning profile");
+
+const appIdName = plistBuddyPrint(
+  decodedPlist,
+  ":Entitlements:application-identifier"
 );
-
-if (keyPemPath && fs.existsSync(keyPemPath)) {
-  const p12Path = path.join(tmp, "dist.p12");
-  const p12Pass = "tisly-ci";
-  const pemCert = path.join(tmp, "dist.pem");
-  run("openssl", ["x509", "-inform", "DER", "-in", cerPath, "-out", pemCert]);
-  run("openssl", [
-    "pkcs12",
-    "-export",
-    "-inkey",
-    keyPemPath,
-    "-in",
-    pemCert,
-    "-out",
-    p12Path,
-    "-passout",
-    `pass:${p12Pass}`,
-  ]);
-  run("security", [
-    "import",
-    p12Path,
-    "-k",
-    "login.keychain-db",
-    "-P",
-    p12Pass,
-    "-T",
-    "/usr/bin/codesign",
-    "-T",
-    "/usr/bin/security",
-  ]);
-  unlockKeychain();
-}
-
-console.log("===== codesigning identities after cert import =====");
-if (!findDistIdentity()) {
-  die(
-    "No Apple Distribution identity in keychain after ASC prepare — cannot Manual-sign. Provide IOS_DIST_CERT_P12_BASE64 or fix ASC Admin API key."
+console.log("Profile Name=", profileName, "UUID=", profileUuid, "AppID=", appIdName);
+if (appIdName && !appIdName.endsWith(`.${bundleId}`) && !appIdName.includes(bundleId)) {
+  console.warn(
+    `::warning::Profile application-identifier (${appIdName}) may not match bundle ${bundleId}`
   );
 }
-
-// --- Bundle ID ---
-let bundleResource;
-{
-  const q = encodeURIComponent(bundleId);
-  const listed = await asc(
-    "GET",
-    `/v1/bundleIds?filter[identifier]=${q}&limit=5`
-  );
-  bundleResource = (listed.data || [])[0];
-  if (!bundleResource) {
-    console.log("Creating bundle id", bundleId);
-    const created = await asc("POST", "/v1/bundleIds", {
-      data: {
-        type: "bundleIds",
-        attributes: {
-          identifier: bundleId,
-          name: "TiSLY",
-          platform: "IOS",
-        },
-      },
-    });
-    bundleResource = created.data;
-  }
-  console.log(
-    "Bundle ID resource",
-    bundleResource.id,
-    bundleResource.attributes.identifier
-  );
-}
-
-// Always create a fresh App Store profile bound to THIS cert (avoids cert/profile mismatch)
-const profileName = `TiSLY AppStore ${Date.now()}`;
-console.log("Creating IOS_APP_STORE profile", profileName);
-let profile;
-try {
-  const created = await asc("POST", "/v1/profiles", {
-    data: {
-      type: "profiles",
-      attributes: {
-        name: profileName,
-        profileType: "IOS_APP_STORE",
-      },
-      relationships: {
-        bundleId: { data: { type: "bundleIds", id: bundleResource.id } },
-        certificates: {
-          data: [{ type: "certificates", id: certItem.id }],
-        },
-      },
-    },
-  });
-  profile = created.data;
-} catch (e) {
-  const detail = JSON.stringify(e.body || e.message || e).slice(0, 1500);
-  die(`Failed to create IOS_APP_STORE profile. Detail: ${detail}`);
-}
-
-const profileUuid = profile.attributes.uuid;
-const profileB64 = profile.attributes.profileContent;
-const mobileprovision = path.join(tmp, `${profileUuid}.mobileprovision`);
-fs.writeFileSync(mobileprovision, Buffer.from(profileB64, "base64"));
 
 const provDir = path.join(
   os.homedir(),
@@ -370,10 +293,10 @@ const provDir = path.join(
 );
 fs.mkdirSync(provDir, { recursive: true });
 const installed = path.join(provDir, `${profileUuid}.mobileprovision`);
-fs.copyFileSync(mobileprovision, installed);
-console.log("Installed profile", profile.attributes.name, "->", installed);
-
-const finalProfileName = profile.attributes.name;
+fs.writeFileSync(installed, profileBuf);
+// Also keep a copy named for debugging
+fs.writeFileSync(path.join(tmp, `${profileUuid}.mobileprovision`), profileBuf);
+console.log("Installed profile", profileName, "->", installed, "source=", profileSource);
 
 if (exportPlist) {
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
@@ -393,7 +316,7 @@ if (exportPlist) {
 	<key>provisioningProfiles</key>
 	<dict>
 		<key>${bundleId}</key>
-		<string>${finalProfileName}</string>
+		<string>${profileName}</string>
 	</dict>
 	<key>uploadSymbols</key>
 	<true/>
@@ -413,25 +336,26 @@ if (exportPlist) {
 }
 
 const out = {
-  profileName: finalProfileName,
+  profileName,
   profileUuid,
-  certId: certItem.id,
   bundleId,
+  profileSource,
+  mode: "manual_p12",
 };
 fs.writeFileSync(path.join(tmp, "result.json"), JSON.stringify(out, null, 2));
 console.log("ASC_PREPARE_OK", JSON.stringify(out));
-console.log(`PROFILE_NAME=${finalProfileName}`);
+console.log(`PROFILE_NAME=${profileName}`);
 console.log(`PROFILE_UUID=${profileUuid}`);
 
 if (process.env.GITHUB_ENV) {
   fs.appendFileSync(
     process.env.GITHUB_ENV,
-    `IOS_PROFILE_NAME=${finalProfileName}\nIOS_PROFILE_UUID=${profileUuid}\nIOS_SIGNING_STYLE=Manual\n`
+    `IOS_PROFILE_NAME=${profileName}\nIOS_PROFILE_UUID=${profileUuid}\nIOS_SIGNING_STYLE=Manual\n`
   );
 }
 if (process.env.GITHUB_OUTPUT) {
   fs.appendFileSync(
     process.env.GITHUB_OUTPUT,
-    `profile_name=${finalProfileName}\nprofile_uuid=${profileUuid}\n`
+    `profile_name=${profileName}\nprofile_uuid=${profileUuid}\n`
   );
 }

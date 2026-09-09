@@ -1,8 +1,9 @@
 name: iOS Build & Deploy (Capacitor)
 
 # Capacitor iOS → IPA → App Store Connect / TestFlight（macos-latest）
-# Manual Distribution signing + ASC API キー（-allowProvisioningUpdates）
-# Secrets: APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY
+# Manual Distribution signing via P12 + existing profile (no ASC cert create)
+# Secrets: APP_STORE_* + IOS_DIST_CERT_P12_BASE64 + IOS_DIST_CERT_PASSWORD
+# Optional: IOS_PROVISIONING_PROFILE_BASE64 / IOS_PROFILE_NAME
 # Variables: APPLE_TEAM_ID（推奨）または APP_TEAM_ID
 # Canonical IPA: ${GITHUB_WORKSPACE}/ios/App/build/TiSLY.ipa
 # 既存 PWA / VPS / DB は変更しない
@@ -259,7 +260,7 @@ jobs:
           test -f Podfile.lock
           ls -la App.xcworkspace Podfile.lock
 
-      - name: Prepare ASC Distribution cert + App Store profile (required)
+      - name: Import Distribution P12 + App Store profile (manual)
         id: signing
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
@@ -269,28 +270,33 @@ jobs:
           EXPORT_PLIST: ${{ github.workspace }}/ios/App/build/ExportOptions.plist
           IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_PROFILE_NAME: ${{ secrets.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
           mkdir -p "${GITHUB_WORKSPACE}/ios/App/build"
-          # Seed template; ASC prepare rewrites Manual ExportOptions with real profile name
+          if [ -z "${IOS_DIST_CERT_P12_BASE64:-}" ]; then
+            echo "::error::Secret IOS_DIST_CERT_P12_BASE64 が未設定です。証明書の自動作成は無効です。docs/IOS_SECRETS_SETUP.md を参照して Apple Distribution .p12 を登録してください。"
+            exit 1
+          fi
           sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g; s/PROFILE_NAME_PLACEHOLDER/TiSLY/g" \
             ios-ci/ExportOptions.plist > "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist"
           export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST
+          export IOS_DIST_CERT_P12_BASE64 IOS_DIST_CERT_PASSWORD IOS_PROVISIONING_PROFILE_BASE64
+          # Optional name override from secret; empty means decode from .mobileprovision
+          export IOS_PROFILE_NAME="${IOS_PROFILE_NAME:-}"
           node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs" 2>&1 \
             | tee "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log"
-          if [ -z "${IOS_PROFILE_NAME:-}" ]; then
-            IOS_PROFILE_NAME="$(grep -E '^PROFILE_NAME=' "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log" | tail -n 1 | cut -d= -f2-)"
-            echo "IOS_PROFILE_NAME=${IOS_PROFILE_NAME}" >> "$GITHUB_ENV"
-          fi
-          if [ -z "${IOS_PROFILE_UUID:-}" ]; then
-            IOS_PROFILE_UUID="$(grep -E '^PROFILE_UUID=' "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log" | tail -n 1 | cut -d= -f2-)"
-            echo "IOS_PROFILE_UUID=${IOS_PROFILE_UUID}" >> "$GITHUB_ENV"
-          fi
-          test -n "${IOS_PROFILE_NAME:-}"
+          RESOLVED_NAME="$(grep -E '^PROFILE_NAME=' "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log" | tail -n 1 | cut -d= -f2-)"
+          RESOLVED_UUID="$(grep -E '^PROFILE_UUID=' "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log" | tail -n 1 | cut -d= -f2-)"
+          test -n "$RESOLVED_NAME"
+          test -n "$RESOLVED_UUID"
+          echo "IOS_PROFILE_NAME=${RESOLVED_NAME}" >> "$GITHUB_ENV"
+          echo "IOS_PROFILE_UUID=${RESOLVED_UUID}" >> "$GITHUB_ENV"
           /usr/libexec/PlistBuddy -c "Print :signingStyle" "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist" | grep -qi manual
           /usr/libexec/PlistBuddy -c "Print :provisioningProfiles:jp.tisly.app" "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist"
-          echo "Manual signing profile: ${IOS_PROFILE_NAME} uuid=${IOS_PROFILE_UUID:-}"
+          echo "Manual signing profile: ${RESOLVED_NAME} uuid=${RESOLVED_UUID}"
           security find-identity -v -p codesigning | grep -E 'Apple Distribution|iPhone Distribution'
 
       - name: Configure Xcode project (Manual Distribution signing)
