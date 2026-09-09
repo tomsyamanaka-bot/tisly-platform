@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * Prepare Apple Distribution cert + App Store provisioning profile via ASC API,
- * import into login keychain / MobileDevice profiles for xcodebuild -exportArchive.
+ * Best-effort: prepare Apple Distribution cert + App Store profile via ASC API,
+ * import into login keychain / MobileDevice profiles to assist Automatic Signing.
+ *
+ * Primary signing path is xcodebuild Automatic Signing + -allowProvisioningUpdates
+ * with ASC API key auth. This script seeds the keychain so Automatic can succeed
+ * faster; it must NOT force Manual ExportOptions when IOS_KEEP_AUTOMATIC_EXPORT=1.
  *
  * Env:
  *   AUTH_KEY_PATH, APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APPLE_TEAM_ID
  *   IOS_BUNDLE_ID (default jp.tisly.app)
- *   EXPORT_PLIST (path to ExportOptions.plist to rewrite for manual signing)
+ *   EXPORT_PLIST (optional path)
+ *   IOS_KEEP_AUTOMATIC_EXPORT=1 (default for CI Automatic path)
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -98,12 +103,6 @@ function run(cmd, args, opts = {}) {
   return r;
 }
 
-function writePlistBuddy(plist, commands) {
-  for (const c of commands) {
-    run("/usr/libexec/PlistBuddy", ["-c", c, plist], { allowFail: true });
-  }
-}
-
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tisly-asc-"));
 console.log("ASC signing prep in", tmp);
 
@@ -174,7 +173,7 @@ if (p12B64) {
     );
   } else {
     console.log(
-      "Creating new IOS_DISTRIBUTION cert via CSR (required for CI Manual signing)"
+      "Creating new IOS_DISTRIBUTION cert via CSR (seeds keychain for Automatic Signing)"
     );
     const { privateKey } = crypto.generateKeyPairSync("rsa", {
       modulusLength: 2048,
@@ -359,21 +358,41 @@ const installed = path.join(provDir, `${profile.attributes.uuid}.mobileprovision
 fs.copyFileSync(mobileprovision, installed);
 console.log("Installed profile", profileName, "->", installed);
 
+const keepAutomatic =
+  process.env.IOS_FORCE_MANUAL_EXPORT !== "1" &&
+  process.env.IOS_FORCE_MANUAL_EXPORT?.toLowerCase() !== "true";
+
 if (exportPlist && fs.existsSync(exportPlist)) {
-  // Rewrite ExportOptions for manual signing with this profile
-  writePlistBuddy(exportPlist, [
-    "Set :method app-store-connect",
-    "Set :destination export",
-    "Set :signingStyle manual",
-    `Set :teamID ${teamId}`,
-    "Delete :signingCertificate",
-    "Add :signingCertificate string Apple Distribution",
-    "Delete :provisioningProfiles",
-    "Add :provisioningProfiles dict",
-    `Add :provisioningProfiles:${bundleId} string ${profileName}`,
-  ]);
-  // PlistBuddy Add for nested keys can be finicky — write file directly
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+  if (keepAutomatic) {
+    // Keep Automatic Signing ExportOptions — do not inject Manual profiles
+    const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>teamID</key>
+	<string>${teamId}</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>compileBitcode</key>
+	<false/>
+	<key>stripSwiftSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>
+`;
+    fs.writeFileSync(exportPlist, plist);
+    console.log("Wrote Automatic ExportOptions.plist (IOS_KEEP_AUTOMATIC_EXPORT=1)");
+  } else {
+    // Legacy Manual ExportOptions (only when explicitly requested)
+    const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -403,8 +422,9 @@ if (exportPlist && fs.existsSync(exportPlist)) {
 </dict>
 </plist>
 `;
-  fs.writeFileSync(exportPlist, plist);
-  console.log("Wrote manual ExportOptions.plist");
+    fs.writeFileSync(exportPlist, plist);
+    console.log("Wrote manual ExportOptions.plist");
+  }
   run("/usr/bin/plutil", ["-p", exportPlist], { allowFail: true });
 }
 
@@ -420,9 +440,10 @@ console.log(`PROFILE_NAME=${profileName}`);
 
 // Expose to subsequent GitHub Actions steps
 if (process.env.GITHUB_ENV) {
+  const style = keepAutomatic ? "Automatic" : "Manual";
   fs.appendFileSync(
     process.env.GITHUB_ENV,
-    `IOS_PROFILE_NAME=${profileName}\nIOS_SIGNING_STYLE=Manual\n`
+    `IOS_PROFILE_NAME=${profileName}\nIOS_SIGNING_STYLE=${style}\n`
   );
 }
 if (process.env.GITHUB_OUTPUT) {

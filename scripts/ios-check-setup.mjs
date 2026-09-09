@@ -89,11 +89,47 @@ if (/Packaging IPA from archive|ditto -c -k/.test(makeIpa) && !/Payload zip fall
 } else {
   console.log("[ios-check] IPA provisioning checks OK");
 }
+if (!wf.includes("CODE_SIGN_STYLE=Automatic")) {
+  console.error("[ios-check] workflow must use CODE_SIGN_STYLE=Automatic");
+  failed = true;
+} else {
+  console.log("[ios-check] CODE_SIGN_STYLE=Automatic OK");
+}
+if (!wf.includes("authenticationKeyPath") || !wf.includes("authenticationKeyID")) {
+  console.error("[ios-check] workflow missing ASC authenticationKey* on xcodebuild");
+  failed = true;
+} else {
+  console.log("[ios-check] ASC authenticationKey flags OK");
+}
 if (!wf.includes("embedded.mobileprovision")) {
   console.error("[ios-check] workflow must verify embedded.mobileprovision before upload");
   failed = true;
 } else {
   console.log("[ios-check] workflow ITMS-90174 guard OK");
+}
+
+const exportTpl = fs.readFileSync(
+  path.join(root, "ios-ci/ExportOptions.plist"),
+  "utf8"
+);
+if (!exportTpl.includes("<string>automatic</string>")) {
+  console.error("[ios-check] ios-ci/ExportOptions.plist must use signingStyle=automatic");
+  failed = true;
+} else {
+  console.log("[ios-check] ExportOptions automatic OK");
+}
+
+if (!makeIpa.includes("allowProvisioningUpdates") || !makeIpa.includes("authenticationKeyPath")) {
+  console.error("[ios-check] ios-make-ipa.sh must pass -allowProvisioningUpdates + ASC auth to exportArchive");
+  failed = true;
+} else {
+  console.log("[ios-check] exportArchive auth flags OK");
+}
+if (!makeIpa.includes("ensure_automatic_plist")) {
+  console.error("[ios-check] ios-make-ipa.sh must enforce automatic ExportOptions");
+  failed = true;
+} else {
+  console.log("[ios-check] ios-make-ipa.sh Automatic ExportOptions OK");
 }
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));

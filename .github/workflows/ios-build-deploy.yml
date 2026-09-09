@@ -259,7 +259,7 @@ jobs:
           test -f Podfile.lock
           ls -la App.xcworkspace Podfile.lock
 
-      - name: Prepare ASC Distribution cert + App Store profile
+      - name: Prepare ASC cert/profile (best-effort for Automatic Signing)
         id: signing
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
@@ -269,43 +269,45 @@ jobs:
           EXPORT_PLIST: ${{ github.workspace }}/ios/App/build/ExportOptions.plist
           IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_KEEP_AUTOMATIC_EXPORT: "1"
         run: |
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
           mkdir -p "${GITHUB_WORKSPACE}/ios/App/build"
+          # Seed Automatic ExportOptions (ASC prepare must not flip to Manual)
           sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist \
             > "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist"
-          export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST
-          node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs" | tee "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log"
-          # GITHUB_ENV is applied to *next* steps; load profile name for this job env now
-          if [ -z "${IOS_PROFILE_NAME:-}" ]; then
-            IOS_PROFILE_NAME="$(grep -E '^PROFILE_NAME=' "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log" | tail -n 1 | cut -d= -f2-)"
-            echo "IOS_PROFILE_NAME=${IOS_PROFILE_NAME}" >> "$GITHUB_ENV"
+          export AUTH_KEY_PATH APP_STORE_KEY_ID APP_STORE_ISSUER_ID APPLE_TEAM_ID IOS_BUNDLE_ID EXPORT_PLIST IOS_KEEP_AUTOMATIC_EXPORT
+          set +e
+          node "${GITHUB_WORKSPACE}/scripts/ios-asc-prepare-signing.mjs" 2>&1 \
+            | tee "${GITHUB_WORKSPACE}/ios/App/build/asc-prepare.log"
+          PREP=${PIPESTATUS[0]}
+          set -e
+          if [ "$PREP" -ne 0 ]; then
+            echo "::warning::ASC prepare failed (exit=${PREP}) — continuing with Automatic Signing via xcodebuild -allowProvisioningUpdates"
+          else
+            echo "ASC prepare OK (certs/profiles seeded for Automatic Signing)"
           fi
-          test -n "${IOS_PROFILE_NAME:-}"
-          echo "Manual signing profile: ${IOS_PROFILE_NAME}"
+          # Re-enforce automatic ExportOptions after ASC prepare
+          /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Delete :provisioningProfiles" "${GITHUB_WORKSPACE}/ios/App/build/ExportOptions.plist" 2>/dev/null || true
           security find-identity -v -p codesigning || true
 
-      - name: Configure Xcode project (Manual Distribution signing)
+      - name: Configure Xcode project (Automatic Signing)
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
           CURRENT_PROJECT_VERSION: ${{ github.run_number }}
           MARKETING_VERSION: 1.0.${{ github.run_number }}
-          IOS_PROFILE_NAME: ${{ env.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           if [ -z "${APPLE_TEAM_ID:-}" ]; then
             echo "::error::APPLE_TEAM_ID が空です"
             exit 1
           fi
-          if [ -z "${IOS_PROFILE_NAME:-}" ]; then
-            echo "::error::IOS_PROFILE_NAME が空です（ASC prepare を確認）"
-            exit 1
-          fi
-          echo "Using team_len=${#APPLE_TEAM_ID} build=${CURRENT_PROJECT_VERSION} profile=${IOS_PROFILE_NAME}"
-          CODE_SIGN_STYLE=Manual \
-          CODE_SIGN_IDENTITY="Apple Distribution" \
-          PROVISIONING_PROFILE_SPECIFIER="${IOS_PROFILE_NAME}" \
+          echo "Using Automatic Signing team_len=${#APPLE_TEAM_ID} build=${CURRENT_PROJECT_VERSION}"
+          CODE_SIGN_STYLE=Automatic \
           ruby scripts/ios-configure-xcode.rb \
             ios/App/App.xcodeproj \
             jp.tisly.app \
@@ -346,60 +348,37 @@ jobs:
           echo "ipa_path=${APP_DIR}/build/TiSLY.ipa" >> "$GITHUB_OUTPUT"
           echo "Resolved scheme=${SCHEME} ipa=${APP_DIR}/build/TiSLY.ipa"
 
-      - name: Render ExportOptions.plist
+      - name: Render ExportOptions.plist (Automatic)
         env:
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
-          IOS_PROFILE_NAME: ${{ env.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           APP_DIR="${GITHUB_WORKSPACE}/ios/App"
           mkdir -p "${APP_DIR}/build/ipa"
-          # Keep Manual ExportOptions from ASC prepare when present
-          if [ -f "${APP_DIR}/build/ExportOptions.plist" ] && \
-             /usr/libexec/PlistBuddy -c "Print :signingStyle" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null | grep -qi manual; then
-            echo "Keeping Manual ExportOptions from ASC prepare"
-            /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
-          else
-            cat > "${APP_DIR}/build/ExportOptions.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>destination</key>
-            <string>export</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>${APPLE_TEAM_ID}</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>jp.tisly.app</key>
-              <string>${IOS_PROFILE_NAME}</string>
-            </dict>
-            <key>uploadSymbols</key>
-            <true/>
-            <key>compileBitcode</key>
-            <false/>
-            <key>manageAppVersionAndBuildNumber</key>
-            <false/>
-          </dict>
-          </plist>
-          EOF
-          fi
-          echo "===== ExportOptions ====="
+          sed "s/TEAM_ID_PLACEHOLDER/${APPLE_TEAM_ID}/g" ios-ci/ExportOptions.plist \
+            > "${APP_DIR}/build/ExportOptions.plist"
+          # Enforce Automatic Signing + local IPA export (ITMS-90174 対策)
+          /usr/libexec/PlistBuddy -c "Set :destination export" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :destination string export" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Set :method app-store" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :method string app-store" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Delete :provisioningProfiles" "${APP_DIR}/build/ExportOptions.plist" 2>/dev/null || true
+          echo "===== ExportOptions (must be automatic + app-store + teamID) ====="
           plutil -p "${APP_DIR}/build/ExportOptions.plist"
+          grep -q "${APPLE_TEAM_ID}" "${APP_DIR}/build/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Print :signingStyle" "${APP_DIR}/build/ExportOptions.plist" | grep -qi automatic
 
-      - name: Archive (xcodebuild)
+      - name: Archive (xcodebuild Automatic Signing)
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ steps.cfg.outputs.team_id }}
           XCODE_SCHEME: ${{ steps.xcode.outputs.scheme }}
-          IOS_PROFILE_NAME: ${{ env.IOS_PROFILE_NAME }}
         run: |
           set -euo pipefail
           security unlock-keychain -p "" login.keychain-db 2>/dev/null || true
@@ -414,11 +393,15 @@ jobs:
           mkdir -p "${APP_DIR}/build/ipa"
           cd "$APP_DIR"
 
-          if [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${XCODE_SCHEME:-}" ] || [ -z "${AUTH_KEY_PATH:-}" ] || [ -z "${IOS_PROFILE_NAME:-}" ]; then
-            echo "::error::missing APPLE_TEAM_ID / XCODE_SCHEME / AUTH_KEY_PATH / IOS_PROFILE_NAME"
+          if [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${XCODE_SCHEME:-}" ] || [ -z "${AUTH_KEY_PATH:-}" ]; then
+            echo "::error::missing APPLE_TEAM_ID / XCODE_SCHEME / AUTH_KEY_PATH"
             exit 1
           fi
-          echo "scheme=${XCODE_SCHEME} archivePath=${ARCHIVE_PATH} profile=${IOS_PROFILE_NAME} team_len=${#APPLE_TEAM_ID}"
+          if [ -z "${APP_STORE_KEY_ID:-}" ] || [ -z "${APP_STORE_ISSUER_ID:-}" ]; then
+            echo "::error::missing APP_STORE_KEY_ID / APP_STORE_ISSUER_ID for Automatic Signing"
+            exit 1
+          fi
+          echo "scheme=${XCODE_SCHEME} archivePath=${ARCHIVE_PATH} style=Automatic team_len=${#APPLE_TEAM_ID}"
           test -d "$WS"
           test -f "$AUTH_KEY_PATH"
           security find-identity -v -p codesigning || true
@@ -437,9 +420,7 @@ jobs:
             -authenticationKeyID "$APP_STORE_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="${IOS_PROFILE_NAME}" \
+            CODE_SIGN_STYLE=Automatic \
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
             PRODUCT_BUNDLE_IDENTIFIER=jp.tisly.app \
@@ -456,7 +437,7 @@ jobs:
 
           if [ "$STATUS" -ne 0 ]; then
             echo "::error::archive failed exit=${STATUS}"
-            grep -E 'error:|ARCHIVE FAILED|Provisioning|Signing|Code Sign|SKIP_INSTALL' "$LOG" | tail -n 120 || true
+            grep -E 'error:|ARCHIVE FAILED|Provisioning|Signing|Code Sign|SKIP_INSTALL|authentication|Team' "$LOG" | tail -n 120 || true
             exit "$STATUS"
           fi
           test -d "$ARCHIVE_PATH"
@@ -472,7 +453,7 @@ jobs:
           echo "App: $APP_IN_ARCHIVE"
           codesign -dv --verbose=2 "$APP_IN_ARCHIVE" 2>&1 | tee "${APP_DIR}/build/archive-codesign.log" || true
           if [ ! -f "${APP_IN_ARCHIVE}/embedded.mobileprovision" ]; then
-            echo "::error::アーカイブ .app に embedded.mobileprovision がありません — Automatic Signing が効いていません"
+            echo "::error::アーカイブ .app に embedded.mobileprovision がありません — Automatic Signing / -allowProvisioningUpdates が効いていません"
             exit 1
           fi
           # ApplicationProperties.SigningIdentity must exist for exportArchive methods to appear

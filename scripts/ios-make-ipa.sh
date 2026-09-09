@@ -3,6 +3,7 @@
 # Payload-zip fallback is DISABLED — it omits embedded.mobileprovision (ITMS-90174).
 # Usage: ios-make-ipa.sh <ios/App dir>
 # Requires env: AUTH_KEY_PATH, APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APPLE_TEAM_ID
+# Always uses Automatic Signing (signingStyle=automatic) + -allowProvisioningUpdates.
 set -euo pipefail
 
 APP_DIR="${1:?ios/App dir required}"
@@ -55,13 +56,19 @@ if [ -z "$APP_IN_ARCHIVE" ]; then
   exit 1
 fi
 echo "Found app: $APP_IN_ARCHIVE"
-ls -la "${APP_IN_ARCHIVE}/embedded.mobileprovision" 2>/dev/null || echo "archive .app has no embedded.mobileprovision yet"
+if [ ! -f "${APP_IN_ARCHIVE}/embedded.mobileprovision" ]; then
+  echo "::error::archive .app に embedded.mobileprovision がありません — export しても ITMS-90174 になります"
+  exit 1
+fi
+ls -la "${APP_IN_ARCHIVE}/embedded.mobileprovision"
 
-ensure_plist_base() {
+ensure_automatic_plist() {
   /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "$EXPORT_PLIST" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "$EXPORT_PLIST"
   /usr/libexec/PlistBuddy -c "Set :teamID ${APPLE_TEAM_ID}" "$EXPORT_PLIST" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :teamID string ${APPLE_TEAM_ID}" "$EXPORT_PLIST"
+  /usr/libexec/PlistBuddy -c "Set :method app-store" "$EXPORT_PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :method string app-store" "$EXPORT_PLIST"
   /usr/libexec/PlistBuddy -c "Delete :signingCertificate" "$EXPORT_PLIST" 2>/dev/null || true
   /usr/libexec/PlistBuddy -c "Delete :provisioningProfiles" "$EXPORT_PLIST" 2>/dev/null || true
 }
@@ -69,8 +76,8 @@ ensure_plist_base() {
 run_export() {
   local method="$1"
   local destination="$2"
-  echo "===== exportArchive method=${method} destination=${destination} =====" | tee -a "$LOG"
-  ensure_plist_base
+  echo "===== exportArchive method=${method} destination=${destination} signingStyle=automatic =====" | tee -a "$LOG"
+  ensure_automatic_plist
   /usr/libexec/PlistBuddy -c "Set :method ${method}" "$EXPORT_PLIST" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :method string ${method}" "$EXPORT_PLIST"
   /usr/libexec/PlistBuddy -c "Set :destination ${destination}" "$EXPORT_PLIST" 2>/dev/null \
@@ -98,45 +105,18 @@ run_export() {
 
 EXPORT_OK=0
 
-# 0) If ASC prepare already wrote manual ExportOptions, try it first (do not overwrite)
-if /usr/libexec/PlistBuddy -c "Print :signingStyle" "$EXPORT_PLIST" 2>/dev/null | grep -qi manual; then
-  echo "===== exportArchive using pre-prepared manual ExportOptions =====" | tee -a "$LOG"
-  plutil -p "$EXPORT_PLIST" | tee -a "$LOG"
-  rm -rf "$EXPORT_DIR"
-  mkdir -p "$EXPORT_DIR"
-  set +e
-  xcodebuild \
-    -exportArchive \
-    -archivePath "$ARCHIVE_PATH" \
-    -exportPath "$EXPORT_DIR" \
-    -exportOptionsPlist "$EXPORT_PLIST" \
-    -allowProvisioningUpdates \
-    -allowProvisioningDeviceRegistration \
-    -authenticationKeyPath "$AUTH_KEY_PATH" \
-    -authenticationKeyID "$APP_STORE_KEY_ID" \
-    -authenticationKeyIssuerID "$APP_STORE_ISSUER_ID" \
-    2>&1 | tee -a "$LOG"
-  st=${PIPESTATUS[0]}
-  set -e
-  if [ "$st" -eq 0 ]; then
-    EXPORT_OK=1
-  fi
-fi
-
-# 1) Prefer local IPA with embedded provisioning (required for ITMS-90174-safe upload)
+# Prefer local IPA with embedded provisioning (required for ITMS-90174-safe upload)
 # NOTE: use method "app-store" only — "app-store-connect" yields
-#   exportOptionsPlist error for key "method" expected one {} 
+#   exportOptionsPlist error for key "method" expected one {}
 # when the archive has no distributable methods / on some Xcode versions.
-if [ "$EXPORT_OK" -ne 1 ]; then
-  for METHOD in app-store; do
-    if run_export "$METHOD" "export"; then
-      EXPORT_OK=1
-      break
-    fi
-  done
-fi
+for METHOD in app-store; do
+  if run_export "$METHOD" "export"; then
+    EXPORT_OK=1
+    break
+  fi
+done
 
-# 2) Fallback: Xcode uploads archive to ASC directly (still signs with Distribution profile)
+# Fallback: Xcode uploads archive to ASC directly (still signs with Distribution profile)
 if [ "$EXPORT_OK" -ne 1 ]; then
   echo "Local export failed — trying destination=upload (ASC direct)" | tee -a "$LOG"
   for METHOD in app-store; do
@@ -201,4 +181,4 @@ echo "embedded.mobileprovision OK ($(wc -c < "$PROV" | tr -d ' ') bytes)"
 security cms -D -i "$PROV" 2>/dev/null | plutil -extract Name raw -o - - 2>/dev/null || true
 codesign -dv --verbose=2 "$APP_IN_IPA" 2>&1 | tee "${APP_DIR}/build/codesign-verify.log" | head -n 40 || true
 ls -lh "$OUT_IPA"
-echo "OK signed IPA $OUT_IPA with embedded.mobileprovision"
+echo "OK signed IPA $OUT_IPA with embedded.mobileprovision (Automatic Signing)"
