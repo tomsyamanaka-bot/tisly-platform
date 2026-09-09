@@ -1969,3 +1969,40 @@ export const MOCK_PWA_TENANT_SKELETON_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const HB_RETRY_SHELLY_LOCK_KNOWLEDGE_TITLES = [
+  "【フェイルセーフ】実機MicroPython通信例外自己復旧 ＆ Shelly自動再起動クールダウンロック仕様",
+] as const;
+
+const HB_RETRY_SHELLY_LOCK_CREATED_AT = "2026-09-09T09:00:00.000Z";
+
+/** 実機 HB 例外自己復旧＆Shelly 30分ロック（末尾追記） */
+export const MOCK_HB_RETRY_SHELLY_LOCK_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-hb-retry-shelly-lock-001",
+    title:
+      "【フェイルセーフ】実機MicroPython通信例外自己復旧 ＆ Shelly自動再起動クールダウンロック仕様",
+    summary: [
+      "ネットワーク瞬断時におけるマイコン側ハートビートループの",
+      "非停止例外処理と、サーバー側リブート発火後の30分インターロック",
+      "による電源再投入ループ防止アーキテクチャ。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#死活監視",
+      "#例外処理",
+      "#ShellyGen3",
+      "#再起動ガード",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: HB_RETRY_SHELLY_LOCK_CREATED_AT,
+    body: [
+      "【実機 HB】",
+      "HTTP失敗時は 10 秒待機し最大 3 回再試行。",
+      "",
+      "【Shelly ロック】",
+      "キック直後は最低 30 分追加リブート禁止。",
+    ].join("\n"),
+  },
+];

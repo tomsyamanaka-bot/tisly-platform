@@ -35,6 +35,10 @@ DEFAULT_LIGHT_START = "18:00"
 DEFAULT_LIGHT_END = "06:00"
 # 5 分 heartbeat — VPS と同期
 HEARTBEAT_INTERVAL_SEC = 300
+# HTTP失敗時の再試行（最大3回）
+HEARTBEAT_RETRY_MAX = 3
+# 再試行の間隔（秒）
+HEARTBEAT_RETRY_WAIT_SEC = 10
 # 物理 WDT タイムアウト（ms）
 WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
@@ -382,11 +386,16 @@ def send_toyoshima_heartbeat(http_post, building, site_id=None, device_id=None):
     """
     POST /api/home/v1/toyoshima/heartbeat
     http_post: callable(path, payload) -> (body, status)
+    HTTP例外でも False を返し、呼び出し元を落とさない。
     """
     path = API_TOYOSHIMA_BASE + "/heartbeat"
-    payload = build_heartbeat_payload(building, site_id, device_id)
-    _body, status = http_post(path, payload)
-    return status == 200
+    try:
+        payload = build_heartbeat_payload(building, site_id, device_id)
+        _body, status = http_post(path, payload)
+        return status == 200
+    except Exception as exc:
+        print("[豊島邸 security] heartbeat http err:", exc)
+        return False
 
 
 def send_toyoshima_event(http_post, building, di, message, site_id=None, device_id=None):
@@ -408,6 +417,103 @@ def send_toyoshima_event(http_post, building, di, message, site_id=None, device_
     return status == 200
 
 
+def _sleep_heartbeat_retry(kick_wdt=None):
+    """
+    再試行前に 10 秒待つ。
+    WDT がある場合は 1 秒ごとにキックして
+    8 秒タイムアウトでの誤リブートを防ぐ。
+    """
+    remaining = HEARTBEAT_RETRY_WAIT_SEC
+    while remaining > 0:
+        if kick_wdt:
+            try:
+                kick_wdt()
+            except Exception:
+                pass
+        chunk = 1 if remaining >= 1 else remaining
+        time.sleep(chunk)
+        remaining -= chunk
+
+
+def send_heartbeat_with_retry(send_fn, building=None, kick_wdt=None):
+    """
+    HTTP失敗時は 10 秒待って最大 3 回再試行。
+    例外でもプロセスを落とさない。
+    3 回失敗したら False を返し、
+    呼び出し側は次の 5 分周期まで待つ。
+    """
+    last_exc = None
+    for attempt in range(1, HEARTBEAT_RETRY_MAX + 1):
+        try:
+            if building is None:
+                ok = bool(send_fn())
+            else:
+                ok = bool(send_fn(building))
+            if ok:
+                return True
+        except Exception as exc:
+            last_exc = exc
+            print(
+                "[豊島邸 security] heartbeat err try {}: {}".format(
+                    attempt, exc
+                )
+            )
+        if attempt < HEARTBEAT_RETRY_MAX:
+            print(
+                "[豊島邸 security] retry wait {}s ({}/{})".format(
+                    HEARTBEAT_RETRY_WAIT_SEC,
+                    attempt,
+                    HEARTBEAT_RETRY_MAX,
+                )
+            )
+            _sleep_heartbeat_retry(kick_wdt)
+    if last_exc is not None:
+        print(
+            "[豊島邸 security] give up until next 5min:",
+            last_exc,
+        )
+    else:
+        print("[豊島邸 security] give up until next 5min")
+    return False
+
+
+async def send_heartbeat_with_retry_async(send_fn, building="main"):
+    """
+    async 版。失敗時は 10 秒待って最大 3 回。
+    全滅しても例外は外へ出さない。
+    """
+    last_exc = None
+    for attempt in range(1, HEARTBEAT_RETRY_MAX + 1):
+        try:
+            ok = bool(send_fn(building))
+            if ok:
+                return True
+        except Exception as exc:
+            last_exc = exc
+            print(
+                "[豊島邸 security] heartbeat err try {}: {}".format(
+                    attempt, exc
+                )
+            )
+        if attempt < HEARTBEAT_RETRY_MAX:
+            print(
+                "[豊島邸 security] retry wait {}s ({}/{})".format(
+                    HEARTBEAT_RETRY_WAIT_SEC,
+                    attempt,
+                    HEARTBEAT_RETRY_MAX,
+                )
+            )
+            await asyncio.sleep(HEARTBEAT_RETRY_WAIT_SEC)
+    if last_exc is not None:
+        print(
+            "[豊島邸 security] give up until next 5min:",
+            last_exc,
+        )
+    else:
+        print("[豊島邸 security] give up until next 5min")
+    return False
+
+
 def run_boot_heartbeat_once(send_heartbeat, building="main"):
     """
     電源投入・USB 再接続直後の 0 秒 heartbeat。
@@ -425,6 +531,8 @@ async def heartbeat_loop(send_heartbeat, building="main"):
     """
     RP2350 メインループから起動する 5 分周期 heartbeat。
     起動直後 0 秒で 1 発送信し、以降は HEARTBEAT_INTERVAL_SEC。
+    HTTP失敗は 10 秒×最大 3 回再試行し、
+    全滅しても次の 5 分まで安全にスリープする。
 
     send_heartbeat: callable(building) -> bool
     """
@@ -433,9 +541,11 @@ async def heartbeat_loop(send_heartbeat, building="main"):
     while True:
         await asyncio.sleep(HEARTBEAT_INTERVAL_SEC)
         try:
-            send_heartbeat(building)
+            await send_heartbeat_with_retry_async(
+                send_heartbeat, building
+            )
         except Exception as exc:
-            print("[豊島邸 security] heartbeat err:", exc)
+            print("[豊島邸 security] heartbeat loop err:", exc)
 
 
 # ── 物理ウォッチドッグ（WDT） ──

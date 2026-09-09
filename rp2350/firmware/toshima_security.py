@@ -15,6 +15,8 @@ from toyoshima_security import (  # noqa: F401
     kick_watchdog,
     read_board_temperature_c,
     run_boot_heartbeat_once,
+    send_heartbeat_with_retry,
+    send_heartbeat_with_retry_async,
     send_toyoshima_event,
     send_toyoshima_heartbeat,
 )

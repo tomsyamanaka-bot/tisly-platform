@@ -8,10 +8,15 @@
 
 import { getDatabase } from "../db/database.js";
 import { shellyToggle } from "../device/shelly-real-client.js";
+import {
+  TISLY_SHELLY_AUTO_REBOOT_LOCK_MS_V1,
+} from "./home-heartbeat-standard-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 
 /** 自動再起動クールダウン既定（分）· 無限再起動防止 */
 export const SHELLY_FAILSAFE_COOLDOWN_MIN_V1 = 30;
+/** 自動キック直後の最低ロック（分） */
+export const SHELLY_AUTO_REBOOT_LOCK_MIN_V1 = 30;
 /** OFF→ON 間隔（秒） */
 export const SHELLY_FAILSAFE_OFF_SEC_V1 = 5;
 /** 同一途絶期間の最大自動キック回数 */
@@ -207,12 +212,42 @@ export function resolveShellyFailsafeBaseUrlV1(
   return `http://${host.replace(/\/$/, "")}`;
 }
 
-function isInCooldownV1(cfg: HomeShellyFailsafeConfigV1): boolean {
+function isInCooldownV1(
+  cfg: HomeShellyFailsafeConfigV1,
+  nowMs: number = Date.now()
+): boolean {
   if (!cfg.lastAutoRebootAt) return false;
   const last = Date.parse(cfg.lastAutoRebootAt);
   if (!Number.isFinite(last)) return false;
-  const coolMs = cfg.cooldownMinutes * 60_000;
-  return Date.now() - last < coolMs;
+  const coolMs = shellyAutoRebootLockMsV1(cfg.cooldownMinutes);
+  return nowMs - last < coolMs;
+}
+
+/** 設定値に関わらず最低 30 分のロック分数 */
+export function shellyAutoRebootLockMinutesV1(
+  cooldownMinutes?: number
+): number {
+  const cfgMin = Number(cooldownMinutes);
+  const minutes = Number.isFinite(cfgMin)
+    ? Math.max(SHELLY_AUTO_REBOOT_LOCK_MIN_V1, Math.round(cfgMin))
+    : SHELLY_AUTO_REBOOT_LOCK_MIN_V1;
+  return minutes;
+}
+
+/** 自動キック後の実効ロック時間（ms） */
+export function shellyAutoRebootLockMsV1(
+  cooldownMinutes?: number
+): number {
+  const fromMin = shellyAutoRebootLockMinutesV1(cooldownMinutes) * 60_000;
+  return Math.max(TISLY_SHELLY_AUTO_REBOOT_LOCK_MS_V1, fromMin);
+}
+
+/** 自動キックがロック中か（テスト／watchdog 用） */
+export function isShellyAutoRebootLockedV1(
+  cfg: HomeShellyFailsafeConfigV1,
+  nowMs: number = Date.now()
+): boolean {
+  return isInCooldownV1(cfg, nowMs);
 }
 
 export interface ShellyColdCycleResultV1 {
@@ -257,6 +292,14 @@ export async function runShellyColdPowerCycleFromConfigV1(input: {
   const message = ok
     ? "Shelly電源制御：5秒OFF後に再投入しました"
     : "Shelly電源制御の一部が失敗しました";
+
+  // キック直後は最低30分ロック
+  // （手動・自動とも追加キックを遮断）
+  if (siteId) {
+    updateHomeShellyFailsafeV1(siteId, {
+      lastAutoRebootAt: nowIso(),
+    });
+  }
 
   recordSystemLogV1({
     siteId,
@@ -312,9 +355,10 @@ export async function maybeTriggerShellyAutoRebootV1(input: {
     };
   }
   if (isInCooldownV1(cfg)) {
+    const lockMin = shellyAutoRebootLockMinutesV1(cfg.cooldownMinutes);
     return {
       triggered: false,
-      skippedReason: `クールダウン中（${cfg.cooldownMinutes}分）`,
+      skippedReason: `クールダウン中（最低${lockMin}分ロック）`,
       config: cfg,
     };
   }

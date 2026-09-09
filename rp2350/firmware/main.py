@@ -29,6 +29,11 @@ from machine import Pin
 import config
 from security_light import SecurityLightController
 
+try:
+    from toyoshima_security import send_heartbeat_with_retry
+except ImportError:
+    send_heartbeat_with_retry = None
+
 # VPS 手動防犯ライト命令（security_light.py と同期）
 SECURITY_LIGHT_COMMANDS = (
     "light_24v_on",
@@ -537,6 +542,20 @@ def handle_security_di_edges(edges):
 
 def send_heartbeat():
 
+    try:
+
+        return _send_heartbeat_once()
+
+    except Exception as e:
+
+        log_error("heartbeat exception: {}".format(e))
+
+        return False
+
+
+
+def _send_heartbeat_once():
+
     path = "/api/remote-test/heartbeat"
 
     payload = {
@@ -847,7 +866,13 @@ async def exec_command(cmd):
 
         if handled:
 
-            send_heartbeat()
+            try:
+
+                send_heartbeat()
+
+            except Exception as e:
+
+                log_error("heartbeat exception: {}".format(e))
 
             return
 
@@ -901,7 +926,13 @@ async def exec_command(cmd):
 
             )
 
-        send_heartbeat()
+        try:
+
+            send_heartbeat()
+
+        except Exception as e:
+
+            log_error("heartbeat exception: {}".format(e))
 
         return
 
@@ -1026,7 +1057,13 @@ async def async_main():
 
     log("boot heartbeat (0 sec) — before poll loop")
 
-    send_heartbeat()
+    try:
+
+        send_heartbeat()
+
+    except Exception as e:
+
+        log_error("boot heartbeat exception: {}".format(e))
 
     next_heartbeat_ms = time.ticks_add(
 
@@ -1065,7 +1102,13 @@ async def async_main():
 
         if changed:
 
-            send_heartbeat()
+            try:
+
+                send_heartbeat()
+
+            except Exception as e:
+
+                log_error("heartbeat exception: {}".format(e))
 
 
 
@@ -1073,9 +1116,23 @@ async def async_main():
 
         if time.ticks_diff(now, next_heartbeat_ms) >= 0:
 
-            if send_heartbeat():
+            # 5分周期: 失敗しても次周期まで待つ
 
-                next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
+            try:
+
+                if send_heartbeat_with_retry:
+
+                    send_heartbeat_with_retry(send_heartbeat)
+
+                else:
+
+                    send_heartbeat()
+
+            except Exception as e:
+
+                log_error("heartbeat exception: {}".format(e))
+
+            next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
 
 
 

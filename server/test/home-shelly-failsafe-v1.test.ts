@@ -9,6 +9,8 @@ import {
   maskHomeShellyFailsafeV1,
   maybeTriggerShellyAutoRebootV1,
   resolveShellyFailsafeBaseUrlV1,
+  SHELLY_AUTO_REBOOT_LOCK_MIN_V1,
+  shellyAutoRebootLockMsV1,
   updateHomeShellyFailsafeV1,
 } from "../src/home/home-shelly-failsafe-v1.js";
 import {
@@ -100,6 +102,47 @@ describe("home-shelly-failsafe-v1", () => {
     assert.equal(attempt.triggered, true);
     assert.ok(attempt.result?.ok);
     assert.ok(attempt.config.lastAutoRebootAt);
+
+    const second = await maybeTriggerShellyAutoRebootV1({
+      siteId: SITE,
+      buildingLabel: "主装置",
+    });
+    assert.equal(second.triggered, false);
+    assert.match(second.skippedReason || "", /クールダウン/);
+  });
+
+  it("blocks extra auto reboot for at least 30 minutes after kick", async () => {
+    assert.equal(SHELLY_AUTO_REBOOT_LOCK_MIN_V1, 30);
+    assert.equal(shellyAutoRebootLockMsV1(15), 30 * 60_000);
+    assert.equal(shellyAutoRebootLockMsV1(20), 30 * 60_000);
+
+    const twentyNineMinAgo = new Date(
+      Date.now() - 29 * 60 * 1000
+    ).toISOString();
+    updateHomeShellyFailsafeV1(SITE, {
+      autoRebootEnabled: true,
+      shellyHost: "192.168.10.40",
+      cooldownMinutes: 15,
+      lastAutoRebootAt: twentyNineMinAgo,
+    });
+    const blocked = await maybeTriggerShellyAutoRebootV1({
+      siteId: SITE,
+      buildingLabel: "主装置",
+    });
+    assert.equal(blocked.triggered, false);
+    assert.match(blocked.skippedReason || "", /最低30分/);
+
+    const thirtyOneMinAgo = new Date(
+      Date.now() - 30 * 60 * 1000 - 1000
+    ).toISOString();
+    updateHomeShellyFailsafeV1(SITE, {
+      lastAutoRebootAt: thirtyOneMinAgo,
+    });
+    const allowed = await maybeTriggerShellyAutoRebootV1({
+      siteId: SITE,
+      buildingLabel: "主装置",
+    });
+    assert.equal(allowed.triggered, true);
   });
 
   it("watchdog marks offline at 5m30s without Shelly kick yet", async () => {

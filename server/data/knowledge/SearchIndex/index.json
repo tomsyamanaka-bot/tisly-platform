@@ -1,7 +1,22 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-09T08:46:20.141Z",
+  "updatedAt": "2026-09-09T09:42:36.551Z",
   "entries": [
+    {
+      "id": "OPS-HB-RETRY-SHELLY-LOCK-001",
+      "title": "【フェイルセーフ】実機MicroPython通信例外自己復旧 ＆ Shelly自動再起動クールダウンロック仕様",
+      "category": "IOT関連",
+      "tags": [
+        "#死活監視",
+        "#例外処理",
+        "#ShellyGen3",
+        "#再起動ガード",
+        "#TiSLY_Core"
+      ],
+      "summary": "ネットワーク瞬断時におけるマイコン側ハートビートループの非停止例外処理と、サーバー側リブート発火後の30分インターロックによる電源再投入ループ防止アーキテクチャ。\n\n【実機 HB】\n5分周期ループを try...except で保護。\nHTTP失敗時は 10 秒待機し最大 3 回再試行。\n全滅しても次の 5 分まで安全にスリープ。\n\n【Shelly ロック】\n自動キック直後は最低 30 分追加リブート禁止。\nMCU 起動中の連続電源再投入を防止する。",
+      "updatedAt": "2026-09-09",
+      "sourceType": "manual"
+    },
     {
       "id": "OPS-PWA-TENANT-SKELETON-HB-001",
       "title": "【PWA最適化】マルチテナント初期描画チラつき防止スケルトン ＆ ハートビート強制同期仕様",

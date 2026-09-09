@@ -5,6 +5,7 @@ import {
   TISLY_HEARTBEAT_OFFLINE_MS_V1,
   TISLY_SHELLY_AUTO_REBOOT_MS_V1,
   TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1,
+  TISLY_SHELLY_AUTO_REBOOT_LOCK_MS_V1,
   buildHeartbeatCommLossPushBodyV1,
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
@@ -16,6 +17,7 @@ import {
 } from "../src/home/home-toyoshima-security-v1.js";
 import {
   SHELLY_FAILSAFE_COOLDOWN_MIN_V1,
+  SHELLY_AUTO_REBOOT_LOCK_MIN_V1,
 } from "../src/home/home-shelly-failsafe-v1.js";
 import {
   applyCustomerSiteProfileCloneV1,
@@ -29,7 +31,9 @@ describe("home-heartbeat-standard-v1", () => {
     assert.equal(TISLY_HEARTBEAT_OFFLINE_MS_V1, 330_000);
     assert.equal(TISLY_SHELLY_AUTO_REBOOT_MS_V1, 630_000);
     assert.equal(TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1, 2);
+    assert.equal(TISLY_SHELLY_AUTO_REBOOT_LOCK_MS_V1, 1_800_000);
     assert.equal(SHELLY_FAILSAFE_COOLDOWN_MIN_V1, 30);
+    assert.equal(SHELLY_AUTO_REBOOT_LOCK_MIN_V1, 30);
     assert.equal(
       TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1,
       TISLY_HEARTBEAT_INTERVAL_SEC_V1

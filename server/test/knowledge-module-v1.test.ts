@@ -140,6 +140,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /MOCK_PWA_TENANT_SKELETON_ITEMS/);
     assert.match(mockSrc, /マルチテナント初期描画チラつき防止/);
     assert.match(mockSrc, /#初期描画最適化/);
+    assert.match(mockSrc, /MOCK_HB_RETRY_SHELLY_LOCK_ITEMS/);
+    assert.match(mockSrc, /実機MicroPython通信例外自己復旧/);
+    assert.match(mockSrc, /#再起動ガード/);
   });
 
   it("nav script requires login before loading bundle", () => {

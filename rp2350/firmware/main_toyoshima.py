@@ -35,6 +35,7 @@ from toyoshima_security import (
     init_watchdog,
     kick_watchdog,
     read_board_temperature_c,
+    send_heartbeat_with_retry,
     send_toyoshima_event,
     send_toyoshima_heartbeat,
 )
@@ -386,44 +387,50 @@ def _forward_event(building, di, message):
 def send_heartbeat():
     """起動直後＆5分周期 — 豊島邸 heartbeat API。"""
     global _last_hb_ok
-    building = _building()
-    payload = build_heartbeat_payload(
-        building,
-        site_id=_site_id(),
-        device_id=_device_id(),
-        extra={
-            "firmware": getattr(
-                config, "FIRMWARE_VERSION", "toyoshima"
-            ),
-            "chStates": dict(ch_states),
-            "inputStates": dict(input_states),
-            "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
-            "uptime_sec": _uptime_sec(),
-            "ip": get_ip(),
-        },
-    )
-    temp = payload.get("board_temp")
-    if temp is not None:
-        log("board_temp={:.1f}C".format(temp))
-        if payload.get("overheat"):
-            log("過熱フラグ — {}C超".format(BOARD_TEMP_OVERHEAT_C))
-    log("heartbeat payload keys={}".format(list(payload.keys())))
-    body, status = http_post(
-        "/api/home/v1/toyoshima/heartbeat", payload
-    )
-    if status != 200:
+    try:
+        building = _building()
+        payload = build_heartbeat_payload(
+            building,
+            site_id=_site_id(),
+            device_id=_device_id(),
+            extra={
+                "firmware": getattr(
+                    config, "FIRMWARE_VERSION", "toyoshima"
+                ),
+                "chStates": dict(ch_states),
+                "inputStates": dict(input_states),
+                "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
+                "uptime_sec": _uptime_sec(),
+                "ip": get_ip(),
+            },
+        )
+        temp = payload.get("board_temp")
+        if temp is not None:
+            log("board_temp={:.1f}C".format(temp))
+            if payload.get("overheat"):
+                log("過熱フラグ — {}C超".format(BOARD_TEMP_OVERHEAT_C))
+        log("heartbeat payload keys={}".format(list(payload.keys())))
+        body, status = http_post(
+            "/api/home/v1/toyoshima/heartbeat", payload
+        )
+        if status != 200:
+            _last_hb_ok = False
+            set_rgb_status("error")
+            log_error(
+                "heartbeat HTTP {} — {}".format(
+                    status, (body or "")[:120]
+                )
+            )
+            return False
+        _last_hb_ok = True
+        set_rgb_status("ok")
+        log("heartbeat sent ({}) ONLINE".format(building))
+        return True
+    except Exception as e:
         _last_hb_ok = False
         set_rgb_status("error")
-        log_error(
-            "heartbeat HTTP {} — {}".format(
-                status, (body or "")[:120]
-            )
-        )
+        log_error("heartbeat exception: {}".format(e))
         return False
-    _last_hb_ok = True
-    set_rgb_status("ok")
-    log("heartbeat sent ({}) ONLINE".format(building))
-    return True
 
 
 def ensure_network_or_retry():
@@ -595,7 +602,10 @@ async def async_main():
     kick_watchdog(_wdt)
     log("boot heartbeat (0 sec) — before poll loop")
     if get_ip():
-        send_heartbeat()
+        try:
+            send_heartbeat()
+        except Exception as e:
+            log_error("boot heartbeat exception: {}".format(e))
     else:
         set_rgb_status("error")
 
@@ -636,14 +646,20 @@ async def async_main():
         if time.ticks_diff(now, next_heartbeat_ms) >= 0:
             if not get_ip():
                 ensure_network_or_retry()
-            if send_heartbeat():
-                next_heartbeat_ms = time.ticks_add(
-                    now, heartbeat_interval_ms
+            # 失敗時は 10 秒×最大 3 回。
+            # 全滅しても次の 5 分周期まで待つ。
+            try:
+                send_heartbeat_with_retry(
+                    send_heartbeat,
+                    kick_wdt=lambda: kick_watchdog(_wdt),
                 )
-            else:
-                # 失敗時は数秒後に自動再試行
+            except Exception as e:
+                log_error("heartbeat exception: {}".format(e))
+            if not _last_hb_ok:
                 set_rgb_status("error")
-                next_heartbeat_ms = time.ticks_add(now, 5_000)
+            next_heartbeat_ms = time.ticks_add(
+                now, heartbeat_interval_ms
+            )
         elif _last_hb_ok:
             set_rgb_status("ok")
 

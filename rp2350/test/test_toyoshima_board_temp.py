@@ -15,6 +15,8 @@ def test_identifiers():
     assert ts.SITE_ID == "SEC-JP-TOYOSHIMA-001"
     assert ts.DI_DEBOUNCE_MS == 100
     assert ts.HEARTBEAT_INTERVAL_SEC == 300
+    assert ts.HEARTBEAT_RETRY_MAX == 3
+    assert ts.HEARTBEAT_RETRY_WAIT_SEC == 10
     assert ts.WDT_TIMEOUT_MS == 8000
     assert ts.BOARD_TEMP_OVERHEAT_C == 60.0
 
@@ -105,6 +107,40 @@ def test_init_watchdog_host_returns_none():
     assert wdt is None or hasattr(wdt, "feed")
 
 
+def test_send_heartbeat_with_retry_retries_three_times():
+    calls = {"n": 0}
+
+    def fail(_building=None):
+        calls["n"] += 1
+        raise OSError("timeout")
+
+    with patch.object(ts.time, "sleep"):
+        ok = ts.send_heartbeat_with_retry(fail, "main")
+    assert ok is False
+    assert calls["n"] == 3
+
+
+def test_send_heartbeat_with_retry_stops_on_success():
+    calls = {"n": 0}
+
+    def flaky(_building=None):
+        calls["n"] += 1
+        return calls["n"] >= 2
+
+    with patch.object(ts.time, "sleep"):
+        ok = ts.send_heartbeat_with_retry(flaky, "main")
+    assert ok is True
+    assert calls["n"] == 2
+
+
+def test_send_toyoshima_heartbeat_http_exception_returns_false():
+    def boom(_path, _payload):
+        raise OSError("dns fail")
+
+    ok = ts.send_toyoshima_heartbeat(boom, "main")
+    assert ok is False
+
+
 if __name__ == "__main__":
     test_identifiers()
     test_build_heartbeat_payload_shape()
@@ -115,4 +151,7 @@ if __name__ == "__main__":
     test_main_event_message()
     test_kick_watchdog_none_safe()
     test_init_watchdog_host_returns_none()
+    test_send_heartbeat_with_retry_retries_three_times()
+    test_send_heartbeat_with_retry_stops_on_success()
+    test_send_toyoshima_heartbeat_http_exception_returns_false()
     print("ok")

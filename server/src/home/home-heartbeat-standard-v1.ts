@@ -29,6 +29,15 @@ export const TISLY_SHELLY_AUTO_REBOOT_LABEL_V1 = "10分30秒";
 export const TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1 = 2;
 
 /**
+ * 自動キック直後の最低ロック（ms）
+ * MCU 起動阻害を防ぐため追加キックを 30 分遮断
+ */
+export const TISLY_SHELLY_AUTO_REBOOT_LOCK_MS_V1 = 30 * 60 * 1000;
+
+/** 自動キック最低ロック表示ラベル */
+export const TISLY_SHELLY_AUTO_REBOOT_LOCK_LABEL_V1 = "30分";
+
+/**
  * 途絶 Push タイトル
  * 例: ⚠️ 【緊急】豊島邸：主装置との通信が途絶えました
  */
