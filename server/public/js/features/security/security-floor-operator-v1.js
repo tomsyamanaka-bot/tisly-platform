@@ -37,6 +37,7 @@ import {
   startToyoshimaPolling,
   stopToyoshimaPolling,
 } from "./toyoshima-security-dashboard-v1.js";
+import { fetchToyoshimaStatus } from "./use-toyoshima-status-v1.js";
 import {
   getSelectedPropertyId,
   restoreOperatorPropertyScope,
@@ -768,6 +769,7 @@ async function refreshOperatorStatus(btn) {
   btn.classList.add("is-spinning");
   try {
     if (isToyoshimaSecuritySite(state.siteId)) {
+      await fetchToyoshimaStatus({ force: true });
       await loadToyoshimaDashboard({ forceHealthSync: true });
     } else {
       await loadOperator();

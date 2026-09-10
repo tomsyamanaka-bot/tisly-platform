@@ -125,6 +125,7 @@ import {
   applyToyoshimaManualControlV1,
   buildToyoshimaActivityReportV1,
   buildToyoshimaSecurityDashboardV1,
+  buildToyoshimaStatusSsotV1,
   clearToyoshimaAlarmsV1,
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   isToyoshimaSecuritySiteIdV1,
@@ -1315,6 +1316,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
   homeRouter.get(`${prefix}/dashboard`, (req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     const siteId = String(req.query.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1).trim();
     if (!isToyoshimaSecuritySiteIdV1(siteId)) {
       res.status(404).json({ ok: false, error: "豊島邸サイトではありません" });
@@ -1323,6 +1325,30 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
     res.json({
       ok: true,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),
+      status: buildToyoshimaStatusSsotV1(),
+    });
+  });
+
+  /**
+   * 豊島邸稼働ステータス SSOT
+   * /customer と /app が同じ値を読む
+   */
+  homeRouter.get(`${prefix}/status`, (req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    const siteId = String(
+      req.query.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
+    ).trim();
+    if (!isToyoshimaSecuritySiteIdV1(siteId)) {
+      res.status(404).json({ ok: false, error: "豊島邸サイトではありません" });
+      return;
+    }
+    const status = buildToyoshimaStatusSsotV1();
+    res.json({
+      ok: true,
+      siteId,
+      ...status,
     });
   });
 
@@ -1438,6 +1464,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         lastHeartbeatAt: lastHb,
         lastHeartbeatLabelJst,
         onlineSummary: dashboard.commHealth?.onlineSummary,
+        ssot: buildToyoshimaStatusSsotV1(),
         dashboard,
       });
     } catch (err) {

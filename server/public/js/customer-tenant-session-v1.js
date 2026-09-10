@@ -179,8 +179,12 @@ export async function refreshTenantProfile() {
 export async function fetchSessionHome() {
   const token = getCustomerToken();
   if (!token) return null;
-  const res = await fetch("/api/customer-portal/v1/session-home", {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await fetch("/api/customer-portal/v1/session-home?t=" + Date.now(), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-store",
+      Pragma: "no-cache",
+    },
     cache: "no-store",
   });
   const data = await res.json().catch(() => ({}));

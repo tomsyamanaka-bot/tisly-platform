@@ -50,6 +50,8 @@ export interface CustomerHomeViewV1 {
   monitoringPageUrl: string;
   contactPhone: string;
   contactCompany: string;
+  /** 豊島邸は実機 HB SSOT を重ねる */
+  liveStatusSsot?: boolean;
   notifications?: Array<{
     id: string;
     kind: string;

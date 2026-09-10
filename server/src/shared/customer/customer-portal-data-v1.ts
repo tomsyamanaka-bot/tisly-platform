@@ -31,6 +31,7 @@ import { buildCustomerHomeStateV1 } from "./customer-home-state-v1.js";
 import { buildCustomerMonitoringDetailV1 } from "./customer-monitoring-state-v1.js";
 import { buildCustomerPropertyListItemV1 } from "./customer-property-list-v1.js";
 import type { CustomerSystemStatusKeyV1 } from "./customer-labels-v1.js";
+import { formatCustomerLastCheckedV1 } from "./customer-labels-v1.js";
 import { buildCustomerProjectQuickActionsV1 } from "./customer-project-actions-v1.js";
 import { getPropertyByProjectRefV1 } from "./customer-property-master-v1.js";
 import { getCustomerMasterV1, normalizeCustomerPortalPlanV1 } from "./customer-master-v1.js";
@@ -47,9 +48,32 @@ import {
   normalizeCustomerTenantCodeV1,
   resolveCustomerTenantProfileV1,
 } from "./customer-tenant-profile-v1.js";
+import { buildToyoshimaStatusSsotV1 } from "../../home/home-toyoshima-security-v1.js";
 
 function refFromShareId(shareId: string): string {
   return decodeCustomerShareIdV1(shareId);
+}
+
+function overlayToyoshimaLiveStatusV1(
+  home: CustomerHomeViewV1,
+  customerCode: string
+): CustomerHomeViewV1 {
+  const profile = resolveCustomerTenantProfileV1(customerCode);
+  if (!profile?.useToyoshimaDashboard) return home;
+  const ssot = buildToyoshimaStatusSsotV1();
+  return {
+    ...home,
+    liveStatusSsot: true,
+    systemStatus: ssot.uiOnline ? "normal" : "alert",
+    systemStatusEmoji: ssot.uiOnline ? "🟢" : "🔴",
+    systemStatusLabel: ssot.uiOnline
+      ? "正常稼働中（オンライン）"
+      : "オフライン",
+    systemStatusShort: ssot.uiOnline ? "オンライン" : "オフライン",
+    lastCheckedAt: ssot.lastHeartbeatAt
+      ? formatCustomerLastCheckedV1(ssot.lastHeartbeatAt)
+      : "未受信",
+  };
 }
 
 export function shareIdFromRef(ref: string): string {
@@ -110,19 +134,23 @@ export function buildCustomerSessionHomeV1(
     profile?.homeSiteId ??
     "";
   const shareId = ref ? shareIdFromRef(ref) : "";
-  return buildCustomerHomeStateV1({
-    shareId,
-    propertyName,
-    ref,
-    contact: buildContactFromMasterV1(code),
-    notifications: listCustomerNotificationsForHomeV1(code),
-    enabledModules: getCustomerPortalModulesV1(code),
-    customerCode: code,
-  });
+  return overlayToyoshimaLiveStatusV1(
+    buildCustomerHomeStateV1({
+      shareId,
+      propertyName,
+      ref,
+      contact: buildContactFromMasterV1(code),
+      notifications: listCustomerNotificationsForHomeV1(code),
+      enabledModules: getCustomerPortalModulesV1(code),
+      customerCode: code,
+    }),
+    code
+  );
 }
 
 export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeListViewV1 {
   const code = String(customerCode ?? "").trim().toUpperCase();
+  const profile = resolveCustomerTenantProfileV1(code);
   const masterContact = buildContactFromMasterV1(code);
   const contactSettings = getCustomerContactSettingsV1(code);
   const contactActions = buildCustomerContactActionsV1(masterContact, contactSettings);
@@ -146,7 +174,11 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
         masterContact,
         contactActions
       );
-      return buildCustomerPropertyListItemV1(
+      const toyoshimaSsot =
+        profile?.useToyoshimaDashboard
+          ? buildToyoshimaStatusSsotV1()
+          : null;
+      const item = buildCustomerPropertyListItemV1(
         {
           shareId,
           propertyName,
@@ -161,12 +193,26 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
           statusLabel: sanitizeSharePayloadTextV1(p.status),
           projectPageUrl: buildCustomerProjectUrlV1(shareId),
           homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
-          systemStatusKey: monitoring.systemStatus as CustomerSystemStatusKeyV1,
-          lastCheckedIso: monitoring.lastCheckedIso,
+          systemStatusKey: toyoshimaSsot
+            ? toyoshimaSsot.uiOnline
+              ? "normal"
+              : "alert"
+            : (monitoring.systemStatus as CustomerSystemStatusKeyV1),
+          lastCheckedIso: toyoshimaSsot?.lastHeartbeatAt
+            ? toyoshimaSsot.lastHeartbeatAt
+            : monitoring.lastCheckedIso,
         },
         masterContact,
         contactActions
       );
+      if (!toyoshimaSsot) return item;
+      return {
+        ...item,
+        systemStatusLabel: toyoshimaSsot.uiOnline
+          ? "正常稼働中（オンライン）"
+          : "オフライン",
+        systemStatusEmoji: toyoshimaSsot.uiOnline ? "🟢" : "🔴",
+      };
     }),
     contact: masterContact,
     contactActions,

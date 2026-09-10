@@ -716,6 +716,7 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /ts-hb-watch/);
     assert.match(toyoshimaJs, /sim_heartbeat|擬似ハートビート送信/);
     assert.match(toyoshimaJs, /refresh_status|最新状態に更新/);
+    assert.match(toyoshimaJs, /use-toyoshima-status-v1|fetchToyoshimaStatus/);
     assert.match(toyoshimaJs, /forceHealthSync|_fresh|forceSync/);
     assert.match(toyoshimaJs, /HB_FRESH_MS|isHeartbeatOnlineNow/);
     assert.match(toyoshimaJs, /最新の接続状態を取得しました/);
@@ -754,6 +755,27 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /sf-tenant-fixed|lockSiteSelectorUi/);
     assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
     assert.doesNotMatch(customerJs, /switchCustomerSite/);
+    assert.match(customerJs, /fetchToyoshimaStatus/);
+
+    const statusHookJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/use-toyoshima-status-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(statusHookJs, /useToyoshimaStatus/);
+    assert.match(statusHookJs, /cache:\s*[\"']no-store[\"']/);
+    assert.match(statusHookJs, /qs\.set\([\"']t[\"']/);
+    assert.match(statusHookJs, /\/api\/home\/v1\/toyoshima\/status/);
+    assert.match(statusHookJs, /HB_UI_ONLINE_MS/);
+
+    const customerHomeJs = fs.readFileSync(
+      path.join(publicDir, "js/customer-v1.js"),
+      "utf8"
+    );
+    assert.match(customerHomeJs, /useToyoshimaStatus|fetchToyoshimaStatus/);
+    assert.match(customerHomeJs, /cv-status-refresh|bindLiveStatusRefresh/);
 
     const proJs = fs.readFileSync(
       path.join(

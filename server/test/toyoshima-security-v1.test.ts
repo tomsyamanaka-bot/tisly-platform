@@ -90,10 +90,13 @@ describe("toyoshima-security-v1", () => {
     assert.equal(result.state.do[1].blinking, true);
   });
 
-  it("dashboard exposes comm health, alarm, and notify sensors", () => {
+  it("dashboard exposes comm health, alarm, and notify sensors", async () => {
+    await recordToyoshimaHeartbeatV1({ building: "main" });
+    await recordToyoshimaHeartbeatV1({ building: "detached" });
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.ok(dash.commHealth);
     assert.match(dash.commHealth.onlineSummary, /オンライン/);
+    assert.equal(dash.commHealth.uiOnline, true);
     assert.ok(Array.isArray(dash.notifySensors));
     assert.equal(dash.notifySensors.length, 3);
     assert.equal(dash.alarm.active, false);
@@ -262,5 +265,60 @@ describe("toyoshima-security-v1", () => {
     assert.match(dashWarn.commHealth.onlineSummary, /盤内高温警告/);
     assert.ok(dashWarn.timeline.some((t) => t.kind === "board_overheat"));
     assert.ok(dashWarn.alarm.active);
+  });
+
+  it("status SSOT uses lastHeartbeatAt only and 5min UI window", async () => {
+    const { buildToyoshimaStatusSsotV1 } = await import(
+      "../src/home/home-toyoshima-security-v1.js"
+    );
+    resetToyoshimaSecurityStateForTestV1();
+    const empty = buildToyoshimaStatusSsotV1();
+    assert.equal(empty.ssot, "toyoshima-commHealth");
+    assert.equal(empty.uiOnline, false);
+    assert.match(empty.customerOnline, /オフライン/);
+    assert.equal(empty.lastHeartbeatAt, null);
+
+    await recordToyoshimaHeartbeatV1({ building: "main" });
+    await recordToyoshimaHeartbeatV1({ building: "detached" });
+    const online = buildToyoshimaStatusSsotV1();
+    assert.equal(online.uiOnline, true);
+    assert.match(online.customerOnline, /正常稼働中（オンライン）/);
+    assert.ok(online.lastHeartbeatAt);
+
+    const stale = new Date(Date.now() - 5 * 60 * 1000 - 1000).toISOString();
+    setToyoshimaHeartbeatAtForTestV1("main", stale);
+    setToyoshimaHeartbeatAtForTestV1("detached", stale);
+    const uiOff = buildToyoshimaStatusSsotV1();
+    assert.equal(uiOff.uiOnline, false);
+    assert.match(uiOff.customerOnline, /オフライン/);
+  });
+
+  it("heartbeat store upserts JSON state without wiping other keys", async () => {
+    const {
+      saveToyoshimaHeartbeatStoreV1,
+      loadToyoshimaHeartbeatStoreV1,
+    } = await import("../src/home/home-toyoshima-heartbeat-store-v1.js");
+    const at = new Date().toISOString();
+    saveToyoshimaHeartbeatStoreV1({
+      siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      main: {
+        lastHeartbeatAt: at,
+        lastCommAt: at,
+        boardTempC: 36.1,
+      },
+      detached: {
+        lastHeartbeatAt: at,
+        lastCommAt: at,
+        boardTempC: null,
+      },
+      updatedAt: at,
+    });
+    const loaded = loadToyoshimaHeartbeatStoreV1(
+      HOME_JP_TOYOSHIMA_SITE_ID_V1
+    );
+    assert.ok(loaded);
+    assert.equal(loaded.main.lastHeartbeatAt, at);
+    assert.equal(loaded.main.boardTempC, 36.1);
+    assert.equal(loaded.detached.lastHeartbeatAt, at);
   });
 });

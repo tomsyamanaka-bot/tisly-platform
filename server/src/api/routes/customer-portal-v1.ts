@@ -53,6 +53,8 @@ customerPortalV1Router.get(
   "/session-home",
   requireAuth("viewer"),
   (req: AuthedRequest, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     const code = String(req.admin?.customerCode ?? "").trim().toUpperCase();
     if (!code) {
       res.status(401).json({ status: "error", error: "ログインが必要です" });

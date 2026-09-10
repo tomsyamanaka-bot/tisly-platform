@@ -17,6 +17,15 @@ export const TISLY_HEARTBEAT_OFFLINE_MS_V1 = 5 * 60 * 1000 + 30 * 1000;
 export const TISLY_HEARTBEAT_OFFLINE_LABEL_V1 = "5分30秒";
 
 /**
+ * PWA 表示のオンライン判定（ms）
+ * 直近 5 分以内の HB のみ 🟢
+ */
+export const TISLY_HEARTBEAT_UI_ONLINE_MS_V1 = 5 * 60 * 1000;
+
+/** UI 表示用ラベル */
+export const TISLY_HEARTBEAT_UI_ONLINE_LABEL_V1 = "5分";
+
+/**
  * Shelly 自動コールドリブートしきい値（ms）
  * 2 回連続未受信（10 分）+ 30 秒揺らぎ = 10 分 30 秒
  */

@@ -11,12 +11,17 @@ import { sendWebPush } from "../notification/channels/web-push.js";
 import {
   TISLY_HEARTBEAT_INTERVAL_SEC_V1,
   TISLY_HEARTBEAT_OFFLINE_MS_V1,
+  TISLY_HEARTBEAT_UI_ONLINE_MS_V1,
   TISLY_SHELLY_AUTO_REBOOT_MS_V1,
   TISLY_SHELLY_AUTO_REBOOT_MAX_RETRIES_V1,
   buildHeartbeatCommLossPushBodyV1,
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
+import {
+  loadToyoshimaHeartbeatStoreV1,
+  saveToyoshimaHeartbeatStoreV1,
+} from "./home-toyoshima-heartbeat-store-v1.js";
 import {
   buildHomeSecurityFirmwareRulesV1,
   getHomeSecurityRulesV1,
@@ -77,6 +82,10 @@ export const TOYOSHIMA_HEARTBEAT_INTERVAL_SEC_V1 =
 /** 通信途絶猶予（ms）— 標準 5分30秒 */
 export const TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1 =
   TISLY_HEARTBEAT_OFFLINE_MS_V1;
+
+/** PWA 表示のオンライン判定（ms）— 直近 5 分 */
+export const TOYOSHIMA_HEARTBEAT_UI_ONLINE_MS_V1 =
+  TISLY_HEARTBEAT_UI_ONLINE_MS_V1;
 
 /** Shelly 自動キックしきい値（10分30秒） */
 export const TOYOSHIMA_SHELLY_AUTO_REBOOT_MS_V1 =
@@ -180,6 +189,31 @@ export interface ToyoshimaCommHealthV1 {
   boardTempLevel: "normal" | "caution" | "warning";
   boardTempC: number | null;
   devices: ToyoshimaDeviceHealthV1[];
+  /**
+   * UI SSOT · 直近 5 分以内の HB のみ true
+   * lastCommAt は判定に使わない
+   */
+  uiOnline: boolean;
+  customerOnline: string;
+  operatorOnline: string;
+  lastHeartbeatLabelJst: string;
+  confirmLabelJst: string;
+}
+
+/** /customer と /app が同じ値を読む SSOT */
+export interface ToyoshimaStatusSsotV1 {
+  ssot: "toyoshima-commHealth";
+  lastHeartbeatAt: string | null;
+  lastHeartbeatLabelJst: string;
+  confirmLabelJst: string;
+  uiOnline: boolean;
+  customerOnline: string;
+  operatorOnline: string;
+  onlineSummary: string;
+  boardTempC: number | null;
+  boardTempLabel: string;
+  boardTempLevel: "normal" | "caution" | "warning";
+  devices: ToyoshimaDeviceHealthV1[];
 }
 
 export interface ToyoshimaSecurityDashboardV1 {
@@ -251,7 +285,7 @@ function defaultMainBuilding(): ToyoshimaBuildingStateV1 {
     labelEn: "Main House",
     controllerLabel:
       "Waveshare RP2350 8CH Relay Board (親機)",
-    online: true,
+    online: false,
     di: [
       {
         ch: 1,
@@ -284,7 +318,7 @@ function defaultDetachedBuilding(): ToyoshimaBuildingStateV1 {
     labelEn: "Detached House",
     controllerLabel:
       "Waveshare RP2350 6CH Relay Board (子機/拠点2)",
-    online: true,
+    online: false,
     di: [
       { ch: 1, label: "道路側 赤外線ビーム (DI1)", state: "normal" },
       { ch: 2, label: "通路側 赤外線ビーム (DI2)", state: "normal" },
@@ -303,16 +337,94 @@ function defaultDetachedBuilding(): ToyoshimaBuildingStateV1 {
 }
 
 function defaultDeviceComm(): ToyoshimaDeviceCommRuntimeV1 {
-  const at = nowIso();
+  /* 未受信は null。起動時刻で偽オンラインにしない */
   return {
-    lastCommAt: at,
-    lastHeartbeatAt: at,
-    online: true,
+    lastCommAt: null,
+    lastHeartbeatAt: null,
+    online: false,
     offlineNotified: false,
     shellyKickCount: 0,
     boardTempC: null,
     overheatNotified: false,
   };
+}
+
+function formatJstCommTimeV1(iso: string | null): string {
+  if (!iso) return "未受信";
+  try {
+    return new Date(iso).toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatJstConfirmTimeV1(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** メモリ上の HB を JSON/DB へ残す */
+function persistToyoshimaHeartbeatV1(): void {
+  if (process.env.NODE_ENV === "test") return;
+  saveToyoshimaHeartbeatStoreV1({
+    siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+    main: {
+      lastHeartbeatAt: runtime.deviceComm.main.lastHeartbeatAt,
+      lastCommAt: runtime.deviceComm.main.lastCommAt,
+      boardTempC: runtime.deviceComm.main.boardTempC,
+    },
+    detached: {
+      lastHeartbeatAt: runtime.deviceComm.detached.lastHeartbeatAt,
+      lastCommAt: runtime.deviceComm.detached.lastCommAt,
+      boardTempC: runtime.deviceComm.detached.boardTempC,
+    },
+    updatedAt: nowIso(),
+  });
+}
+
+/** 再起動後も実機 HB 時刻を復元する */
+function hydrateToyoshimaHeartbeatFromStoreV1(): void {
+  if (process.env.NODE_ENV === "test") return;
+  const saved = loadToyoshimaHeartbeatStoreV1(
+    HOME_JP_TOYOSHIMA_SITE_ID_V1
+  );
+  if (!saved) return;
+  for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+    const row = saved[building];
+    const prev = runtime.deviceComm[building];
+    const online = isHeartbeatOnlineV1(
+      row.lastHeartbeatAt,
+      Date.now(),
+      TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1
+    );
+    runtime.deviceComm[building] = {
+      ...prev,
+      lastHeartbeatAt: row.lastHeartbeatAt,
+      lastCommAt: row.lastCommAt,
+      boardTempC: row.boardTempC,
+      online,
+    };
+    getBuilding(building).online = online;
+  }
 }
 
 function boardTempLevelV1(
@@ -354,6 +466,8 @@ const runtime: ToyoshimaRuntimeV1 = {
   },
   alarmLatch: false,
 };
+
+hydrateToyoshimaHeartbeatFromStoreV1();
 
 /** 実機・操作の通信時刻を記録 */
 export function touchToyoshimaDeviceCommV1(
@@ -403,6 +517,7 @@ export async function recordToyoshimaHeartbeatV1(input: {
   if (temp != null) {
     await processToyoshimaBoardTempV1(input.building, temp);
   }
+  persistToyoshimaHeartbeatV1();
 }
 
 /** 盤内温度 — 過熱判定と Push・履歴 */
@@ -446,6 +561,7 @@ async function processToyoshimaBoardTempV1(
   }
 
   comm.overheatNotified = false;
+  persistToyoshimaHeartbeatV1();
   if (level === "normal" && boardTempC < TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1) {
     /* 正常復帰 — ラッチは手動解除または別警報で維持 */
   }
@@ -1161,15 +1277,61 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
     onlineSummary = "⚠️ 盤内高温警告";
   }
 
+  const lastHeartbeatAt = latestHb?.lastHeartbeatAt ?? null;
+  /* 表示は 5 分以内の HB のみ。lastComm は使わない */
+  const uiOnline = isHeartbeatOnlineV1(
+    lastHeartbeatAt,
+    now,
+    TOYOSHIMA_HEARTBEAT_UI_ONLINE_MS_V1
+  );
+  if (!uiOnline) {
+    onlineSummary = "🔴 オフライン（通信途絶）";
+  }
+  const customerOnline = uiOnline
+    ? "🟢 正常稼働中（オンライン）"
+    : "🔴 オフライン";
+  const operatorOnline = uiOnline
+    ? onlineSummary.startsWith("⚠️")
+      ? onlineSummary
+      : "🟢 オンライン（実機稼働中）"
+    : "🔴 オフライン（通信途絶）";
+
   return {
     onlineSummary,
     lastCommAt: latest?.lastCommAt ?? null,
     lastCommLabel: latest?.label ?? "—",
-    lastHeartbeatAt: latestHb?.lastHeartbeatAt ?? null,
+    lastHeartbeatAt,
     boardTempC: mainTemp,
     boardTempLabel: formatBoardTempLabelV1(mainTemp),
     boardTempLevel: mainLevel,
     devices,
+    uiOnline,
+    customerOnline,
+    operatorOnline,
+    lastHeartbeatLabelJst: formatJstCommTimeV1(lastHeartbeatAt),
+    confirmLabelJst: formatJstConfirmTimeV1(lastHeartbeatAt),
+  };
+}
+
+/** /customer と /app が同じ判定を読む */
+export function buildToyoshimaStatusSsotV1(
+  nowMs: number = Date.now()
+): ToyoshimaStatusSsotV1 {
+  void nowMs;
+  const health = buildToyoshimaCommHealthV1();
+  return {
+    ssot: "toyoshima-commHealth",
+    lastHeartbeatAt: health.lastHeartbeatAt,
+    lastHeartbeatLabelJst: health.lastHeartbeatLabelJst,
+    confirmLabelJst: health.confirmLabelJst,
+    uiOnline: health.uiOnline,
+    customerOnline: health.customerOnline,
+    operatorOnline: health.operatorOnline,
+    onlineSummary: health.onlineSummary,
+    boardTempC: health.boardTempC,
+    boardTempLabel: health.boardTempLabel,
+    boardTempLevel: health.boardTempLevel,
+    devices: health.devices,
   };
 }
 
@@ -1185,12 +1347,9 @@ export function getToyoshimaSocHeartbeatSnapshotV1(): {
   onlineSummary: string;
 } {
   const health = buildToyoshimaCommHealthV1();
-  const online =
-    Boolean(health.lastHeartbeatAt) &&
-    !String(health.onlineSummary || "").includes("オフライン");
   return {
     lastHeartbeatAt: health.lastHeartbeatAt,
-    deviceOnline: online,
+    deviceOnline: health.uiOnline,
     boardTempC: health.boardTempC,
     boardTempLabel: health.boardTempLabel,
     onlineSummary: health.onlineSummary,

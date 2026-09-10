@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2521-tester-itabashi-live";
+const SW_VERSION = "tisly-pwa-v2522-status-ssot";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2521-tester-itabashi-live
  * tisly-pwa-v2520-tenant-skeleton-hb
  * tisly-pwa-v2516-comm-health-ssot
  * tisly-pwa-v2515-customer-daily-mount
@@ -290,6 +291,7 @@ const SHELL_URLS = [
   "/js/features/security/security-floor-operator-v1.js",
   "/js/features/security/security-floor-customer-v1.js",
   "/js/features/security/toyoshima-security-dashboard-v1.js",
+  "/js/features/security/use-toyoshima-status-v1.js",
   "/css/features/security/security-floor-v1.css",
   "/css/features/security/toyoshima-security-v1.css",
   // 3D Floorplan Builder（追記）

@@ -43,6 +43,28 @@
 .cv-status-row { margin-bottom: 0.55rem; }
 .cv-status-big { font-size: 1.2rem; font-weight: 800; color: var(--cv-text); }
 .cv-last-checked { margin: 0; font-size: 1.05rem; color: var(--cv-muted); font-weight: 600; }
+.cv-refresh-btn {
+  margin-top: 0.9rem;
+  min-height: 52px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 2px solid #1e3a8a;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-weight: 800;
+  font-size: 1rem;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.cv-refresh-btn.is-spinning {
+  opacity: 0.7;
+}
+.cv-refresh-btn:disabled {
+  cursor: wait;
+}
 
 .cv-card-grid {
   display: grid;

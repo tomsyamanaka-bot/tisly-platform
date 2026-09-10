@@ -45,14 +45,21 @@ export function escapeHtml(s) {
 export function renderHomeStatus(data) {
   const statusLabel = data.currentStatusLabel || CUSTOMER_HOME_LABELS.currentStatus;
   const lastLabel = data.lastCheckedLabel || CUSTOMER_HOME_LABELS.lastChecked;
+  const refresh = data.liveStatusSsot
+    ? `<button type="button" class="cv-refresh-btn" id="cv-status-refresh" aria-label="最新状態に更新">
+        <span class="cv-refresh-ico" aria-hidden="true">🔄</span>
+        <span>最新状態に更新</span>
+      </button>`
+    : "";
   return `
     <section class="cv-hero">
       <p class="cv-hero-property">${escapeHtml(data.propertyName)}</p>
       <p class="cv-section-label">${escapeHtml(statusLabel)}</p>
       <div class="cv-status-row">
-        <span class="cv-status-big">${escapeHtml(data.systemStatusEmoji)} ${escapeHtml(data.systemStatusLabel)}</span>
+        <span class="cv-status-big" id="cv-status-big">${escapeHtml(data.systemStatusEmoji)} ${escapeHtml(data.systemStatusLabel)}</span>
       </div>
-      <p class="cv-last-checked">${escapeHtml(lastLabel)}：${escapeHtml(data.lastCheckedAt)}</p>
+      <p class="cv-last-checked" id="cv-last-checked">${escapeHtml(lastLabel)}：${escapeHtml(data.lastCheckedAt)}</p>
+      ${refresh}
     </section>
   `;
 }
