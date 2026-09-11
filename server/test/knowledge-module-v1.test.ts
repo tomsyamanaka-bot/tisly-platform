@@ -149,6 +149,13 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /MOCK_RP2350_RGB_KITTING_ITEMS/);
     assert.match(mockSrc, /オンボードRGBによる出荷判定/);
     assert.match(mockSrc, /#出荷検査/);
+    assert.match(mockSrc, /MOCK_HW_KITTING_SURGE_ITEMS/);
+    assert.match(mockSrc, /CRサージアブソーバーによるRP2350リレー接点保護/);
+    assert.match(mockSrc, /RS485終端抵抗（純120Ω）/);
+    assert.match(mockSrc, /キッティング4大標準ワークフロー/);
+    assert.match(mockSrc, /#サージ対策/);
+    assert.match(mockSrc, /#終端抵抗/);
+    assert.match(mockSrc, /#フォールバックIP/);
   });
 
   it("nav script requires login before loading bundle", () => {

@@ -2083,3 +2083,92 @@ export const MOCK_RP2350_RGB_KITTING_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const HW_KITTING_SURGE_KNOWLEDGE_TITLES = [
+  "【回路保護・電工】CRサージアブソーバーによるRP2350リレー接点保護とマイコン暴走防止",
+  "【通信設計】RS485終端抵抗（純120Ω）とCRサージアブソーバーの使い分け基準",
+  "【量産・出荷】RP2350実機出荷前キッティング4大標準ワークフロー",
+] as const;
+
+const HW_KITTING_SURGE_CREATED_AT = "2026-09-11T11:40:00.000Z";
+
+/** ハードウェアキッティング＆サージ保護（末尾追記） */
+export const MOCK_HW_KITTING_SURGE_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-cr-surge-rp2350-001",
+    title:
+      "【回路保護・電工】CRサージアブソーバーによるRP2350リレー接点保護とマイコン暴走防止",
+    summary: [
+      "誘導性負荷（モーター・電磁弁・投光器）遮断時の逆起電力アークを吸収。",
+      "ルビコン製250MCRA333120M（0.033μF＋120Ω / AC250V）をCOM-NO端子間に並列挿入。",
+      "接点溶着の防止および高電圧スパークノイズによるマイコンフリーズを物理遮断。",
+    ].join(""),
+    genre: "電気工事",
+    tags: [
+      "#サージ対策",
+      "#CRアブソーバー",
+      "#リレー保護",
+      "#電工DX",
+      "#RP2350",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: HW_KITTING_SURGE_CREATED_AT,
+    body: [
+      "【目的】",
+      "リレー開閉時の逆起電力スパークを吸収する。",
+      "COM-NO へ CR を並列挿入する。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-rs485-term-vs-cr-001",
+    title:
+      "【通信設計】RS485終端抵抗（純120Ω）とCRサージアブソーバーの使い分け基準",
+    summary: [
+      "「同じ120Ω」表記でもCRアブソーバーをRS485通信線（A/B間）に使うのは厳禁。",
+      "コンデンサ容量成分が高周波の通信パルス波形を丸めて文字化け・通信死を誘発。",
+      "RS485バス末端には純粋な1/4W 120Ωカーボン抵抗、または機器内蔵スイッチを採用。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#RS485",
+      "#終端抵抗",
+      "#Modbus",
+      "#信号品質",
+      "#誤配線防止",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: HW_KITTING_SURGE_CREATED_AT,
+    body: [
+      "【厳禁】",
+      "CRアブソーバーを A/B 間へ入れない。",
+      "終端は純 120Ω 抵抗のみ。",
+    ].join("\n"),
+  },
+  {
+    id: "kn-seed-rp2350-kitting-4step-001",
+    title: "【量産・出荷】RP2350実機出荷前キッティング4大標準ワークフロー",
+    summary: [
+      "①RGBインジケーター（赤:異常 ➔ 青:設定済 ➔ 緑点滅:VPS疎通・OTA・出荷OK）。",
+      "②天面テプララベル（物件名・端末ID・DI/DOアサイン）とPWA直結QRコード貼付。",
+      "③現場光回線未開通時でも直結調査できるDHCPタイムアウト時予備固定IP機能。",
+      "④RS485 Slave ID事前焼付けと最遠端終端処理、サージ保護素子の同梱。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#出荷検査",
+      "#キッティング",
+      "#RGB自己診断",
+      "#フォールバックIP",
+      "#テプラ",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: HW_KITTING_SURGE_CREATED_AT,
+    body: [
+      "【引き渡し】",
+      "現場到着後10分で引き渡し完了を量産出荷基準とする。",
+    ].join("\n"),
+  },
+];

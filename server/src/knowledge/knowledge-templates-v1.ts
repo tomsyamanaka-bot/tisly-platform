@@ -44,6 +44,7 @@ import { seedPwaTenantSkeletonKnowledgeCardsV1 } from "./knowledge-pwa-tenant-sk
 import { seedHbRetryShellyLockKnowledgeCardsV1 } from "./knowledge-hb-retry-shelly-lock-seed-v1.js";
 import { seedRp2350OtaStandardKnowledgeCardsV1 } from "./knowledge-rp2350-ota-standard-seed-v1.js";
 import { seedRp2350RgbKittingKnowledgeCardsV1 } from "./knowledge-rp2350-rgb-kitting-seed-v1.js";
+import { seedHwKittingSurgeKnowledgeCardsV1 } from "./knowledge-hw-kitting-surge-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -204,6 +205,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   hbRetryShellyLockCreated: number;
   rp2350OtaStandardCreated: number;
   rp2350RgbKittingCreated: number;
+  hwKittingSurgeCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -241,6 +243,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const hbRetryShellyLock = seedHbRetryShellyLockKnowledgeCardsV1();
   const rp2350OtaStandard = seedRp2350OtaStandardKnowledgeCardsV1();
   const rp2350RgbKitting = seedRp2350RgbKittingKnowledgeCardsV1();
+  const hwKittingSurge = seedHwKittingSurgeKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -278,5 +281,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     hbRetryShellyLockCreated: hbRetryShellyLock.length,
     rp2350OtaStandardCreated: rp2350OtaStandard.length,
     rp2350RgbKittingCreated: rp2350RgbKitting.length,
+    hwKittingSurgeCreated: hwKittingSurge.length,
   };
 }

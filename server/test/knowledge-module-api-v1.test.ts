@@ -171,6 +171,10 @@ const {
   RP2350_RGB_KITTING_MODULE_SEED_IDS,
   seedRp2350RgbKittingKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-rp2350-rgb-kitting-seed-v1.js");
+const {
+  HW_KITTING_SURGE_MODULE_SEED_IDS,
+  seedHwKittingSurgeKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-hw-kitting-surge-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1550,6 +1554,59 @@ describe("knowledge-module-v1 store", () => {
     assert.match(card!.title, /出荷判定＆自己診断インジケーター/);
     assert.ok(card!.tags.includes("#出荷検査"));
     assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends hw kitting surge seeds", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of HW_KITTING_SURGE_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const surge = listed.find((x) => x.id === "kn-seed-cr-surge-rp2350-001");
+    assert.ok(surge);
+    assert.match(surge!.title, /CRサージアブソーバーによるRP2350リレー接点保護/);
+    assert.ok(surge!.tags.includes("#サージ対策"));
+    assert.ok(surge!.tags.includes("#CRアブソーバー"));
+    assert.ok(surge!.tags.includes("#リレー保護"));
+    assert.ok(surge!.tags.includes("#電工DX"));
+    assert.ok(surge!.tags.includes("#RP2350"));
+    assert.ok(surge!.tags.includes("#TiSLY_Core"));
+    const term = listed.find((x) => x.id === "kn-seed-rs485-term-vs-cr-001");
+    assert.ok(term);
+    assert.match(term!.title, /RS485終端抵抗（純120Ω）/);
+    assert.ok(term!.tags.includes("#RS485"));
+    assert.ok(term!.tags.includes("#終端抵抗"));
+    assert.ok(term!.tags.includes("#Modbus"));
+    assert.ok(term!.tags.includes("#信号品質"));
+    assert.ok(term!.tags.includes("#誤配線防止"));
+    const kit = listed.find(
+      (x) => x.id === "kn-seed-rp2350-kitting-4step-001"
+    );
+    assert.ok(kit);
+    assert.match(kit!.title, /キッティング4大標準ワークフロー/);
+    assert.ok(kit!.tags.includes("#出荷検査"));
+    assert.ok(kit!.tags.includes("#キッティング"));
+    assert.ok(kit!.tags.includes("#RGB自己診断"));
+    assert.ok(kit!.tags.includes("#フォールバックIP"));
+    assert.ok(kit!.tags.includes("#テプラ"));
+  });
+
+  it("seedHwKittingSurgeKnowledgeCardsV1 upserts searchable cards", () => {
+    seedHwKittingSurgeKnowledgeCardsV1();
+    const surge = getKnowledgeCardV1("OPS-CR-SURGE-RP2350-001");
+    assert.ok(surge);
+    assert.match(surge!.title, /マイコン暴走防止/);
+    assert.ok(surge!.tags.includes("#サージ対策"));
+    const term = getKnowledgeCardV1("OPS-RS485-TERM-VS-CR-001");
+    assert.ok(term);
+    assert.match(term!.title, /使い分け基準/);
+    const kit = getKnowledgeCardV1("OPS-RP2350-KITTING-4STEP-001");
+    assert.ok(kit);
+    assert.match(kit!.title, /4大標準ワークフロー/);
+    assert.ok(kit!.tags.includes("#TiSLY_Core"));
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {
