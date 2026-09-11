@@ -64,12 +64,12 @@ function overlayToyoshimaLiveStatusV1(
   return {
     ...home,
     liveStatusSsot: true,
-    systemStatus: ssot.uiOnline ? "normal" : "alert",
-    systemStatusEmoji: ssot.uiOnline ? "🟢" : "🔴",
-    systemStatusLabel: ssot.uiOnline
+    systemStatus: ssot.isHardwareOnline ? "normal" : "alert",
+    systemStatusEmoji: ssot.isHardwareOnline ? "🟢" : "🔴",
+    systemStatusLabel: ssot.isHardwareOnline
       ? "正常稼働中（オンライン）"
-      : "オフライン",
-    systemStatusShort: ssot.uiOnline ? "オンライン" : "オフライン",
+      : "オフライン（通信途絶）",
+    systemStatusShort: ssot.isHardwareOnline ? "オンライン" : "オフライン",
     lastCheckedAt: ssot.lastHeartbeatAt
       ? formatCustomerLastCheckedV1(ssot.lastHeartbeatAt)
       : "未受信",
@@ -194,7 +194,7 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
           projectPageUrl: buildCustomerProjectUrlV1(shareId),
           homePageUrl: `/customer?project=${encodeURIComponent(shareId)}`,
           systemStatusKey: toyoshimaSsot
-            ? toyoshimaSsot.uiOnline
+            ? toyoshimaSsot.isHardwareOnline
               ? "normal"
               : "alert"
             : (monitoring.systemStatus as CustomerSystemStatusKeyV1),
@@ -208,10 +208,10 @@ export function buildCustomerHomeListViewV1(customerCode: string): CustomerHomeL
       if (!toyoshimaSsot) return item;
       return {
         ...item,
-        systemStatusLabel: toyoshimaSsot.uiOnline
+        systemStatusLabel: toyoshimaSsot.isHardwareOnline
           ? "正常稼働中（オンライン）"
-          : "オフライン",
-        systemStatusEmoji: toyoshimaSsot.uiOnline ? "🟢" : "🔴",
+          : "オフライン（通信途絶）",
+        systemStatusEmoji: toyoshimaSsot.isHardwareOnline ? "🟢" : "🔴",
       };
     }),
     contact: masterContact,

@@ -194,6 +194,8 @@ export interface ToyoshimaCommHealthV1 {
    * lastCommAt は判定に使わない
    */
   uiOnline: boolean;
+  /** ヘッダー／カード共通の死活フラグ */
+  isHardwareOnline: boolean;
   customerOnline: string;
   operatorOnline: string;
   lastHeartbeatLabelJst: string;
@@ -207,6 +209,7 @@ export interface ToyoshimaStatusSsotV1 {
   lastHeartbeatLabelJst: string;
   confirmLabelJst: string;
   uiOnline: boolean;
+  isHardwareOnline: boolean;
   customerOnline: string;
   operatorOnline: string;
   onlineSummary: string;
@@ -1289,11 +1292,11 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
   }
   const customerOnline = uiOnline
     ? "🟢 正常稼働中（オンライン）"
-    : "🔴 オフライン";
+    : "🔴 オフライン（通信途絶）";
   const operatorOnline = uiOnline
     ? onlineSummary.startsWith("⚠️")
       ? onlineSummary
-      : "🟢 オンライン（実機稼働中）"
+      : "🟢 正常稼働中（オンライン）"
     : "🔴 オフライン（通信途絶）";
 
   return {
@@ -1306,6 +1309,7 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
     boardTempLevel: mainLevel,
     devices,
     uiOnline,
+    isHardwareOnline: uiOnline,
     customerOnline,
     operatorOnline,
     lastHeartbeatLabelJst: formatJstCommTimeV1(lastHeartbeatAt),
@@ -1325,6 +1329,7 @@ export function buildToyoshimaStatusSsotV1(
     lastHeartbeatLabelJst: health.lastHeartbeatLabelJst,
     confirmLabelJst: health.confirmLabelJst,
     uiOnline: health.uiOnline,
+    isHardwareOnline: health.isHardwareOnline,
     customerOnline: health.customerOnline,
     operatorOnline: health.operatorOnline,
     onlineSummary: health.onlineSummary,
@@ -1349,7 +1354,7 @@ export function getToyoshimaSocHeartbeatSnapshotV1(): {
   const health = buildToyoshimaCommHealthV1();
   return {
     lastHeartbeatAt: health.lastHeartbeatAt,
-    deviceOnline: health.uiOnline,
+    deviceOnline: health.isHardwareOnline,
     boardTempC: health.boardTempC,
     boardTempLabel: health.boardTempLabel,
     onlineSummary: health.onlineSummary,

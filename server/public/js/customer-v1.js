@@ -27,6 +27,7 @@ import {
 } from "./camera-webrtc-viewer-v1.js";
 import {
   fetchToyoshimaStatus,
+  applyToyoshimaHardwareStatus,
   useToyoshimaStatus,
 } from "./features/security/use-toyoshima-status-v1.js";
 
@@ -113,17 +114,7 @@ function renderLogin(errorMsg = "") {
 }
 
 function applyLiveStatusToHome(status) {
-  const big = document.getElementById("cv-status-big");
-  const last = document.getElementById("cv-last-checked");
-  if (!status) return;
-  const label = status.uiOnline
-    ? status.customerOnline || "🟢 正常稼働中（オンライン）"
-    : "🔴 オフライン";
-  if (big) big.textContent = label;
-  if (last) {
-    const time = status.confirmLabelJst || "—";
-    last.textContent = `最終確認：${time}`;
-  }
+  applyToyoshimaHardwareStatus(status);
 }
 
 function bindLiveStatusRefresh(data) {
@@ -134,7 +125,7 @@ function bindLiveStatusRefresh(data) {
     loadTenantProfile()?.useToyoshimaDashboard;
   if (!useSsot) return;
   liveStatusHook = useToyoshimaStatus(applyLiveStatusToHome);
-  liveStatusHook.start(15000);
+  liveStatusHook.start(1500);
   const btn = document.getElementById("cv-status-refresh");
   btn?.addEventListener("click", async () => {
     btn.disabled = true;

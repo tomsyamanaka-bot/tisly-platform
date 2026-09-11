@@ -9,6 +9,9 @@ export const TOYOSHIMA_STATUS_PATH =
 export const TOYOSHIMA_DASHBOARD_PATH =
   "/api/home/v1/toyoshima/dashboard";
 export const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
+/** タブ間の即時同期チャネル名 */
+export const TOYOSHIMA_STATUS_CHANNEL =
+  "tisly-toyoshima-hw-status-v1";
 
 /** 直近 5 分以内の HB のみオンライン */
 export const HB_UI_ONLINE_MS = 5 * 60 * 1000;
@@ -45,6 +48,14 @@ export function isToyoshimaHeartbeatOnline(iso, now = Date.now()) {
   return now - at < HB_UI_ONLINE_MS;
 }
 
+/**
+ * ヘッダー／カード共通の死活判定
+ * lastHeartbeatAt のみを見る
+ */
+export function isHardwareOnline(iso, now = Date.now()) {
+  return isToyoshimaHeartbeatOnline(iso, now);
+}
+
 function emptyStatus() {
   return {
     ok: false,
@@ -53,13 +64,150 @@ function emptyStatus() {
     lastHeartbeatLabelJst: "未受信",
     confirmLabelJst: "—",
     uiOnline: false,
-    customerOnline: "🔴 オフライン",
+    isHardwareOnline: false,
+    customerOnline: "🔴 オフライン（通信途絶）",
     operatorOnline: "🔴 オフライン（通信途絶）",
     onlineSummary: "🔴 オフライン（通信途絶）",
     boardTempC: null,
     boardTempLabel: "正常監視中",
     boardTempLevel: "normal",
     devices: [],
+  };
+}
+
+function paintTempEl(el, status) {
+  if (!el) return;
+  const level = status.boardTempLevel || "normal";
+  const emoji =
+    level === "warning" ? "🔴" : level === "caution" ? "🟡" : "🟢";
+  const label = status.boardTempLabel || "正常監視中";
+  el.textContent = `${emoji} ${label}`;
+  el.classList.remove("is-normal", "is-caution", "is-warning");
+  el.classList.add(`is-${level}`);
+}
+
+/**
+ * ヘッダー丸バッジと通信カードを
+ * 同一 isHardwareOnline で再描画する
+ */
+export function applyToyoshimaHardwareStatus(status) {
+  if (!status) return;
+  const online = !!status.isHardwareOnline;
+  const cardOnline = online
+    ? status.customerOnline ||
+      status.operatorOnline ||
+      "🟢 正常稼働中（オンライン）"
+    : "🔴 オフライン（通信途絶）";
+  const operatorOnline = online
+    ? status.operatorOnline || cardOnline
+    : "🔴 オフライン（通信途絶）";
+
+  const pill = document.getElementById("sf-online");
+  if (pill) {
+    pill.textContent = online ? "🟢 オンライン" : "🔴 オフライン";
+    pill.classList.toggle("is-offline", !online);
+    pill.classList.remove("is-alert");
+  }
+
+  const operatorEl = document.getElementById("ts-online-val");
+  if (operatorEl) {
+    operatorEl.textContent = operatorOnline;
+    operatorEl.classList.toggle("is-offline", !online);
+  }
+
+  const assureEl = document.getElementById("ts-assure-online");
+  if (assureEl) {
+    assureEl.textContent = cardOnline;
+    assureEl.classList.toggle("is-offline", !online);
+  }
+
+  const hbEl = document.getElementById("ts-heartbeat-val");
+  if (hbEl) {
+    hbEl.textContent = online
+      ? status.lastHeartbeatLabelJst || "—"
+      : status.lastHeartbeatAt
+        ? status.lastHeartbeatLabelJst || "—"
+        : "未受信";
+  }
+
+  const confirmEl = document.getElementById("ts-assure-confirm");
+  if (confirmEl) {
+    confirmEl.textContent = status.confirmLabelJst || "—";
+  }
+
+  paintTempEl(document.getElementById("ts-board-temp-val"), status);
+  paintTempEl(document.getElementById("ts-assure-temp"), status);
+
+  const big = document.getElementById("cv-status-big");
+  if (big) big.textContent = cardOnline;
+  const last = document.getElementById("cv-last-checked");
+  if (last) {
+    const time = status.confirmLabelJst || "—";
+    last.textContent = `最終確認：${time}`;
+  }
+}
+
+export function broadcastToyoshimaStatus(status) {
+  if (!status || typeof BroadcastChannel !== "function") return;
+  try {
+    const ch = new BroadcastChannel(TOYOSHIMA_STATUS_CHANNEL);
+    ch.postMessage({ type: "hw-status", status });
+    ch.close();
+  } catch {
+    /* 非対応ブラウザはポーリングに任せる */
+  }
+}
+
+export function subscribeToyoshimaStatus(onStatus) {
+  if (typeof BroadcastChannel !== "function") {
+    return () => {};
+  }
+  try {
+    const ch = new BroadcastChannel(TOYOSHIMA_STATUS_CHANNEL);
+    ch.onmessage = (ev) => {
+      const msg = ev?.data;
+      if (msg?.type !== "hw-status" || !msg.status) return;
+      if (typeof onStatus === "function") onStatus(msg.status);
+    };
+    return () => {
+      try {
+        ch.close();
+      } catch {
+        /* close 失敗は無視 */
+      }
+    };
+  } catch {
+    return () => {};
+  }
+}
+
+function normalizeStatus(data) {
+  const lastHeartbeatAt = data.lastHeartbeatAt || null;
+  /* 表示はクライアント側 5 分判定を優先 */
+  const hardwareOnline = isHardwareOnline(lastHeartbeatAt);
+  return {
+    ok: true,
+    ssot: data.ssot || "toyoshima-commHealth",
+    lastHeartbeatAt,
+    lastHeartbeatLabelJst:
+      data.lastHeartbeatLabelJst ||
+      (lastHeartbeatAt ? String(lastHeartbeatAt) : "未受信"),
+    confirmLabelJst: data.confirmLabelJst || "—",
+    uiOnline: hardwareOnline,
+    isHardwareOnline: hardwareOnline,
+    customerOnline: hardwareOnline
+      ? data.customerOnline || "🟢 正常稼働中（オンライン）"
+      : "🔴 オフライン（通信途絶）",
+    operatorOnline: hardwareOnline
+      ? data.operatorOnline || "🟢 正常稼働中（オンライン）"
+      : "🔴 オフライン（通信途絶）",
+    onlineSummary: hardwareOnline
+      ? data.onlineSummary || "🟢 正常稼働中（オンライン）"
+      : "🔴 オフライン（通信途絶）",
+    boardTempC: data.boardTempC ?? null,
+    boardTempLabel: data.boardTempLabel || "正常監視中",
+    boardTempLevel: data.boardTempLevel || "normal",
+    devices: Array.isArray(data.devices) ? data.devices : [],
   };
 }
 
@@ -76,39 +224,17 @@ export async function fetchToyoshimaStatus(opts = {}) {
   const res = await fetch(url, { ...NO_STORE_FETCH });
   const data = await res.json().catch(() => ({}));
   if (!data?.ok) {
-    return {
+    const empty = {
       ...emptyStatus(),
       error: data?.error || "状態の取得に失敗しました",
     };
+    if (opts.apply !== false) applyToyoshimaHardwareStatus(empty);
+    return empty;
   }
-  const lastHeartbeatAt = data.lastHeartbeatAt || null;
-  const uiOnline =
-    typeof data.uiOnline === "boolean"
-      ? data.uiOnline
-      : isToyoshimaHeartbeatOnline(lastHeartbeatAt);
-  return {
-    ok: true,
-    ssot: data.ssot || "toyoshima-commHealth",
-    lastHeartbeatAt,
-    lastHeartbeatLabelJst:
-      data.lastHeartbeatLabelJst ||
-      (lastHeartbeatAt ? String(lastHeartbeatAt) : "未受信"),
-    confirmLabelJst: data.confirmLabelJst || "—",
-    uiOnline,
-    customerOnline: uiOnline
-      ? data.customerOnline || "🟢 正常稼働中（オンライン）"
-      : "🔴 オフライン",
-    operatorOnline: uiOnline
-      ? data.operatorOnline || "🟢 オンライン（実機稼働中）"
-      : "🔴 オフライン（通信途絶）",
-    onlineSummary: uiOnline
-      ? data.onlineSummary || "🟢 オンライン（実機稼働中）"
-      : "🔴 オフライン（通信途絶）",
-    boardTempC: data.boardTempC ?? null,
-    boardTempLabel: data.boardTempLabel || "正常監視中",
-    boardTempLevel: data.boardTempLevel || "normal",
-    devices: Array.isArray(data.devices) ? data.devices : [],
-  };
+  const status = normalizeStatus(data);
+  if (opts.apply !== false) applyToyoshimaHardwareStatus(status);
+  if (opts.force) broadcastToyoshimaStatus(status);
+  return status;
 }
 
 /** ダッシュボード本体も同じ no-store 規則で取る */
@@ -130,6 +256,7 @@ export async function fetchToyoshimaDashboard(opts = {}) {
 export function useToyoshimaStatus(onUpdate) {
   let timer = null;
   let last = emptyStatus();
+  let unsubscribe = () => {};
 
   async function refresh(force = true) {
     const data = await fetchToyoshimaStatus({ force });
@@ -144,12 +271,19 @@ export function useToyoshimaStatus(onUpdate) {
     timer = setInterval(() => {
       refresh(false).catch(() => {});
     }, ms);
+    unsubscribe = subscribeToyoshimaStatus((status) => {
+      last = { ...last, ...status };
+      applyToyoshimaHardwareStatus(last);
+      if (typeof onUpdate === "function") onUpdate(last);
+    });
     refresh(true).catch(() => {});
   }
 
   function stop() {
     if (timer) clearInterval(timer);
     timer = null;
+    unsubscribe();
+    unsubscribe = () => {};
   }
 
   function getLast() {

@@ -8,9 +8,11 @@ import {
   refreshSecurityPushDiagV1,
 } from "./security-floor-push-v1.js";
 import {
+  applyToyoshimaHardwareStatus,
   fetchToyoshimaDashboard,
   fetchToyoshimaStatus,
-  isToyoshimaHeartbeatOnline,
+  isHardwareOnline,
+  subscribeToyoshimaStatus,
 } from "./use-toyoshima-status-v1.js";
 
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
@@ -132,7 +134,7 @@ function heartbeatAgeMs(iso, now = Date.now()) {
  * lastCommAt や onlineSummary キャッシュは使わない
  */
 function isHeartbeatOnlineNow(iso, now = Date.now()) {
-  return isToyoshimaHeartbeatOnline(iso, now);
+  return isHardwareOnline(iso, now);
 }
 
 /**
@@ -142,12 +144,9 @@ function isHeartbeatOnlineNow(iso, now = Date.now()) {
 function buildCommHealthView(dash) {
   const health = dash?.commHealth || {};
   const heartbeatIso = health.lastHeartbeatAt || null;
-  const ageMs = heartbeatAgeMs(heartbeatIso);
-  const freshWithin5min = ageMs < HB_FRESH_MS;
   const online =
-    typeof health.uiOnline === "boolean"
-      ? health.uiOnline
-      : freshWithin5min || isHeartbeatOnlineNow(heartbeatIso);
+    heartbeatAgeMs(heartbeatIso) < HB_FRESH_MS &&
+    isHeartbeatOnlineNow(heartbeatIso);
   const offline = !online;
   const latencyMs =
     typeof clientLatencyMs === "number" && Number.isFinite(clientLatencyMs)
@@ -168,13 +167,14 @@ function buildCommHealthView(dash) {
   const operatorOnline = online
     ? health.operatorOnline ||
       health.onlineSummary ||
-      "🟢 オンライン（実機稼働中）"
+      "🟢 正常稼働中（オンライン）"
     : "🔴 オフライン（通信途絶）";
   const customerOnline = online
     ? health.customerOnline || "🟢 正常稼働中（オンライン）"
-    : "🔴 オフライン";
+    : "🔴 オフライン（通信途絶）";
   return {
     online,
+    isHardwareOnline: online,
     offline,
     operatorOnline,
     customerOnline,
@@ -250,7 +250,7 @@ function renderCustomerStatusBanner(dash) {
   const detectLabel = dash.monthlyDetectionLabel || "0件";
   const lightLabel = dash.lightsScheduleLabel || "18:00〜06:00";
   const view = buildCommHealthView(dash);
-  syncCustomerOnlinePill(view.online, alerting);
+  applyHardwareStatusFromDash(dash, view);
   return `<div id="ts-customer-status-stack">
   <section class="ts-card ts-safety-card ${
     alerting ? "is-alert" : "is-ok"
@@ -295,7 +295,7 @@ function renderCustomerAssureHealthCard(view) {
     <div class="ts-assure-grid">
       <div class="ts-assure-row">
         <span class="ts-assure-key">稼働ステータス</span>
-        <span class="ts-assure-val" id="ts-assure-online">${escapeHtml(view.customerOnline)}</span>
+        <span class="ts-assure-val ${view.isHardwareOnline ? "" : "is-offline"}" id="ts-assure-online">${escapeHtml(view.customerOnline)}</span>
       </div>
       <div class="ts-assure-row">
         <span class="ts-assure-key">ネットワーク遅延</span>
@@ -314,24 +314,24 @@ function renderCustomerAssureHealthCard(view) {
   </section>`;
 }
 
-function syncCustomerOnlinePill(online, alerting) {
-  if (!isCustomerPortal()) return;
-  const el = $("sf-online");
-  if (!el) return;
-  if (alerting) {
-    el.textContent = "🚨 発報中";
-    el.classList.add("is-alert");
-    el.classList.remove("is-offline");
-    return;
-  }
-  el.classList.remove("is-alert");
-  if (online) {
-    el.textContent = "🟢 正常に稼働中（オンライン）";
-    el.classList.remove("is-offline");
-  } else {
-    el.textContent = "🔴 オフライン";
-    el.classList.add("is-offline");
-  }
+/**
+ * ヘッダーとカードを同一 HB 判定へ
+ * 社内／顧客の両方で必ず呼ぶ
+ */
+function applyHardwareStatusFromDash(dash, view = null) {
+  const healthView = view || buildCommHealthView(dash);
+  applyToyoshimaHardwareStatus({
+    isHardwareOnline: healthView.isHardwareOnline,
+    uiOnline: healthView.isHardwareOnline,
+    customerOnline: healthView.customerOnline,
+    operatorOnline: healthView.operatorOnline,
+    lastHeartbeatAt: healthView.heartbeatIso,
+    lastHeartbeatLabelJst: healthView.heartbeatLabel,
+    confirmLabelJst: healthView.confirmLabel,
+    boardTempC: dash?.commHealth?.boardTempC ?? null,
+    boardTempLabel: healthView.tempLabel,
+    boardTempLevel: healthView.tempLevel,
+  });
 }
 
 /** 顧客向け · 日常詳細設定（常時表示カード） */
@@ -569,7 +569,7 @@ function renderHealthGrid(dash) {
     <div class="ts-health-grid">
       <div class="ts-health-cell">
         <span class="ts-health-key">稼働ステータス</span>
-        <span class="ts-health-val" id="ts-online-val">${escapeHtml(view.operatorOnline)}</span>
+        <span class="ts-health-val ${view.isHardwareOnline ? "" : "is-offline"}" id="ts-online-val">${escapeHtml(view.operatorOnline)}</span>
       </div>
       <div class="ts-health-cell">
         <span class="ts-health-key">最新ハートビート</span>
@@ -808,6 +808,8 @@ function dashSignature(dash) {
     monthDet: dash.monthlyDetectionCount,
     // 通信ヘルス SSOT を soft patch 判定に含める
     online: dash.commHealth?.onlineSummary,
+    hwOnline:
+      dash.commHealth?.isHardwareOnline ?? dash.commHealth?.uiOnline,
     hbAt: dash.commHealth?.lastHeartbeatAt,
     boardTemp: dash.commHealth?.boardTempC,
     boardLabel: dash.commHealth?.boardTempLabel,
@@ -1072,6 +1074,7 @@ async function postControl(building, action) {
 function patchToyoshimaDashboard(dash) {
   syncScheduleState(dash);
   syncSettingsState(dash);
+  applyHardwareStatusFromDash(dash);
 
   if (isCustomerPortal()) {
     const view = buildCommHealthView(dash);
@@ -1082,7 +1085,8 @@ function patchToyoshimaDashboard(dash) {
     /* 稼働ステータスは DOM 差分更新で即時反映（タブ維持） */
     if (assureOnline) {
       assureOnline.textContent = view.customerOnline;
-      syncCustomerOnlinePill(view.online, !!dash.alarm?.active);
+      assureOnline.classList.toggle("is-offline", !view.isHardwareOnline);
+      applyHardwareStatusFromDash(dash, view);
       if (assureLatency) assureLatency.textContent = view.latencyLabel;
       if (assureConfirm) assureConfirm.textContent = view.confirmLabel;
       if (assureTemp) {
@@ -1178,11 +1182,15 @@ function patchToyoshimaDashboard(dash) {
   if (heroActions) heroActions.innerHTML = renderHeroChips(dash);
 
   const view = buildCommHealthView(dash);
+  applyHardwareStatusFromDash(dash, view);
   const latencyEl = $("ts-latency-val");
   const onlineEl = $("ts-online-val");
   const heartbeatEl = $("ts-heartbeat-val");
   if (latencyEl) latencyEl.textContent = view.latencyLabel;
-  if (onlineEl) onlineEl.textContent = view.operatorOnline;
+  if (onlineEl) {
+    onlineEl.textContent = view.operatorOnline;
+    onlineEl.classList.toggle("is-offline", !view.isHardwareOnline);
+  }
   if (heartbeatEl) heartbeatEl.textContent = view.heartbeatLabel;
   const boardTempEl = $("ts-board-temp-val");
   if (boardTempEl) {
@@ -1447,8 +1455,10 @@ async function saveHeartbeatWatch(enabled) {
 
 export function renderToyoshimaDashboard(dash, opts = {}) {
   const soft = !!opts.soft;
+  if (!dash) return;
+  applyHardwareStatusFromDash(dash);
   const root = $("ts-dashboard-root");
-  if (!root || !dash) return;
+  if (!root) return;
 
   syncScheduleState(dash);
   syncSettingsState(dash);
@@ -1550,13 +1560,26 @@ async function fetchToyoshimaDashboardJson(force = false) {
   });
   clientLatencyMs = Math.round(performance.now() - t0);
   if (data?.status && data?.dashboard?.commHealth) {
+    const hw = {
+      ...data.status,
+      isHardwareOnline:
+        typeof data.status.isHardwareOnline === "boolean"
+          ? data.status.isHardwareOnline
+          : isHardwareOnline(data.status.lastHeartbeatAt),
+    };
     data.dashboard.commHealth = {
       ...data.dashboard.commHealth,
-      ...data.status,
+      ...hw,
       lastHeartbeatAt:
-        data.status.lastHeartbeatAt ||
+        hw.lastHeartbeatAt ||
         data.dashboard.commHealth.lastHeartbeatAt,
+      uiOnline: hw.isHardwareOnline,
+      isHardwareOnline: hw.isHardwareOnline,
     };
+    applyToyoshimaHardwareStatus({
+      ...hw,
+      isHardwareOnline: hw.isHardwareOnline,
+    });
   }
   return data;
 }
@@ -1826,7 +1849,9 @@ function bindToyoshimaControls() {
       if (action === "sim_heartbeat") {
         actionBtn.disabled = true;
         try {
-          /* 主装置・子機の双方へ擬似 HB を送り即時オンライン化 */
+          /* 主装置・子機へ擬似 HB を送り
+           * 盤内温度 36.2℃ も同時セット */
+          const SIM_BOARD_TEMP_C = 36.2;
           let lastDash = null;
           for (const building of ["main", "detached"]) {
             const data = await postJson("/toyoshima/heartbeat", {
@@ -1834,11 +1859,31 @@ function bindToyoshimaControls() {
               building,
               deviceId: `sim-${building}`,
               actor: "operator-sim",
+              board_temp: SIM_BOARD_TEMP_C,
+              boardTemp: SIM_BOARD_TEMP_C,
             });
             lastDash = data.dashboard || lastDash;
           }
-          if (lastDash) renderToyoshimaDashboard(lastDash);
-          else await refreshToyoshimaDashboard();
+          lastDashSig = "";
+          const status = await fetchToyoshimaStatus({
+            siteId: TOYOSHIMA_SEC_ID,
+            force: true,
+          });
+          if (lastDash) {
+            lastDash.commHealth = {
+              ...(lastDash.commHealth || {}),
+              ...status,
+              uiOnline: status.isHardwareOnline,
+              isHardwareOnline: status.isHardwareOnline,
+            };
+            renderToyoshimaDashboard(lastDash);
+          } else {
+            await refreshToyoshimaDashboard({
+              soft: false,
+              forceHealthSync: true,
+            });
+          }
+          applyToyoshimaHardwareStatus(status);
           showToast("擬似ハートビートを送信しました（オンライン同期）");
         } finally {
           actionBtn.disabled = false;
@@ -1859,12 +1904,7 @@ function bindToyoshimaControls() {
             soft: false,
             forceHealthSync: true,
           });
-          const onlineEl = $("ts-online-val") || $("ts-assure-online");
-          if (onlineEl && status?.customerOnline) {
-            onlineEl.textContent = isCustomerPortal()
-              ? status.customerOnline
-              : status.operatorOnline;
-          }
+          applyToyoshimaHardwareStatus(status);
           showToast("最新の接続状態を取得しました");
         } finally {
           actionBtn.classList.remove("is-spinning");
@@ -2022,6 +2062,15 @@ export function startToyoshimaPolling() {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") tick();
     });
+  }
+  if (!window.__TISLY_TOYOSHIMA_BC_UNSUB) {
+    window.__TISLY_TOYOSHIMA_BC_UNSUB = subscribeToyoshimaStatus(
+      (status) => {
+        applyToyoshimaHardwareStatus(status);
+        lastDashSig = "";
+        tick();
+      }
+    );
   }
   tick();
 }

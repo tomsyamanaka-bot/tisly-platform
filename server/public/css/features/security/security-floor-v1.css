@@ -443,6 +443,12 @@
   background: rgba(22, 163, 74, 0.1);
 }
 
+.sf-online-pill.is-offline {
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.38);
+  background: rgba(254, 226, 226, 0.95);
+}
+
 .sf-bell {
   position: relative;
 }

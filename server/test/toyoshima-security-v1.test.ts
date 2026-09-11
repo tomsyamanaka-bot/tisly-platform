@@ -97,6 +97,7 @@ describe("toyoshima-security-v1", () => {
     assert.ok(dash.commHealth);
     assert.match(dash.commHealth.onlineSummary, /オンライン/);
     assert.equal(dash.commHealth.uiOnline, true);
+    assert.equal(dash.commHealth.isHardwareOnline, true);
     assert.ok(Array.isArray(dash.notifySensors));
     assert.equal(dash.notifySensors.length, 3);
     assert.equal(dash.alarm.active, false);
@@ -275,14 +276,17 @@ describe("toyoshima-security-v1", () => {
     const empty = buildToyoshimaStatusSsotV1();
     assert.equal(empty.ssot, "toyoshima-commHealth");
     assert.equal(empty.uiOnline, false);
-    assert.match(empty.customerOnline, /オフライン/);
+    assert.equal(empty.isHardwareOnline, false);
+    assert.match(empty.customerOnline, /オフライン（通信途絶）/);
     assert.equal(empty.lastHeartbeatAt, null);
 
     await recordToyoshimaHeartbeatV1({ building: "main" });
     await recordToyoshimaHeartbeatV1({ building: "detached" });
     const online = buildToyoshimaStatusSsotV1();
     assert.equal(online.uiOnline, true);
+    assert.equal(online.isHardwareOnline, online.uiOnline);
     assert.match(online.customerOnline, /正常稼働中（オンライン）/);
+    assert.match(online.operatorOnline, /正常稼働中（オンライン）/);
     assert.ok(online.lastHeartbeatAt);
 
     const stale = new Date(Date.now() - 5 * 60 * 1000 - 1000).toISOString();
@@ -290,7 +294,30 @@ describe("toyoshima-security-v1", () => {
     setToyoshimaHeartbeatAtForTestV1("detached", stale);
     const uiOff = buildToyoshimaStatusSsotV1();
     assert.equal(uiOff.uiOnline, false);
-    assert.match(uiOff.customerOnline, /オフライン/);
+    assert.equal(uiOff.isHardwareOnline, false);
+    assert.match(uiOff.customerOnline, /オフライン（通信途絶）/);
+  });
+
+  it("sim heartbeat 36.2C drives header and card from isHardwareOnline", async () => {
+    const { buildToyoshimaStatusSsotV1 } = await import(
+      "../src/home/home-toyoshima-security-v1.js"
+    );
+    resetToyoshimaSecurityStateForTestV1();
+    await recordToyoshimaHeartbeatV1({
+      building: "main",
+      boardTemp: 36.2,
+    });
+    await recordToyoshimaHeartbeatV1({
+      building: "detached",
+      boardTemp: 36.2,
+    });
+    const ssot = buildToyoshimaStatusSsotV1();
+    assert.equal(ssot.isHardwareOnline, true);
+    assert.equal(ssot.uiOnline, ssot.isHardwareOnline);
+    assert.match(ssot.customerOnline, /正常稼働中（オンライン）/);
+    assert.match(ssot.operatorOnline, /正常稼働中（オンライン）/);
+    assert.equal(ssot.boardTempC, 36.2);
+    assert.match(ssot.boardTempLabel, /36\.2℃/);
   });
 
   it("heartbeat store upserts JSON state without wiping other keys", async () => {

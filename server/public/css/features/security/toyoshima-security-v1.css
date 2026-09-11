@@ -670,7 +670,8 @@
   font-weight: 800;
 }
 
-.ts-health-card .ts-health-val.is-offline {
+.ts-health-card .ts-health-val.is-offline,
+.ts-assure-val.is-offline {
   color: #b91c1c;
   font-weight: 800;
 }
