@@ -60,6 +60,10 @@ DI_ACTIVE_LOW = True
 # DI ハードデバウンス（ms）。確定は security_light の 50ms 継続 ON
 DI_DEBOUNCE_MS = 50
 
+# オンボード WS2812 RGB（Waveshare ETH-8DI-8RO = GPIO2）
+RGB_LED_PIN = 2
+RGB_LED_COUNT = 1
+
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
 FIRMWARE_VERSION = "1.6.2-di-confirm-50ms"
 

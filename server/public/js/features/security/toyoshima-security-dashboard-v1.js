@@ -603,6 +603,30 @@ function renderHealthGrid(dash) {
   </section>`;
 }
 
+function renderKittingCard(dash) {
+  const kit = dash.ota?.kitting || {};
+  const shippable = !!kit.shippable;
+  const rgb = kit.rgbStatus || "UNCONFIGURED";
+  const tone =
+    shippable || rgb === "SHIPPABLE"
+      ? "green"
+      : rgb === "CONFIGURED"
+        ? "blue"
+        : rgb === "FAULT" || rgb === "UNCONFIGURED"
+          ? "red"
+          : "wait";
+  const emoji =
+    tone === "green" ? "🟢" : tone === "blue" ? "🔵" : tone === "red" ? "🔴" : "⚪";
+  const label = kit.label
+    ? `${emoji} ${kit.label}`
+    : `${emoji} 検査待ち`;
+  return `<section class="ts-card ts-kitting-card" id="ts-kitting-card">
+    <h3 class="ts-card-head">🟢 出荷前キッティング・ステータス連携</h3>
+    <p class="ts-health-val" id="ts-kitting-label">${escapeHtml(label)}</p>
+    <p class="ts-hint" id="ts-kitting-sub">shippable: ${shippable ? "true" : "false"}</p>
+  </section>`;
+}
+
 function renderOtaCard(dash) {
   const ota = dash.ota || {};
   const running = ota.runningVersion || "1.0.0";
@@ -851,6 +875,8 @@ function dashSignature(dash) {
     otaSrv: dash.ota?.serverVersion,
     otaPend: dash.ota?.pending,
     otaUp: dash.ota?.has_ota_update,
+    kitShip: dash.ota?.kitting?.shippable,
+    kitRgb: dash.ota?.kitting?.rgbStatus,
     mainDi: (dash.main?.di || []).map((d) => d.state).join(","),
     mainDo: (dash.main?.do || [])
       .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
@@ -1227,6 +1253,8 @@ function patchToyoshimaDashboard(dash) {
   if (heartbeatEl) heartbeatEl.textContent = view.heartbeatLabel;
   const otaRoot = $("ts-ota-root");
   if (otaRoot) otaRoot.innerHTML = renderOtaCard(dash);
+  const kitRoot = $("ts-kitting-root");
+  if (kitRoot) kitRoot.innerHTML = renderKittingCard(dash);
   const boardTempEl = $("ts-board-temp-val");
   if (boardTempEl) {
     boardTempEl.textContent = `${view.tempEmoji} ${view.tempLabel}`;
@@ -1539,6 +1567,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         </button>
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
         <div id="ts-ota-root">${renderOtaCard(dash)}</div>
+        <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
         <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
         ${renderCloudStreamCard()}
         ${renderBuildingCard(dash.main)}

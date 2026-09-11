@@ -72,6 +72,11 @@ except ImportError:
         mark_boot_ok = None
         ota_maybe_update = None
 
+try:
+    from tisly_self_test import get_runner as get_kitting_runner
+except ImportError:
+    get_kitting_runner = None
+
 
 
 # --- W5500 SPI ピン（Waveshare 02_MQTT サンプル準拠・要 lib/） ---
@@ -161,6 +166,8 @@ input_states = {
 _lan = None
 
 _security = None
+
+_kit = None
 
 
 def log(msg):
@@ -590,6 +597,8 @@ def _send_heartbeat_once():
         "inputStates": dict(input_states),
 
     }
+    if _kit:
+        payload.update(_kit.payload_fields())
 
     try:
         from toyoshima_security import read_board_temperature_c
@@ -616,7 +625,8 @@ def _send_heartbeat_once():
     if status != 200:
 
         log_error("heartbeat HTTP {} — {}".format(status, (body or "")[:120]))
-
+        if _kit:
+            _kit.note_heartbeat(False)
         return False
 
 
@@ -624,6 +634,8 @@ def _send_heartbeat_once():
     log("heartbeat status={}".format(status))
 
     log("heartbeat sent")
+    if _kit:
+        _kit.note_heartbeat(True)
 
     if mark_boot_ok:
         try:
@@ -987,6 +999,15 @@ async def async_main():
     global _security
 
     log("device: {}  fw: {}".format(config.DEVICE_ID, config.FIRMWARE_VERSION))
+    global _kit
+    if get_kitting_runner:
+        try:
+            _kit = get_kitting_runner(config=config, http_get=http_get)
+            _kit.run_config()
+            log("kitting RGB status={}".format(_kit.status))
+        except Exception as kit_exc:
+            _kit = None
+            log_error("kitting init: {}".format(kit_exc))
 
     for ch in sorted(CH_PINS.keys()):
 
@@ -1007,6 +1028,15 @@ async def async_main():
 
 
     ifconfig = init_ethernet()
+
+    if _kit:
+        try:
+            _kit.http_get = http_get
+            _kit.run_lan(bool(get_ip()))
+            if get_ip():
+                _kit.run_ota()
+        except Exception as kit_exc:
+            log_error("kitting lan: {}".format(kit_exc))
 
     if ota_maybe_update:
         try:
@@ -1116,6 +1146,8 @@ async def async_main():
 
 
     while True:
+        if _kit:
+            _kit.tick()
 
         poll_counter += 1
         if poll_counter >= rules_sync_every:

@@ -11,7 +11,10 @@ import {
 } from "../../remote-test/security-demo-notify.js";
 import { processHomeSecurityInputChangesV1 } from "../../home/home-security-notify-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
-import { recordTislyOtaDeviceFirmwareV1 } from "../../firmware/tisly-rp2350-ota-v1.js";
+import {
+  extractTislyKittingFromHeartbeatV1,
+  recordTislyOtaDeviceFirmwareV1,
+} from "../../firmware/tisly-rp2350-ota-v1.js";
 import {
   getSecurityDemoStatus,
   setSecurityMode,
@@ -435,6 +438,7 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     );
   }
   const status = getRemoteTestStatus();
+  const kitting = extractTislyKittingFromHeartbeatV1(req.body);
   const ota = recordTislyOtaDeviceFirmwareV1({
     siteKey: "itabashi",
     deviceId:
@@ -442,6 +446,9 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
         (req.body as Record<string, unknown> | undefined)?.deviceId ?? ""
       ).trim() || "rp2350-itabashi-main-01",
     firmwareVersion: firmwareVersion || null,
+    shippable: kitting.shippable,
+    rgbStatus: kitting.rgbStatus,
+    selfTest: kitting.selfTest,
   });
   res.json({
     ok: true,

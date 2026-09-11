@@ -113,6 +113,7 @@ function startDiPolling() {
   loadDiStatus().catch(() => {});
   diPollTimer = setInterval(() => {
     loadDiStatus().catch(() => {});
+    loadKittingPanel().catch(() => {});
   }, 2500);
 }
 
@@ -184,6 +185,7 @@ async function refreshProToolsPanels() {
     loadShellyFailsafe().catch(() => {}),
     loadHeartbeatWatch().catch(() => {}),
     loadOtaPanel().catch(() => {}),
+    loadKittingPanel().catch(() => {}),
   ]);
   startDiPolling();
 }
@@ -227,6 +229,64 @@ async function loadOtaPanel() {
       status.textContent = "配信予約なし";
     }
   }
+  renderKittingFromPayload(data);
+}
+
+function kittingTone(rgb, shippable) {
+  if (shippable || rgb === "SHIPPABLE") return "green";
+  if (rgb === "CONFIGURED") return "blue";
+  if (rgb === "FAULT" || rgb === "UNCONFIGURED") return "red";
+  return "wait";
+}
+
+function renderKittingFromPayload(data) {
+  const kit = data?.kitting || {};
+  const shippable = !!kit.shippable;
+  const rgb = kit.rgbStatus || "UNCONFIGURED";
+  const tone = kittingTone(rgb, shippable);
+  const emoji =
+    tone === "green" ? "🟢" : tone === "blue" ? "🔵" : tone === "red" ? "🔴" : "⚪";
+  const label = kit.label
+    ? `${emoji} ${kit.label}`
+    : `${emoji} 検査待ち`;
+  const labelEl = $("sf-kitting-label");
+  const subEl = $("sf-kitting-sub");
+  const dot = $("sf-kitting-dot");
+  const checksEl = $("sf-kitting-checks");
+  if (labelEl) labelEl.textContent = label;
+  if (subEl) {
+    subEl.textContent = `shippable: ${shippable ? "true" : "false"}`;
+  }
+  if (dot) {
+    dot.classList.remove("is-green", "is-blue", "is-red", "is-wait");
+    dot.classList.add(`is-${tone}`);
+  }
+  const device = Array.isArray(kit.devices) ? kit.devices[0] : null;
+  const checks = device?.selfTest || kit.checks;
+  if (checksEl) {
+    if (checks) {
+      checksEl.textContent = [
+        `config ${checks.config ? "OK" : "NG"}`,
+        `LAN ${checks.lan ? "OK" : "NG"}`,
+        `HB ${checks.heartbeat ? "OK" : "NG"}`,
+        `OTA ${checks.ota ? "OK" : "NG"}`,
+      ].join(" / ");
+    } else if (kit.reportedAt) {
+      checksEl.textContent = "最終報告 " + String(kit.reportedAt);
+    } else {
+      checksEl.textContent = "config / LAN / HB / OTA 未受信";
+    }
+  }
+}
+
+async function loadKittingPanel() {
+  const slug = otaSiteSlug(currentHomeSiteId);
+  const res = await fetch(
+    `/api/firmware/${encodeURIComponent(slug)}/version`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  renderKittingFromPayload(data);
 }
 
 async function deployOtaFirmware() {

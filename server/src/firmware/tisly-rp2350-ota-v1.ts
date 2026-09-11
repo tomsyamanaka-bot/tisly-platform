@@ -12,11 +12,42 @@ import { getDatabase } from "../db/database.js";
 export type TislyOtaSiteKeyV1 = "toyoshima" | "itabashi";
 export type TislyOtaChannelV1 = "staging" | "production";
 
+export type TislyRgbStatusV1 =
+  | "UNCONFIGURED"
+  | "FAULT"
+  | "CONFIGURED"
+  | "SHIPPABLE";
+
+export interface TislySelfTestChecksV1 {
+  config: boolean;
+  lan: boolean;
+  heartbeat: boolean;
+  ota: boolean;
+}
+
 export interface TislyOtaDeviceReportV1 {
   deviceId: string;
   building?: string;
   firmwareVersion: string;
   reportedAt: string;
+  shippable?: boolean;
+  rgbStatus?: TislyRgbStatusV1;
+  selfTest?: TislySelfTestChecksV1;
+}
+
+export interface TislyKittingPayloadV1 {
+  shippable: boolean;
+  rgbStatus: TislyRgbStatusV1;
+  label: string;
+  reportedAt: string | null;
+  devices: Array<{
+    deviceId: string;
+    shippable: boolean;
+    rgbStatus: TislyRgbStatusV1;
+    firmwareVersion: string;
+    reportedAt: string;
+    selfTest?: TislySelfTestChecksV1;
+  }>;
 }
 
 export interface TislyOtaSiteStateV1 {
@@ -52,6 +83,7 @@ export interface TislyOtaVersionPayloadV1 {
   has_ota_update: boolean;
   runningVersion: string | null;
   lastDeployAt: string | null;
+  kitting: TislyKittingPayloadV1;
 }
 
 interface TislyOtaStoreV1 {
@@ -95,6 +127,8 @@ const SITE_PROFILES: SiteProfileV1[] = [
       "toyoshima_security.py": "toyoshima_security.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",
+      "lib/tisly_rgb.py": "lib/tisly_rgb.py",
+      "tisly_self_test.py": "tisly_self_test.py",
       "config.py": "config_toyoshima.py",
     },
   },
@@ -117,6 +151,8 @@ const SITE_PROFILES: SiteProfileV1[] = [
       "security_light.py": "security_light.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",
+      "lib/tisly_rgb.py": "lib/tisly_rgb.py",
+      "tisly_self_test.py": "tisly_self_test.py",
       "config.py": "config.py",
     },
   },
@@ -278,7 +314,12 @@ function parseSiteState(
       if (!row || typeof row !== "object") continue;
       const r = row as Record<string, unknown>;
       const ver = String(r.firmwareVersion ?? "").trim();
-      if (!ver) continue;
+      const rgbStatus = parseTislyRgbStatusV1(r.rgbStatus ?? r.rgb_status);
+      const shippable = asBool(r.shippable);
+      const selfTest = parseSelfTest(r.selfTest ?? r.self_test);
+      if (!ver && shippable === undefined && !rgbStatus && !selfTest) {
+        continue;
+      }
       reported[id] = {
         deviceId: String(r.deviceId ?? id),
         building:
@@ -286,6 +327,9 @@ function parseSiteState(
         firmwareVersion: ver,
         reportedAt:
           typeof r.reportedAt === "string" ? r.reportedAt : nowIso(),
+        shippable,
+        rgbStatus: rgbStatus ?? undefined,
+        selfTest,
       };
     }
   }
@@ -380,6 +424,117 @@ function getOrCreateSite(
   return created;
 }
 
+function kittingLabel(status: TislyRgbStatusV1, shippable: boolean): string {
+  if (shippable || status === "SHIPPABLE") {
+    return "出荷準備完了（正常）";
+  }
+  if (status === "CONFIGURED") {
+    return "設定済・未疎通";
+  }
+  if (status === "FAULT") {
+    return "異常（通信または自己診断失敗）";
+  }
+  return "未設定・検査未完了";
+}
+
+export function parseTislyRgbStatusV1(raw: unknown): TislyRgbStatusV1 | null {
+  const key = String(raw ?? "").trim().toUpperCase();
+  if (
+    key === "UNCONFIGURED" ||
+    key === "FAULT" ||
+    key === "CONFIGURED" ||
+    key === "SHIPPABLE"
+  ) {
+    return key;
+  }
+  const lower = String(raw ?? "").trim().toLowerCase();
+  if (lower === "green" || lower === "ok") return "SHIPPABLE";
+  if (lower === "blue" || lower === "boot") return "CONFIGURED";
+  if (lower === "red" || lower === "error") return "FAULT";
+  return null;
+}
+
+function asBool(raw: unknown): boolean | undefined {
+  if (typeof raw === "boolean") return raw;
+  if (raw === 1 || raw === "1" || raw === "true") return true;
+  if (raw === 0 || raw === "0" || raw === "false") return false;
+  return undefined;
+}
+
+function parseSelfTest(raw: unknown): TislySelfTestChecksV1 | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const rec = raw as Record<string, unknown>;
+  return {
+    config: asBool(rec.config) === true,
+    lan: asBool(rec.lan) === true,
+    heartbeat: asBool(rec.heartbeat ?? rec.heartbeat_ok) === true,
+    ota: asBool(rec.ota ?? rec.ota_ok) === true,
+  };
+}
+
+export function extractTislyKittingFromHeartbeatV1(body: unknown): {
+  shippable?: boolean;
+  rgbStatus?: TislyRgbStatusV1;
+  selfTest?: TislySelfTestChecksV1;
+} {
+  if (!body || typeof body !== "object") return {};
+  const rec = body as Record<string, unknown>;
+  const nested =
+    rec.kitting && typeof rec.kitting === "object"
+      ? (rec.kitting as Record<string, unknown>)
+      : rec;
+  const shippable = asBool(nested.shippable ?? rec.shippable);
+  const rgbStatus = parseTislyRgbStatusV1(
+    nested.rgb_status ?? nested.rgbStatus ?? rec.rgb_status ?? rec.rgbStatus
+  );
+  const selfTest = parseSelfTest(
+    nested.self_test ?? nested.selfTest ?? rec.self_test ?? rec.selfTest
+  );
+  return { shippable, rgbStatus: rgbStatus ?? undefined, selfTest };
+}
+
+function summarizeKitting(site: TislyOtaSiteStateV1): TislyKittingPayloadV1 {
+  const devices = Object.values(site.reported).map((row) => {
+    const rgb =
+      row.rgbStatus ??
+      (row.shippable ? "SHIPPABLE" : "UNCONFIGURED");
+    return {
+      deviceId: row.deviceId,
+      shippable: Boolean(row.shippable) || rgb === "SHIPPABLE",
+      rgbStatus: rgb,
+      firmwareVersion: row.firmwareVersion,
+      reportedAt: row.reportedAt,
+      selfTest: row.selfTest,
+    };
+  });
+  if (devices.length === 0) {
+    return {
+      shippable: false,
+      rgbStatus: "UNCONFIGURED",
+      label: kittingLabel("UNCONFIGURED", false),
+      reportedAt: null,
+      devices: [],
+    };
+  }
+  const shippable = devices.every((d) => d.shippable);
+  const latest = [...devices].sort((a, b) =>
+    String(b.reportedAt).localeCompare(String(a.reportedAt))
+  )[0];
+  let rgb: TislyRgbStatusV1 = latest?.rgbStatus ?? "UNCONFIGURED";
+  if (shippable) rgb = "SHIPPABLE";
+  else if (devices.some((d) => d.rgbStatus === "FAULT")) rgb = "FAULT";
+  else if (devices.some((d) => d.rgbStatus === "CONFIGURED")) {
+    rgb = "CONFIGURED";
+  }
+  return {
+    shippable,
+    rgbStatus: rgb,
+    label: kittingLabel(rgb, shippable),
+    reportedAt: latest?.reportedAt ?? null,
+    devices,
+  };
+}
+
 function pickRunningVersion(site: TislyOtaSiteStateV1): string | null {
   const versions = Object.values(site.reported)
     .map((r) => r.firmwareVersion)
@@ -452,6 +607,7 @@ export function getTislyOtaVersionV1(input: {
       channel === "staging"
         ? site.lastStagingDeployAt
         : site.lastDeployAt,
+    kitting: summarizeKitting(site),
   };
 }
 
@@ -531,23 +687,37 @@ export function recordTislyOtaDeviceFirmwareV1(input: {
   deviceId?: string | null;
   building?: string | null;
   firmwareVersion?: string | null;
+  shippable?: boolean;
+  rgbStatus?: TislyRgbStatusV1 | null;
+  selfTest?: TislySelfTestChecksV1 | null;
 }): TislyOtaVersionPayloadV1 {
   const version = String(input.firmwareVersion ?? "").trim();
   const store = loadStore();
   const site = getOrCreateSite(store, input.siteKey);
-  if (version) {
-    const id =
-      String(input.deviceId ?? "").trim() ||
-      String(input.building ?? "").trim() ||
-      "default";
+  const id =
+    String(input.deviceId ?? "").trim() ||
+    String(input.building ?? "").trim() ||
+    "default";
+  const prev = site.reported[id];
+  const hasKitting =
+    typeof input.shippable === "boolean" ||
+    Boolean(input.rgbStatus) ||
+    Boolean(input.selfTest);
+  if (version || hasKitting) {
     /* 既存報告は消さず当該キーだけ更新 */
     site.reported = {
       ...site.reported,
       [id]: {
         deviceId: id,
-        building: input.building ? String(input.building) : undefined,
-        firmwareVersion: version,
+        building: input.building ? String(input.building) : prev?.building,
+        firmwareVersion: version || prev?.firmwareVersion || "",
         reportedAt: nowIso(),
+        shippable:
+          typeof input.shippable === "boolean"
+            ? input.shippable
+            : prev?.shippable,
+        rgbStatus: input.rgbStatus || prev?.rgbStatus,
+        selfTest: input.selfTest || prev?.selfTest,
       },
     };
     if (site.pending && allDevicesMatch(site, site.version)) {

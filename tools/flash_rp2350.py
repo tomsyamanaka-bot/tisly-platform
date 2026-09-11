@@ -32,6 +32,8 @@ CORE_FILES = (
     "toshima_security.py",
 )
 OTA_LIB = "lib/tisly_ota.py"
+RGB_LIB = "lib/tisly_rgb.py"
+SELF_TEST = "tisly_self_test.py"
 
 
 def _run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -175,6 +177,12 @@ def flash(building: str, port: str | None, dry_run: bool) -> int:
         ota_src = FW_DIR / OTA_LIB
         if ota_src.exists():
             uploads.append((ota_src, ":lib/tisly_ota.py"))
+        rgb_src = FW_DIR / RGB_LIB
+        if rgb_src.exists():
+            uploads.append((rgb_src, ":lib/tisly_rgb.py"))
+        kit_src = FW_DIR / SELF_TEST
+        if kit_src.exists():
+            uploads.append((kit_src, ":tisly_self_test.py"))
 
         if dry_run:
             for src, dest in uploads:

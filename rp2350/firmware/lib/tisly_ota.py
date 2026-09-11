@@ -28,6 +28,8 @@ DEFAULT_FILES = (
     "security_light.py",
     "boot.py",
     "lib/tisly_ota.py",
+    "lib/tisly_rgb.py",
+    "tisly_self_test.py",
 )
 SKIP_FILES = ("config.py",)
 

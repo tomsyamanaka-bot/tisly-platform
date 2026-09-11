@@ -2514,10 +2514,56 @@
   color: #64748b;
 }
 
-.sf-ota-val {
-  font-size: 1rem;
-  font-weight: 800;
+.sf-kitting-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.sf-kitting-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: #94a3b8;
+}
+
+.sf-kitting-dot.is-green {
+  background: #16a34a;
+  box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.16);
+}
+
+.sf-kitting-dot.is-blue {
+  background: #2563eb;
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.16);
+}
+
+.sf-kitting-dot.is-red {
+  background: #dc2626;
+  box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.16);
+}
+
+.sf-kitting-dot.is-wait {
+  background: #cbd5e1;
+}
+
+.sf-kitting-status strong {
+  display: block;
   color: #1e3a8a;
+  font-size: 1rem;
+}
+
+.sf-kitting-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 700;
 }
 
 .sf-pro-action-btn {

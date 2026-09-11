@@ -261,6 +261,12 @@ export interface ToyoshimaSecurityDashboardV1 {
     pending: boolean;
     has_ota_update: boolean;
     channel: "staging" | "production";
+    kitting?: {
+      shippable: boolean;
+      rgbStatus: string;
+      label: string;
+      reportedAt: string | null;
+    };
   };
 }
 
@@ -1656,6 +1662,7 @@ export function buildToyoshimaSecurityDashboardV1(
           pending: ota.pending,
           has_ota_update: ota.has_ota_update,
           channel: ota.channel,
+          kitting: ota.kitting,
         };
       } catch {
         return {
@@ -1664,6 +1671,13 @@ export function buildToyoshimaSecurityDashboardV1(
           pending: false,
           has_ota_update: false,
           channel: "production" as const,
+          kitting: {
+            shippable: false,
+            rgbStatus: "UNCONFIGURED" as const,
+            label: "未設定・検査未完了",
+            reportedAt: null,
+            devices: [],
+          },
         };
       }
     })(),

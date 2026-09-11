@@ -4,9 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2524-rp-ota-standard";
+const SW_VERSION = "tisly-pwa-v2525-rp-rgb-kitting";
 /* 旧世代名は activate で破棄する
- * tisly-pwa-v2523-hw-badge-ssot
+ * tisly-pwa-v2524-rp-ota-standard
  * tisly-pwa-v2522-status-ssot
  * tisly-pwa-v2520-tenant-skeleton-hb
  * tisly-pwa-v2516-comm-health-ssot

@@ -168,6 +168,10 @@
   margin-top: 8px;
 }
 
+.ts-kitting-card .ts-health-val {
+  color: #1e3a8a;
+}
+
 .ts-health-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

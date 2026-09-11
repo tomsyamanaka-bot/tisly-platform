@@ -2045,3 +2045,41 @@ export const MOCK_RP2350_OTA_STANDARD_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const RP2350_RGB_KITTING_KNOWLEDGE_TITLES = [
+  "【製造・キッティングDX】RP2350オンボードRGBによる出荷判定＆自己診断インジケーター仕様",
+] as const;
+
+const RP2350_RGB_KITTING_CREATED_AT = "2026-09-11T09:30:00.000Z";
+
+/** RP2350 出荷判定 RGB（末尾追記） */
+export const MOCK_RP2350_RGB_KITTING_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-rp2350-rgb-kitting-001",
+    title:
+      "【製造・キッティングDX】RP2350オンボードRGBによる出荷判定＆自己診断インジケーター仕様",
+    summary: [
+      "物件設定・センサー定義・OTA設定の投入後、実機単体で",
+      "VPS疎通と整合性を自己診断。PCや画面を見ずとも",
+      "「赤（未完了）➔ 青（設定済）➔ 緑点滅（出荷OK）」で",
+      "現場持出判定を可能にする製造フロー標準化。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#出荷検査",
+      "#RGBインジケーター",
+      "#キッティング",
+      "#RP2350",
+      "#保守DX",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: RP2350_RGB_KITTING_CREATED_AT,
+    body: [
+      "【RGB】GPIO2 / WS2812",
+      "赤点滅: 未設定または通信異常",
+      "青点滅: 設定済・ネット疎通待ち",
+      "緑呼吸: 出荷OK（SHIPPABLE）",
+    ].join("\n"),
+  },
+];

@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2524" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2524" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2525" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2525" />
   <script type="importmap">
   {
     "imports": {
@@ -363,6 +363,23 @@
               🔄 バージョン再読込
             </button>
           </div>
+        </details>
+
+        <details class="sf-pro-details" open id="sf-pro-kitting-panel">
+          <summary>🟢 出荷前キッティング・ステータス連携</summary>
+          <p class="sf-pro-hint">
+            実機オンボードRGBの自己診断結果をハートビートで同期します。
+            赤＝未完了、青＝設定済・未疎通、緑点滅＝出荷OK。
+            顧客画面（/customer）には表示されません。
+          </p>
+          <div class="sf-kitting-status" id="sf-kitting-status">
+            <span class="sf-kitting-dot is-wait" id="sf-kitting-dot" aria-hidden="true"></span>
+            <div>
+              <strong id="sf-kitting-label">検査待ち</strong>
+              <span class="sf-kitting-sub" id="sf-kitting-sub">shippable: —</span>
+            </div>
+          </div>
+          <p class="sf-pro-hint" id="sf-kitting-checks">config / LAN / HB / OTA 未受信</p>
         </details>
 
         <details class="sf-pro-details" open id="sf-pro-heartbeat-watch">
@@ -816,9 +833,9 @@
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2516"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2516"></script>
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2517"></script>
-  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2524"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2525"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2516"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2524"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2525"></script>
   <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2523"></script>
 </body>
 </html>

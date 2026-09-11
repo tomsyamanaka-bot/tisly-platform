@@ -146,6 +146,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /MOCK_RP2350_OTA_STANDARD_ITEMS/);
     assert.match(mockSrc, /全現場RP2350 PoE LAN経由OTA/);
     assert.match(mockSrc, /#全現場標準化/);
+    assert.match(mockSrc, /MOCK_RP2350_RGB_KITTING_ITEMS/);
+    assert.match(mockSrc, /オンボードRGBによる出荷判定/);
+    assert.match(mockSrc, /#出荷検査/);
   });
 
   it("nav script requires login before loading bundle", () => {

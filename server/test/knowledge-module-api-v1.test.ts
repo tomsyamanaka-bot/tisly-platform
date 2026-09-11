@@ -167,6 +167,10 @@ const {
   RP2350_OTA_STANDARD_MODULE_SEED_IDS,
   seedRp2350OtaStandardKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-rp2350-ota-standard-seed-v1.js");
+const {
+  RP2350_RGB_KITTING_MODULE_SEED_IDS,
+  seedRp2350RgbKittingKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-rp2350-rgb-kitting-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1514,6 +1518,37 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card);
     assert.match(card!.title, /A\/Bロールバック標準規格/);
     assert.ok(card!.tags.includes("#OTA"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends rp2350 rgb kitting seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of RP2350_RGB_KITTING_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-rp2350-rgb-kitting-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /オンボードRGBによる出荷判定/);
+    assert.ok(card!.tags.includes("#出荷検査"));
+    assert.ok(card!.tags.includes("#RGBインジケーター"));
+    assert.ok(card!.tags.includes("#キッティング"));
+    assert.ok(card!.tags.includes("#RP2350"));
+    assert.ok(card!.tags.includes("#保守DX"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("seedRp2350RgbKittingKnowledgeCardsV1 upserts searchable cards", () => {
+    seedRp2350RgbKittingKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-RP2350-RGB-KITTING-001");
+    assert.ok(card);
+    assert.match(card!.title, /出荷判定＆自己診断インジケーター/);
+    assert.ok(card!.tags.includes("#出荷検査"));
     assert.ok(card!.tags.includes("#TiSLY_Core"));
   });
 

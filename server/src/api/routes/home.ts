@@ -141,6 +141,7 @@ import {
   updateToyoshimaOpsConfigV1,
 } from "../../home/home-toyoshima-ops-config-v1.js";
 import {
+  extractTislyKittingFromHeartbeatV1,
   recordTislyOtaDeviceFirmwareV1,
 } from "../../firmware/tisly-rp2350-ota-v1.js";
 import {
@@ -1451,11 +1452,15 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
           req.body?.firmware ??
           ""
       ).trim();
+      const kitting = extractTislyKittingFromHeartbeatV1(req.body);
       const ota = recordTislyOtaDeviceFirmwareV1({
         siteKey: "toyoshima",
         deviceId: String(req.body?.deviceId ?? building),
         building,
         firmwareVersion: firmwareVersion || null,
+        shippable: kitting.shippable,
+        rgbStatus: kitting.rgbStatus,
+        selfTest: kitting.selfTest,
       });
       const dashSite = String(
         req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1

@@ -62,6 +62,11 @@ except ImportError:
         mark_boot_ok = None
         ota_maybe_update = None
 
+try:
+    from tisly_self_test import get_runner as get_kitting_runner
+except ImportError:
+    get_kitting_runner = None
+
 # --- W5500 SPI ピン（Waveshare 準拠） ---
 W5500_SPI_ID = 0
 W5500_SCK = 34
@@ -92,6 +97,7 @@ _rgb = None
 _rgb_blink_on = False
 _boot_ms = time.ticks_ms()
 _last_hb_ok = False
+_kit = None
 
 
 def log(msg):
@@ -119,8 +125,21 @@ def _uptime_sec():
 
 
 def init_rgb_led():
-    """オンボード WS2812 自己診断 LED を初期化。"""
-    global _rgb
+    """出荷判定 RGB と自己診断ランナーを起動。"""
+    global _rgb, _kit
+    if get_kitting_runner:
+        try:
+            _kit = get_kitting_runner(
+                config=config,
+                http_get=http_get,
+                kick_wdt=lambda: kick_watchdog(_wdt),
+            )
+            _kit.run_config()
+            log("kitting RGB status={}".format(_kit.status))
+            return
+        except Exception as e:
+            _kit = None
+            log_error("kitting init: {}".format(e))
     pin_no = int(getattr(config, "RGB_LED_PIN", 2))
     count = int(getattr(config, "RGB_LED_COUNT", 1))
     try:
@@ -147,10 +166,18 @@ def set_rgb(r, g, b):
 
 def set_rgb_status(kind):
     """
-    青=接続中 / 緑点滅=HB正常 /
-    赤=不通またはAPIエラー
+    互換ラッパ。出荷判定ランナーがあれば
+    そちらを優先し、無いときだけ直制御。
     """
     global _rgb_blink_on
+    if _kit:
+        if kind == "error":
+            _kit.note_heartbeat(False)
+        elif kind == "ok":
+            _kit.tick()
+        else:
+            _kit.apply_rgb()
+        return
     if kind == "boot":
         set_rgb(0, 0, 48)
     elif kind == "ok":
@@ -406,30 +433,33 @@ def send_heartbeat():
     global _last_hb_ok
     try:
         building = _building()
+        extra = {
+            "firmware": getattr(
+                config, "FIRMWARE_VERSION", "toyoshima"
+            ),
+            "firmware_version": (
+                ota_local_version(config)
+                if ota_local_version
+                else getattr(config, "OTA_VERSION", "1.0.0")
+            ),
+            "otaVersion": (
+                ota_local_version(config)
+                if ota_local_version
+                else getattr(config, "OTA_VERSION", "1.0.0")
+            ),
+            "chStates": dict(ch_states),
+            "inputStates": dict(input_states),
+            "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
+            "uptime_sec": _uptime_sec(),
+            "ip": get_ip(),
+        }
+        if _kit:
+            extra.update(_kit.payload_fields())
         payload = build_heartbeat_payload(
             building,
             site_id=_site_id(),
             device_id=_device_id(),
-            extra={
-                "firmware": getattr(
-                    config, "FIRMWARE_VERSION", "toyoshima"
-                ),
-                "firmware_version": (
-                    ota_local_version(config)
-                    if ota_local_version
-                    else getattr(config, "OTA_VERSION", "1.0.0")
-                ),
-                "otaVersion": (
-                    ota_local_version(config)
-                    if ota_local_version
-                    else getattr(config, "OTA_VERSION", "1.0.0")
-                ),
-                "chStates": dict(ch_states),
-                "inputStates": dict(input_states),
-                "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
-                "uptime_sec": _uptime_sec(),
-                "ip": get_ip(),
-            },
+            extra=extra,
         )
         temp = payload.get("board_temp")
         if temp is not None:
@@ -442,7 +472,10 @@ def send_heartbeat():
         )
         if status != 200:
             _last_hb_ok = False
-            set_rgb_status("error")
+            if _kit:
+                _kit.note_heartbeat(False)
+            else:
+                set_rgb_status("error")
             log_error(
                 "heartbeat HTTP {} — {}".format(
                     status, (body or "")[:120]
@@ -450,7 +483,10 @@ def send_heartbeat():
             )
             return False
         _last_hb_ok = True
-        set_rgb_status("ok")
+        if _kit:
+            _kit.note_heartbeat(True)
+        else:
+            set_rgb_status("ok")
         log("heartbeat sent ({}) ONLINE".format(building))
         if mark_boot_ok:
             try:
@@ -470,7 +506,10 @@ def send_heartbeat():
         return True
     except Exception as e:
         _last_hb_ok = False
-        set_rgb_status("error")
+        if _kit:
+            _kit.note_heartbeat(False)
+        else:
+            set_rgb_status("error")
         log_error("heartbeat exception: {}".format(e))
         return False
 
@@ -599,6 +638,15 @@ async def async_main():
 
     ifconfig = init_ethernet()
     kick_watchdog(_wdt)
+    if _kit:
+        try:
+            _kit.http_get = http_get
+            _kit.kick_wdt = lambda: kick_watchdog(_wdt)
+            _kit.run_lan(bool(get_ip()))
+            if get_ip():
+                _kit.run_ota()
+        except Exception as kit_exc:
+            log_error("kitting lan: {}".format(kit_exc))
     if ota_maybe_update and get_ip():
         try:
             ota_maybe_update(
@@ -618,7 +666,8 @@ async def async_main():
                 )
             )
     else:
-        set_rgb_status("error")
+        if not _kit:
+            set_rgb_status("error")
         log_error("Ethernet 未接続 — PoE/LAN・DHCP/固定IPを確認")
 
     if building == "detached":
@@ -658,7 +707,8 @@ async def async_main():
         except Exception as e:
             log_error("boot heartbeat exception: {}".format(e))
     else:
-        set_rgb_status("error")
+        if not _kit:
+            set_rgb_status("error")
 
     log(
         "polling start (poll {} sec / heartbeat {} sec)".format(
@@ -707,10 +757,15 @@ async def async_main():
             except Exception as e:
                 log_error("heartbeat exception: {}".format(e))
             if not _last_hb_ok:
-                set_rgb_status("error")
+                if _kit:
+                    _kit.note_heartbeat(False)
+                else:
+                    set_rgb_status("error")
             next_heartbeat_ms = time.ticks_add(
                 now, heartbeat_interval_ms
             )
+        if _kit:
+            _kit.tick()
         elif _last_hb_ok:
             set_rgb_status("ok")
 

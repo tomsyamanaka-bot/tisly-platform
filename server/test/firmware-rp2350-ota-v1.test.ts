@@ -52,6 +52,10 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(res.body.has_ota_update, false);
     assert.ok(res.body.files.includes("main.py"));
     assert.ok(res.body.skipFiles.includes("config.py"));
+    assert.ok(res.body.files.includes("lib/tisly_rgb.py"));
+    assert.ok(res.body.files.includes("tisly_self_test.py"));
+    assert.equal(res.body.kitting.shippable, false);
+    assert.equal(typeof res.body.kitting.label, "string");
   });
 
   it("GET script serves main.py and toyoshima_security.py", async () => {
@@ -113,5 +117,36 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.match(ota, /machine\.reset|recover_if_needed/);
     const boot = fs.readFileSync(path.join(fw, "boot.py"), "utf8");
     assert.match(boot, /recover_if_needed|main_backup\.py/);
+    const rgb = fs.readFileSync(path.join(fw, "lib/tisly_rgb.py"), "utf8");
+    assert.match(rgb, /set_status/);
+    assert.match(rgb, /SHIPPABLE|STATUS_SHIPPABLE/);
+    const kit = fs.readFileSync(path.join(fw, "tisly_self_test.py"), "utf8");
+    assert.match(kit, /shippable\.json/);
+    assert.match(kit, /config\.json/);
+  });
+
+  it("heartbeat kitting fields mark shippable on version API", async () => {
+    resetTislyOtaStoreForTestV1();
+    const {
+      recordTislyOtaDeviceFirmwareV1,
+    } = await import("../src/firmware/tisly-rp2350-ota-v1.js");
+    const recorded = recordTislyOtaDeviceFirmwareV1({
+      siteKey: "itabashi",
+      deviceId: "rp2350-itabashi-main-01",
+      firmwareVersion: "1.0.0",
+      shippable: true,
+      rgbStatus: "SHIPPABLE",
+      selfTest: {
+        config: true,
+        lan: true,
+        heartbeat: true,
+        ota: true,
+      },
+    });
+    assert.equal(recorded.kitting.shippable, true);
+    assert.equal(recorded.kitting.rgbStatus, "SHIPPABLE");
+    const version = await request(app).get("/api/firmware/itabashi/version");
+    assert.equal(version.body.kitting.shippable, true);
+    assert.match(version.body.kitting.label, /出荷準備完了/);
   });
 });

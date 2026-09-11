@@ -622,10 +622,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
-    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2524/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2525/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2523/);
-    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2524/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2525/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
@@ -685,6 +685,10 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /sf-ota-deploy/);
     assert.match(opHtml, /全現場一括配信/);
     assert.match(opHtml, /ステージング \/ 本番/);
+    assert.match(opHtml, /出荷前キッティング・ステータス連携/);
+    assert.match(opHtml, /sf-pro-kitting-panel/);
+    assert.match(opHtml, /出荷準備完了（正常）|shippable/);
+    assert.doesNotMatch(customerHtml, /sf-pro-kitting-panel/);
     assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);
@@ -742,9 +746,14 @@ describe("security-floor-v1", () => {
     );
     assert.match(toyoshimaJs, /ota_deploy|最新ファームウェアを現場実機へ配信/);
     assert.match(toyoshimaJs, /ts-ota-card|TiSLY OTAファームウェア一元管理/);
+    assert.match(toyoshimaJs, /ts-kitting-card|出荷前キッティング/);
     assert.doesNotMatch(
       toyoshimaJs,
       /ts-customer-dash[\s\S]{0,1600}ts-ota-card/
+    );
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /ts-customer-dash[\s\S]{0,2000}ts-kitting-card/
     );
 
     assert.match(lightJs, /二重バインド|sf-soc/);
