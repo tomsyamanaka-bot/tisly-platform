@@ -2172,3 +2172,55 @@ export const MOCK_HW_KITTING_SURGE_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const LEAKAGE_CURRENT_STANDARD_KNOWLEDGE_TITLES = [
+  "【電工基準・電技解釈】漏えい電流の判定基準（1.0mA以下合格・活線メガ測定代替）",
+] as const;
+
+const LEAKAGE_CURRENT_STANDARD_CREATED_AT = "2026-09-11T12:00:00.000Z";
+
+/** 電技解釈 漏えい電流 1.0mA 基準（末尾追記） */
+export const MOCK_LEAKAGE_CURRENT_STANDARD_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-leakage-current-1ma-001",
+    title:
+      "【電工基準・電技解釈】漏えい電流の判定基準（1.0mA以下合格・活線メガ測定代替）",
+    summary: [
+      "電技解釈第14条：絶縁抵抗測定が困難な場合、漏えい電流1.0mA以下で絶縁性能保持とみなす。",
+      "1.0mA「以下」は合格（セーフ）、1.0mA「超（より上）」は不合格（アウト・要改修）。",
+      "サーバー室や病院・稼働中工場など、停電不可ラインのクランプ測定・常時監視の絶対基準。",
+    ].join(""),
+    genre: "電気工事",
+    tags: [
+      "#電技解釈",
+      "#漏えい電流",
+      "#リーククランプ",
+      "#活線測定",
+      "#絶縁管理",
+      "#電工DX",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: LEAKAGE_CURRENT_STANDARD_CREATED_AT,
+    body: [
+      "【根拠】",
+      "電気設備の技術基準（電技解釈 第14条）の絶縁性能規定。",
+      "通常は停電して絶縁抵抗計（メガー）で",
+      "0.1MΩ / 0.2MΩ / 0.4MΩ 以上を確認する。",
+      "",
+      "【活線代替】",
+      "無停電現場ではリーククランプテスターを用いる。",
+      "電線束（単相は2本一括、三相は3本一括）を挟み、",
+      "漏えい電流（Io）を測定する。",
+      "",
+      "【合否ライン】",
+      "・1.0 mA 以下：合格（絶縁性能良好・継続使用可）",
+      "・1.0 mA より上：不合格（絶縁劣化・微小漏電・要回路切り分け調査）",
+      "",
+      "【注意】",
+      "インバーター機器の高周波成分（Ior vs Ioc）で誤検知しやすい。",
+      "TiSLY の CT 電流監視・漏電予兆アラートは、",
+      "本しきい値を判定設計の基礎規格とする。",
+    ].join("\n"),
+  },
+];

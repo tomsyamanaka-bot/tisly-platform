@@ -175,6 +175,10 @@ const {
   HW_KITTING_SURGE_MODULE_SEED_IDS,
   seedHwKittingSurgeKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-hw-kitting-surge-seed-v1.js");
+const {
+  LEAKAGE_CURRENT_STANDARD_MODULE_SEED_IDS,
+  seedLeakageCurrentStandardKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-leakage-current-standard-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1607,6 +1611,46 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(kit);
     assert.match(kit!.title, /4大標準ワークフロー/);
     assert.ok(kit!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends leakage current seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of LEAKAGE_CURRENT_STANDARD_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const leak = listed.find(
+      (x) => x.id === "kn-seed-leakage-current-1ma-001"
+    );
+    assert.ok(leak);
+    assert.match(leak!.title, /漏えい電流の判定基準/);
+    assert.match(leak!.title, /1.0mA以下合格/);
+    assert.match(leak!.summary, /電技解釈第14条/);
+    assert.match(leak!.summary, /1.0mA「以下」は合格/);
+    assert.match(leak!.body ?? "", /1\.0 mA 以下：合格/);
+    assert.match(leak!.body ?? "", /1\.0 mA より上：不合格/);
+    assert.ok(leak!.tags.includes("#電技解釈"));
+    assert.ok(leak!.tags.includes("#漏えい電流"));
+    assert.ok(leak!.tags.includes("#リーククランプ"));
+    assert.ok(leak!.tags.includes("#活線測定"));
+    assert.ok(leak!.tags.includes("#絶縁管理"));
+    assert.ok(leak!.tags.includes("#電工DX"));
+    assert.ok(leak!.tags.includes("#TiSLY_Core"));
+    assert.equal(leak!.genre, "電気工事");
+  });
+
+  it("seedLeakageCurrentStandardKnowledgeCardsV1 upserts searchable cards", () => {
+    seedLeakageCurrentStandardKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-LEAKAGE-CURRENT-1MA-001");
+    assert.ok(card);
+    assert.match(card!.title, /漏えい電流の判定基準/);
+    assert.ok(card!.tags.includes("#漏えい電流"));
+    assert.ok(card!.tags.includes("#電技解釈"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+    assert.match(card!.body ?? "", /Ior vs Ioc/);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

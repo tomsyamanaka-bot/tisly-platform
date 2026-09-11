@@ -156,6 +156,12 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /#サージ対策/);
     assert.match(mockSrc, /#終端抵抗/);
     assert.match(mockSrc, /#フォールバックIP/);
+    assert.match(mockSrc, /MOCK_LEAKAGE_CURRENT_STANDARD_ITEMS/);
+    assert.match(mockSrc, /漏えい電流の判定基準（1.0mA以下合格・活線メガ測定代替）/);
+    assert.match(mockSrc, /#漏えい電流/);
+    assert.match(mockSrc, /#リーククランプ/);
+    assert.match(mockSrc, /#活線測定/);
+    assert.match(mockSrc, /#絶縁管理/);
   });
 
   it("nav script requires login before loading bundle", () => {
