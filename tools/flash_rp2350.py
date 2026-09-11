@@ -31,6 +31,7 @@ CORE_FILES = (
     "toyoshima_security.py",
     "toshima_security.py",
 )
+OTA_LIB = "lib/tisly_ota.py"
 
 
 def _run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -171,6 +172,9 @@ def flash(building: str, port: str | None, dry_run: bool) -> int:
             src = FW_DIR / name
             if src.exists():
                 uploads.append((src, ":{}".format(name)))
+        ota_src = FW_DIR / OTA_LIB
+        if ota_src.exists():
+            uploads.append((ota_src, ":lib/tisly_ota.py"))
 
         if dry_run:
             for src, dest in uploads:
@@ -201,6 +205,15 @@ def flash(building: str, port: str | None, dry_run: bool) -> int:
                 "注意: soft-reset 応答なし。"
                 " RESETボタン押下後に再実行してください"
             )
+
+        try:
+            _run_timeout(
+                mp + connect + ["mkdir", ":lib"],
+                timeout_sec=8,
+                check=False,
+            )
+        except Exception:
+            pass
 
         for src, dest in uploads:
             cmd = mp + connect + ["cp", str(src), dest]

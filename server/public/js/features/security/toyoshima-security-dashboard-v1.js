@@ -603,6 +603,35 @@ function renderHealthGrid(dash) {
   </section>`;
 }
 
+function renderOtaCard(dash) {
+  const ota = dash.ota || {};
+  const running = ota.runningVersion || "1.0.0";
+  const server = ota.serverVersion || "1.0.0";
+  const pending = !!ota.pending || !!ota.has_ota_update;
+  const note = pending
+    ? "次回ハートビート時に実機が自動更新されます"
+    : running === server
+      ? "現場は最新バージョンで稼働中"
+      : "配信予約なし";
+  return `<section class="ts-card ts-ota-card" id="ts-ota-card">
+    <h3 class="ts-card-head">🚀 TiSLY OTAファームウェア一元管理</h3>
+    <div class="ts-health-grid">
+      <div class="ts-health-cell">
+        <span class="ts-health-key">現在稼働中バージョン</span>
+        <span class="ts-health-val" id="ts-ota-running">v${escapeHtml(running)}</span>
+      </div>
+      <div class="ts-health-cell">
+        <span class="ts-health-key">サーバー最新バージョン</span>
+        <span class="ts-health-val" id="ts-ota-server">v${escapeHtml(server)}</span>
+      </div>
+    </div>
+    <p class="ts-hint" id="ts-ota-note">${escapeHtml(note)}</p>
+    <button type="button" class="ts-sync-btn" data-ts-action="ota_deploy">
+      🚀 最新ファームウェアを現場実機へ配信
+    </button>
+  </section>`;
+}
+
 function renderSettingsCard(dash) {
   const lightSec = dash.lightingDurationSec ?? 45;
   const periSec = dash.perimeterTimeoutSec ?? 120;
@@ -818,6 +847,10 @@ function dashSignature(dash) {
     alarmMsg: dash.alarm?.message,
     notify: (dash.notifySensors || []).map((s) => `${s.id}:${s.mode}`).join(","),
     comm: dash.commHealth?.lastCommAt,
+    otaRun: dash.ota?.runningVersion,
+    otaSrv: dash.ota?.serverVersion,
+    otaPend: dash.ota?.pending,
+    otaUp: dash.ota?.has_ota_update,
     mainDi: (dash.main?.di || []).map((d) => d.state).join(","),
     mainDo: (dash.main?.do || [])
       .map((d) => `${d.on}:${d.blinking ? 1 : 0}`)
@@ -1192,6 +1225,8 @@ function patchToyoshimaDashboard(dash) {
     onlineEl.classList.toggle("is-offline", !view.isHardwareOnline);
   }
   if (heartbeatEl) heartbeatEl.textContent = view.heartbeatLabel;
+  const otaRoot = $("ts-ota-root");
+  if (otaRoot) otaRoot.innerHTML = renderOtaCard(dash);
   const boardTempEl = $("ts-board-temp-val");
   if (boardTempEl) {
     boardTempEl.textContent = `${view.tempEmoji} ${view.tempLabel}`;
@@ -1503,6 +1538,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
           📡 主装置・子機へ設定を反映
         </button>
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
+        <div id="ts-ota-root">${renderOtaCard(dash)}</div>
         <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
         ${renderCloudStreamCard()}
         ${renderBuildingCard(dash.main)}
@@ -1844,6 +1880,31 @@ function bindToyoshimaControls() {
         if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
         showToast("主装置・子機へ設定を反映しました");
         actionBtn.disabled = false;
+        return;
+      }
+      if (action === "ota_deploy") {
+        actionBtn.disabled = true;
+        try {
+          const res = await fetch("/api/firmware/toyoshima/deploy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              channel: "production",
+              siteId: TOYOSHIMA_HOME_ID,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          showToast(
+            data.message ||
+              "次回ハートビート時に実機が自動更新されます"
+          );
+          await refreshToyoshimaDashboard({
+            soft: false,
+            forceHealthSync: true,
+          });
+        } finally {
+          actionBtn.disabled = false;
+        }
         return;
       }
       if (action === "sim_heartbeat") {

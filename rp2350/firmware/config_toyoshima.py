@@ -80,3 +80,8 @@ DI_DEBOUNCE_MS = 100
 
 # ファームウェア版
 FIRMWARE_VERSION = "1.1.0-toyoshima-online"
+
+# 全現場共通 OTA（config.py 自体は遠隔上書きしない）
+OTA_SITE = "toyoshima"
+OTA_VERSION = "1.0.0"
+OTA_CHANNEL = "production"

@@ -18,6 +18,7 @@ import {
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
+import { getTislyOtaVersionV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 import {
   loadToyoshimaHeartbeatStoreV1,
   saveToyoshimaHeartbeatStoreV1,
@@ -254,6 +255,13 @@ export interface ToyoshimaSecurityDashboardV1 {
   detached: ToyoshimaBuildingStateV1;
   timeline: ToyoshimaTimelineEventV1[];
   lastUpdatedAt: string;
+  ota?: {
+    runningVersion: string | null;
+    serverVersion: string;
+    pending: boolean;
+    has_ota_update: boolean;
+    channel: "staging" | "production";
+  };
 }
 
 interface ToyoshimaDeviceCommRuntimeV1 {
@@ -1639,6 +1647,26 @@ export function buildToyoshimaSecurityDashboardV1(
     }),
     timeline,
     lastUpdatedAt: nowIso(),
+    ota: (() => {
+      try {
+        const ota = getTislyOtaVersionV1({ siteKey: "toyoshima" });
+        return {
+          runningVersion: ota.runningVersion,
+          serverVersion: ota.version,
+          pending: ota.pending,
+          has_ota_update: ota.has_ota_update,
+          channel: ota.channel,
+        };
+      } catch {
+        return {
+          runningVersion: null,
+          serverVersion: "1.0.0",
+          pending: false,
+          has_ota_update: false,
+          channel: "production" as const,
+        };
+      }
+    })(),
   };
 }
 

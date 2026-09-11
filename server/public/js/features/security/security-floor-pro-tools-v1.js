@@ -183,8 +183,70 @@ async function refreshProToolsPanels() {
     loadDiStatus(),
     loadShellyFailsafe().catch(() => {}),
     loadHeartbeatWatch().catch(() => {}),
+    loadOtaPanel().catch(() => {}),
   ]);
   startDiPolling();
+}
+
+function otaSiteSlug(homeSiteId) {
+  const id = String(homeSiteId || "");
+  if (id.includes("TOYOSHIMA") || id.includes("TOSHIMA")) return "toyoshima";
+  return "itabashi";
+}
+
+function otaChannel() {
+  return $("sf-ota-staging")?.checked ? "staging" : "production";
+}
+
+async function loadOtaPanel() {
+  const slug = otaSiteSlug(currentHomeSiteId);
+  const channel = otaChannel();
+  const res = await fetch(
+    `/api/firmware/${encodeURIComponent(slug)}/version?channel=${encodeURIComponent(
+      channel
+    )}`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  const run = data.runningVersion || "1.0.0";
+  const srv = data.version || "1.0.0";
+  if ($("sf-ota-running")) {
+    $("sf-ota-running").textContent = `v${run}`;
+  }
+  if ($("sf-ota-server")) {
+    $("sf-ota-server").textContent = `v${srv}`;
+  }
+  const status = $("sf-ota-status");
+  if (status) {
+    if (data.has_ota_update || data.pending) {
+      status.textContent =
+        "次回ハートビート時に実機が自動更新されます";
+    } else if (run === srv) {
+      status.textContent = "現場は最新バージョンで稼働中";
+    } else {
+      status.textContent = "配信予約なし";
+    }
+  }
+}
+
+async function deployOtaFirmware() {
+  const allSites = !!$("sf-ota-all-sites")?.checked;
+  const slug = allSites ? "all" : otaSiteSlug(currentHomeSiteId);
+  const channel = otaChannel();
+  const data = await fetchJson(`/api/firmware/${encodeURIComponent(slug)}/deploy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      channel,
+      allSites,
+      siteId: currentHomeSiteId,
+    }),
+  });
+  toast(
+    data.message ||
+      "次回ハートビート時に実機が自動更新されます"
+  );
+  await loadOtaPanel();
 }
 
 function isToyoshimaHomeSite(siteId) {
@@ -524,6 +586,40 @@ function bindProToolsUi() {
     } catch (err) {
       toast(err.message || "QNAP 同期に失敗");
     }
+  });
+
+  $("sf-ota-deploy")?.addEventListener("click", async () => {
+    const btn = $("sf-ota-deploy");
+    if (btn) btn.disabled = true;
+    try {
+      await deployOtaFirmware();
+    } catch (err) {
+      toast(err.message || "OTA配信に失敗");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  $("sf-ota-refresh")?.addEventListener("click", async () => {
+    try {
+      await loadOtaPanel();
+      toast("バージョンを再読込しました");
+    } catch (err) {
+      toast(err.message || "OTA状態の取得に失敗");
+    }
+  });
+
+  $("sf-ota-all-sites")?.addEventListener("change", () => {
+    const on = !!$("sf-ota-all-sites")?.checked;
+    const lab = $("sf-ota-all-sites-label");
+    if (lab) lab.textContent = on ? "ON" : "OFF";
+  });
+
+  $("sf-ota-staging")?.addEventListener("change", () => {
+    const on = !!$("sf-ota-staging")?.checked;
+    const lab = $("sf-ota-staging-label");
+    if (lab) lab.textContent = on ? "ステージング" : "本番";
+    loadOtaPanel().catch(() => {});
   });
 
   document.addEventListener("tisly:property-scope-changed", (ev) => {

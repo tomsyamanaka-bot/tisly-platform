@@ -62,3 +62,8 @@ DI_DEBOUNCE_MS = 50
 
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
 FIRMWARE_VERSION = "1.6.2-di-confirm-50ms"
+
+# 全現場共通 OTA（config.py 自体は遠隔上書きしない）
+OTA_SITE = "itabashi"
+OTA_VERSION = "1.0.0"
+OTA_CHANNEL = "production"

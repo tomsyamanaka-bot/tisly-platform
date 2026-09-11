@@ -163,6 +163,10 @@ const {
   HB_RETRY_SHELLY_LOCK_MODULE_SEED_IDS,
   seedHbRetryShellyLockKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-hb-retry-shelly-lock-seed-v1.js");
+const {
+  RP2350_OTA_STANDARD_MODULE_SEED_IDS,
+  seedRp2350OtaStandardKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-rp2350-ota-standard-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1478,6 +1482,38 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card);
     assert.match(card!.title, /Shelly自動再起動クールダウンロック/);
     assert.ok(card!.tags.includes("#再起動ガード"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("listKnowledgeModuleItemsV1 appends rp2350 ota standard seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of RP2350_OTA_STANDARD_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-rp2350-ota-standard-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /全現場RP2350 PoE LAN経由OTA/);
+    assert.ok(card!.tags.includes("#OTA"));
+    assert.ok(card!.tags.includes("#RP2350"));
+    assert.ok(card!.tags.includes("#全現場標準化"));
+    assert.ok(card!.tags.includes("#PoE"));
+    assert.ok(card!.tags.includes("#MicroPython"));
+    assert.ok(card!.tags.includes("#保守DX"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+  });
+
+  it("seedRp2350OtaStandardKnowledgeCardsV1 upserts searchable cards", () => {
+    seedRp2350OtaStandardKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-RP2350-OTA-STANDARD-001");
+    assert.ok(card);
+    assert.match(card!.title, /A\/Bロールバック標準規格/);
+    assert.ok(card!.tags.includes("#OTA"));
     assert.ok(card!.tags.includes("#TiSLY_Core"));
   });
 

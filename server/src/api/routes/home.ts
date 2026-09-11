@@ -141,6 +141,9 @@ import {
   updateToyoshimaOpsConfigV1,
 } from "../../home/home-toyoshima-ops-config-v1.js";
 import {
+  recordTislyOtaDeviceFirmwareV1,
+} from "../../firmware/tisly-rp2350-ota-v1.js";
+import {
   getCustomerTenantBindingsV1,
   resolveCloudStreamUrlV1,
   upsertCustomerTenantBindingsV1,
@@ -1442,6 +1445,18 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         deviceId: req.body?.deviceId as string | undefined,
         boardTemp: req.body?.board_temp ?? req.body?.boardTemp,
       });
+      const firmwareVersion = String(
+        req.body?.firmware_version ??
+          req.body?.otaVersion ??
+          req.body?.firmware ??
+          ""
+      ).trim();
+      const ota = recordTislyOtaDeviceFirmwareV1({
+        siteKey: "toyoshima",
+        deviceId: String(req.body?.deviceId ?? building),
+        building,
+        firmwareVersion: firmwareVersion || null,
+      });
       const dashSite = String(
         req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
       ).trim();
@@ -1466,6 +1481,9 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         onlineSummary: dashboard.commHealth?.onlineSummary,
         ssot: buildToyoshimaStatusSsotV1(),
         dashboard,
+        has_ota_update: ota.has_ota_update,
+        firmware_latest: ota.version,
+        ota,
       });
     } catch (err) {
       res.status(400).json({

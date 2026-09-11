@@ -2492,6 +2492,34 @@
   margin-top: 10px;
 }
 
+.sf-ota-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.sf-ota-cell {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.sf-ota-key {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.sf-ota-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
 .sf-pro-action-btn {
   min-height: 44px;
   border-radius: 12px;

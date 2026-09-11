@@ -55,6 +55,23 @@ except ImportError:
 
     urequests = None
 
+try:
+    from tisly_ota import has_ota_update_from_body
+    from tisly_ota import local_version as ota_local_version
+    from tisly_ota import mark_boot_ok
+    from tisly_ota import maybe_update as ota_maybe_update
+except ImportError:
+    try:
+        from lib.tisly_ota import has_ota_update_from_body
+        from lib.tisly_ota import local_version as ota_local_version
+        from lib.tisly_ota import mark_boot_ok
+        from lib.tisly_ota import maybe_update as ota_maybe_update
+    except ImportError:
+        has_ota_update_from_body = None
+        ota_local_version = None
+        mark_boot_ok = None
+        ota_maybe_update = None
+
 
 
 # --- W5500 SPI ピン（Waveshare 02_MQTT サンプル準拠・要 lib/） ---
@@ -562,6 +579,12 @@ def _send_heartbeat_once():
 
         "firmware": config.FIRMWARE_VERSION,
 
+        "firmware_version": (
+            ota_local_version(config)
+            if ota_local_version
+            else getattr(config, "OTA_VERSION", "1.0.0")
+        ),
+
         "chStates": dict(ch_states),
 
         "inputStates": dict(input_states),
@@ -601,6 +624,19 @@ def _send_heartbeat_once():
     log("heartbeat status={}".format(status))
 
     log("heartbeat sent")
+
+    if mark_boot_ok:
+        try:
+            mark_boot_ok(config)
+        except Exception:
+            pass
+
+    if has_ota_update_from_body and ota_maybe_update:
+        try:
+            if has_ota_update_from_body(body):
+                ota_maybe_update(http_get, config=config)
+        except Exception as ota_exc:
+            log_error("OTA from HB: {}".format(ota_exc))
 
     mapping_device_id = getattr(
 
@@ -971,6 +1007,12 @@ async def async_main():
 
 
     ifconfig = init_ethernet()
+
+    if ota_maybe_update:
+        try:
+            ota_maybe_update(http_get, config=config)
+        except Exception as ota_exc:
+            log_error("boot OTA: {}".format(ota_exc))
 
     ip = get_ip()
 

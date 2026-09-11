@@ -228,10 +228,26 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 
 ---
 
-## 5. 変更履歴（追記のみ）
+## 6. 全現場 RP2350 OTA（追記）
+
+USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
+既存の端子・HB 周期・顧客データは変更しない。
+
+| 項目 | 値 |
+|------|------|
+| 配信 API | `GET/POST /api/firmware/{siteId}/version\|script\|deploy` |
+| siteId | `toyoshima` / `itabashi` / `all`（HOME/SEC ID も可） |
+| 実機エンジン | `rp2350/firmware/lib/tisly_ota.py` |
+| ロールバック | `main_backup.py` + `boot.py` 起動判定 |
+| 社内 UI | `/app/security` Pro カード · 豊島ダッシュボード（顧客 `/customer` 非表示） |
+| config.py | 物件固有のため OTA 上書きしない |
+
+---
+
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-11 | 全現場 RP2350 PoE LAN OTA（A/B ロールバック）を標準化 |
 | 2026-09-10 | テスター専用 `TESTER001` を追記（板橋実機ミラー・メニュー制限） |
 | 2026-09-07 | 初版作成（豊島邸 / 板橋自宅の現場カルテ） |
 | 2026-09-07 | HB 途絶を 5分30秒に標準化 · クローン自走ルール追記 |

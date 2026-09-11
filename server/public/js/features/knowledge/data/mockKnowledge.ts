@@ -2006,3 +2006,42 @@ export const MOCK_HB_RETRY_SHELLY_LOCK_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const RP2350_OTA_STANDARD_KNOWLEDGE_TITLES = [
+  "【標準仕様】TiSLY全現場RP2350 PoE LAN経由OTA遠隔アップデート＆A/Bロールバック標準規格",
+] as const;
+
+const RP2350_OTA_STANDARD_CREATED_AT = "2026-09-11T08:00:00.000Z";
+
+/** 全現場 RP2350 OTA 標準規格（末尾追記） */
+export const MOCK_RP2350_OTA_STANDARD_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-rp2350-ota-standard-001",
+    title:
+      "【標準仕様】TiSLY全現場RP2350 PoE LAN経由OTA遠隔アップデート＆A/Bロールバック標準規格",
+    summary: [
+      "施工後の現場駆けつけをゼロにする完全遠隔マイコン運用。",
+      "PoE LANによる通信・受電を活かし、ConoHa VPSからの",
+      "差分スクリプト配信、二重化バックアップによる自己復旧",
+      "フェイルセーフを全物件の標準アーキテクチャとして定義。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#OTA",
+      "#RP2350",
+      "#全現場標準化",
+      "#PoE",
+      "#MicroPython",
+      "#保守DX",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: RP2350_OTA_STANDARD_CREATED_AT,
+    body: [
+      "【配信API】",
+      "GET /api/firmware/{siteId}/version",
+      "GET /api/firmware/{siteId}/script",
+      "POST /api/firmware/{siteId}/deploy",
+    ].join("\n"),
+  },
+];

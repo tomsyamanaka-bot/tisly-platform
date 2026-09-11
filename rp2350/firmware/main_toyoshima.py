@@ -45,6 +45,23 @@ try:
 except ImportError:
     urequests = None
 
+try:
+    from tisly_ota import has_ota_update_from_body
+    from tisly_ota import local_version as ota_local_version
+    from tisly_ota import mark_boot_ok
+    from tisly_ota import maybe_update as ota_maybe_update
+except ImportError:
+    try:
+        from lib.tisly_ota import has_ota_update_from_body
+        from lib.tisly_ota import local_version as ota_local_version
+        from lib.tisly_ota import mark_boot_ok
+        from lib.tisly_ota import maybe_update as ota_maybe_update
+    except ImportError:
+        has_ota_update_from_body = None
+        ota_local_version = None
+        mark_boot_ok = None
+        ota_maybe_update = None
+
 # --- W5500 SPI ピン（Waveshare 準拠） ---
 W5500_SPI_ID = 0
 W5500_SCK = 34
@@ -397,6 +414,16 @@ def send_heartbeat():
                 "firmware": getattr(
                     config, "FIRMWARE_VERSION", "toyoshima"
                 ),
+                "firmware_version": (
+                    ota_local_version(config)
+                    if ota_local_version
+                    else getattr(config, "OTA_VERSION", "1.0.0")
+                ),
+                "otaVersion": (
+                    ota_local_version(config)
+                    if ota_local_version
+                    else getattr(config, "OTA_VERSION", "1.0.0")
+                ),
                 "chStates": dict(ch_states),
                 "inputStates": dict(input_states),
                 "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
@@ -425,6 +452,21 @@ def send_heartbeat():
         _last_hb_ok = True
         set_rgb_status("ok")
         log("heartbeat sent ({}) ONLINE".format(building))
+        if mark_boot_ok:
+            try:
+                mark_boot_ok(config)
+            except Exception:
+                pass
+        if has_ota_update_from_body and ota_maybe_update:
+            try:
+                if has_ota_update_from_body(body):
+                    ota_maybe_update(
+                        http_get,
+                        config=config,
+                        kick_wdt=lambda: kick_watchdog(_wdt),
+                    )
+            except Exception as ota_exc:
+                log_error("OTA from HB: {}".format(ota_exc))
         return True
     except Exception as e:
         _last_hb_ok = False
@@ -557,6 +599,15 @@ async def async_main():
 
     ifconfig = init_ethernet()
     kick_watchdog(_wdt)
+    if ota_maybe_update and get_ip():
+        try:
+            ota_maybe_update(
+                http_get,
+                config=config,
+                kick_wdt=lambda: kick_watchdog(_wdt),
+            )
+        except Exception as ota_exc:
+            log_error("boot OTA: {}".format(ota_exc))
     ip = get_ip()
     if ip:
         log("IP address: {}".format(ip))

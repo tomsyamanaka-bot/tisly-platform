@@ -11,6 +11,7 @@ import {
 } from "../../remote-test/security-demo-notify.js";
 import { processHomeSecurityInputChangesV1 } from "../../home/home-security-notify-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
+import { recordTislyOtaDeviceFirmwareV1 } from "../../firmware/tisly-rp2350-ota-v1.js";
 import {
   getSecurityDemoStatus,
   setSecurityMode,
@@ -333,6 +334,21 @@ function extractHeartbeatFirmware(req: Request): string | undefined {
   return undefined;
 }
 
+function extractHeartbeatFirmwareVersion(req: Request): string | undefined {
+  const q = req.query.firmware_version;
+  if (typeof q === "string" && q.trim()) return q.trim();
+  const body = req.body;
+  if (body && typeof body === "object") {
+    const rec = body as Record<string, unknown>;
+    for (const key of ["firmware_version", "otaVersion", "ota_version"]) {
+      if (typeof rec[key] === "string" && rec[key].trim()) {
+        return rec[key].trim();
+      }
+    }
+  }
+  return undefined;
+}
+
 function extractHeartbeatChStates(req: Request) {
   const fromNested = normalizeDeviceChStates(req.body?.chStates);
   if (fromNested) return fromNested;
@@ -392,6 +408,8 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
   recordHeartbeatDebug(req.method, req.body ?? null);
 
   const firmware = extractHeartbeatFirmware(req);
+  const firmwareVersion =
+    extractHeartbeatFirmwareVersion(req) || firmware;
   const chStates = extractHeartbeatChStates(req);
   const inputStates = extractHeartbeatInputStates(req);
   const { chChanges, inputChanges } = recordDeviceHeartbeat(
@@ -417,6 +435,14 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     );
   }
   const status = getRemoteTestStatus();
+  const ota = recordTislyOtaDeviceFirmwareV1({
+    siteKey: "itabashi",
+    deviceId:
+      String(
+        (req.body as Record<string, unknown> | undefined)?.deviceId ?? ""
+      ).trim() || "rp2350-itabashi-main-01",
+    firmwareVersion: firmwareVersion || null,
+  });
   res.json({
     ok: true,
     ...getDeviceStatus(),
@@ -426,6 +452,9 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     notificationTriggered,
     notificationHistoryCount: status.notificationHistory.length,
     lastPushResult: status.lastPushResult,
+    has_ota_update: ota.has_ota_update,
+    firmware_latest: ota.version,
+    ota,
   });
 }
 

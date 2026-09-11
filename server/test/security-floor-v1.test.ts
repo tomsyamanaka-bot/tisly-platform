@@ -622,13 +622,14 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
-    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2523/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2524/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2523/);
-    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2523/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2524/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
+    assert.doesNotMatch(customerHtml, /最新ファームウェアを現場実機へ遠隔配信/);
     assert.doesNotMatch(customerHtml, /擬似発報/);
     assert.doesNotMatch(customerHtml, /デバウンス/);
     assert.doesNotMatch(customerHtml, /1秒テスト/);
@@ -679,6 +680,11 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /ハートビート死活監視/);
     assert.match(opHtml, /sf-pro-hb-watch/);
     assert.match(opHtml, /監視中（有効）/);
+    assert.match(opHtml, /TiSLY OTAファームウェア一元管理/);
+    assert.match(opHtml, /最新ファームウェアを現場実機へ遠隔配信/);
+    assert.match(opHtml, /sf-ota-deploy/);
+    assert.match(opHtml, /全現場一括配信/);
+    assert.match(opHtml, /ステージング \/ 本番/);
     assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
     assert.match(opHtml, /sf-push-reregister/);
     assert.match(opHtml, /sf-push-diag/);
@@ -733,6 +739,12 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(
       toyoshimaJs,
       /isCustomerPortal\(\)[\s\S]{0,200}擬似発報/
+    );
+    assert.match(toyoshimaJs, /ota_deploy|最新ファームウェアを現場実機へ配信/);
+    assert.match(toyoshimaJs, /ts-ota-card|TiSLY OTAファームウェア一元管理/);
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /ts-customer-dash[\s\S]{0,1600}ts-ota-card/
     );
 
     assert.match(lightJs, /二重バインド|sf-soc/);

@@ -143,6 +143,9 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /MOCK_HB_RETRY_SHELLY_LOCK_ITEMS/);
     assert.match(mockSrc, /実機MicroPython通信例外自己復旧/);
     assert.match(mockSrc, /#再起動ガード/);
+    assert.match(mockSrc, /MOCK_RP2350_OTA_STANDARD_ITEMS/);
+    assert.match(mockSrc, /全現場RP2350 PoE LAN経由OTA/);
+    assert.match(mockSrc, /#全現場標準化/);
   });
 
   it("nav script requires login before loading bundle", () => {
