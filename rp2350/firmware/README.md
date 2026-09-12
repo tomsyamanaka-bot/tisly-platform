@@ -237,7 +237,7 @@ mip.install("urequests")
 | API | `https://tisly.jp/api/home/v1/toyoshima` |
 | 母屋 | 主装置 8ch — DI1/DI2 遠近 → DO1+DO2 ライト（夜間）+ DO3 パトライト |
 | はなれ | 子機 6ch — DI1 道路側 / DI2 通路側 → DO1 ライト（夜間）+ DO2 パトライト |
-| heartbeat | 300 秒 + `board_temp` + 60℃ 過熱フラグ |
+| heartbeat | 300 秒 + `board_temp`（CORE_TEMP 実測）+ 60℃ 過熱フラグ |
 | WDT | 8 秒物理ウォッチドッグ |
 | デバウンス | 100ms |
 

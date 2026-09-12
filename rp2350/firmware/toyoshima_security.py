@@ -7,8 +7,9 @@ DI1/DI2 立上りを 100ms デバウンスで確定し、
 24 時間常時通知。ライト点灯は 18:00〜06:00 のみ。
 日中は通知＋パトライトのみ作動する。
 
-付帯: ADC4 盤内温度 / 5分 heartbeat /
-物理 WDT 8 秒（main_toyoshima.py から利用）
+付帯: チップ内蔵温度（CORE_TEMP / ADC4） /
+5分 heartbeat / 物理 WDT 8 秒
+（main_toyoshima.py から利用）
 """
 
 import time
@@ -342,22 +343,63 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         await asyncio.gather(*tasks)
 
 
-# ── RP2350 内蔵温度センサー（ADC4） ──
+# ── RP2350 内蔵温度センサー ──
+# ADC(4) は RP2350 で GPIO 誤認される
+_CHIP_TEMP_ADC = None
+_TEMP_CONV = 3.3 / 65535
+_TEMP_SAMPLES = 4
+
+
+def _open_chip_temp_adc():
+    """
+    チップ温度 ADC を開く。
+    CORE_TEMP を優先し、無い場合は
+    チャネル 4 / 8 へフォールバックする。
+    """
+    import machine
+
+    adc_cls = machine.ADC
+    core = getattr(adc_cls, "CORE_TEMP", None)
+    if core is not None:
+        try:
+            return adc_cls(core)
+        except Exception:
+            pass
+    last_err = None
+    for ch in (4, 8):
+        try:
+            return adc_cls(ch)
+        except Exception as exc:
+            last_err = exc
+    if last_err:
+        raise last_err
+    raise RuntimeError("chip temp ADC unavailable")
+
 
 def read_board_temperature_c():
     """
-    RP2350 内蔵 ADC4 から盤内温度（℃）を取得。
-    計算式: 27 - (voltage - 0.706) / 0.001721
+    RP2350 内蔵温度センサー読み取り標準。
+    換算: 27℃ - (reading - 0.706) / 0.001721
     """
+    global _CHIP_TEMP_ADC
     try:
-        import machine
-
-        adc = machine.ADC(4)
-        reading = adc.read_u16()
-        voltage = reading * 3.3 / 65535
-        temp_c = 27 - (voltage - 0.706) / 0.001721
-        return round(temp_c, 1)
+        if _CHIP_TEMP_ADC is None:
+            _CHIP_TEMP_ADC = _open_chip_temp_adc()
+        sensor_temp = _CHIP_TEMP_ADC
+        conversion_factor = _TEMP_CONV
+        acc = 0
+        n = _TEMP_SAMPLES
+        i = 0
+        while i < n:
+            acc += sensor_temp.read_u16()
+            i += 1
+        reading = (acc / n) * conversion_factor
+        board_temp = round(27 - (reading - 0.706) / 0.001721, 1)
+        if board_temp < -40 or board_temp > 125:
+            return None
+        return board_temp
     except Exception as exc:
+        _CHIP_TEMP_ADC = None
         print("[豊島邸 security] temp read err:", exc)
         return None
 
@@ -369,16 +411,18 @@ def build_heartbeat_payload(building, site_id=None, device_id=None, extra=None):
         "tenantId": TENANT_ID,
         "siteId": site_id or SITE_ID,
     }
-    temp = read_board_temperature_c()
-    if temp is not None:
-        payload["board_temp"] = temp
-        if temp >= BOARD_TEMP_OVERHEAT_C:
-            payload["overheat"] = True
-            payload["overheat_flag"] = True
     if device_id:
         payload["deviceId"] = device_id
     if extra and isinstance(extra, dict):
         payload.update(extra)
+    # extra の後に実測温度を必ず載せる
+    temp = read_board_temperature_c()
+    if temp is not None:
+        payload["board_temp"] = temp
+        payload["boardTemp"] = temp
+        if temp >= BOARD_TEMP_OVERHEAT_C:
+            payload["overheat"] = True
+            payload["overheat_flag"] = True
     return payload
 
 

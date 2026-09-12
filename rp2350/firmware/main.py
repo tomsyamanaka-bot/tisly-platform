@@ -602,9 +602,11 @@ def _send_heartbeat_once():
 
     try:
         from toyoshima_security import read_board_temperature_c
+        # チップ内蔵温度を HB に同梱する
         temp = read_board_temperature_c()
         if temp is not None:
             payload["board_temp"] = temp
+            payload["boardTemp"] = temp
     except ImportError:
         pass
     except Exception:

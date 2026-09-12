@@ -684,8 +684,13 @@
   font-weight: 800;
 }
 
+.ts-board-temp {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
 .ts-board-temp.is-normal {
-  color: #15803d;
+  color: #1e3a8a;
   font-weight: 800;
 }
 

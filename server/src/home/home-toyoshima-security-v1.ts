@@ -453,7 +453,7 @@ function boardTempLevelV1(
 }
 
 function formatBoardTempLabelV1(c: number | null): string {
-  // 未受信時は実測値を偽らず監視中表示
+  // 未受信時は数値を作らず監視中表示
   if (c == null || Number.isNaN(c)) return "正常監視中";
   const level = boardTempLevelV1(c);
   const suffix =
@@ -462,6 +462,7 @@ function formatBoardTempLabelV1(c: number | null): string {
       : level === "caution"
         ? "（注意）"
         : "（適温・正常）";
+  // 実測℃を必ず先頭に出す
   return `${c.toFixed(1)}℃${suffix}`;
 }
 

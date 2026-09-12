@@ -163,7 +163,12 @@ function buildCommHealthView(dash) {
   const tempLevel = health.boardTempLevel || "normal";
   const tempEmoji =
     tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
-  const tempLabel = health.boardTempLabel || "正常監視中";
+  const tempC = health.boardTempC;
+  const hasTemp =
+    typeof tempC === "number" && Number.isFinite(tempC);
+  const tempLabel = hasTemp
+    ? health.boardTempLabel || `${tempC.toFixed(1)}℃`
+    : health.boardTempLabel || "正常監視中";
   const operatorOnline = online
     ? health.operatorOnline ||
       health.onlineSummary ||
@@ -580,7 +585,7 @@ function renderHealthGrid(dash) {
         <span class="ts-health-val" id="ts-latency-val">${escapeHtml(view.latencyLabel)}</span>
       </div>
       <div class="ts-health-cell">
-        <span class="ts-health-key">盤内温度（主装置）</span>
+        <span class="ts-health-key">盤内温度（主装置・チップ実測）</span>
         <span class="ts-health-val ts-board-temp is-${view.tempLevel}" id="ts-board-temp-val">${view.tempEmoji} ${escapeHtml(view.tempLabel)}</span>
       </div>
     </div>

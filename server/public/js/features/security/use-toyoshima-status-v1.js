@@ -80,7 +80,11 @@ function paintTempEl(el, status) {
   const level = status.boardTempLevel || "normal";
   const emoji =
     level === "warning" ? "🔴" : level === "caution" ? "🟡" : "🟢";
-  const label = status.boardTempLabel || "正常監視中";
+  const c = status.boardTempC;
+  const hasTemp = typeof c === "number" && Number.isFinite(c);
+  const label = hasTemp
+    ? status.boardTempLabel || `${Number(c).toFixed(1)}℃`
+    : status.boardTempLabel || "正常監視中";
   el.textContent = `${emoji} ${label}`;
   el.classList.remove("is-normal", "is-caution", "is-warning");
   el.classList.add(`is-${level}`);

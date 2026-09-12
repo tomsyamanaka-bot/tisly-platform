@@ -714,6 +714,8 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /ts-assure-health-card|システム安心ステータス/);
     assert.match(toyoshimaJs, /buildCommHealthView/);
     assert.match(toyoshimaJs, /isHardwareOnline|applyToyoshimaHardwareStatus/);
+    assert.match(toyoshimaJs, /盤内温度（主装置・チップ実測）|盤内温度（主装置）/);
+    assert.match(toyoshimaJs, /hasTemp|boardTempC/);
     assert.match(toyoshimaJs, /board_temp:\s*SIM_BOARD_TEMP_C|board_temp:\s*36\.2/);
     assert.match(toyoshimaJs, /正常稼働中（オンライン）/);
     assert.match(toyoshimaJs, /data-ssot=\"toyoshima-commHealth\"/);

@@ -33,6 +33,7 @@ def test_build_heartbeat_payload_shape():
     assert payload["tenantId"] == "TOYOSHIMA001"
     assert payload["deviceId"] == "rp2350-main"
     assert payload["board_temp"] == 36.5
+    assert payload["boardTemp"] == 36.5
     assert "overheat" not in payload
 
 
@@ -44,11 +45,48 @@ def test_heartbeat_overheat_flag():
     assert payload["overheat_flag"] is True
 
 
+def test_heartbeat_measured_temp_overrides_extra():
+    with patch.object(ts, "read_board_temperature_c", return_value=41.7):
+        payload = ts.build_heartbeat_payload(
+            "main", extra={"board_temp": 1.0, "boardTemp": 1.0}
+        )
+    assert payload["board_temp"] == 41.7
+    assert payload["boardTemp"] == 41.7
+
+
+def test_read_board_temperature_prefers_core_temp():
+    """RP2350 では ADC(4) が GPIO 誤認される。"""
+    ts._CHIP_TEMP_ADC = None
+    target_c = 36.2
+    voltage = 0.706 + (27 - target_c) * 0.001721
+    raw_u16 = int(round(voltage / 3.3 * 65535))
+
+    class FakeADC:
+        CORE_TEMP = 8
+
+        def __init__(self, ch):
+            if ch == 4:
+                raise ValueError("Pin doesn't have ADC capabilities")
+            assert ch == 8
+            self.ch = ch
+
+        def read_u16(self):
+            return raw_u16
+
+    fake_machine = type("machine", (), {"ADC": FakeADC})
+    with patch.dict(sys.modules, {"machine": fake_machine}):
+        temp = ts.read_board_temperature_c()
+    ts._CHIP_TEMP_ADC = None
+    assert abs(temp - target_c) < 0.2
+
+
 def test_temperature_formula_from_voltage():
+    conversion_factor = 3.3 / 65535
     target_c = 42.0
     voltage = 0.706 + (27 - target_c) * 0.001721
-    temp = 27 - (voltage - 0.706) / 0.001721
-    assert abs(temp - target_c) < 0.001
+    reading = int(round(voltage / 3.3 * 65535)) * conversion_factor
+    board_temp = round(27 - (reading - 0.706) / 0.001721, 1)
+    assert abs(board_temp - target_c) < 0.2
 
 
 def test_main_schedule_lights_vs_patlite():
@@ -145,6 +183,8 @@ if __name__ == "__main__":
     test_identifiers()
     test_build_heartbeat_payload_shape()
     test_heartbeat_overheat_flag()
+    test_heartbeat_measured_temp_overrides_extra()
+    test_read_board_temperature_prefers_core_temp()
     test_temperature_formula_from_voltage()
     test_main_schedule_lights_vs_patlite()
     test_detached_event_messages()

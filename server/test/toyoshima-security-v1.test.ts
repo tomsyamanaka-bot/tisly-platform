@@ -156,6 +156,7 @@ describe("toyoshima-security-v1", () => {
     assert.match(dash1.commHealth.onlineSummary, /オンライン/);
     assert.ok(dash1.commHealth.lastHeartbeatAt);
     assert.equal(dash1.commHealth.boardTempC, 36.4);
+    assert.match(dash1.commHealth.boardTempLabel, /36\.4℃/);
     assert.match(dash1.commHealth.boardTempLabel, /正常/);
     assert.ok(dash1.lightingDurationSec >= 5);
     assert.ok(dash1.perimeterTimeoutSec >= 30);
