@@ -13,6 +13,14 @@ const SF_HOME_SITE_MAP = {
   "SEC-JP-TSUKUBA-001": "HOME-JP-TSUKUBA-001",
   "SEC-JP-TOYOSHIMA-001": "HOME-JP-TOYOSHIMA",
   "SEC-JP-TOSHIMA-001": "HOME-JP-TOYOSHIMA",
+  "HOME-JP-TOYOSHIMA": "HOME-JP-TOYOSHIMA",
+  TOYOSHIMA001: "HOME-JP-TOYOSHIMA",
+  TOSHIMA001: "HOME-JP-TOYOSHIMA",
+  toyoshima: "HOME-JP-TOYOSHIMA",
+  "HOME-JP-ITABASHI-LIVE": DEFAULT_HOME_SITE,
+  TOMS001: DEFAULT_HOME_SITE,
+  HOME001: DEFAULT_HOME_SITE,
+  itabashi: DEFAULT_HOME_SITE,
 };
 
 /** 実機ラベル（内部 ID 非表示） */
@@ -73,7 +81,37 @@ function showToast(message) {
 /** Security 物件 ID → RP2350 用 HOME siteId */
 export function resolveHomeSiteId(securitySiteId) {
   const id = String(securitySiteId || "").trim();
-  return SF_HOME_SITE_MAP[id] || DEFAULT_HOME_SITE;
+  if (!id) return DEFAULT_HOME_SITE;
+  if (SF_HOME_SITE_MAP[id]) return SF_HOME_SITE_MAP[id];
+  const upper = id.toUpperCase();
+  // 豊島邸の別名は板橋デフォルトへ
+  // フォールバックさせない
+  if (upper.includes("TOYOSHIMA") || upper.includes("TOSHIMA")) {
+    return "HOME-JP-TOYOSHIMA";
+  }
+  if (
+    upper.includes("ITABASHI") ||
+    upper === "TOMS001" ||
+    upper === "HOME001"
+  ) {
+    return DEFAULT_HOME_SITE;
+  }
+  if (id.startsWith("HOME-JP-")) return id;
+  return DEFAULT_HOME_SITE;
+}
+
+/**
+ * OTA API 用スラッグ（toyoshima / itabashi）
+ * ヘッダー選択 ID を動的に解決する
+ */
+export function resolveOtaSiteSlugV1(rawId) {
+  const id = String(rawId || "").trim();
+  const home = resolveHomeSiteId(id);
+  const hay = `${id} ${home}`.toUpperCase();
+  if (hay.includes("TOYOSHIMA") || hay.includes("TOSHIMA")) {
+    return "toyoshima";
+  }
+  return "itabashi";
 }
 
 function readSegValue(groupId) {

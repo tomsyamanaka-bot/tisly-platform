@@ -80,18 +80,36 @@ firmwareRouter.get("/:siteId/script", (req, res) => {
 });
 
 firmwareRouter.post("/:siteId/deploy", (req, res) => {
-  const resolved = resolveTislyOtaSiteKeyV1(req.params.siteId);
-  if (!resolved) {
-    res.status(404).json({ ok: false, error: "unknown firmware site" });
-    return;
-  }
   const body = (req.body ?? {}) as Record<string, unknown>;
+  const pathKey = resolveTislyOtaSiteKeyV1(req.params.siteId);
+  const bodyKey = resolveTislyOtaSiteKeyV1(
+    String(body.currentSiteId ?? body.siteId ?? "")
+  );
   const allSites =
     body.allSites === true ||
     body.scope === "all" ||
-    resolved === "all";
+    pathKey === "all" ||
+    bodyKey === "all";
+  if (!allSites && !pathKey && !bodyKey) {
+    res.status(404).json({ ok: false, error: "unknown firmware site" });
+    return;
+  }
+  /* 単独配信は選択中の
+   * currentSiteId を path より優先する
+   */
+  let siteKey: "toyoshima" | "itabashi" | "all";
+  if (allSites) {
+    siteKey = "all";
+  } else if (bodyKey) {
+    siteKey = bodyKey;
+  } else if (pathKey) {
+    siteKey = pathKey;
+  } else {
+    res.status(404).json({ ok: false, error: "unknown firmware site" });
+    return;
+  }
   const result = deployTislyOtaFirmwareV1({
-    siteKey: allSites ? "all" : resolved,
+    siteKey,
     channel: parseChannel(body.channel ?? req.query.channel),
     force: body.force === true,
   });

@@ -120,6 +120,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
       "TOSHIMA001",
       "HOME-JP-TOYOSHIMA",
       "SEC-JP-TOYOSHIMA-001",
+      "SEC-JP-TOSHIMA-001",
     ],
     skipFiles: SKIP_CONFIG,
     fileMap: {
@@ -222,6 +223,14 @@ export function resolveTislyOtaSiteKeyV1(
     if (profile.aliases.some((a) => a.toLowerCase() === lower)) {
       return profile.siteKey;
     }
+  }
+  const upper = key.toUpperCase();
+  /* 豊島邸の別名は板橋へ落とさない */
+  if (upper.includes("TOYOSHIMA") || upper.includes("TOSHIMA")) {
+    return "toyoshima";
+  }
+  if (upper.includes("ITABASHI")) {
+    return "itabashi";
   }
   return null;
 }

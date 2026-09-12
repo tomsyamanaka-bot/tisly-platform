@@ -813,6 +813,11 @@ describe("security-floor-v1", () => {
     );
     assert.match(proJs, /loadHeartbeatWatch|saveHeartbeatWatch/);
     assert.match(proJs, /\/toyoshima\/config/);
+    assert.match(proJs, /readCurrentSiteId/);
+    assert.match(proJs, /onPropertyScopeChange/);
+    assert.match(proJs, /currentSiteId/);
+    assert.match(proJs, /resolveOtaSiteSlugV1/);
+    assert.doesNotMatch(proJs, /tisly:property-scope-changed/);
 
     assert.doesNotMatch(customerHtml, /ハートビート死活監視/);
     assert.doesNotMatch(customerHtml, /sf-pro-hb-watch/);
@@ -837,6 +842,8 @@ describe("security-floor-v1", () => {
     );
     assert.match(remoteJs, /SEC-JP-ITABASHI-LIVE/);
     assert.match(remoteJs, /HOME-JP-ITABASHI-LIVE/);
+    assert.match(remoteJs, /resolveOtaSiteSlugV1/);
+    assert.match(remoteJs, /TOYOSHIMA001/);
     assert.match(remoteJs, /applyGuardModeImmediate/);
     assert.match(remoteJs, /applyScheduleTimesImmediate/);
     assert.match(remoteJs, /scheduleStart/);

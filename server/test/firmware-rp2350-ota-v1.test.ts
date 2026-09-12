@@ -37,6 +37,9 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(resolveTislyOtaSiteKeyV1("TOYOSHIMA001"), "toyoshima");
     assert.equal(resolveTislyOtaSiteKeyV1("SEC-JP-ITABASHI-LIVE"), "itabashi");
     assert.equal(resolveTislyOtaSiteKeyV1("all"), "all");
+    assert.equal(resolveTislyOtaSiteKeyV1("toyoshima"), "toyoshima");
+    assert.equal(resolveTislyOtaSiteKeyV1("SEC-JP-TOYOSHIMA-001"), "toyoshima");
+    assert.equal(resolveTislyOtaSiteKeyV1("SEC-JP-TOSHIMA-001"), "toyoshima");
   });
 
   it("GET version returns checksum json without pending", async () => {
@@ -96,6 +99,69 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(version.body.has_ota_update, true);
     assert.notEqual(version.body.version, "1.0.0");
+  });
+
+  it("POST deploy binds currentSiteId even if path is stale itabashi", async () => {
+    resetTislyOtaStoreForTestV1();
+    const res = await request(app)
+      .post("/api/firmware/itabashi/deploy")
+      .send({
+        channel: "staging",
+        allSites: false,
+        siteId: "SEC-JP-TOYOSHIMA-001",
+        currentSiteId: "TOYOSHIMA001",
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.channel, "staging");
+    assert.equal(res.body.sites.length, 1);
+    assert.equal(res.body.sites[0].siteId, "toyoshima");
+    assert.match(res.body.message, /豊島邸 へステージング配信を予約しました/);
+    const version = await request(app).get(
+      "/api/firmware/toyoshima/version?channel=staging&firmware_version=1.0.0"
+    );
+    assert.equal(version.body.has_ota_update, true);
+    assert.equal(version.body.pending, true);
+    assert.notEqual(version.body.version, "1.0.0");
+  });
+
+  it("POST TOYOSHIMA001 deploy targets toyoshima only", async () => {
+    resetTislyOtaStoreForTestV1();
+    const res = await request(app)
+      .post("/api/firmware/TOYOSHIMA001/deploy")
+      .send({ channel: "production", currentSiteId: "toyoshima" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.sites.length, 1);
+    assert.equal(res.body.sites[0].siteId, "toyoshima");
+    assert.match(res.body.message, /豊島邸 へ最新ファームウェア配信を予約しました/);
+  });
+
+  it("Toyoshima heartbeat returns pending OTA after selected-site deploy", async () => {
+    resetTislyOtaStoreForTestV1();
+    const deploy = await request(app)
+      .post("/api/firmware/itabashi/deploy")
+      .send({
+        channel: "production",
+        allSites: false,
+        currentSiteId: "TOYOSHIMA001",
+      });
+    assert.equal(deploy.body.sites[0].siteId, "toyoshima");
+    const latest = String(deploy.body.sites[0].version);
+    assert.match(latest, /^\d+\.\d+\.\d+$/);
+    const hb = await request(app)
+      .post("/api/home/v1/toyoshima/heartbeat")
+      .send({
+        building: "main",
+        deviceId: "rp2350-toyoshima-main-01",
+        firmware_version: "1.0.0",
+        siteId: "HOME-JP-TOYOSHIMA",
+      });
+    assert.equal(hb.status, 200);
+    assert.equal(hb.body.ok, true);
+    assert.equal(hb.body.has_ota_update, true);
+    assert.equal(hb.body.firmware_latest, latest);
+    assert.equal(hb.body.ota.siteId, "toyoshima");
+    assert.notEqual(hb.body.firmware_latest, "1.0.0");
   });
 
   it("POST all deploy covers both sites", async () => {

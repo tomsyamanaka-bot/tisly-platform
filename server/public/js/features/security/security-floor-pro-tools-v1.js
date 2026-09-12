@@ -3,7 +3,15 @@
  * /app/security-v1 専用（operator のみ）
  */
 
-import { resolveHomeSiteId, showSecurityRemoteToastV1 } from "./security-floor-remote-config-v1.js";
+import {
+  resolveHomeSiteId,
+  resolveOtaSiteSlugV1,
+  showSecurityRemoteToastV1,
+} from "./security-floor-remote-config-v1.js";
+import {
+  getSelectedSiteId,
+  onPropertyScopeChange,
+} from "../../shared/property-scope-v1.js";
 
 const HOME_API = "/api/home/v1";
 
@@ -28,7 +36,7 @@ function toast(msg) {
   }
 }
 
-function setHomeSite(securitySiteId) {
+function setHomeSite(securitySiteId, opts = {}) {
   currentHomeSiteId = resolveHomeSiteId(securitySiteId);
   const label = $("sf-pro-site-label");
   if (label) {
@@ -38,6 +46,7 @@ function setHomeSite(securitySiteId) {
     };
     label.textContent = names[currentHomeSiteId] || "選択中の物件";
   }
+  if (opts.silent) return;
   refreshProToolsPanels().catch(() => {});
 }
 
@@ -190,10 +199,20 @@ async function refreshProToolsPanels() {
   startDiPolling();
 }
 
-function otaSiteSlug(homeSiteId) {
-  const id = String(homeSiteId || "");
-  if (id.includes("TOYOSHIMA") || id.includes("TOSHIMA")) return "toyoshima";
-  return "itabashi";
+function readCurrentSiteId() {
+  // ヘッダーで選択中の現場IDを
+  // 配信のたびに動的に読む
+  const selectId = $("sf-site-select")?.value || "";
+  const scopeId = getSelectedSiteId() || "";
+  const globalId =
+    window.__TISLY_SELECTED_SITE_ID || window.__TISLY_SF_SITE_ID || "";
+  return String(
+    selectId || scopeId || globalId || currentHomeSiteId || ""
+  ).trim();
+}
+
+function otaSiteSlug(rawId) {
+  return resolveOtaSiteSlugV1(rawId || readCurrentSiteId());
 }
 
 function otaChannel() {
@@ -201,7 +220,9 @@ function otaChannel() {
 }
 
 async function loadOtaPanel() {
-  const slug = otaSiteSlug(currentHomeSiteId);
+  const liveId = readCurrentSiteId();
+  if (liveId) setHomeSite(liveId, { silent: true });
+  const slug = otaSiteSlug(liveId);
   const channel = otaChannel();
   const res = await fetch(
     `/api/firmware/${encodeURIComponent(slug)}/version?channel=${encodeURIComponent(
@@ -280,7 +301,7 @@ function renderKittingFromPayload(data) {
 }
 
 async function loadKittingPanel() {
-  const slug = otaSiteSlug(currentHomeSiteId);
+  const slug = otaSiteSlug(readCurrentSiteId());
   const res = await fetch(
     `/api/firmware/${encodeURIComponent(slug)}/version`,
     { cache: "no-store" }
@@ -291,7 +312,11 @@ async function loadKittingPanel() {
 
 async function deployOtaFirmware() {
   const allSites = !!$("sf-ota-all-sites")?.checked;
-  const slug = allSites ? "all" : otaSiteSlug(currentHomeSiteId);
+  const liveId = readCurrentSiteId();
+  if (liveId) setHomeSite(liveId, { silent: true });
+  // 単独配信は選択中現場だけ予約し
+  // 板橋など固定現場へ飛ばさない
+  const slug = allSites ? "all" : otaSiteSlug(liveId);
   const channel = otaChannel();
   const data = await fetchJson(`/api/firmware/${encodeURIComponent(slug)}/deploy`, {
     method: "POST",
@@ -299,7 +324,8 @@ async function deployOtaFirmware() {
     body: JSON.stringify({
       channel,
       allSites,
-      siteId: currentHomeSiteId,
+      siteId: allSites ? "all" : liveId,
+      currentSiteId: liveId,
     }),
   });
   toast(
@@ -682,13 +708,23 @@ function bindProToolsUi() {
     loadOtaPanel().catch(() => {});
   });
 
-  document.addEventListener("tisly:property-scope-changed", (ev) => {
+  $("sf-site-select")?.addEventListener("change", (ev) => {
+    setHomeSite(ev.target?.value || readCurrentSiteId());
+  });
+
+  onPropertyScopeChange((detail) => {
     const siteId =
-      ev.detail?.siteId || $("sf-site-select")?.value || "SEC-JP-ITABASHI-LIVE";
+      detail?.selectedSiteId ||
+      $("sf-site-select")?.value ||
+      "SEC-JP-ITABASHI-LIVE";
     setHomeSite(siteId);
   });
 
-  const initialSite = $("sf-site-select")?.value || "SEC-JP-ITABASHI-LIVE";
+  const initialSite =
+    getSelectedSiteId() ||
+    $("sf-site-select")?.value ||
+    window.__TISLY_SF_SITE_ID ||
+    "SEC-JP-ITABASHI-LIVE";
   setHomeSite(initialSite);
 }
 
