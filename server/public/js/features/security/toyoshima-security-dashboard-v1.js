@@ -42,6 +42,11 @@ let lastDashSig = "";
 let clientLatencyMs = null;
 /** 顧客/社内タブの単一真実ソース（家のようす/お知らせ/履歴） */
 let activeCustomerPane = "map";
+/** お知らせ再描画用の直近ダッシュ */
+let lastRenderedDash = null;
+/** 豊島邸ポータル通知（既存行は削除しない） */
+let portalNotifications = [];
+const NOTIFY_READ_KEY = "tisly-ts-notify-read-v1";
 let scheduleState = {
   homeSiteId: TOYOSHIMA_HOME_ID,
   guardMode: "scheduled",
@@ -491,11 +496,257 @@ function renderCustomerCameraCard() {
   </section>`;
 }
 
-/** 顧客向け · 発報履歴（月次レポートなし） */
+function loadNotifyReadIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFY_READ_KEY) || "[]");
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveNotifyReadIds(ids) {
+  localStorage.setItem(NOTIFY_READ_KEY, JSON.stringify([...ids]));
+}
+
+function classifyNotifyTone(kind, severity) {
+  const k = String(kind || "");
+  const sev = String(severity || "");
+  if (
+    k === "alert" ||
+    k === "comm_stop" ||
+    k === "comm_loss" ||
+    k === "main_beam" ||
+    k === "detached_road" ||
+    k === "detached_path" ||
+    sev === "danger"
+  ) {
+    return "alert";
+  }
+  if (
+    k === "inspection" ||
+    k === "comm_recovered" ||
+    k === "board_overheat" ||
+    k === "shelly_auto_reboot" ||
+    sev === "warning"
+  ) {
+    return "equip";
+  }
+  return "info";
+}
+
+function notifyBadgeMeta(tone) {
+  if (tone === "alert") {
+    return { cls: "is-alert", label: "重要アラート" };
+  }
+  if (tone === "equip") {
+    return { cls: "is-equip", label: "設備状態" };
+  }
+  return { cls: "is-info", label: "お知らせ" };
+}
+
+function buildCustomerNotifyItems(dash) {
+  const items = [];
+  for (const n of portalNotifications || []) {
+    items.push({
+      id: String(n.id || ""),
+      at: n.createdAt,
+      title: n.title || "お知らせ",
+      body: n.body || "",
+      tone: classifyNotifyTone(n.kind, n.severity),
+    });
+  }
+  for (const ev of dash?.timeline || []) {
+    if (
+      ev.kind === "patlite_test" ||
+      ev.kind === "mode_change" ||
+      ev.kind === "manual"
+    ) {
+      continue;
+    }
+    items.push({
+      id: `tl-${ev.id}`,
+      at: ev.at,
+      title: ev.title || "できごと",
+      body: ev.detail || "",
+      tone: classifyNotifyTone(ev.kind, ""),
+    });
+  }
+  items.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+  return items.slice(0, 40);
+}
+
+function renderCustomerNotifyCards(dash) {
+  const items = buildCustomerNotifyItems(dash);
+  const readIds = loadNotifyReadIds();
+  if (!items.length) {
+    return '<p class="ts-empty">まだお知らせはありません</p>';
+  }
+  return items
+    .map((n) => {
+      const badge = notifyBadgeMeta(n.tone);
+      const unread = n.id && !readIds.has(n.id);
+      return `<article class="ts-notify-item ${unread ? "is-unread" : ""}" data-notify-id="${escapeHtml(
+        n.id
+      )}">
+        <span class="ts-notify-badge ${badge.cls}">${badge.label}</span>
+        <div class="ts-notify-copy">
+          <p class="ts-notify-title">${escapeHtml(n.title)}</p>
+          ${n.body ? `<p class="ts-notify-body">${escapeHtml(n.body)}</p>` : ""}
+        </div>
+        <time class="ts-notify-time">${formatTime(n.at)}</time>
+      </article>`;
+    })
+    .join("");
+}
+
+function renderCustomerNotifySection(dash) {
+  return `<section class="ts-card ts-customer-notify-card" id="ts-customer-notify-card">
+    <div class="ts-assure-head-row">
+      <h3 class="ts-card-head">🔔 豊島邸からのお知らせ</h3>
+    </div>
+    <div class="ts-btn-row ts-notify-toolbar">
+      <button type="button" class="ts-btn ts-btn-primary" data-ts-action="refresh_notify">
+        通知を最新に更新
+      </button>
+      <button type="button" class="ts-btn" data-ts-action="test_notify">
+        🔔 通知テスト
+      </button>
+      <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="mark_notify_read">
+        未読を既読にする
+      </button>
+    </div>
+    <div id="ts-customer-notify-list">${renderCustomerNotifyCards(dash)}</div>
+  </section>`;
+}
+
+function paintCustomerNotifyList() {
+  const list = $("ts-customer-notify-list");
+  if (!list) return;
+  list.innerHTML = renderCustomerNotifyCards(lastRenderedDash);
+}
+
+async function loadCustomerPortalNotifications() {
+  try {
+    const res = await fetch(
+      "/api/customer/v1/notifications/TOYOSHIMA001",
+      { cache: "no-store" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (Array.isArray(data?.notifications)) {
+      portalNotifications = data.notifications;
+    }
+  } catch {
+    /* 既存タイムラインだけで表示を継続 */
+  }
+}
+
+function markVisibleNotificationsRead() {
+  const ids = loadNotifyReadIds();
+  for (const n of buildCustomerNotifyItems(lastRenderedDash)) {
+    if (n.id) ids.add(n.id);
+  }
+  saveNotifyReadIds(ids);
+  paintCustomerNotifyList();
+}
+
+function classifyHistoryEvent(ev) {
+  if (ev.kind === "detached_road") {
+    return {
+      icon: "🅿️",
+      where: "駐車場（DI1）",
+      what: ev.title || "センサー発報",
+      cat: "sensor",
+    };
+  }
+  if (ev.kind === "detached_path") {
+    return {
+      icon: "🚪",
+      where: "ガレージ（DI2）",
+      what: ev.title || "センサー発報",
+      cat: "sensor",
+    };
+  }
+  if (ev.kind === "main_beam") {
+    return {
+      icon: "📡",
+      where: "母屋外周",
+      what: ev.title || "ビーム検知",
+      cat: "sensor",
+    };
+  }
+  if (ev.kind === "mode_change") {
+    return {
+      icon: "🛡️",
+      where: "警戒モード",
+      what: ev.title || "モード変更",
+      cat: "mode",
+    };
+  }
+  const text = `${ev.title || ""} ${ev.detail || ""}`;
+  if (ev.kind === "manual" && /ライト|照明|外構|DO2|DO1/.test(text)) {
+    const where = /駐車場/.test(text)
+      ? "駐車場連動ライト"
+      : /ガレージ/.test(text)
+        ? "ガレージ連動ライト"
+        : "外側防犯ライト（DO2）";
+    return {
+      icon: "💡",
+      where,
+      what: ev.title || "ライト点灯",
+      cat: "light",
+    };
+  }
+  if (ev.kind === "comm_loss" || ev.kind === "comm_recovered") {
+    return {
+      icon: ev.kind === "comm_loss" ? "🔴" : "🟢",
+      where: "通信",
+      what: ev.title || "通信状態",
+      cat: "comm",
+    };
+  }
+  return {
+    icon: "📋",
+    where: ev.building === "detached" ? "はなれ" : "母屋",
+    what: ev.title || "できごと",
+    cat: "other",
+  };
+}
+
+function renderCustomerHistoryTimeline(timeline, limit = 40) {
+  const rows = (timeline || []).slice(0, limit);
+  if (!rows.length) {
+    return '<p class="ts-empty">まだできごとはありません</p>';
+  }
+  return rows
+    .map((ev) => {
+      const meta = classifyHistoryEvent(ev);
+      return `<article class="ts-hist-card is-${meta.cat}">
+        <span class="ts-hist-ico" aria-hidden="true">${meta.icon}</span>
+        <div class="ts-hist-body">
+          <p class="ts-hist-where">${escapeHtml(meta.where)}</p>
+          <p class="ts-hist-what">${escapeHtml(meta.what)}</p>
+          ${
+            ev.detail
+              ? `<p class="ts-hist-sub">${escapeHtml(ev.detail)}</p>`
+              : ""
+          }
+        </div>
+        <time class="ts-hist-time">${formatTime(ev.at)}</time>
+      </article>`;
+    })
+    .join("");
+}
+
+/** 顧客向け · いつ・どこで・何が動いたか */
 function renderCustomerActivitySection(dash) {
   return `<section class="ts-card ts-activity-card">
-    <h3 class="ts-card-head">📜 発報履歴（直近10件）</h3>
-    <div class="ts-activity-log" id="ts-activity-log">${renderActivityLog(dash.timeline, 10)}</div>
+    <h3 class="ts-card-head">📜 動作履歴</h3>
+    <p class="ts-hint">駐車場DI1・ガレージDI2・外側ライト・警戒モード</p>
+    <div class="ts-activity-log ts-hist-list" id="ts-activity-log">${renderCustomerHistoryTimeline(
+      dash.timeline,
+      40
+    )}</div>
     <div class="ts-snap-row ts-snap-row-log" id="ts-log-snaps">${latestSnapshots(dash.timeline, 6)
       .map(renderSnapshotThumb)
       .join("")}</div>
@@ -1261,9 +1512,11 @@ function patchToyoshimaDashboard(dash) {
     const alarmCard = $("ts-alarm-card");
     if (alarmCard) alarmCard.outerHTML = renderAlarmCard(dash, { customer: true });
 
+    paintCustomerNotifyList();
+
     const activityLog = $("ts-activity-log");
     if (activityLog) {
-      activityLog.innerHTML = renderActivityLog(dash.timeline, 10);
+      activityLog.innerHTML = renderCustomerHistoryTimeline(dash.timeline, 40);
     }
     const logSnaps = $("ts-log-snaps");
     if (logSnaps) {
@@ -1374,7 +1627,7 @@ export function isToyoshimaSecuritySite(siteId) {
  * 顧客タブ（家のようす / お知らせ / 履歴）切替
  * ボタン・ペイン・body 属性を同一ステートへ同期
  */
-export function setToyoshimaCustomerPane(pane) {
+export function setToyoshimaCustomerPane(pane, opts = {}) {
   const allowed = new Set(["map", "alert", "log"]);
   const raw = String(pane || "map").trim();
   const id = allowed.has(raw) ? raw : "map";
@@ -1392,6 +1645,11 @@ export function setToyoshimaCustomerPane(pane) {
   if (root) root.setAttribute("data-ts-active-pane", id);
   const panes = $("ts-tab-panes");
   if (panes) panes.setAttribute("data-ts-active-pane", id);
+  if (id === "alert" && opts.fetchNotify) {
+    loadCustomerPortalNotifications().then(() => {
+      paintCustomerNotifyList();
+    });
+  }
 }
 
 /** 現在のタブID（テスト・再同期用） */
@@ -1559,6 +1817,7 @@ async function saveHeartbeatWatch(enabled) {
 export function renderToyoshimaDashboard(dash, opts = {}) {
   const soft = !!opts.soft;
   if (!dash) return;
+  lastRenderedDash = dash;
   applyHardwareStatusFromDash(dash);
   const root = $("ts-dashboard-root");
   if (!root) return;
@@ -1588,6 +1847,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">
         <div id="ts-alarm-root">${renderAlarmCard(dash, { customer: true })}</div>
+        ${renderCustomerNotifySection(dash)}
       </div>
       <div class="ts-tab-pane" data-ts-pane="log">
         ${renderCustomerActivitySection(dash)}
@@ -1640,7 +1900,13 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     ensureCustomerDailySettingsMounted(dash);
   }
   bindToyoshimaControls();
+  bindToyoshimaCustomerTabs();
   restoreActiveCustomerPane();
+  if (customer) {
+    loadCustomerPortalNotifications().then(() => {
+      paintCustomerNotifyList();
+    });
+  }
 }
 
 export function hideToyoshimaDashboard() {
@@ -1859,6 +2125,30 @@ function bindScheduleDialog() {
   });
 }
 
+/**
+ * 上部タブ click を capture で必ず拾う
+ * light-v1 の CTRL_BOUND に依存しない
+ */
+function bindToyoshimaCustomerTabs() {
+  if (window.__TISLY_TS_TABS_BOUND) return;
+  window.__TISLY_TS_TABS_BOUND = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest?.(".sf-mobile-tabs button[data-pane]");
+      if (!btn) return;
+      const toyoshimaUi =
+        isToyoshimaSecuritySite(window.__TISLY_SF_SITE_ID) ||
+        document.body.classList.contains("is-toyoshima") ||
+        $("ts-dashboard-root")?.dataset?.mounted === "1";
+      if (!toyoshimaUi) return;
+      const pane = btn.getAttribute("data-pane") || "map";
+      setToyoshimaCustomerPane(pane, { fetchNotify: true });
+    },
+    true
+  );
+}
+
 function bindToyoshimaControls() {
   const root = $("ts-dashboard-root");
   if (!root || root.dataset.bound === "1") return;
@@ -2020,6 +2310,27 @@ function bindToyoshimaControls() {
         }
         return;
       }
+      if (action === "refresh_notify") {
+        actionBtn.disabled = true;
+        try {
+          lastDashSig = "";
+          await loadCustomerPortalNotifications();
+          await refreshToyoshimaDashboard({
+            soft: false,
+            forceHealthSync: true,
+          });
+          paintCustomerNotifyList();
+          showToast("通知を最新に更新しました");
+        } finally {
+          actionBtn.disabled = false;
+        }
+        return;
+      }
+      if (action === "mark_notify_read") {
+        markVisibleNotificationsRead();
+        showToast("未読を既読にしました");
+        return;
+      }
       if (action === "refresh_status") {
         actionBtn.disabled = true;
         actionBtn.classList.add("is-spinning");
@@ -2175,6 +2486,7 @@ export function stopToyoshimaPolling() {
 }
 
 export function startToyoshimaPolling() {
+  bindToyoshimaCustomerTabs();
   if (window.__TISLY_TOYOSHIMA_POLL) return;
   const tick = () => {
     const root = $("ts-dashboard-root");

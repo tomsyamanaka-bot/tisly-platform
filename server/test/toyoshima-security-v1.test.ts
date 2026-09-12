@@ -8,6 +8,7 @@ import {
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   processToyoshimaSecurityEventV1,
   recordToyoshimaHeartbeatV1,
+  recordToyoshimaModeChangeV1,
   setToyoshimaHeartbeatAtForTestV1,
   resetToyoshimaSecurityStateForTestV1,
   runToyoshimaHeartbeatWatchdogV1,
@@ -375,5 +376,18 @@ describe("toyoshima-security-v1", () => {
     assert.equal(loaded.main.lastHeartbeatAt, at);
     assert.equal(loaded.main.boardTempC, 36.1);
     assert.equal(loaded.detached.lastHeartbeatAt, at);
+  });
+
+  it("records customer mode change on the timeline without wiping history", () => {
+    const before = buildToyoshimaSecurityDashboardV1(
+      HOME_JP_TOYOSHIMA_SITE_ID_V1
+    ).timeline.length;
+    recordToyoshimaModeChangeV1("おでかけ警戒");
+    const dash = buildToyoshimaSecurityDashboardV1(
+      HOME_JP_TOYOSHIMA_SITE_ID_V1
+    );
+    assert.ok(dash.timeline.length >= before + 1);
+    assert.equal(dash.timeline[0]?.kind, "mode_change");
+    assert.match(dash.timeline[0]?.title || "", /おでかけ警戒/);
   });
 });

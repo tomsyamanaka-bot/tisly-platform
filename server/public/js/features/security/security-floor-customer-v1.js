@@ -675,11 +675,45 @@ async function refreshCustomerStatus(btn) {
   }
 }
 
+/**
+ * 上部タブ（家のようす / お知らせ / 履歴）
+ * light-v1 の CTRL_BOUND とは独立して結線する
+ */
+function bindCustomerPaneTabs() {
+  if (window.__TISLY_SF_TABS_BOUND) return;
+  window.__TISLY_SF_TABS_BOUND = true;
+  const nav = document.querySelector(".sf-mobile-tabs");
+  if (!nav) return;
+  nav.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-pane]");
+    if (!btn || !nav.contains(btn)) return;
+    e.preventDefault();
+    state.pane = btn.getAttribute("data-pane") || "map";
+    document
+      .querySelectorAll(".sf-mobile-tabs button")
+      .forEach((b) => b.classList.toggle("is-on", b === btn));
+    document.body.setAttribute("data-pane", state.pane);
+    const toyoshimaUi =
+      isToyoshimaSecuritySite(state.siteId) ||
+      document.body.classList.contains("is-toyoshima") ||
+      $("ts-dashboard-root")?.dataset?.mounted === "1";
+    if (toyoshimaUi) {
+      setToyoshimaCustomerPane(state.pane, { fetchNotify: true });
+      return;
+    }
+    const target = document.querySelector(
+      `.sf-soc-shell [data-pane="${state.pane}"]`
+    );
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function bind() {
   bindCustomerLightSlider();
   bindCustomerSchedule();
   bindCustomerManualLights();
   bindCustomerCamera();
+  bindCustomerPaneTabs();
   $("sf-status-refresh")?.addEventListener("click", () => {
     refreshCustomerStatus($("sf-status-refresh")).catch(() => {});
   });
@@ -707,27 +741,6 @@ function bind() {
   });
   $("sf-log-open-detail")?.addEventListener("click", () => {
     $("sf-log-dialog")?.showModal?.();
-  });
-  document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.pane = btn.getAttribute("data-pane") || "map";
-      document
-        .querySelectorAll(".sf-mobile-tabs button")
-        .forEach((b) => b.classList.toggle("is-on", b === btn));
-      document.body.setAttribute("data-pane", state.pane);
-      const toyoshimaUi =
-        isToyoshimaSecuritySite(state.siteId) ||
-        document.body.classList.contains("is-toyoshima") ||
-        $("ts-dashboard-root")?.dataset?.mounted === "1";
-      if (toyoshimaUi) {
-        setToyoshimaCustomerPane(state.pane);
-        return;
-      }
-      const target = document.querySelector(
-        `.sf-soc-shell [data-pane="${state.pane}"]`
-      );
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   });
 }
 

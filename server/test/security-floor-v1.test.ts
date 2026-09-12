@@ -612,7 +612,8 @@ describe("security-floor-v1", () => {
     );
     assert.doesNotMatch(customerHtml, /sf-cam-expand|sf-live-feed|ライブカメラ|カメラを表示/);
     assert.match(customerHtml, /TiSLY Security/);
-    assert.match(customerHtml, /href="\/customer"/);
+    assert.match(customerHtml, /role="tablist"/);
+    assert.match(customerHtml, /data-pane="alert"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.match(customerHtml, /security-floor-iso3d-v1\.js/);
     assert.match(customerHtml, /security-floor-push-v1\.js/);
@@ -624,7 +625,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2523/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2531/);
     assert.match(customerHtml, /toyoshima-security-v1\.css\?v=\d+/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
@@ -739,6 +740,12 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /activeCustomerPane|restoreActiveCustomerPane/);
     assert.match(toyoshimaJs, /setToyoshimaCustomerPane/);
     assert.match(toyoshimaJs, /sf-mobile-tabs button/);
+    assert.match(toyoshimaJs, /bindToyoshimaCustomerTabs|__TISLY_TS_TABS_BOUND/);
+    assert.match(toyoshimaJs, /通知を最新に更新/);
+    assert.match(toyoshimaJs, /ts-customer-notify-list|renderCustomerNotifySection/);
+    assert.match(toyoshimaJs, /駐車場（DI1）|ガレージ（DI2）/);
+    assert.match(toyoshimaJs, /外側防犯ライト（DO2）/);
+    assert.match(toyoshimaJs, /警戒モード変更|mode_change/);
     assert.match(toyoshimaJs, /visibilitychange/);
     assert.doesNotMatch(
       toyoshimaJs,
@@ -762,6 +769,18 @@ describe("security-floor-v1", () => {
 
     assert.match(lightJs, /二重バインド|sf-soc/);
 
+    const toyoshimaCss = fs.readFileSync(
+      path.join(
+        publicDir,
+        "css/features/security/toyoshima-security-v1.css"
+      ),
+      "utf8"
+    );
+    assert.match(toyoshimaCss, /sf-body\.is-toyoshima \.sf-mobile-tabs button\.is-on/);
+    assert.match(toyoshimaCss, /background:\s*#1e3a8a/);
+    assert.match(toyoshimaCss, /ts-notify-badge\.is-alert/);
+    assert.match(toyoshimaCss, /ts-hist-card/);
+
     const customerJs = fs.readFileSync(
       path.join(
         publicDir,
@@ -769,7 +788,8 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
-    assert.match(customerJs, /setToyoshimaCustomerPane\(state\.pane\)/);
+    assert.match(customerJs, /setToyoshimaCustomerPane\(state\.pane/);
+    assert.match(customerJs, /__TISLY_SF_TABS_BOUND|bindCustomerPaneTabs/);
     assert.match(customerJs, /__TISLY_SF_SITE_ID/);
     assert.match(customerJs, /sf-status-refresh|refreshCustomerStatus/);
     assert.match(customerJs, /setTenantResolving|revealTenantUi|is-resolving-tenant/);

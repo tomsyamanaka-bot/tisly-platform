@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2525" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2530" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2531" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2531" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -106,10 +106,10 @@
     })();
   </script>
 
-  <nav class="sf-mobile-tabs" aria-label="画面切替">
-    <button type="button" class="is-on" data-pane="map">家のようす</button>
-    <button type="button" data-pane="alert">お知らせ</button>
-    <button type="button" data-pane="log">履歴</button>
+  <nav class="sf-mobile-tabs" role="tablist" aria-label="画面切替">
+    <button type="button" role="tab" class="is-on" data-pane="map" aria-selected="true">家のようす</button>
+    <button type="button" role="tab" data-pane="alert" aria-selected="false">お知らせ</button>
+    <button type="button" role="tab" data-pane="log" aria-selected="false">履歴</button>
   </nav>
 
   <div class="sf-soc-shell">
@@ -408,7 +408,7 @@
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2520"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2520"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2520"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2530"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2523"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2531"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2531"></script>
 </body>
 </html>

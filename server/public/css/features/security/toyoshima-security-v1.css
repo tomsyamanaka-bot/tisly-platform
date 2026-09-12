@@ -585,8 +585,36 @@
   display: none;
 }
 
+.sf-body.is-toyoshima .sf-soc-shell {
+  display: none;
+}
+
 .sf-body.is-toyoshima .sf-mobile-tabs {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 12px 10px;
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.sf-body.is-toyoshima .sf-mobile-tabs button {
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.sf-body.is-toyoshima .sf-mobile-tabs button.is-on {
+  background: #1e3a8a;
+  color: #ffffff;
+  border-color: #1e3a8a;
 }
 
 .ts-tab-panes {
@@ -1387,5 +1415,119 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.ts-notify-toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ts-notify-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  margin-bottom: 8px;
+}
+
+.ts-notify-item.is-unread {
+  border-color: #1e3a8a;
+  background: #f8fafc;
+}
+
+.ts-notify-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ts-notify-badge.is-alert {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ts-notify-badge.is-equip {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.ts-notify-badge.is-info {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ts-notify-title {
+  margin: 0;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ts-notify-body,
+.ts-notify-time {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.ts-hist-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ts-hist-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.ts-hist-ico {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.ts-hist-where {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.ts-hist-what {
+  margin: 2px 0 0;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ts-hist-sub,
+.ts-hist-time {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.ts-hist-card.is-sensor {
+  border-left: 4px solid #b91c1c;
+}
+
+.ts-hist-card.is-light {
+  border-left: 4px solid #ca8a04;
+}
+
+.ts-hist-card.is-mode {
+  border-left: 4px solid #1e3a8a;
 }
 

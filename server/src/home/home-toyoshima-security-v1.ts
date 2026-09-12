@@ -949,6 +949,13 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
     const d2 = findDo(runtime.main, 2);
     if (d1) d1.on = true;
     if (d2) d2.on = true;
+    appendTimeline({
+      at,
+      building: "main",
+      kind: "manual",
+      title: "外側防犯ライト点灯（DO2）",
+      detail: "母屋 DO2 · センサー連動",
+    });
     const durationMs = rules.lightingDurationSec * 1000;
     setTimeout(() => {
       if (d1) d1.on = false;
@@ -1038,6 +1045,15 @@ async function handleDetachedDi(
   const light = findDo(runtime.detached, 1);
   if (perimeterActive && lightsActive && light) {
     light.on = true;
+    appendTimeline({
+      at,
+      building: "detached",
+      kind: "manual",
+      title: isRoad
+        ? "外側防犯ライト点灯（駐車場連動）"
+        : "外側防犯ライト点灯（ガレージ連動）",
+      detail: isRoad ? "駐車場 DI1 連動" : "ガレージ DI2 連動",
+    });
     setTimeout(() => {
       light.on = false;
     }, rules.lightingDurationSec * 1000);
@@ -1055,6 +1071,17 @@ async function handleDetachedDi(
   setTimeout(() => {
     if (diState) diState.state = "normal";
   }, 5000);
+}
+
+/** 顧客警戒モード変更を履歴へ追記（既存行は消さない） */
+export function recordToyoshimaModeChangeV1(modeLabel: string): void {
+  appendTimeline({
+    at: nowIso(),
+    building: "main",
+    kind: "mode_change",
+    title: `警戒モード変更：${modeLabel}`,
+    detail: "お客様画面から切替",
+  });
 }
 
 /** DI 立上りイベント（API / 実機 POST 用） */

@@ -131,6 +131,7 @@ import {
   isToyoshimaSecuritySiteIdV1,
   processToyoshimaSecurityEventV1,
   recordToyoshimaHeartbeatV1,
+  recordToyoshimaModeChangeV1,
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
   sendToyoshimaTestNotifyV1,
   syncToyoshimaConfigToFirmwareV1,
@@ -766,6 +767,7 @@ homeRouter.post("/security/mode", (req, res) => {
       actor: String(req.body?.actor ?? "customer-portal"),
     });
     if (isToyoshimaSecuritySiteIdV1(siteId)) {
+      recordToyoshimaModeChangeV1(result.modeLabel);
       syncToyoshimaConfigToFirmwareV1(siteId);
     }
     res.json({
