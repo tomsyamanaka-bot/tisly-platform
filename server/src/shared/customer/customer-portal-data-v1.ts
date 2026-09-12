@@ -73,6 +73,8 @@ function overlayToyoshimaLiveStatusV1(
     lastCheckedAt: ssot.lastHeartbeatAt
       ? formatCustomerLastCheckedV1(ssot.lastHeartbeatAt)
       : "未受信",
+    firmwareLabel: ssot.firmwareLabel || "―",
+    firmwareLatest: ssot.firmwareLatest === true,
   };
 }
 

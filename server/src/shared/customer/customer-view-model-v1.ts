@@ -52,6 +52,8 @@ export interface CustomerHomeViewV1 {
   contactCompany: string;
   /** 豊島邸は実機 HB SSOT を重ねる */
   liveStatusSsot?: boolean;
+  firmwareLabel?: string;
+  firmwareLatest?: boolean;
   notifications?: Array<{
     id: string;
     kind: string;

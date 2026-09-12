@@ -201,6 +201,11 @@ export interface ToyoshimaCommHealthV1 {
   operatorOnline: string;
   lastHeartbeatLabelJst: string;
   confirmLabelJst: string;
+  /** 実機稼働バージョン（未報告は null） */
+  firmwareVersion: string | null;
+  firmwareServerVersion: string;
+  firmwareLatest: boolean;
+  firmwareLabel: string;
 }
 
 /** /customer と /app が同じ値を読む SSOT */
@@ -218,6 +223,79 @@ export interface ToyoshimaStatusSsotV1 {
   boardTempLabel: string;
   boardTempLevel: "normal" | "caution" | "warning";
   devices: ToyoshimaDeviceHealthV1[];
+  firmwareVersion: string | null;
+  firmwareServerVersion: string;
+  firmwareLatest: boolean;
+  firmwareLabel: string;
+}
+
+export interface ToyoshimaFirmwareSsotV1 {
+  runningVersion: string | null;
+  serverVersion: string;
+  pending: boolean;
+  has_ota_update: boolean;
+  channel: "staging" | "production";
+  firmwareVersion: string | null;
+  firmwareServerVersion: string;
+  firmwareLatest: boolean;
+  firmwareLabel: string;
+  kitting?: {
+    shippable: boolean;
+    rgbStatus: string;
+    label: string;
+    reportedAt: string | null;
+  };
+}
+
+/**
+ * 顧客表示用のバージョンラベル。
+ * 未取得は ― 、取得済みは v 付き。
+ */
+export function formatTislyFirmwareCustomerLabelV1(
+  running: string | null | undefined
+): string {
+  const raw = String(running ?? "").trim();
+  if (!raw) return "―";
+  return /^v/i.test(raw) ? raw : `v${raw}`;
+}
+
+/**
+ * /app OTA カードと同じ
+ * runningVersion を顧客へ返す
+ */
+export function buildToyoshimaFirmwareSsotV1(): ToyoshimaFirmwareSsotV1 {
+  try {
+    const ota = getTislyOtaVersionV1({ siteKey: "toyoshima" });
+    const running = ota.runningVersion || null;
+    const server = ota.version || "1.0.0";
+    const latest = Boolean(
+      running && running === server && !ota.has_ota_update
+    );
+    return {
+      runningVersion: running,
+      serverVersion: server,
+      pending: ota.pending,
+      has_ota_update: ota.has_ota_update,
+      channel: ota.channel,
+      firmwareVersion: running,
+      firmwareServerVersion: server,
+      firmwareLatest: latest,
+      firmwareLabel: formatTislyFirmwareCustomerLabelV1(running),
+      kitting: ota.kitting,
+    };
+  } catch {
+    return {
+      runningVersion: null,
+      serverVersion: "1.0.0",
+      pending: false,
+      has_ota_update: false,
+      channel: "production",
+      firmwareVersion: null,
+      firmwareServerVersion: "1.0.0",
+      firmwareLatest: false,
+      firmwareLabel: "―",
+    };
+  }
 }
 
 export interface ToyoshimaSecurityDashboardV1 {
@@ -1313,6 +1391,7 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
       ? onlineSummary
       : "🟢 正常稼働中（オンライン）"
     : "🔴 オフライン（通信途絶）";
+  const fw = buildToyoshimaFirmwareSsotV1();
 
   return {
     onlineSummary,
@@ -1329,6 +1408,10 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
     operatorOnline,
     lastHeartbeatLabelJst: formatJstCommTimeV1(lastHeartbeatAt),
     confirmLabelJst: formatJstConfirmTimeV1(lastHeartbeatAt),
+    firmwareVersion: fw.firmwareVersion,
+    firmwareServerVersion: fw.firmwareServerVersion,
+    firmwareLatest: fw.firmwareLatest,
+    firmwareLabel: fw.firmwareLabel,
   };
 }
 
@@ -1352,6 +1435,10 @@ export function buildToyoshimaStatusSsotV1(
     boardTempLabel: health.boardTempLabel,
     boardTempLevel: health.boardTempLevel,
     devices: health.devices,
+    firmwareVersion: health.firmwareVersion,
+    firmwareServerVersion: health.firmwareServerVersion,
+    firmwareLatest: health.firmwareLatest,
+    firmwareLabel: health.firmwareLabel,
   };
 }
 
@@ -1655,32 +1742,15 @@ export function buildToyoshimaSecurityDashboardV1(
     timeline,
     lastUpdatedAt: nowIso(),
     ota: (() => {
-      try {
-        const ota = getTislyOtaVersionV1({ siteKey: "toyoshima" });
-        return {
-          runningVersion: ota.runningVersion,
-          serverVersion: ota.version,
-          pending: ota.pending,
-          has_ota_update: ota.has_ota_update,
-          channel: ota.channel,
-          kitting: ota.kitting,
-        };
-      } catch {
-        return {
-          runningVersion: null,
-          serverVersion: "1.0.0",
-          pending: false,
-          has_ota_update: false,
-          channel: "production" as const,
-          kitting: {
-            shippable: false,
-            rgbStatus: "UNCONFIGURED" as const,
-            label: "未設定・検査未完了",
-            reportedAt: null,
-            devices: [],
-          },
-        };
-      }
+      const fw = buildToyoshimaFirmwareSsotV1();
+      return {
+        runningVersion: fw.runningVersion,
+        serverVersion: fw.serverVersion,
+        pending: fw.pending,
+        has_ota_update: fw.has_ota_update,
+        channel: fw.channel,
+        kitting: fw.kitting,
+      };
     })(),
   };
 }

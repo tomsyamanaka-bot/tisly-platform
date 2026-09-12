@@ -11,6 +11,7 @@ import {
   applyToyoshimaHardwareStatus,
   fetchToyoshimaDashboard,
   fetchToyoshimaStatus,
+  formatFirmwareCustomerLabel,
   isHardwareOnline,
   subscribeToyoshimaStatus,
 } from "./use-toyoshima-status-v1.js";
@@ -195,6 +196,18 @@ function buildCommHealthView(dash) {
     confirmLabel: heartbeatIso
       ? health.confirmLabelJst || formatJstConfirmTime(heartbeatIso)
       : "—",
+    firmwareVersion:
+      health.firmwareVersion || dash?.ota?.runningVersion || null,
+    firmwareServerVersion:
+      health.firmwareServerVersion || dash?.ota?.serverVersion || null,
+    firmwareLatest:
+      health.firmwareLatest === true ||
+      (!!dash?.ota?.runningVersion &&
+        dash.ota.runningVersion === dash.ota.serverVersion &&
+        !dash.ota.has_ota_update),
+    firmwareLabel: formatFirmwareCustomerLabel(
+      health.firmwareVersion || dash?.ota?.runningVersion
+    ),
   };
 }
 
@@ -310,6 +323,16 @@ function renderCustomerAssureHealthCard(view) {
         <span class="ts-assure-key">盤内温度</span>
         <span class="ts-assure-val ts-board-temp is-${view.tempLevel}" id="ts-assure-temp">${view.tempEmoji} ${escapeHtml(view.tempLabel)}</span>
       </div>
+      <!-- 実機稼働版は OTA SSOT と同期する -->
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">システムバージョン</span>
+        <span class="ts-assure-val ts-assure-fw-wrap" id="ts-assure-fw-wrap">
+          <span id="ts-assure-fw">${escapeHtml(view.firmwareLabel || "―")}</span>
+          <span class="ts-fw-badge" id="ts-assure-fw-badge"${
+            view.firmwareLatest ? "" : " hidden"
+          }>🟢 最新</span>
+        </span>
+      </div>
       <div class="ts-assure-row">
         <span class="ts-assure-key">最終確認時刻</span>
         <span class="ts-assure-val" id="ts-assure-confirm">${escapeHtml(view.confirmLabel)}</span>
@@ -336,6 +359,10 @@ function applyHardwareStatusFromDash(dash, view = null) {
     boardTempC: dash?.commHealth?.boardTempC ?? null,
     boardTempLabel: healthView.tempLabel,
     boardTempLevel: healthView.tempLevel,
+    firmwareVersion: healthView.firmwareVersion,
+    firmwareServerVersion: healthView.firmwareServerVersion,
+    firmwareLatest: healthView.firmwareLatest,
+    firmwareLabel: healthView.firmwareLabel,
   });
 }
 
@@ -1157,6 +1184,14 @@ function patchToyoshimaDashboard(dash) {
         assureTemp.textContent = `${view.tempEmoji} ${view.tempLabel}`;
         assureTemp.classList.remove("is-normal", "is-caution", "is-warning");
         assureTemp.classList.add(`is-${view.tempLevel}`);
+      }
+      const assureFw = $("ts-assure-fw");
+      if (assureFw) {
+        assureFw.textContent = view.firmwareLabel || "―";
+      }
+      const assureFwBadge = $("ts-assure-fw-badge");
+      if (assureFwBadge) {
+        assureFwBadge.hidden = !view.firmwareLatest;
       }
       const banner = $("ts-status-banner");
       if (banner) {

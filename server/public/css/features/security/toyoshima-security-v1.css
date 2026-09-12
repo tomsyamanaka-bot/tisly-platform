@@ -1109,17 +1109,35 @@
   text-align: right;
 }
 
+.ts-assure-fw-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ts-fw-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ts-fw-badge[hidden] {
+  display: none;
+}
+
 .ts-assure-note {
   margin: 10px 0 0;
   color: #1e3a8a;
   font-size: 0.82rem;
   font-weight: 600;
-}
-  gap: 2px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(30, 58, 138, 0.08);
 }
 
 .ts-safety-metric-key {

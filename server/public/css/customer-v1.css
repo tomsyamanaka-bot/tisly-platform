@@ -43,6 +43,30 @@
 .cv-status-row { margin-bottom: 0.55rem; }
 .cv-status-big { font-size: 1.2rem; font-weight: 800; color: var(--cv-text); }
 .cv-last-checked { margin: 0; font-size: 1.05rem; color: var(--cv-muted); font-weight: 600; }
+.cv-firmware {
+  margin: 0.45rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--cv-text);
+}
+.cv-firmware-key { color: var(--cv-muted); font-weight: 600; }
+.cv-firmware-val { color: var(--cv-accent); }
+.cv-fw-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.cv-fw-badge[hidden] { display: none; }
 .cv-refresh-btn {
   margin-top: 0.9rem;
   min-height: 52px;

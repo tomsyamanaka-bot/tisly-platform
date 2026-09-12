@@ -321,6 +321,33 @@ describe("toyoshima-security-v1", () => {
     assert.match(ssot.boardTempLabel, /36\.2℃/);
   });
 
+  it("status SSOT firmware matches OTA runningVersion", async () => {
+    const { resetTislyOtaStoreForTestV1, recordTislyOtaDeviceFirmwareV1 } =
+      await import("../src/firmware/tisly-rp2350-ota-v1.js");
+    const {
+      buildToyoshimaStatusSsotV1,
+      formatTislyFirmwareCustomerLabelV1,
+    } = await import("../src/home/home-toyoshima-security-v1.js");
+    resetTislyOtaStoreForTestV1();
+    resetToyoshimaSecurityStateForTestV1();
+    assert.equal(formatTislyFirmwareCustomerLabelV1(null), "―");
+    assert.equal(formatTislyFirmwareCustomerLabelV1("1.1.0"), "v1.1.0");
+    const empty = buildToyoshimaStatusSsotV1();
+    assert.equal(empty.firmwareLabel, "―");
+    assert.equal(empty.firmwareVersion, null);
+    recordTislyOtaDeviceFirmwareV1({
+      siteKey: "toyoshima",
+      deviceId: "rp2350-toyoshima-main-01",
+      firmwareVersion: "1.1.0",
+    });
+    const ssot = buildToyoshimaStatusSsotV1();
+    assert.equal(ssot.firmwareVersion, "1.1.0");
+    assert.equal(ssot.firmwareLabel, "v1.1.0");
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.ota?.runningVersion, "1.1.0");
+    assert.equal(dash.commHealth.firmwareLabel, "v1.1.0");
+  });
+
   it("heartbeat store upserts JSON state without wiping other keys", async () => {
     const {
       saveToyoshimaHeartbeatStoreV1,

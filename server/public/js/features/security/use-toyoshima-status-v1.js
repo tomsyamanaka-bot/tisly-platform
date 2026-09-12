@@ -71,8 +71,43 @@ function emptyStatus() {
     boardTempC: null,
     boardTempLabel: "正常監視中",
     boardTempLevel: "normal",
+    firmwareVersion: null,
+    firmwareServerVersion: null,
+    firmwareLatest: false,
+    firmwareLabel: "―",
     devices: [],
   };
+}
+
+export function formatFirmwareCustomerLabel(running) {
+  const raw = String(running ?? "").trim();
+  if (!raw) return "―";
+  return /^v/i.test(raw) ? raw : `v${raw}`;
+}
+
+function paintFirmwareEls(status) {
+  const run =
+    status.firmwareVersion || status.runningVersion || null;
+  const label =
+    status.firmwareLabel || formatFirmwareCustomerLabel(run);
+  const latest =
+    status.firmwareLatest === true && label !== "―";
+  const fwEl = document.getElementById("ts-assure-fw");
+  if (fwEl) fwEl.textContent = label;
+  const badge = document.getElementById("ts-assure-fw-badge");
+  if (badge) badge.hidden = !latest;
+  const cvFw = document.getElementById("cv-firmware-val");
+  if (cvFw) cvFw.textContent = label;
+  const cvBadge = document.getElementById("cv-firmware-badge");
+  if (cvBadge) cvBadge.hidden = !latest;
+  /* /app OTA カードも同じ実機版を描く */
+  if (run) {
+    const painted = formatFirmwareCustomerLabel(run);
+    const op = document.getElementById("ts-ota-running");
+    if (op) op.textContent = painted;
+    const sf = document.getElementById("sf-ota-running");
+    if (sf) sf.textContent = painted;
+  }
 }
 
 function paintTempEl(el, status) {
@@ -141,6 +176,7 @@ export function applyToyoshimaHardwareStatus(status) {
 
   paintTempEl(document.getElementById("ts-board-temp-val"), status);
   paintTempEl(document.getElementById("ts-assure-temp"), status);
+  paintFirmwareEls(status);
 
   const big = document.getElementById("cv-status-big");
   if (big) big.textContent = cardOnline;
@@ -211,6 +247,15 @@ function normalizeStatus(data) {
     boardTempC: data.boardTempC ?? null,
     boardTempLabel: data.boardTempLabel || "正常監視中",
     boardTempLevel: data.boardTempLevel || "normal",
+    firmwareVersion: data.firmwareVersion || data.runningVersion || null,
+    firmwareServerVersion:
+      data.firmwareServerVersion || data.serverVersion || null,
+    firmwareLatest: data.firmwareLatest === true,
+    firmwareLabel:
+      data.firmwareLabel ||
+      formatFirmwareCustomerLabel(
+        data.firmwareVersion || data.runningVersion
+      ),
     devices: Array.isArray(data.devices) ? data.devices : [],
   };
 }

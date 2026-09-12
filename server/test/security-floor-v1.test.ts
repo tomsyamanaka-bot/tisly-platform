@@ -622,10 +622,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
-    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=2525/);
+    assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2523/);
-    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=2525/);
+    assert.match(customerHtml, /toyoshima-security-v1\.css\?v=\d+/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
@@ -715,6 +715,8 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /buildCommHealthView/);
     assert.match(toyoshimaJs, /isHardwareOnline|applyToyoshimaHardwareStatus/);
     assert.match(toyoshimaJs, /盤内温度（主装置・チップ実測）|盤内温度（主装置）/);
+    assert.match(toyoshimaJs, /ts-assure-fw|システムバージョン/);
+    assert.match(toyoshimaJs, /ts-fw-badge|🟢 最新/);
     assert.match(toyoshimaJs, /hasTemp|boardTempC/);
     assert.match(toyoshimaJs, /board_temp:\s*SIM_BOARD_TEMP_C|board_temp:\s*36\.2/);
     assert.match(toyoshimaJs, /正常稼働中（オンライン）/);
@@ -796,6 +798,8 @@ describe("security-floor-v1", () => {
     assert.match(statusHookJs, /isHardwareOnline/);
     assert.match(statusHookJs, /applyToyoshimaHardwareStatus/);
     assert.match(statusHookJs, /BroadcastChannel|tisly-toyoshima-hw-status-v1/);
+    assert.match(statusHookJs, /firmwareVersion|firmwareLabel/);
+    assert.match(statusHookJs, /ts-assure-fw|paintFirmwareEls/);
 
     const customerHomeJs = fs.readFileSync(
       path.join(publicDir, "js/customer-v1.js"),
@@ -803,6 +807,11 @@ describe("security-floor-v1", () => {
     );
     assert.match(customerHomeJs, /useToyoshimaStatus|fetchToyoshimaStatus/);
     assert.match(customerHomeJs, /cv-status-refresh|bindLiveStatusRefresh/);
+    const customerSharedJs = fs.readFileSync(
+      path.join(publicDir, "js/customer-shared-v1.js"),
+      "utf8"
+    );
+    assert.match(customerSharedJs, /cv-firmware-val|システムバージョン/);
 
     const proJs = fs.readFileSync(
       path.join(

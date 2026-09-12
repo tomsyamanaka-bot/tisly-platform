@@ -59,6 +59,19 @@ export function renderHomeStatus(data) {
         <span class="cv-status-big" id="cv-status-big">${escapeHtml(data.systemStatusEmoji)} ${escapeHtml(data.systemStatusLabel)}</span>
       </div>
       <p class="cv-last-checked" id="cv-last-checked">${escapeHtml(lastLabel)}：${escapeHtml(data.lastCheckedAt)}</p>
+      ${
+        data.liveStatusSsot
+          ? `<p class="cv-firmware" id="cv-firmware-row">
+        <span class="cv-firmware-key">システムバージョン</span>
+        <span class="cv-firmware-val" id="cv-firmware-val">${escapeHtml(
+          data.firmwareLabel || "―"
+        )}</span>
+        <span class="cv-fw-badge" id="cv-firmware-badge"${
+          data.firmwareLatest ? "" : " hidden"
+        }>🟢 最新</span>
+      </p>`
+          : ""
+      }
       ${refresh}
     </section>
   `;
