@@ -521,6 +521,15 @@
   margin-top: 12px;
 }
 
+.sf-kpi-row.is-comm-unified {
+  display: block;
+  grid-template-columns: 1fr;
+}
+
+.sf-kpi-row.is-comm-unified .ts-health-card {
+  margin: 0;
+}
+
 .sf-kpi {
   background: #ffffff;
   border: 1px solid #e2e8f0;

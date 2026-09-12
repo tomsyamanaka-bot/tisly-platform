@@ -181,6 +181,23 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | デバウンス（板橋ファーム） | **50 ms**（`DI_DEBOUNCE_MS` / `_DEFAULT_DI_CONFIRM_MS`） |
 | 解錠パルス | 1000 ms（CH1） |
 
+### 3.7 通信ステータス・盤内温度（追記）
+
+既存の DI/DO・NVR・ドアホン設定は変更しない。
+社内 `/app` と顧客 `/customer` の通信カードだけを豊島邸と同型にする。
+
+| 項目 | 値 |
+|------|-----|
+| 社内カード | 🛰️ 通信ステータス（単一カード） |
+| 顧客カード | 🛡 システム安心ステータス |
+| Heartbeat API | `POST /api/remote-test/heartbeat` および `/api/home/v1/itabashi/heartbeat` |
+| ステータス SSOT | `GET /api/home/v1/itabashi/status`（`itabashi-commHealth`） |
+| 盤内温度 | RP2350 チップ内蔵（CORE_TEMP / ADC4）を `boardTemp` で送信 |
+| 未取得表示 | `―（取得中）` |
+| 適温表示例 | `36.2℃（適温・正常）` |
+| しきい値 | 45℃ 注意 / 60℃ 警告 |
+| 疑似ハートビート | 社内カードの 💗 ボタン（36.2℃） |
+
 ---
 
 ## 3.6 テスター専用テナント（TESTER001）
@@ -260,6 +277,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-12 | 板橋自宅の通信ステータスを豊島邸と同型へ統合（盤内温度・疑似HB） |
 | 2026-09-12 | 豊島邸 RP2350 チップ温度（CORE_TEMP）実測を HB / PWA へ連携 |
 | 2026-09-11 | 全現場 RP2350 PoE LAN OTA（A/B ロールバック）を標準化 |
 | 2026-09-10 | テスター専用 `TESTER001` を追記（板橋実機ミラー・メニュー制限） |

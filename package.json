@@ -23,7 +23,7 @@
     "flash:toyoshima:main": "python tools/flash_rp2350.py --building main",
     "flash:toyoshima:detached": "python tools/flash_rp2350.py --building detached",
     "flash:toyoshima:js": "node scripts/flash_toyoshima_rp2350.js",
-    "test:toyoshima-fw": "python rp2350/test/test_toyoshima_board_temp.py",
+    "test:toyoshima-fw": "python rp2350/test/test_toyoshima_board_temp.py && python rp2350/test/test_itabashi_board_temp.py",
     "test:toyoshima": "npm run test:toyoshima --prefix server"
   },
   "dependencies": {

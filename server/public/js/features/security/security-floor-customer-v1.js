@@ -33,6 +33,11 @@ import {
 } from "./toyoshima-security-dashboard-v1.js";
 import { fetchToyoshimaStatus } from "./use-toyoshima-status-v1.js";
 import {
+  applyItabashiHardwareStatus,
+  fetchItabashiStatus,
+  isItabashiSecuritySite,
+} from "./use-itabashi-status-v1.js";
+import {
   getCustomerCode,
   getCustomerToken,
   isLoggedIn,
@@ -336,10 +341,21 @@ function alarmSignature(dash) {
   ].join("::");
 }
 
+function paintItabashiAssureCard(status) {
+  const card = $("sf-itabashi-assure-card");
+  if (!card) return;
+  const show = isItabashiSecuritySite(state.siteId);
+  card.hidden = !show;
+  if (!show || !status) return;
+  applyItabashiHardwareStatus(status);
+}
+
 function renderDash(dash, opts = {}) {
   if (!dash) return;
   if (isToyoshimaSecuritySite(state.siteId)) {
     syncCustomerHeaderTitle();
+    const hide = $("sf-itabashi-assure-card");
+    if (hide) hide.hidden = true;
     return;
   }
   try {
@@ -435,6 +451,13 @@ function renderDash(dash, opts = {}) {
       } catch (_e) {
         /* ignore */
       }
+    }
+    if (isItabashiSecuritySite(state.siteId)) {
+      fetchItabashiStatus({ force: !soft })
+        .then((status) => paintItabashiAssureCard(status))
+        .catch(() => paintItabashiAssureCard(null));
+    } else {
+      paintItabashiAssureCard(null);
     }
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
@@ -662,6 +685,10 @@ async function refreshCustomerStatus(btn) {
     if (isToyoshimaSecuritySite(state.siteId)) {
       await fetchToyoshimaStatus({ force: true });
       await loadToyoshimaDashboard({ forceHealthSync: true });
+    } else if (isItabashiSecuritySite(state.siteId)) {
+      const status = await fetchItabashiStatus({ force: true });
+      paintItabashiAssureCard(status);
+      await loadDash();
     } else {
       await loadDash();
     }

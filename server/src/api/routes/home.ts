@@ -35,6 +35,7 @@ import {
 } from "../../home/home-control-v1.js";
 import {
   findHomeSiteV1,
+  HOME_ITABASHI_LIVE_SITE_ID_V1,
   listHomeSitesV1,
 } from "../../home/home-sites-v1.js";
 import {
@@ -141,6 +142,11 @@ import {
   getToyoshimaOpsConfigV1,
   updateToyoshimaOpsConfigV1,
 } from "../../home/home-toyoshima-ops-config-v1.js";
+import {
+  buildItabashiStatusSsotV1,
+  recordItabashiHeartbeatV1,
+  setItabashiHeartbeatWatchV1,
+} from "../../home/home-itabashi-comm-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
   recordTislyOtaDeviceFirmwareV1,
@@ -1727,3 +1733,66 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
 
 registerToyoshimaHomeRoutes("/toyoshima");
 registerToyoshimaHomeRoutes("/toshima");
+
+function noStoreItabashi(res: { setHeader: (k: string, v: string) => void }): void {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+}
+
+/** 板橋自宅 通信ステータス SSOT */
+homeRouter.get("/itabashi/status", (_req, res) => {
+  noStoreItabashi(res);
+  res.json(buildItabashiStatusSsotV1());
+});
+
+/**
+ * 疑似 / 実機ハートビート
+ * 既存の板橋 DI/DO は触らない
+ */
+homeRouter.post("/itabashi/heartbeat", (req, res) => {
+  noStoreItabashi(res);
+  const status = recordItabashiHeartbeatV1({
+    boardTemp: req.body?.board_temp ?? req.body?.boardTemp ?? 36.2,
+    deviceId: String(
+      req.body?.deviceId ?? "rp2350-itabashi-main-01"
+    ).trim(),
+  });
+  res.json({
+    ok: true,
+    message: "最新の接続状態を取得しました",
+    status,
+    siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+  });
+});
+
+homeRouter.get("/itabashi/config", (_req, res) => {
+  noStoreItabashi(res);
+  const status = buildItabashiStatusSsotV1();
+  res.json({
+    ok: true,
+    config: {
+      heartbeatWatchEnabled: status.heartbeatWatchEnabled,
+    },
+    status,
+  });
+});
+
+homeRouter.put("/itabashi/config", (req, res) => {
+  noStoreItabashi(res);
+  const enabled =
+    req.body?.heartbeatWatchEnabled === undefined
+      ? true
+      : Boolean(req.body.heartbeatWatchEnabled);
+  const status = setItabashiHeartbeatWatchV1(enabled);
+  res.json({
+    ok: true,
+    message: status.heartbeatWatchEnabled
+      ? "ハートビート死活監視を有効化しました"
+      : "ハートビート死活監視を一時停止しました",
+    config: {
+      heartbeatWatchEnabled: status.heartbeatWatchEnabled,
+    },
+    status,
+  });
+});

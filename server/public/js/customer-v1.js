@@ -30,6 +30,11 @@ import {
   applyToyoshimaHardwareStatus,
   useToyoshimaStatus,
 } from "./features/security/use-toyoshima-status-v1.js";
+import {
+  fetchItabashiStatus,
+  applyItabashiHardwareStatus,
+  useItabashiStatus,
+} from "./features/security/use-itabashi-status-v1.js";
 
 const main = document.getElementById("main-content");
 let liveStatusHook = null;
@@ -114,16 +119,44 @@ function renderLogin(errorMsg = "") {
 }
 
 function applyLiveStatusToHome(status) {
+  if (status?.ssot === "itabashi-commHealth") {
+    applyItabashiHardwareStatus(status);
+    return;
+  }
   applyToyoshimaHardwareStatus(status);
 }
 
 function bindLiveStatusRefresh(data) {
   liveStatusHook?.stop?.();
   liveStatusHook = null;
-  const useSsot =
-    data?.liveStatusSsot ||
-    loadTenantProfile()?.useToyoshimaDashboard;
-  if (!useSsot) return;
+  const profile = loadTenantProfile();
+  const useItabashi =
+    data?.liveStatusSite === "itabashi" ||
+    (data?.liveStatusSsot &&
+      !profile?.useToyoshimaDashboard &&
+      String(profile?.homeSiteId || "").includes("ITABASHI"));
+  const useToyoshima =
+    data?.liveStatusSsot || profile?.useToyoshimaDashboard;
+  if (useItabashi) {
+    liveStatusHook = useItabashiStatus(applyLiveStatusToHome);
+    liveStatusHook.start(1500);
+    const btn = document.getElementById("cv-status-refresh");
+    btn?.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.classList.add("is-spinning");
+      try {
+        const status = await fetchItabashiStatus({ force: true });
+        applyLiveStatusToHome(status);
+      } catch {
+        /* 失敗時は表示を維持 */
+      } finally {
+        btn.classList.remove("is-spinning");
+        btn.disabled = false;
+      }
+    });
+    return;
+  }
+  if (!useToyoshima) return;
   liveStatusHook = useToyoshimaStatus(applyLiveStatusToHome);
   liveStatusHook.start(1500);
   const btn = document.getElementById("cv-status-refresh");

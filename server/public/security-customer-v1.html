@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2531" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2531" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2532" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2532" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -120,6 +120,33 @@
           <p class="sf-status-label" id="sf-status-label">正常に動いています</p>
           <p id="sf-guard-label">—</p>
         </div>
+      </section>
+      <section class="ts-card ts-assure-health-card" id="sf-itabashi-assure-card" hidden aria-label="システム安心ステータス">
+        <div class="ts-assure-head-row">
+          <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
+        </div>
+        <div class="ts-assure-grid">
+          <div class="ts-assure-row">
+            <span class="ts-assure-key">稼働ステータス</span>
+            <span class="ts-assure-val" id="ib-assure-online">―</span>
+          </div>
+          <div class="ts-assure-row">
+            <span class="ts-assure-key">盤内温度（実測℃）</span>
+            <span class="ts-assure-val" id="ib-assure-temp">―（取得中）</span>
+          </div>
+          <div class="ts-assure-row">
+            <span class="ts-assure-key">システムバージョン</span>
+            <span class="ts-assure-val ts-assure-fw-wrap">
+              <span id="ib-assure-fw">―</span>
+              <span class="ts-fw-badge" id="ib-assure-fw-badge" hidden>🟢 最新</span>
+            </span>
+          </div>
+          <div class="ts-assure-row">
+            <span class="ts-assure-key">最終確認時刻</span>
+            <span class="ts-assure-val" id="ib-assure-confirm">—</span>
+          </div>
+        </div>
+        <p class="ts-assure-note">TOMS が常時遠隔監視しています</p>
       </section>
       <div class="sf-map-wrap sf-iso-wrap is-lights-on" id="sf-map-wrap">
         <div class="sf-iso-scene sf-iso3d-scene">
@@ -408,7 +435,7 @@
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2520"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2520"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2520"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2531"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2531"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2532"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2532"></script>
 </body>
 </html>

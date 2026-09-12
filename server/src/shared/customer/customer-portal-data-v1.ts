@@ -49,6 +49,7 @@ import {
   resolveCustomerTenantProfileV1,
 } from "./customer-tenant-profile-v1.js";
 import { buildToyoshimaStatusSsotV1 } from "../../home/home-toyoshima-security-v1.js";
+import { buildItabashiStatusSsotV1 } from "../../home/home-itabashi-comm-v1.js";
 
 function refFromShareId(shareId: string): string {
   return decodeCustomerShareIdV1(shareId);
@@ -75,7 +76,47 @@ function overlayToyoshimaLiveStatusV1(
       : "未受信",
     firmwareLabel: ssot.firmwareLabel || "―",
     firmwareLatest: ssot.firmwareLatest === true,
+    boardTempLabel: ssot.boardTempLabel,
+    boardTempC: ssot.boardTempC,
   };
+}
+
+function overlayItabashiLiveStatusV1(
+  home: CustomerHomeViewV1,
+  customerCode: string
+): CustomerHomeViewV1 {
+  const profile = resolveCustomerTenantProfileV1(customerCode);
+  if (!profile || profile.useToyoshimaDashboard) return home;
+  if (profile.homeSiteId !== "HOME-JP-ITABASHI-LIVE") return home;
+  const ssot = buildItabashiStatusSsotV1();
+  return {
+    ...home,
+    liveStatusSsot: true,
+    liveStatusSite: "itabashi",
+    systemStatus: ssot.isHardwareOnline ? "normal" : "alert",
+    systemStatusEmoji: ssot.isHardwareOnline ? "🟢" : "🔴",
+    systemStatusLabel: ssot.isHardwareOnline
+      ? "正常稼働中（オンライン）"
+      : "オフライン（通信途絶）",
+    systemStatusShort: ssot.isHardwareOnline ? "オンライン" : "オフライン",
+    lastCheckedAt: ssot.lastHeartbeatAt
+      ? formatCustomerLastCheckedV1(ssot.lastHeartbeatAt)
+      : "未受信",
+    firmwareLabel: ssot.firmwareLabel || "―",
+    firmwareLatest: ssot.firmwareLatest === true,
+    boardTempLabel: ssot.boardTempLabel,
+    boardTempC: ssot.boardTempC,
+  };
+}
+
+function overlayLiveStatusV1(
+  home: CustomerHomeViewV1,
+  customerCode: string
+): CustomerHomeViewV1 {
+  return overlayItabashiLiveStatusV1(
+    overlayToyoshimaLiveStatusV1(home, customerCode),
+    customerCode
+  );
 }
 
 export function shareIdFromRef(ref: string): string {
@@ -136,7 +177,7 @@ export function buildCustomerSessionHomeV1(
     profile?.homeSiteId ??
     "";
   const shareId = ref ? shareIdFromRef(ref) : "";
-  return overlayToyoshimaLiveStatusV1(
+  return overlayLiveStatusV1(
     buildCustomerHomeStateV1({
       shareId,
       propertyName,

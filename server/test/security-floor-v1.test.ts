@@ -625,7 +625,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2531/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2532/);
+    assert.match(customerHtml, /sf-itabashi-assure-card/);
+    assert.match(customerHtml, /盤内温度（実測℃）/);
+    assert.match(customerHtml, /システムバージョン/);
     assert.match(customerHtml, /toyoshima-security-v1\.css\?v=\d+/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
@@ -726,6 +729,12 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /heartbeatWatchEnabled/);
     assert.match(opJs, /豊島邸では旧 KPI|ts-health-card|isToyoshimaSecuritySite\(state\.siteId\)/);
     assert.match(opJs, /kpi\.hidden = true|sf-kpi/);
+    assert.match(opJs, /🛰️ 通信ステータス/);
+    assert.match(opJs, /疑似ハートビート送信/);
+    assert.match(opJs, /use-itabashi-status|fetchItabashiStatus/);
+    assert.match(opJs, /ib-health-card|itabashi-commHealth/);
+    assert.match(opJs, /盤内温度（主装置・チップ実測）/);
+    assert.match(opJs, /最新の接続状態を取得しました/);
     assert.match(toyoshimaJs, /\/toyoshima\/config/);
     assert.match(toyoshimaJs, /data-ts-daily-mounted/);
     assert.match(toyoshimaJs, /ensureCustomerDailySettingsMounted|syncFirmwareConfigAfterSave/);
@@ -769,6 +778,13 @@ describe("security-floor-v1", () => {
 
     assert.match(lightJs, /二重バインド|sf-soc/);
 
+    const floorCss = fs.readFileSync(
+      path.join(
+        publicDir,
+        "css/features/security/security-floor-v1.css"
+      ),
+      "utf8"
+    );
     const toyoshimaCss = fs.readFileSync(
       path.join(
         publicDir,
@@ -776,6 +792,7 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.match(floorCss, /sf-kpi-row\.is-comm-unified/);
     assert.match(toyoshimaCss, /sf-body\.is-toyoshima \.sf-mobile-tabs button\.is-on/);
     assert.match(toyoshimaCss, /background:\s*#1e3a8a/);
     assert.match(toyoshimaCss, /ts-notify-badge\.is-alert/);
@@ -803,6 +820,8 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
     assert.doesNotMatch(customerJs, /switchCustomerSite/);
     assert.match(customerJs, /fetchToyoshimaStatus/);
+    assert.match(customerJs, /fetchItabashiStatus|useItabashiStatus/);
+    assert.match(customerJs, /sf-itabashi-assure-card|paintItabashiAssureCard/);
 
     const statusHookJs = fs.readFileSync(
       path.join(
@@ -821,17 +840,32 @@ describe("security-floor-v1", () => {
     assert.match(statusHookJs, /firmwareVersion|firmwareLabel/);
     assert.match(statusHookJs, /ts-assure-fw|paintFirmwareEls/);
 
+    const itabashiHookJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/use-itabashi-status-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(itabashiHookJs, /useItabashiStatus/);
+    assert.match(itabashiHookJs, /\/api\/home\/v1\/itabashi\/status/);
+    assert.match(itabashiHookJs, /applyItabashiHardwareStatus/);
+    assert.match(itabashiHookJs, /cv-board-temp-val/);
+    assert.match(itabashiHookJs, /―（取得中）/);
+
     const customerHomeJs = fs.readFileSync(
       path.join(publicDir, "js/customer-v1.js"),
       "utf8"
     );
     assert.match(customerHomeJs, /useToyoshimaStatus|fetchToyoshimaStatus/);
+    assert.match(customerHomeJs, /useItabashiStatus|fetchItabashiStatus/);
     assert.match(customerHomeJs, /cv-status-refresh|bindLiveStatusRefresh/);
     const customerSharedJs = fs.readFileSync(
       path.join(publicDir, "js/customer-shared-v1.js"),
       "utf8"
     );
     assert.match(customerSharedJs, /cv-firmware-val|システムバージョン/);
+    assert.match(customerSharedJs, /cv-board-temp-val|盤内温度（実測℃）/);
 
     const proJs = fs.readFileSync(
       path.join(

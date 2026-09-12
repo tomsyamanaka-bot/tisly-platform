@@ -8,6 +8,7 @@ import {
   findSecuritySiteV1,
   listSecuritySitesV1,
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
+  SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
   sensorKindIconV1,
   setSecuritySensorStateV1,
   setSecuritySocSensorListenerV1,
@@ -16,6 +17,7 @@ import {
 } from "./security-floor-sites-v1.js";
 import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
 import { getToyoshimaSocHeartbeatSnapshotV1 } from "../home/home-toyoshima-security-v1.js";
+import { buildItabashiStatusSsotV1 } from "../home/home-itabashi-comm-v1.js";
 import { TISLY_HEARTBEAT_OFFLINE_MS_V1 } from "../home/home-heartbeat-standard-v1.js";
 
 /** 最終 heartbeat から標準猶予内ならオンライン
@@ -299,12 +301,17 @@ export function buildSecuritySocOverlayV1(
     }));
   // 豊島邸は Toyoshima runtime を唯一の心拍ソースにする
   const isToyoshima = site.id === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1;
+  const isItabashi = site.id === SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1;
   let lastHeartbeatAt: string | null = null;
   let deviceOnline = false;
   if (isToyoshima) {
     const th = getToyoshimaSocHeartbeatSnapshotV1();
     lastHeartbeatAt = th.lastHeartbeatAt;
     deviceOnline = th.deviceOnline;
+  } else if (isItabashi) {
+    const ih = buildItabashiStatusSsotV1();
+    lastHeartbeatAt = ih.lastHeartbeatAt;
+    deviceOnline = ih.isHardwareOnline;
   } else {
     const hb = getHeartbeatDebugSnapshot();
     lastHeartbeatAt = hb.lastHeartbeatAt || null;

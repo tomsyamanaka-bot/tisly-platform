@@ -564,6 +564,29 @@ def handle_security_di_edges(edges):
 
 
 
+def _read_board_temp_local():
+    """
+    板橋実機向け ADC4 フォールバック。
+    CORE_TEMP が無い場合は ch4 を読む。
+    """
+    try:
+        import machine
+        adc_cls = machine.ADC
+        core = getattr(adc_cls, "CORE_TEMP", None)
+        adc = adc_cls(core) if core is not None else adc_cls(4)
+        conv = 3.3 / 65535
+        total = 0
+        for _i in range(4):
+            total += adc.read_u16()
+        reading = (total / 4) * conv
+        temp = round(27 - (reading - 0.706) / 0.001721, 1)
+        if temp < -40 or temp > 125:
+            return None
+        return temp
+    except Exception:
+        return None
+
+
 def send_heartbeat():
 
     try:
@@ -608,7 +631,10 @@ def _send_heartbeat_once():
             payload["board_temp"] = temp
             payload["boardTemp"] = temp
     except ImportError:
-        pass
+        temp = _read_board_temp_local()
+        if temp is not None:
+            payload["board_temp"] = temp
+            payload["boardTemp"] = temp
     except Exception:
         pass
 

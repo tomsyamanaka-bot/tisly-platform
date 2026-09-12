@@ -11,6 +11,7 @@ import {
 } from "../../remote-test/security-demo-notify.js";
 import { processHomeSecurityInputChangesV1 } from "../../home/home-security-notify-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
+import { recordItabashiHeartbeatV1 } from "../../home/home-itabashi-comm-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
   recordTislyOtaDeviceFirmwareV1,
@@ -420,6 +421,15 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     chStates ?? undefined,
     inputStates ?? undefined
   );
+  const bodyRec =
+    req.body && typeof req.body === "object"
+      ? (req.body as Record<string, unknown>)
+      : {};
+  /* 板橋実機 HB を通信 SSOT へ追記する */
+  recordItabashiHeartbeatV1({
+    boardTemp: bodyRec.board_temp ?? bodyRec.boardTemp,
+    deviceId: String(bodyRec.deviceId ?? "").trim() || undefined,
+  });
   const notificationTriggered = chChanges.length > 0 || inputChanges.length > 0;
   if (chChanges.length > 0) {
     console.log("[remote-test] heartbeat: invoking notifyChStateChanges", chChanges);

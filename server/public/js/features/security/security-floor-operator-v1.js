@@ -39,6 +39,14 @@ import {
 } from "./toyoshima-security-dashboard-v1.js";
 import { fetchToyoshimaStatus } from "./use-toyoshima-status-v1.js";
 import {
+  applyItabashiHardwareStatus,
+  fetchItabashiStatus,
+  isItabashiSecuritySite,
+  postItabashiSimHeartbeat,
+  setItabashiHeartbeatWatch,
+  useItabashiStatus,
+} from "./use-itabashi-status-v1.js";
+import {
   getSelectedPropertyId,
   restoreOperatorPropertyScope,
   setPropertyScope,
@@ -240,11 +248,17 @@ function applySiteLayout(force = false) {
   if (!force && state.layoutSiteId === state.siteId) return;
   state.layoutSiteId = state.siteId;
   if (isToyoshima) {
+    stopItabashiCommPolling();
     loadToyoshimaDashboard().catch(() => {});
     startToyoshimaPolling();
     setToyoshimaCustomerPane(state.pane || "map");
+  } else if (isItabashiSecuritySite(state.siteId)) {
+    stopToyoshimaPolling();
+    hideToyoshimaDashboard();
+    startItabashiCommPolling();
   } else {
     stopToyoshimaPolling();
+    stopItabashiCommPolling();
     hideToyoshimaDashboard();
   }
 }
@@ -282,6 +296,161 @@ function formatHeartbeatAt(iso) {
   });
 }
 
+function latencyLabelFromMs(ms) {
+  if (ms == null || !Number.isFinite(Number(ms))) return "計測中…";
+  const n = Math.max(0, Math.round(Number(ms)));
+  const quality = n < 80 ? "良好" : n < 200 ? "普通" : "遅延";
+  return `${n} ms（${quality}）`;
+}
+
+function renderItabashiCommCard(status) {
+  const online = !!status?.isHardwareOnline;
+  const watchOn = status?.heartbeatWatchEnabled !== false;
+  const hasTemp =
+    typeof status?.boardTempC === "number" &&
+    Number.isFinite(status.boardTempC);
+  const tempLevel = status?.boardTempLevel || "normal";
+  const tempEmoji = hasTemp
+    ? tempLevel === "warning"
+      ? "🔴"
+      : tempLevel === "caution"
+        ? "🟡"
+        : "🟢"
+    : "";
+  const tempLabel = status?.boardTempLabel || "―（取得中）";
+  return `<section class="ts-card ts-health-card" id="ib-health-card" data-ssot="itabashi-commHealth">
+    <div class="ts-assure-head-row">
+      <h3 class="ts-card-head">🛰️ 通信ステータス</h3>
+      <button type="button" class="ts-refresh-btn" data-ib-action="refresh" aria-label="最新状態に更新">
+        <span class="ts-refresh-ico" aria-hidden="true">🔄</span>
+        <span class="ts-refresh-label">最新状態に更新</span>
+      </button>
+    </div>
+    <div class="ts-health-grid">
+      <div class="ts-health-cell">
+        <span class="ts-health-key">稼働ステータス</span>
+        <span class="ts-health-val ${online ? "" : "is-offline"}" id="ib-online-val">${
+          online ? "🟢 正常稼働中（オンライン）" : "🔴 通信途絶"
+        }</span>
+      </div>
+      <div class="ts-health-cell">
+        <span class="ts-health-key">最新ハートビート</span>
+        <span class="ts-health-val" id="ib-heartbeat-val">${
+          status?.lastHeartbeatLabelJst || "未受信"
+        }</span>
+      </div>
+      <div class="ts-health-cell">
+        <span class="ts-health-key">ネットワーク遅延</span>
+        <span class="ts-health-val" id="ib-latency-val">${latencyLabelFromMs(
+          status?.latencyMs
+        )}</span>
+      </div>
+      <div class="ts-health-cell">
+        <span class="ts-health-key">盤内温度（主装置・チップ実測）</span>
+        <span class="ts-health-val ts-board-temp is-${tempLevel}" id="ib-board-temp-val">${tempEmoji} ${tempLabel}</span>
+      </div>
+    </div>
+    <label class="ts-switch-row ts-hb-watch-row" for="ib-hb-watch">
+      <span class="ts-label">ハートビート死活監視</span>
+      <span class="ts-switch">
+        <input type="checkbox" id="ib-hb-watch" ${watchOn ? "checked" : ""} />
+        <span class="ts-switch-ui" aria-hidden="true"></span>
+        <span class="ts-switch-text" id="ib-hb-watch-label">${
+          watchOn ? "監視中（有効）" : "一時停止（無効）"
+        }</span>
+      </span>
+    </label>
+    <div class="ts-btn-row ts-hb-sim-row">
+      <button type="button" class="ts-btn" data-ib-action="sim_heartbeat">
+        💗 疑似ハートビート送信
+      </button>
+    </div>
+  </section>`;
+}
+
+function bindItabashiCommCard() {
+  if (window.__TISLY_IB_COMM_BOUND) return;
+  window.__TISLY_IB_COMM_BOUND = true;
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest?.("[data-ib-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-ib-action");
+    if (action === "sim_heartbeat") {
+      btn.disabled = true;
+      try {
+        await postItabashiSimHeartbeat();
+        const status = await fetchItabashiStatus({ force: true });
+        paintItabashiKpi(status);
+        flashStatusToast("最新の接続状態を取得しました");
+      } catch (err) {
+        console.warn("[itabashi-comm] sim", err);
+        flashStatusToast("疑似ハートビートに失敗しました");
+      } finally {
+        btn.disabled = false;
+      }
+      return;
+    }
+    if (action === "refresh") {
+      refreshOperatorStatus(btn).catch(() => {});
+    }
+  });
+  document.addEventListener("change", async (e) => {
+    const input = e.target;
+    if (!input || input.id !== "ib-hb-watch") return;
+    try {
+      await setItabashiHeartbeatWatch(!!input.checked);
+      const status = await fetchItabashiStatus({ force: true });
+      paintItabashiKpi(status);
+    } catch (err) {
+      console.warn("[itabashi-comm] watch", err);
+    }
+  });
+}
+
+let itabashiStatusHook = null;
+
+function startItabashiCommPolling() {
+  bindItabashiCommCard();
+  if (itabashiStatusHook) {
+    itabashiStatusHook.refresh(true).catch(() => {});
+    return;
+  }
+  itabashiStatusHook = useItabashiStatus((status) => {
+    paintItabashiKpi(status);
+  });
+  itabashiStatusHook.start(1500);
+}
+
+function stopItabashiCommPolling() {
+  itabashiStatusHook?.stop?.();
+  itabashiStatusHook = null;
+}
+
+function paintItabashiKpi(status) {
+  const kpi = $("sf-kpi");
+  if (!kpi) return;
+  kpi.hidden = false;
+  kpi.classList.add("is-comm-unified");
+  kpi.removeAttribute("aria-hidden");
+  /* 初回だけカード HTML を組み立てる
+   * 以降は値だけ塗ってトグルを残す */
+  if (!kpi.querySelector("#ib-health-card")) {
+    kpi.innerHTML = renderItabashiCommCard(status);
+  }
+  applyItabashiHardwareStatus(status || {});
+  const watch = $("ib-hb-watch");
+  if (watch) {
+    watch.checked = status?.heartbeatWatchEnabled !== false;
+  }
+  const watchLabel = $("ib-hb-watch-label");
+  if (watchLabel) {
+    watchLabel.textContent =
+      status?.heartbeatWatchEnabled !== false
+        ? "監視中（有効）"
+        : "一時停止（無効）";
+  }
+}
+
 function renderKpi(site, _dash) {
   // 豊島邸は ts-health-card（commHealth SSOT）のみ表示
   if (isToyoshimaSecuritySite(state.siteId)) {
@@ -289,11 +458,18 @@ function renderKpi(site, _dash) {
     if (kpi) {
       kpi.innerHTML = "";
       kpi.hidden = true;
+      kpi.classList.remove("is-comm-unified");
       kpi.setAttribute("aria-hidden", "true");
     }
     return;
   }
+  if (isItabashiSecuritySite(state.siteId)) {
+    startItabashiCommPolling();
+    return;
+  }
   const soc = site.soc || {};
+  const kpiEl = $("sf-kpi");
+  if (kpiEl) kpiEl.classList.remove("is-comm-unified");
   const online = !!soc.deviceOnline;
   const ms =
     typeof soc.networkMs === "number" && Number.isFinite(soc.networkMs)
@@ -771,6 +947,10 @@ async function refreshOperatorStatus(btn) {
     if (isToyoshimaSecuritySite(state.siteId)) {
       await fetchToyoshimaStatus({ force: true });
       await loadToyoshimaDashboard({ forceHealthSync: true });
+    } else if (isItabashiSecuritySite(state.siteId)) {
+      const status = await fetchItabashiStatus({ force: true });
+      paintItabashiKpi(status);
+      await loadOperator();
     } else {
       await loadOperator();
     }

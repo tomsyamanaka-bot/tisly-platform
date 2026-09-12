@@ -69,6 +69,12 @@ export function renderHomeStatus(data) {
         <span class="cv-fw-badge" id="cv-firmware-badge"${
           data.firmwareLatest ? "" : " hidden"
         }>🟢 最新</span>
+      </p>
+      <p class="cv-firmware" id="cv-board-temp-row">
+        <span class="cv-firmware-key">盤内温度（実測℃）</span>
+        <span class="cv-firmware-val" id="cv-board-temp-val">${escapeHtml(
+          data.boardTempLabel || "―（取得中）"
+        )}</span>
       </p>`
           : ""
       }

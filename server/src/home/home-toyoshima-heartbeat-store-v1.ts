@@ -59,6 +59,14 @@ function ensureTableV1(): void {
   tableReady = true;
 }
 
+/** JSON の null を 0℃ と誤認しない */
+function parseBoardTempC(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const temp = Number(raw);
+  if (!Number.isFinite(temp) || temp < -40 || temp > 125) return null;
+  return Math.round(temp * 10) / 10;
+}
+
 function parseDeviceRow(
   raw: unknown
 ): ToyoshimaHeartbeatDeviceRowV1 {
@@ -73,14 +81,10 @@ function parseDeviceRow(
     typeof o.lastCommAt === "string" && o.lastCommAt
       ? o.lastCommAt
       : null;
-  const temp = Number(o.boardTempC);
   return {
     lastHeartbeatAt: hb,
     lastCommAt: comm,
-    boardTempC:
-      Number.isFinite(temp) && temp >= -40 && temp <= 125
-        ? Math.round(temp * 10) / 10
-        : null,
+    boardTempC: parseBoardTempC(o.boardTempC),
   };
 }
 
