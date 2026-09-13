@@ -625,7 +625,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2532/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2533/);
     assert.match(customerHtml, /sf-itabashi-assure-card/);
     assert.match(customerHtml, /盤内温度（実測℃）/);
     assert.match(customerHtml, /システムバージョン/);
@@ -822,6 +822,7 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /fetchToyoshimaStatus/);
     assert.match(customerJs, /fetchItabashiStatus|useItabashiStatus/);
     assert.match(customerJs, /sf-itabashi-assure-card|paintItabashiAssureCard/);
+    assert.match(customerJs, /startItabashiAssurePolling/);
 
     const statusHookJs = fs.readFileSync(
       path.join(

@@ -623,20 +623,19 @@ def _send_heartbeat_once():
     if _kit:
         payload.update(_kit.payload_fields())
 
+    # 豊島と同じ換算でチップ温度を載せる
+    # import 失敗時も ADC4 を読む
+    temp = None
     try:
         from toyoshima_security import read_board_temperature_c
-        # チップ内蔵温度を HB に同梱する
         temp = read_board_temperature_c()
-        if temp is not None:
-            payload["board_temp"] = temp
-            payload["boardTemp"] = temp
-    except ImportError:
-        temp = _read_board_temp_local()
-        if temp is not None:
-            payload["board_temp"] = temp
-            payload["boardTemp"] = temp
     except Exception:
-        pass
+        temp = None
+    if temp is None:
+        temp = _read_board_temp_local()
+    if temp is not None:
+        payload["board_temp"] = temp
+        payload["boardTemp"] = temp
 
     log("heartbeat payload={}".format(json.dumps(payload)))
 

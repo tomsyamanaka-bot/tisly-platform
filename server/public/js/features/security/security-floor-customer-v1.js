@@ -36,6 +36,7 @@ import {
   applyItabashiHardwareStatus,
   fetchItabashiStatus,
   isItabashiSecuritySite,
+  useItabashiStatus,
 } from "./use-itabashi-status-v1.js";
 import {
   getCustomerCode,
@@ -319,11 +320,17 @@ function applySiteLayout(force = false) {
   state.layoutSiteId = state.siteId;
 
   if (isToyoshima) {
+    stopItabashiAssurePolling();
     loadToyoshimaDashboard().catch(() => {});
     startToyoshimaPolling();
     setToyoshimaCustomerPane(state.pane || "map");
+  } else if (isItabashiSecuritySite(state.siteId)) {
+    stopToyoshimaPolling();
+    hideToyoshimaDashboard();
+    startItabashiAssurePolling();
   } else {
     stopToyoshimaPolling();
+    stopItabashiAssurePolling();
     hideToyoshimaDashboard();
   }
 }
@@ -350,6 +357,25 @@ function paintItabashiAssureCard(status) {
   applyItabashiHardwareStatus(status);
 }
 
+let itabashiAssureHook = null;
+
+function startItabashiAssurePolling() {
+  if (itabashiAssureHook) {
+    itabashiAssureHook.refresh(true).catch(() => {});
+    return;
+  }
+  itabashiAssureHook = useItabashiStatus((status) => {
+    paintItabashiAssureCard(status);
+  });
+  itabashiAssureHook.start(1500);
+}
+
+function stopItabashiAssurePolling() {
+  itabashiAssureHook?.stop?.();
+  itabashiAssureHook = null;
+  paintItabashiAssureCard(null);
+}
+
 function renderDash(dash, opts = {}) {
   if (!dash) return;
   if (isToyoshimaSecuritySite(state.siteId)) {
@@ -362,6 +388,11 @@ function renderDash(dash, opts = {}) {
     const soft = !!opts.soft;
     const nextSig = alarmSignature(dash);
     if (soft && state.dash && nextSig === state.alarmSig) {
+      if (isItabashiSecuritySite(state.siteId)) {
+        fetchItabashiStatus({ force: false })
+          .then((status) => paintItabashiAssureCard(status))
+          .catch(() => {});
+      }
       return;
     }
     state.dash = dash;

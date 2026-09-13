@@ -407,6 +407,32 @@ function extractHeartbeatInputStates(req: Request) {
   return null;
 }
 
+function extractHeartbeatBoardTemp(req: Request): unknown {
+  const body =
+    req.body && typeof req.body === "object"
+      ? (req.body as Record<string, unknown>)
+      : {};
+  const q = req.query as Record<string, unknown>;
+  let fromRaw: Record<string, unknown> = {};
+  const raw = (req as Request & { rawBody?: string }).rawBody;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (parsed && typeof parsed === "object") fromRaw = parsed;
+    } catch {
+      /* JSON でない rawBody は無視する */
+    }
+  }
+  return (
+    body.board_temp ??
+    body.boardTemp ??
+    fromRaw.board_temp ??
+    fromRaw.boardTemp ??
+    q.board_temp ??
+    q.boardTemp
+  );
+}
+
 async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void> {
   logHeartbeatRequest(req);
   recordHeartbeatDebug(req.method, req.body ?? null);
@@ -427,7 +453,7 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
       : {};
   /* 板橋実機 HB を通信 SSOT へ追記する */
   recordItabashiHeartbeatV1({
-    boardTemp: bodyRec.board_temp ?? bodyRec.boardTemp,
+    boardTemp: extractHeartbeatBoardTemp(req),
     deviceId: String(bodyRec.deviceId ?? "").trim() || undefined,
   });
   const notificationTriggered = chChanges.length > 0 || inputChanges.length > 0;

@@ -497,6 +497,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2533-itabashi-comm-temp") ||
       sw.text.includes("tisly-pwa-v2532-itabashi-comm") ||
       sw.text.includes("tisly-pwa-v2531-customer-tabs") ||
       sw.text.includes("tisly-pwa-v2530-customer-fw-ssot") ||

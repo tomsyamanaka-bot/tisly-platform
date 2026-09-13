@@ -20,7 +20,8 @@ def test_itabashi_main_heartbeat_includes_board_temp():
 
 def test_itabashi_main_falls_back_when_toyoshima_import_fails():
     src = MAIN_PY.read_text(encoding="utf-8")
-    assert "except ImportError:" in src
+    assert "except Exception:" in src
+    assert "if temp is None:" in src
     assert "_read_board_temp_local()" in src
 
 
