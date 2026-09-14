@@ -22,7 +22,10 @@ import {
   renderTesterPushBarHtml,
 } from "./customer-tester-push-v1.js";
 import { isCameraNavHref } from "./camera-webrtc-viewer-v1.js";
-import { openGuardViewerAppV1 } from "./features/security/open-guard-viewer-v1.js";
+import {
+  bindGuardViewerLaunchersV1,
+  openGuardViewerAppV1,
+} from "./features/security/open-guard-viewer-v1.js";
 import {
   fetchToyoshimaStatus,
   applyToyoshimaHardwareStatus,
@@ -193,12 +196,13 @@ function renderHome(data) {
 
   bindCustomerNavLinks();
   bindTesterPushBar(code);
+  bindGuardViewerLaunchersV1();
   document.querySelectorAll(".cv-big-card").forEach((el) => {
     el.addEventListener("click", (e) => {
       const href = el.getAttribute("href") || "";
-      if (isCameraNavHref(href)) {
+      if (isCameraNavHref(href) || el.hasAttribute("data-gv-launch")) {
         e.preventDefault();
-        /* Unauthorized 回避 · アプリ直起動 */
+        /* iframe 経由で Safari 警告を出さない */
         openGuardViewerAppV1();
         return;
       }

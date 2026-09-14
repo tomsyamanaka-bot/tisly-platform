@@ -1,8 +1,7 @@
 /**
- * Guard Viewer ワンタップ起動
- * スマホはアプリ、未導入はストア
- * PC は EZCloud を案内する
- * 内部カメラ API は呼ばない
+ * Guard Viewer 安全起動
+ * iOS は iframe、Android は intent
+ * カスタムスキームを location に書かない
  */
 
 export const GUARD_VIEWER_SCHEME_V1 = "guardviewer://";
@@ -12,9 +11,18 @@ export const GUARD_VIEWER_PLAY_STORE_V1 =
   "https://play.google.com/store/apps/details?id=com.mcu.uview";
 export const GUARD_VIEWER_EZCLOUD_V1 = "https://en.ezcloud.uniview.com/";
 export const GUARD_VIEWER_HINT_V1 = "📲 Guard Viewerアプリで確認";
-/* 未導入判定は 1.5 秒でストアへ戻す */
-export const GUARD_VIEWER_FALLBACK_MS_V1 = 1500;
+export const GUARD_VIEWER_STORE_HELP_V1 =
+  "📲 アプリが起動しない場合はこちら（App Store / Google Play）";
+/* iframe は 1 秒後に必ず破棄する */
+export const GUARD_VIEWER_FALLBACK_MS_V1 = 1000;
 export const GUARD_VIEWER_FALLBACK_MAX_MS_V1 = 2000;
+
+export function buildAndroidIntentUrlV1() {
+  const fallback = encodeURIComponent(GUARD_VIEWER_PLAY_STORE_V1);
+  return `intent://#Intent;scheme=guardviewer;package=com.mcu.uview;S.browser_fallback_url=${fallback};end`;
+}
+
+export const GUARD_VIEWER_INTENT_V1 = buildAndroidIntentUrlV1();
 
 /**
  * UA から iOS / Android / PC を判定する
@@ -47,16 +55,16 @@ function currentPlatformV1() {
   return detectGuardViewerPlatformV1(ua, touch);
 }
 
-function openEzcloudTabV1() {
+function openHttpsUrlV1(url) {
   try {
-    window.open(
-      GUARD_VIEWER_EZCLOUD_V1,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    window.open(url, "_blank", "noopener,noreferrer");
   } catch {
-    window.location.href = GUARD_VIEWER_EZCLOUD_V1;
+    window.location.href = url;
   }
+}
+
+function openEzcloudTabV1() {
+  openHttpsUrlV1(GUARD_VIEWER_EZCLOUD_V1);
 }
 
 /**
@@ -100,27 +108,43 @@ function showDesktopGuideModalV1() {
 }
 
 /**
- * スキーム起動。遷移しなければストアへ
- * API フェッチは一切行わない
+ * iOS は非表示 iframe でキックする
+ * location.href だと無効アドレス警告が出る
  */
-function launchMobileSchemeV1(platform) {
-  const start = Date.now();
-  window.location.href = GUARD_VIEWER_SCHEME_V1;
+function launchIosViaHiddenIframeV1() {
+  if (typeof document === "undefined") return;
+  document.getElementById("gv-scheme-iframe")?.remove();
+  const iframe = document.createElement("iframe");
+  iframe.id = "gv-scheme-iframe";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.setAttribute("tabindex", "-1");
+  iframe.style.cssText = "display:none;width:0;height:0;border:0;";
+  iframe.src = GUARD_VIEWER_SCHEME_V1;
+  document.body.appendChild(iframe);
   window.setTimeout(() => {
-    /* 1.5秒以内に画面遷移しなければストア */
-    if (Date.now() - start >= GUARD_VIEWER_FALLBACK_MAX_MS_V1) {
-      return;
-    }
-    const storeUrl = storeUrlForGuardViewerV1(platform);
-    try {
-      window.open(storeUrl, "_blank", "noopener,noreferrer");
-    } catch {
-      window.location.href = storeUrl;
-    }
+    iframe.remove();
   }, GUARD_VIEWER_FALLBACK_MS_V1);
 }
 
-/** アプリ起動。未導入時はストアへ案内する */
+/**
+ * Android は intent で起動する
+ * 未導入時は Play Store へ戻す
+ */
+function launchAndroidIntentV1() {
+  window.location.href = GUARD_VIEWER_INTENT_V1;
+}
+
+export function openStoreForCurrentPlatformV1() {
+  const platform = currentPlatformV1();
+  if (platform === "desktop") {
+    openEzcloudTabV1();
+    openHttpsUrlV1(GUARD_VIEWER_APP_STORE_V1);
+    return;
+  }
+  openHttpsUrlV1(storeUrlForGuardViewerV1(platform));
+}
+
+/** アプリ起動。未導入時はストア案内リンクを使う */
 export function openGuardViewerAppV1() {
   const platform = currentPlatformV1();
   if (platform === "desktop") {
@@ -128,13 +152,28 @@ export function openGuardViewerAppV1() {
     showDesktopGuideModalV1();
     return { platform, opened: "ezcloud" };
   }
-  launchMobileSchemeV1(platform);
-  return { platform, opened: "scheme" };
+  if (platform === "android") {
+    launchAndroidIntentV1();
+    return { platform, opened: "intent" };
+  }
+  launchIosViaHiddenIframeV1();
+  return { platform, opened: "iframe" };
 }
 
 export function renderGuardViewerCtaInnerHtmlV1(label) {
   const text = label || "防犯カメラを見る";
   return `${text}<span class="gv-cta-hint">${GUARD_VIEWER_HINT_V1}</span>`;
+}
+
+export function renderGuardViewerStoreHelpHtmlV1() {
+  return `<p class="gv-store-help">
+    <a
+      href="${GUARD_VIEWER_APP_STORE_V1}"
+      target="_blank"
+      rel="noopener noreferrer"
+      data-gv-store
+    >${GUARD_VIEWER_STORE_HELP_V1}</a>
+  </p>`;
 }
 
 /** クリック委譲。二重バインドしない */
@@ -143,6 +182,13 @@ export function bindGuardViewerLaunchersV1() {
   if (window.__TISLY_GV_LAUNCH_BOUND) return;
   window.__TISLY_GV_LAUNCH_BOUND = true;
   document.addEventListener("click", (e) => {
+    const storeLink = e.target.closest?.("[data-gv-store]");
+    if (storeLink) {
+      e.preventDefault();
+      e.stopPropagation();
+      openStoreForCurrentPlatformV1();
+      return;
+    }
     const btn = e.target.closest?.("[data-gv-launch]");
     if (!btn) return;
     e.preventDefault();

@@ -18,6 +18,7 @@ import {
 import {
   bindGuardViewerLaunchersV1,
   GUARD_VIEWER_HINT_V1,
+  renderGuardViewerStoreHelpHtmlV1,
 } from "./open-guard-viewer-v1.js";
 
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
@@ -489,7 +490,7 @@ function renderCustomerDailySettings(dash) {
   </section>`;
 }
 
-/** 顧客向け · Guard Viewer 直起動 */
+/** 顧客向け · Guard Viewer 安全起動 */
 function renderCustomerCameraCard() {
   return `<section class="ts-card ts-camera-card">
     <h3 class="ts-card-head">📷 防犯カメラ</h3>
@@ -503,6 +504,7 @@ function renderCustomerCameraCard() {
       防犯カメラを見る
       <span class="gv-cta-hint">${GUARD_VIEWER_HINT_V1}</span>
     </button>
+    ${renderGuardViewerStoreHelpHtmlV1()}
   </section>`;
 }
 
@@ -1880,6 +1882,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
         <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
         ${renderCloudStreamCard()}
+        ${renderCustomerCameraCard()}
         ${renderBuildingCard(dash.main)}
         ${renderBuildingCard(dash.detached)}
       </div>
@@ -1906,9 +1909,10 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     loadMonthlyReportIntoDash(dash).catch(() => {});
     loadCloudStreamForm().catch(() => {});
   } else {
-    bindCustomerCamera();
     ensureCustomerDailySettingsMounted(dash);
   }
+  /* 社内/顧客とも iframe 安全起動にする */
+  bindCustomerCamera();
   bindToyoshimaControls();
   bindToyoshimaCustomerTabs();
   restoreActiveCustomerPane();

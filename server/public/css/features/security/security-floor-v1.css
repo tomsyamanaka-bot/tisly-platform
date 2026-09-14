@@ -2760,6 +2760,17 @@
   gap: 4px;
 }
 
+.sf-customer-camera-card .gv-store-help {
+  margin: 10px 0 0;
+  text-align: center;
+}
+.sf-customer-camera-card .gv-store-help a {
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .sf-customer-daily-settings {
   padding: 0;
   overflow: hidden;

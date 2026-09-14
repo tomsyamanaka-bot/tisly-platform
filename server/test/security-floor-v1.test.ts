@@ -621,6 +621,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /カメラを見る/);
     assert.match(customerHtml, /data-gv-launch/);
     assert.match(customerHtml, /Guard Viewerアプリで確認/);
+    assert.match(customerHtml, /data-gv-store/);
+    assert.match(customerHtml, /アプリが起動しない場合はこちら/);
     assert.match(customerHtml, /sf-customer-lighting-duration/);
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
@@ -729,7 +731,7 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /data-ssot=\"toyoshima-commHealth\"/);
     assert.match(toyoshimaJs, /防犯カメラを見る/);
     assert.match(toyoshimaJs, /data-gv-launch/);
-    assert.match(toyoshimaJs, /GUARD_VIEWER_HINT_V1/);
+    assert.match(toyoshimaJs, /renderGuardViewerStoreHelpHtmlV1/);
     assert.match(toyoshimaJs, /heartbeatWatchEnabled/);
     assert.match(opJs, /豊島邸では旧 KPI|ts-health-card|isToyoshimaSecuritySite\(state\.siteId\)/);
     assert.match(opJs, /kpi\.hidden = true|sf-kpi/);

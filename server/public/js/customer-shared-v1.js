@@ -4,6 +4,8 @@
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
+import { renderGuardViewerStoreHelpHtmlV1 } from "./features/security/open-guard-viewer-v1.js";
+
 export const CUSTOMER_JS_VERSION = "customer-v1-phase28-zone";
 
 export const CUSTOMER_HOME_LABELS = {
@@ -114,10 +116,19 @@ export function renderHomeCards(cards) {
       c.id === "camera"
         ? `<span class="gv-cta-hint">📲 Guard Viewerアプリで確認</span>`
         : "";
-    return `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
+    if (c.id === "camera") {
+      return `<div class="cv-camera-card-wrap">
+      <a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
       <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
       <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
       ${cameraHint}
+    </a>
+      ${renderGuardViewerStoreHelpHtmlV1()}
+    </div>`;
+    }
+    return `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
+      <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
+      <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
     </a>`;
   };
 

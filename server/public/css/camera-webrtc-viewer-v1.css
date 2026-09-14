@@ -272,3 +272,19 @@
   background: #ffffff;
   color: #1e3a8a;
 }
+
+.gv-store-help {
+  margin: 10px 0 0;
+  text-align: center;
+}
+.gv-store-help a {
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: underline;
+}
+.ts-btn-camera-cta + .gv-store-help a,
+.sf-btn-wide + .gv-store-help a {
+  color: #1e3a8a;
+}

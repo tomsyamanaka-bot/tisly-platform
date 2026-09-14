@@ -1221,6 +1221,17 @@
   margin-top: 4px;
 }
 
+.ts-camera-card .gv-store-help {
+  margin: 10px 0 0;
+  text-align: center;
+}
+.ts-camera-card .gv-store-help a {
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .ts-hb-watch-row {
   margin-top: 14px;
 }
