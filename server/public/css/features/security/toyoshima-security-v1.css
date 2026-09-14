@@ -1215,6 +1215,9 @@
   font-size: 1.05rem;
   font-weight: 800;
   border-radius: 14px;
+  text-decoration: none;
+  color: #fff;
+  box-sizing: border-box;
 }
 
 .ts-customer-dash .ts-camera-card .ts-btn-wide {

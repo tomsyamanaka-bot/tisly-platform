@@ -2758,6 +2758,8 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .sf-customer-camera-card .gv-store-help {

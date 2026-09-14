@@ -619,8 +619,8 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /security-floor-push-v1\.js/);
     assert.match(customerHtml, /sf-customer-camera/);
     assert.match(customerHtml, /カメラを見る/);
-    assert.match(customerHtml, /data-gv-launch/);
-    assert.match(customerHtml, /Guard Viewerアプリで確認/);
+    assert.match(customerHtml, /href="guardviewer:\/\/"/);
+    assert.match(customerHtml, /id1026746566/);
     assert.match(customerHtml, /data-gv-store/);
     assert.match(customerHtml, /アプリが起動しない場合はこちら/);
     assert.match(customerHtml, /sf-customer-lighting-duration/);

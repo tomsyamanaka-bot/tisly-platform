@@ -1,21 +1,18 @@
 /**
- * Guard Viewer 安全起動
- * iOS は iframe、Android は intent
- * カスタムスキームを location に書かない
+ * Guard Viewer 直接起動
+ * インストール済み端末はスキーム直結
+ * ストアへ割り込むタイマーは使わない
  */
 
 export const GUARD_VIEWER_SCHEME_V1 = "guardviewer://";
 export const GUARD_VIEWER_APP_STORE_V1 =
-  "https://apps.apple.com/jp/app/guard-viewer/id1112445831";
+  "https://apps.apple.com/jp/app/guard-viewer/id1026746566";
 export const GUARD_VIEWER_PLAY_STORE_V1 =
   "https://play.google.com/store/apps/details?id=com.mcu.uview";
 export const GUARD_VIEWER_EZCLOUD_V1 = "https://en.ezcloud.uniview.com/";
 export const GUARD_VIEWER_HINT_V1 = "📲 Guard Viewerアプリで確認";
 export const GUARD_VIEWER_STORE_HELP_V1 =
   "📲 アプリが起動しない場合はこちら（App Store / Google Play）";
-/* iframe は 1 秒後に必ず破棄する */
-export const GUARD_VIEWER_FALLBACK_MS_V1 = 1000;
-export const GUARD_VIEWER_FALLBACK_MAX_MS_V1 = 2000;
 
 export function buildAndroidIntentUrlV1() {
   const fallback = encodeURIComponent(GUARD_VIEWER_PLAY_STORE_V1);
@@ -108,30 +105,11 @@ function showDesktopGuideModalV1() {
 }
 
 /**
- * iOS は非表示 iframe でキックする
- * location.href だと無効アドレス警告が出る
+ * スキームを直結キックする
+ * ストア遷移のタイマーは挟まない
  */
-function launchIosViaHiddenIframeV1() {
-  if (typeof document === "undefined") return;
-  document.getElementById("gv-scheme-iframe")?.remove();
-  const iframe = document.createElement("iframe");
-  iframe.id = "gv-scheme-iframe";
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.setAttribute("tabindex", "-1");
-  iframe.style.cssText = "display:none;width:0;height:0;border:0;";
-  iframe.src = GUARD_VIEWER_SCHEME_V1;
-  document.body.appendChild(iframe);
-  window.setTimeout(() => {
-    iframe.remove();
-  }, GUARD_VIEWER_FALLBACK_MS_V1);
-}
-
-/**
- * Android は intent で起動する
- * 未導入時は Play Store へ戻す
- */
-function launchAndroidIntentV1() {
-  window.location.href = GUARD_VIEWER_INTENT_V1;
+function launchGuardViewerSchemeV1() {
+  window.location.href = GUARD_VIEWER_SCHEME_V1;
 }
 
 export function openStoreForCurrentPlatformV1() {
@@ -144,7 +122,7 @@ export function openStoreForCurrentPlatformV1() {
   openHttpsUrlV1(storeUrlForGuardViewerV1(platform));
 }
 
-/** アプリ起動。未導入時はストア案内リンクを使う */
+/** アプリ直接起動。PC のみ EZCloud */
 export function openGuardViewerAppV1() {
   const platform = currentPlatformV1();
   if (platform === "desktop") {
@@ -152,12 +130,8 @@ export function openGuardViewerAppV1() {
     showDesktopGuideModalV1();
     return { platform, opened: "ezcloud" };
   }
-  if (platform === "android") {
-    launchAndroidIntentV1();
-    return { platform, opened: "intent" };
-  }
-  launchIosViaHiddenIframeV1();
-  return { platform, opened: "iframe" };
+  launchGuardViewerSchemeV1();
+  return { platform, opened: "scheme" };
 }
 
 export function renderGuardViewerCtaInnerHtmlV1(label) {
@@ -176,7 +150,7 @@ export function renderGuardViewerStoreHelpHtmlV1() {
   </p>`;
 }
 
-/** クリック委譲。二重バインドしない */
+/** クリック委譲。iOS は a の href を優先する */
 export function bindGuardViewerLaunchersV1() {
   if (typeof window === "undefined") return;
   if (window.__TISLY_GV_LAUNCH_BOUND) return;
@@ -191,6 +165,12 @@ export function bindGuardViewerLaunchersV1() {
     }
     const btn = e.target.closest?.("[data-gv-launch]");
     if (!btn) return;
+    const href = String(btn.getAttribute("href") || "");
+    const platform = currentPlatformV1();
+    /* Safari は a[href=guardviewer://] をそのまま使う */
+    if (platform === "ios" && href.startsWith("guardviewer:")) {
+      return;
+    }
     e.preventDefault();
     openGuardViewerAppV1();
   });

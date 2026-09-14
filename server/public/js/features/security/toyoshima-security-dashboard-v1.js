@@ -18,6 +18,7 @@ import {
 import {
   bindGuardViewerLaunchersV1,
   GUARD_VIEWER_HINT_V1,
+  GUARD_VIEWER_SCHEME_V1,
   renderGuardViewerStoreHelpHtmlV1,
 } from "./open-guard-viewer-v1.js";
 
@@ -490,20 +491,20 @@ function renderCustomerDailySettings(dash) {
   </section>`;
 }
 
-/** 顧客向け · Guard Viewer 安全起動 */
+/** 顧客向け · Guard Viewer スキーム直結 */
 function renderCustomerCameraCard() {
   return `<section class="ts-card ts-camera-card">
     <h3 class="ts-card-head">📷 防犯カメラ</h3>
     <p class="ts-hint">専用アプリで高画質のライブ映像を確認できます</p>
-    <button
-      type="button"
+    <a
       class="ts-btn ts-btn-primary ts-btn-camera-cta"
       id="ts-customer-camera"
+      href="${GUARD_VIEWER_SCHEME_V1}"
       data-gv-launch="1"
     >
       防犯カメラを見る
       <span class="gv-cta-hint">${GUARD_VIEWER_HINT_V1}</span>
-    </button>
+    </a>
     ${renderGuardViewerStoreHelpHtmlV1()}
   </section>`;
 }
