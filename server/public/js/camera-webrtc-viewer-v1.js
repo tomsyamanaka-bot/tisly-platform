@@ -5,9 +5,9 @@
  */
 
 import {
-  getCustomerCode,
   getCustomerToken,
 } from "./customer-tenant-session-v1.js";
+import { openGuardViewerAppV1 } from "./features/security/open-guard-viewer-v1.js";
 
 const STATUS_CLASS = {
   normal: "is-normal",
@@ -285,57 +285,11 @@ function renderCameraList(container, cameras, customerCode, cloudMeta = {}) {
 }
 
 /**
- * カメラプレビューモーダルを開く
+ * 顧客カメラは Guard Viewer 直起動
+ * 認証保護 API は呼ばない
  */
-export async function openCustomerCameraPreview(opts = {}) {
-  const token = opts.token || getCustomerToken();
-  const code = (opts.customerCode || getCustomerCode() || "").toUpperCase();
-  if (!token || !code) {
-    throw new Error("ログインが必要です");
-  }
-
-  closeOverlay();
-
-  const overlay = document.createElement("div");
-  overlay.id = "cw-camera-overlay";
-  overlay.className = "cw-overlay";
-  overlay.innerHTML = `
-    <div class="cw-sheet" role="dialog" aria-label="カメラプレビュー">
-      <div class="cw-head">
-        <h2>📷 カメラを見る</h2>
-        <button type="button" class="cw-close" aria-label="閉じる">×</button>
-      </div>
-      <div class="cw-body" id="cw-body"><p class="cw-meta">読み込み中…</p></div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeOverlay();
-  });
-  overlay.querySelector(".cw-close")?.addEventListener("click", closeOverlay);
-
-  const body = overlay.querySelector("#cw-body");
-  try {
-    const res = await fetch(
-      `/api/camera-preview/v1/list?customerCode=${encodeURIComponent(code)}`,
-      { headers: authHeaders(), cache: "no-store" }
-    );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "カメラ一覧の取得に失敗");
-    const cameras = data.cameras || [];
-    const cloudMeta = {
-      cloudStreamUrl: data.cloudStreamUrl || "",
-      shareUrl: data.shareUrl || "",
-      nvrAppOpenUrl: data.nvrAppOpenUrl || "",
-    };
-    if (!cameras.length && !resolveCloudUrl(cloudMeta)) {
-      body.innerHTML = `<p class="cw-meta">カメラが登録されていません</p>`;
-      return;
-    }
-    renderCameraList(body, cameras, code, cloudMeta);
-  } catch (err) {
-    body.innerHTML = `<p class="cw-meta" style="color:#dc2626">${escapeHtml(err.message)}</p>`;
-  }
+export async function openCustomerCameraPreview(_opts = {}) {
+  openGuardViewerAppV1();
 }
 
 export function isCameraNavHref(href) {

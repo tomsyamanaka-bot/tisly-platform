@@ -48,7 +48,7 @@ import {
   resolveSecuritySiteId,
 } from "../../customer-tenant-session-v1.js";
 import { setPropertyScope } from "../../shared/property-scope-v1.js";
-import { openCustomerCameraPreview } from "../../camera-webrtc-viewer-v1.js";
+import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
 import { resolveHomeSiteId } from "./security-floor-remote-config-v1.js";
 
 const HOME_API = "/api/home/v1";
@@ -682,11 +682,8 @@ function bindCustomerManualLights() {
 }
 
 function bindCustomerCamera() {
-  $("sf-customer-camera")?.addEventListener("click", () => {
-    openCustomerCameraPreview().catch((err) => {
-      console.warn("[security-customer] camera", err);
-    });
-  });
+  /* 委譲クリックで Guard Viewer を起動 */
+  bindGuardViewerLaunchersV1();
 }
 
 /** ヘッダー／カード共通 · 最新状態トースト */

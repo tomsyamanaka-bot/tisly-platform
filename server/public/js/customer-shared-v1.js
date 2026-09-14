@@ -109,11 +109,17 @@ export function renderHomeCards(cards) {
     (c) => !productIds.has(c.id) && !coreIds.has(c.id)
   );
 
-  const cardHtml = (c) =>
-    `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
+  const cardHtml = (c) => {
+    const cameraHint =
+      c.id === "camera"
+        ? `<span class="gv-cta-hint">📲 Guard Viewerアプリで確認</span>`
+        : "";
+    return `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
       <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
       <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
+      ${cameraHint}
     </a>`;
+  };
 
   const section = (title, items, extraClass = "") => {
     if (!items.length) return "";

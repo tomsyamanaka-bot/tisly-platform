@@ -21,10 +21,8 @@ import {
   isTesterCustomerCode,
   renderTesterPushBarHtml,
 } from "./customer-tester-push-v1.js";
-import {
-  openCustomerCameraPreview,
-  isCameraNavHref,
-} from "./camera-webrtc-viewer-v1.js";
+import { isCameraNavHref } from "./camera-webrtc-viewer-v1.js";
+import { openGuardViewerAppV1 } from "./features/security/open-guard-viewer-v1.js";
 import {
   fetchToyoshimaStatus,
   applyToyoshimaHardwareStatus,
@@ -200,9 +198,8 @@ function renderHome(data) {
       const href = el.getAttribute("href") || "";
       if (isCameraNavHref(href)) {
         e.preventDefault();
-        openCustomerCameraPreview().catch((err) => {
-          navigateCustomer(href);
-        });
+        /* Unauthorized 回避 · アプリ直起動 */
+        openGuardViewerAppV1();
         return;
       }
       e.preventDefault();

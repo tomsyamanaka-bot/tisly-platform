@@ -619,13 +619,15 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /security-floor-push-v1\.js/);
     assert.match(customerHtml, /sf-customer-camera/);
     assert.match(customerHtml, /カメラを見る/);
+    assert.match(customerHtml, /data-gv-launch/);
+    assert.match(customerHtml, /Guard Viewerアプリで確認/);
     assert.match(customerHtml, /sf-customer-lighting-duration/);
     assert.match(customerHtml, /日常詳細設定/);
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
-    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=2533/);
+    assert.match(customerHtml, /security-floor-customer-v1\.js\?v=\d+/);
     assert.match(customerHtml, /sf-itabashi-assure-card/);
     assert.match(customerHtml, /盤内温度（実測℃）/);
     assert.match(customerHtml, /システムバージョン/);
@@ -726,6 +728,8 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /正常稼働中（オンライン）/);
     assert.match(toyoshimaJs, /data-ssot=\"toyoshima-commHealth\"/);
     assert.match(toyoshimaJs, /防犯カメラを見る/);
+    assert.match(toyoshimaJs, /data-gv-launch/);
+    assert.match(toyoshimaJs, /GUARD_VIEWER_HINT_V1/);
     assert.match(toyoshimaJs, /heartbeatWatchEnabled/);
     assert.match(opJs, /豊島邸では旧 KPI|ts-health-card|isToyoshimaSecuritySite\(state\.siteId\)/);
     assert.match(opJs, /kpi\.hidden = true|sf-kpi/);

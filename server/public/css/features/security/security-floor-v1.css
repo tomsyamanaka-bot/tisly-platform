@@ -2747,9 +2747,17 @@
   display: none;
 }
 
-.sf-customer-light-card .sf-slider-field,
+.sf-customer-light-card .sf-slider-field {
+  margin-top: 8px;
+}
+
 .sf-customer-camera-card .sf-btn-wide {
   margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .sf-customer-daily-settings {

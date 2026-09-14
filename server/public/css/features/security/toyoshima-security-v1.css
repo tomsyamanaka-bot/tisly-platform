@@ -1205,6 +1205,7 @@
 
 .ts-customer-dash .ts-btn-camera-cta {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-width: min(100%, 280px);

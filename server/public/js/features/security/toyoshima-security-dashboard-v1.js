@@ -15,6 +15,10 @@ import {
   isHardwareOnline,
   subscribeToyoshimaStatus,
 } from "./use-toyoshima-status-v1.js";
+import {
+  bindGuardViewerLaunchersV1,
+  GUARD_VIEWER_HINT_V1,
+} from "./open-guard-viewer-v1.js";
 
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
 const TOYOSHIMA_HOME_ID = "HOME-JP-TOYOSHIMA";
@@ -485,13 +489,19 @@ function renderCustomerDailySettings(dash) {
   </section>`;
 }
 
-/** 顧客向け · カメラプレビュー */
+/** 顧客向け · Guard Viewer 直起動 */
 function renderCustomerCameraCard() {
   return `<section class="ts-card ts-camera-card">
     <h3 class="ts-card-head">📷 防犯カメラ</h3>
-    <p class="ts-hint">ライブ映像と最新スナップショットを確認できます</p>
-    <button type="button" class="ts-btn ts-btn-primary ts-btn-camera-cta" id="ts-customer-camera">
+    <p class="ts-hint">専用アプリで高画質のライブ映像を確認できます</p>
+    <button
+      type="button"
+      class="ts-btn ts-btn-primary ts-btn-camera-cta"
+      id="ts-customer-camera"
+      data-gv-launch="1"
+    >
       防犯カメラを見る
+      <span class="gv-cta-hint">${GUARD_VIEWER_HINT_V1}</span>
     </button>
   </section>`;
 }
@@ -2058,21 +2068,8 @@ async function setNotifyMode(sensorId, mode) {
 function bindCustomerCamera() {
   if (window.__TISLY_TS_CAM_BOUND) return;
   window.__TISLY_TS_CAM_BOUND = true;
-  document.addEventListener("click", async (e) => {
-    const btn = e.target.closest("#ts-customer-camera");
-    if (!btn) return;
-    btn.disabled = true;
-    try {
-      const { openCustomerCameraPreview } = await import(
-        "../../camera-webrtc-viewer-v1.js"
-      );
-      await openCustomerCameraPreview();
-    } catch (err) {
-      showToast(err.message || "カメラを開けません");
-    } finally {
-      btn.disabled = false;
-    }
-  });
+  /* 内部 API は使わずアプリ直起動 */
+  bindGuardViewerLaunchersV1();
 }
 
 function bindToyoshimaPush() {
