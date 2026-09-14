@@ -84,10 +84,16 @@
   font-size: 0.85rem;
   margin: 0 0 0.75rem;
 }
+/* 打刻カード非表示後の余白を詰める */
+#pwa-icon-hint {
+  margin: 4px 0 8px;
+}
+
 .hub-practical-grid {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 4px;
   margin-bottom: 1.25rem;
 }
 .practical-card {
@@ -904,7 +910,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin: 12px 0 8px;
+  margin: 8px 0 10px;
   padding: 12px 14px;
   border: 1px solid rgba(30, 58, 138, 0.22);
   border-radius: 12px;
@@ -966,6 +972,17 @@
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+/* 一覧非表示時は余白も消す
+ * DOM は残して再利用可能にする */
+.hub-attendance-card[hidden],
+.hub-attendance-card[aria-hidden="true"] {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 .hub-attendance-head {
   margin-bottom: 10px;

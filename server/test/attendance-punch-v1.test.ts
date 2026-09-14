@@ -87,4 +87,20 @@ describe("attendance-punch-v1", () => {
       .send({ punchType: "break" });
     assert.equal(res.status, 400);
   });
+
+  it("keeps hub attendance card DOM hidden via flag", () => {
+    const html = fs.readFileSync(
+      path.join(process.cwd(), "public/app-hub.html"),
+      "utf8"
+    );
+    assert.match(html, /id="hub-attendance-card"/);
+    assert.match(html, /出勤打刻/);
+    assert.match(html, /退勤打刻/);
+    assert.match(html, /data-show-attendance="false"/);
+    const js = fs.readFileSync(
+      path.join(process.cwd(), "public/js/attendance-punch-v1.js"),
+      "utf8"
+    );
+    assert.match(js, /SHOW_ATTENDANCE_CARD_V1\s*=\s*false/);
+  });
 });

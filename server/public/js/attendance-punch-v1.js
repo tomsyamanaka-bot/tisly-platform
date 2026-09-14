@@ -1,7 +1,11 @@
 /**
  * App Hub — 勤怠・入退室打刻カード v1
  * 白×navy · 出勤/退勤シミュレーション
+ * 一覧表示はフラグで切り替える
  */
+
+/** 社内 /app 一覧では非表示（再利用用） */
+export const SHOW_ATTENDANCE_CARD_V1 = false;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -90,9 +94,30 @@ async function postAttendancePunch(getToken, punchType) {
 }
 
 /**
+ * 一覧カードの表示／非表示をフラグで同期する
+ * コンポーネント本体は削除しない
+ */
+export function applyAttendanceCardVisibilityV1() {
+  const card = document.getElementById("hub-attendance-card");
+  if (!card) return SHOW_ATTENDANCE_CARD_V1;
+  if (SHOW_ATTENDANCE_CARD_V1) {
+    card.hidden = false;
+    card.removeAttribute("aria-hidden");
+    card.setAttribute("data-show-attendance", "true");
+    return true;
+  }
+  card.hidden = true;
+  card.setAttribute("aria-hidden", "true");
+  card.setAttribute("data-show-attendance", "false");
+  return false;
+}
+
+/**
  * App Hub 勤怠カードを初期化
  */
 export function bindAttendancePunchCardV1(options = {}) {
+  /* 非表示時はバインドせず隙間を残さない */
+  if (!applyAttendanceCardVisibilityV1()) return;
   const getToken = options.getToken;
   const showToast = options.showToast;
   const statusEl = document.getElementById("hub-attendance-status");

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-neon-dark-v1.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
-  <link rel="stylesheet" href="/css/app-hub.css" />
+  <link rel="stylesheet" href="/css/app-hub.css?v=2534" />
 </head>
 <body class="app-hub-body tisly-friendly tisly-neon-dark">
   <!-- TiSLY App Hub -->
@@ -56,11 +56,15 @@
       </div>
       <p class="hub-push-status" id="hub-push-status" role="status"></p>
     </section>
-    <!-- 勤怠・入退室打刻（社内 /app） -->
+    <!-- 勤怠・入退室打刻（社内 /app）
+         コードは残し、一覧では非表示にする -->
     <section
       class="hub-attendance-card"
       id="hub-attendance-card"
       aria-label="勤怠・入退室打刻"
+      hidden
+      aria-hidden="true"
+      data-show-attendance="false"
     >
       <div class="hub-attendance-head">
         <h3 class="hub-attendance-title">🕐 勤怠・入退室打刻ログ</h3>
@@ -185,7 +189,7 @@
     <span id="version-date">Date —</span>
   </footer>
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/app-hub.js"></script>
+  <script type="module" src="/js/app-hub.js?v=2534"></script>
   <!-- TiSLY HOME クイック切り替え（追記） -->
   <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2457"></script>
 </body>

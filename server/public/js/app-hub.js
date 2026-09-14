@@ -710,6 +710,7 @@ async function loadHubApps() {
 }
 
 function bindAttendanceCardV1() {
+  /* フラグ false ならカードを隠して終了する */
   bindAttendancePunchCardV1({
     getToken: () => sessionStorage.getItem(TOKEN_KEY),
     showToast: showHubToast,

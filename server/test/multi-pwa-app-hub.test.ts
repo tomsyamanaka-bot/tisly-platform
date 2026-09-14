@@ -63,6 +63,9 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(res.text.includes("hub-app-grid"));
     assert.ok(res.text.includes("今日使うアプリ"));
     assert.ok(res.text.includes("tisly-practical-nav"));
+    assert.match(res.text, /hub-attendance-card/);
+    assert.match(res.text, /data-show-attendance="false"/);
+    assert.match(res.text, /id="hub-attendance-card"[\s\S]*hidden/);
   });
 
   it("serves schedule-v1, survey-v1 and estimate-v1 with practical nav", async () => {
@@ -456,6 +459,18 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(js.includes("bindTislyPushBarV1"));
     assert.ok(js.includes("bindHubPushBarV1"));
     assert.ok(js.includes('prefix: "hub"'));
+    assert.ok(js.includes("bindAttendancePunchCardV1"));
+    const punchJs = fs.readFileSync(
+      path.join(publicDir, "js/attendance-punch-v1.js"),
+      "utf-8"
+    );
+    assert.match(punchJs, /SHOW_ATTENDANCE_CARD_V1\s*=\s*false/);
+    assert.match(punchJs, /applyAttendanceCardVisibilityV1/);
+    const hubCss = fs.readFileSync(
+      path.join(publicDir, "css/app-hub.css"),
+      "utf-8"
+    );
+    assert.match(hubCss, /hub-attendance-card\[hidden\]/);
   });
 
   it("serves RC2 push and notification PWA pages", async () => {
@@ -497,6 +512,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2534-hide-attendance-hub") ||
       sw.text.includes("tisly-pwa-v2533-itabashi-comm-temp") ||
       sw.text.includes("tisly-pwa-v2532-itabashi-comm") ||
       sw.text.includes("tisly-pwa-v2531-customer-tabs") ||
