@@ -31,7 +31,8 @@ export interface Rp2350RelayPulseResultV1 {
   command?: string;
   queuedAt?: string;
   reason?: string | null;
-  transport?: "remote_test_poll";
+  transport?: "remote_test_poll" | "tester_demo_mock" | string;
+  mocked?: boolean;
 }
 
 function clampDurationMs(value: unknown): number {
@@ -74,6 +75,7 @@ export function queueRp2350RelayPulseV1(
     command: pulsed.command,
     queuedAt: pulsed.queuedAt,
     reason: input.reason ?? null,
-    transport: "remote_test_poll",
+    transport: pulsed.transport ?? "remote_test_poll",
+    mocked: pulsed.mocked === true,
   };
 }

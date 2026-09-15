@@ -364,6 +364,98 @@ async function regenerateProject(localBase) {
   // Keep committed manifest as source of truth (production URLs).
   fs.writeFileSync(manifestPath, JSON.stringify(raw, null, 2) + "\n");
   fs.rmSync(workPath, { force: true });
+  applyAndroidWebViewShell();
+}
+
+function applyAndroidWebViewShell() {
+  const shellDir = path.join(root, "android-shell");
+  const javaDir = path.join(androidDir, "app", "src", "main", "java", "com", "tisly", "app");
+  const resDir = path.join(androidDir, "app", "src", "main", "res");
+  const copy = (fromRel, toAbs) => {
+    const from = path.join(shellDir, fromRel);
+    if (!fs.existsSync(from)) fail(`Missing Android shell file: ${from}`);
+    fs.mkdirSync(path.dirname(toAbs), { recursive: true });
+    fs.copyFileSync(from, toAbs);
+  };
+  copy("java/StartActivity.java", path.join(javaDir, "StartActivity.java"));
+  copy("java/WebViewShellActivity.java", path.join(javaDir, "WebViewShellActivity.java"));
+  copy("res/layout/activity_start.xml", path.join(resDir, "layout", "activity_start.xml"));
+  copy(
+    "res/layout/activity_webview_shell.xml",
+    path.join(resDir, "layout", "activity_webview_shell.xml")
+  );
+  copy(
+    "res/values/webview_shell_strings.xml",
+    path.join(resDir, "values", "webview_shell_strings.xml")
+  );
+  copy(
+    "res/drawable/tisly_start_button.xml",
+    path.join(resDir, "drawable", "tisly_start_button.xml")
+  );
+
+  const manifestFile = path.join(androidDir, "app", "src", "main", "AndroidManifest.xml");
+  let xml = fs.readFileSync(manifestFile, "utf8");
+  if (!xml.includes("android.permission.INTERNET")) {
+    xml = xml.replace(
+      `<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>`,
+      `<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>`
+    );
+  }
+
+  xml = xml.replace(
+    /<activity android:name="LauncherActivity"[\s\S]*?<\/activity>/,
+    (block) => {
+      let next = block.replace(
+        /\s*<intent-filter>\s*<action android:name="android.intent.action.MAIN" \/>\s*<category android:name="android.intent.category.LAUNCHER" \/>\s*<\/intent-filter>/,
+        ""
+      );
+      next = next.replace(
+        /\s*<intent-filter android:autoVerify="true">[\s\S]*?<\/intent-filter>/,
+        ""
+      );
+      return next;
+    }
+  );
+
+  if (!xml.includes('android:name="StartActivity"')) {
+    const extraActivities = `
+        <activity android:name="StartActivity"
+            android:exported="true"
+            android:label="@string/launcherName"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Light.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="WebViewShellActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Light.NoTitleBar">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"
+                    android:host="@string/hostName"
+                />
+            </intent-filter>
+        </activity>
+`;
+    xml = xml.replace(
+      `<activity android:name="LauncherActivity"`,
+      `${extraActivities}\n        <activity android:name="LauncherActivity"`
+    );
+  }
+
+  fs.writeFileSync(manifestFile, xml, "utf8");
+  log("Applied in-app WebView shell (StartActivity → /customer)");
 }
 
 function runGradleBundle() {

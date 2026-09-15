@@ -56,7 +56,8 @@ export interface HomeSecurityLightControlResultV1 {
   command?: SecurityLightCommandV1;
   message?: string;
   queuedAt?: string;
-  transport?: "remote_test_poll";
+  transport?: "remote_test_poll" | "tester_demo_mock" | string;
+  mocked?: boolean;
 }
 
 /**
@@ -95,18 +96,20 @@ export function applyHomeSecurityLightControlV1(input: {
   }
 
   const message = `${site.displayName}: ${COMMAND_LABELS_JA_V1[action]}`;
-  recordSystemLogV1({
-    siteId,
-    tenantId: site.tenantId,
-    category: "light_event",
-    message,
-    detail: {
-      command: action,
-      transport: "remote_test_poll",
-      queuedAt: queued.queuedAt,
-    },
-    actor: input.actor ?? "app",
-  });
+  if (!queued.mocked) {
+    recordSystemLogV1({
+      siteId,
+      tenantId: site.tenantId,
+      category: "light_event",
+      message,
+      detail: {
+        command: action,
+        transport: "remote_test_poll",
+        queuedAt: queued.queuedAt,
+      },
+      actor: input.actor ?? "app",
+    });
+  }
 
   return {
     ok: true,
@@ -114,6 +117,7 @@ export function applyHomeSecurityLightControlV1(input: {
     command: action,
     message,
     queuedAt: queued.queuedAt,
-    transport: "remote_test_poll",
+    transport: queued.transport ?? "remote_test_poll",
+    mocked: queued.mocked === true,
   };
 }

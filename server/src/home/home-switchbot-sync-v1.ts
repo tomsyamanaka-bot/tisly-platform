@@ -12,6 +12,7 @@ import {
   isSwitchBotHomeConfiguredV1,
 } from "./switchbot_client.js";
 import { resolveHomeSwitchBotMapV1 } from "./home-switchbot-map-v1.js";
+import { shouldBlockPhysicalDoV1 } from "../shared/customer/tester-hardware-mock-v1.js";
 import {
   findHomeSiteV1,
   HOME_ITABASHI_LIVE_SITE_ID_V1,
@@ -37,6 +38,15 @@ export interface HomeSwitchBotSyncResultV1 {
 export async function syncHomeLockFromSwitchBotV1(
   siteId?: string | null
 ): Promise<HomeSwitchBotSyncResultV1> {
+  if (shouldBlockPhysicalDoV1()) {
+    const site = findHomeSiteV1(siteId);
+    return {
+      ok: true,
+      synced: false,
+      skipped: true,
+      siteId: site.id,
+    };
+  }
   const site = findHomeSiteV1(siteId);
   const env = getSwitchBotHomeEnvV1();
   const map = await resolveHomeSwitchBotMapV1({ env });

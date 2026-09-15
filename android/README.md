@@ -1,6 +1,9 @@
-# TiSLY Android TWA (Google Play)
+# TiSLY Android アプリ (Google Play)
 
-Trusted Web Activity packaging for https://tisly.jp (`com.tisly.app`).
+`com.tisly.app` は **アプリ内 WebView**（Chrome Custom Tabs / アドレスバーなし）です。
+
+起動直後はネイティブ開始画面（TiSLY HOME + 「開始する」）を出し、タップ後に
+`https://tisly.jp/customer` を全画面 WebView で開きます。
 
 ## Prerequisites
 
@@ -58,6 +61,7 @@ If you use Play App Signing, add the **App signing key certificate** SHA-256 fro
 
 | File | Role |
 |------|------|
-| `android/twa-manifest.json` | Bubblewrap / TWA settings |
+| `android/twa-manifest.json` | Bubblewrap 生成の土台（`startUrl: /customer` · `fallbackType: webview`） |
+| `android-shell/` | ネイティブ開始画面 + 全画面 WebView（ビルド時に生成プロジェクトへ合成） |
 | `server/public/.well-known/assetlinks.json` | Digital Asset Links |
-| `server/public/manifest.webmanifest` | PWA manifest (`start_url: /app`) |
+| `server/public/manifest.webmanifest` | PWA manifest |

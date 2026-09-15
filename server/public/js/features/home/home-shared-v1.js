@@ -7,6 +7,7 @@
  */
 
 import { bindTislyPushBarV1 } from "../../tisly-pwa-push-bar-v1.js";
+import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 
 export const HOME_API_V1 = "/api/home/v1";
 
@@ -53,6 +54,7 @@ export async function fetchHomeCustomer(siteId) {
     : "";
   const res = await fetch(`${HOME_API_V1}/customer${query}`, {
     cache: "no-store",
+    headers: getTislySessionHeadersV1(),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "読込に失敗しました");
@@ -63,6 +65,7 @@ export async function fetchHomeCustomer(siteId) {
 export async function fetchHomeCustomerSites() {
   const res = await fetch(`${HOME_API_V1}/customer-sites`, {
     cache: "no-store",
+    headers: getTislySessionHeadersV1(),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "読込に失敗しました");
@@ -72,6 +75,7 @@ export async function fetchHomeCustomerSites() {
 export async function fetchHomeOperator() {
   const res = await fetch(`${HOME_API_V1}/operator`, {
     cache: "no-store",
+    headers: getTislySessionHeadersV1(),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "読込に失敗しました");
@@ -81,7 +85,7 @@ export async function fetchHomeOperator() {
 export async function sendHomeControl(payload) {
   const res = await fetch(`${HOME_API_V1}/control`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   const data = await res.json();
@@ -130,7 +134,7 @@ export async function fetchBathSchedules(siteId) {
 export async function createBathSchedule(payload) {
   const res = await fetch(`${HOME_API_V1}/bath-schedules`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   const data = await res.json();
@@ -144,7 +148,7 @@ export async function cancelBathSchedule(siteId, scheduleId, actor) {
     `${HOME_API_V1}/bath-schedules/${scheduleId}?siteId=${encodeURIComponent(siteId)}`,
     {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
       body: JSON.stringify({ siteId, actor }),
     }
   );
@@ -1270,7 +1274,7 @@ export async function fetchSecurityRules(siteId) {
 export async function saveSecurityRules(payload) {
   const res = await fetch(`${HOME_API_V1}/security-rules`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   const data = await res.json();
@@ -1281,7 +1285,7 @@ export async function saveSecurityRules(payload) {
 export async function runHomeScene(siteId, scene, actor = "customer") {
   const res = await fetch(`${HOME_API_V1}/scene`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify({ siteId, scene, actor, audience: "customer" }),
   });
   const data = await res.json();

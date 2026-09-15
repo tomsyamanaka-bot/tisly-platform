@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, showToast } from "../home/home-shared-v1.js";
+import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 
 const HOME_API = "/api/home/v1";
 const RELAY_PULSE_API = "/api/devices/rp2350/relay/1/pulse";
@@ -148,7 +149,7 @@ async function postDoorphone(action, value) {
   const siteId = resolveSiteId();
   const res = await fetch(`${HOME_API}/doorphone/control`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify({ siteId, action, value }),
   });
   const data = await res.json().catch(() => ({}));
@@ -162,7 +163,7 @@ async function postIntercom(action, value) {
   const siteId = resolveSiteId();
   const res = await fetch(`${HOME_API}/control`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       siteId,
       target: "intercom",
@@ -206,7 +207,7 @@ async function pulseUnlock(btn) {
   try {
     const res = await fetch(RELAY_PULSE_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         durationMs: UNLOCK_MS,
         reason: "doorphone_unlock",

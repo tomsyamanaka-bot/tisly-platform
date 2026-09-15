@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tisly_start_title">TiSLY HOME</string>
+    <string name="tisly_start_subtitle">IoT設備・センサー一元管理システム</string>
+    <string name="tisly_start_button">開始する</string>
+    <color name="tisly_navy">#1E3A8A</color>
+    <color name="tisly_start_bg">#FFFFFF</color>
+</resources>

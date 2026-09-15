@@ -3,8 +3,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 /**
  * TiSLY iOS（Capacitor）設定
  *
- * - Android TWA（com.tisly.app → https://tisly.jp/app）と同等に、
- *   本番 WebView は tisly.jp を表示する（既存 PWA / API を破壊しない）。
+ * - Android（com.tisly.app）はアプリ内 WebView + 開始画面。
+ *   本番 Web は tisly.jp（既存 PWA / API を破壊しない）。
  * - webDir は cap sync 用。CAPACITOR_SERVER_URL=local でローカル www のみ読込。
  * - Bundle ID: jp.tisly.app（Android の com.tisly.app とは別 ID）
  */

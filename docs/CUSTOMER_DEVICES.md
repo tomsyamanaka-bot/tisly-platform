@@ -209,11 +209,11 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | customerCode | `TESTER001` |
 | ログイン | `tester.user` / `tisly-test-2026` |
 | 入口 | `https://tisly.jp/customer`（社内 `/app` の見積・3D・事業カードは非表示） |
-| HOME / Security | `HOME-JP-ITABASHI-LIVE` / `SEC-JP-ITABASHI-LIVE` |
-| RP2350 | `rp2350-itabashi-main-01`（板橋主装置と同一） |
+| HOME / Security | `HOME-JP-ITABASHI-LIVE` / `SEC-JP-ITABASHI-LIVE`（画面構成は板橋と同じ） |
+| RP2350 | **物理 DO 遮断**（リレー／パトライト／湯はりパルスは 200 OK モック。実機 `rp2350-itabashi-main-01` へは送らない） |
 | 表示モジュール | Security · HOME · カメラ · 基本ダッシュボード |
 | 非表示 | 見積もり · 事業内容 · 3Dプリンター関連 |
-| 通知 | 板橋 DI/DO 発報の Web Push を実配信（`home-security` 購読） |
+| 通知 | デモ画面の状態更新のみ（実機発報の Push は配信しない経路を維持） |
 
 ---
 
@@ -277,7 +277,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
-| 2026-09-12 | 板橋自宅の通信ステータスを豊島邸と同型へ統合（盤内温度・疑似HB） |
+| 2026-09-15 | TESTER001 を実機遮断デモ化（物理 DO 非送信・画面はインタラクティブ） |
 | 2026-09-12 | 豊島邸 RP2350 チップ温度（CORE_TEMP）実測を HB / PWA へ連携 |
 | 2026-09-11 | 全現場 RP2350 PoE LAN OTA（A/B ロールバック）を標準化 |
 | 2026-09-10 | テスター専用 `TESTER001` を追記（板橋実機ミラー・メニュー制限） |

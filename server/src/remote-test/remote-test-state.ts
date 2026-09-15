@@ -1,4 +1,8 @@
 import { resetSecurityDemoState } from "./security-demo-state.js";
+import {
+  shouldBlockPhysicalDoV1,
+  TESTER_HARDWARE_MOCK_TRANSPORT_V1,
+} from "../shared/customer/tester-hardware-mock-v1.js";
 
 export const CHANNEL_COUNT = 8;
 
@@ -40,6 +44,8 @@ export interface RemoteTestPulseResult {
   channel: number;
   durationMs: number;
   queuedAt: string;
+  mocked?: boolean;
+  transport?: string;
 }
 export type ChStates = Record<string, ChannelState>;
 export type InputStates = Record<string, ChannelState>;
@@ -298,21 +304,53 @@ export function getRemoteTestStatus() {
 
 export function queueChCommand(channel: number, on: boolean): void {
   const command = buildChCommand(channel, on);
+  const at = new Date().toISOString();
+  if (shouldBlockPhysicalDoV1()) {
+    state.lastCommand = command;
+    state.lastCommandAt = at;
+    pushLog(
+      command,
+      `CH${channel} → ${on ? "ON" : "OFF"} (tester demo mock — no physical DO)`
+    );
+    return;
+  }
   state.pendingCommand = command;
   // confirmedChStates は heartbeat でのみ更新する（PWA 楽観更新しない）
   state.lastCommand = command;
-  state.lastCommandAt = new Date().toISOString();
+  state.lastCommandAt = at;
   pushLog(command, `CH${channel} → ${on ? "ON" : "OFF"} (pending)`);
 }
 
 /** 防犯ライト手動命令をキューする（RP2350 即時ポーリング） */
 export function queueSecurityLightCommandV1(
   command: SecurityLightCommandV1
-): { ok: boolean; error?: string; command?: SecurityLightCommandV1; queuedAt?: string } {
+): {
+  ok: boolean;
+  error?: string;
+  command?: SecurityLightCommandV1;
+  queuedAt?: string;
+  mocked?: boolean;
+  transport?: string;
+} {
   if (!SECURITY_LIGHT_COMMANDS_V1.includes(command)) {
     return { ok: false, error: "未対応のライト命令です" };
   }
   const queuedAt = new Date().toISOString();
+  if (shouldBlockPhysicalDoV1()) {
+    state.lastCommand = command;
+    state.lastCommandAt = queuedAt;
+    pushLog(
+      command,
+      `security light ${command} (tester demo mock — no physical DO)`
+    );
+    return {
+      ok: true,
+      command,
+      queuedAt,
+      mocked: true,
+      transport: TESTER_HARDWARE_MOCK_TRANSPORT_V1,
+    };
+  }
   state.pendingCommand = command;
   state.lastCommand = command;
   state.lastCommandAt = queuedAt;
@@ -333,9 +371,25 @@ export function queueChPulseCommand(
   }
   const ms = Math.max(50, Math.min(5000, Math.round(durationMs)));
   const command = `ch${channel}_pulse_${ms}`;
+  const queuedAt = new Date().toISOString();
+  if (shouldBlockPhysicalDoV1()) {
+    state.lastCommand = command;
+    state.lastCommandAt = queuedAt;
+    pushLog(
+      command,
+      `CH${channel} PULSE ${ms}ms (tester demo mock — no physical DO)`
+    );
+    return {
+      command,
+      channel,
+      durationMs: ms,
+      queuedAt,
+      mocked: true,
+      transport: TESTER_HARDWARE_MOCK_TRANSPORT_V1,
+    };
+  }
   state.pendingCommand = command;
   state.lastCommand = command;
-  const queuedAt = new Date().toISOString();
   state.lastCommandAt = queuedAt;
   pushLog(command, `CH${channel} PULSE ${ms}ms (pending)`);
   return { command, channel, durationMs: ms, queuedAt };
@@ -349,6 +403,12 @@ export function queueDeviceSoftRebootV1(): {
 } {
   const command = "device_soft_reboot";
   const queuedAt = new Date().toISOString();
+  if (shouldBlockPhysicalDoV1()) {
+    state.lastCommand = command;
+    state.lastCommandAt = queuedAt;
+    pushLog(command, "RP2350 soft reboot (tester demo mock — no physical DO)");
+    return { ok: true, command, queuedAt };
+  }
   state.pendingCommand = command;
   state.lastCommand = command;
   state.lastCommandAt = queuedAt;

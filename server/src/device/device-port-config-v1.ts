@@ -3,6 +3,7 @@ import {
   getDeviceBindingV1,
   normalizeDeviceIdV1,
 } from "./property-device-binding-v1.js";
+import { shouldBlockPhysicalDoV1 } from "../shared/customer/tester-hardware-mock-v1.js";
 
 export const DEVICE_PORT_COUNT_V1 = 8;
 export const DEVICE_INPUT_DEBOUNCE_MS_V1 = 50;
@@ -975,6 +976,9 @@ export function queueDeviceRelayTestV1(input: {
     on: input.on,
     queuedAt: new Date().toISOString(),
   };
+  if (shouldBlockPhysicalDoV1()) {
+    return command;
+  }
   const queue = relayCommands.get(deviceId) ?? [];
   queue.push(command);
   relayCommands.set(deviceId, queue.slice(-16));

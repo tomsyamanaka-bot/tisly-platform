@@ -4,6 +4,7 @@
  */
 
 import { resolveHomeSiteId } from "./security-floor-remote-config-v1.js";
+import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 
 const HOME_API = "/api/home/v1";
 
@@ -58,7 +59,7 @@ async function sendLightCommand(action, btn) {
   try {
     const res = await fetch(`${HOME_API}/control`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         siteId: homeSiteId(),
         target: "security_light",

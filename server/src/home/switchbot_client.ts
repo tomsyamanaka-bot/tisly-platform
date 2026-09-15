@@ -7,6 +7,7 @@
  */
 
 import { createHmac, randomUUID } from "node:crypto";
+import { shouldBlockPhysicalDoV1 } from "../shared/customer/tester-hardware-mock-v1.js";
 
 const SWITCHBOT_API_BASE = "https://api.switch-bot.com/v1.1";
 const REQUEST_TIMEOUT_MS = 8000;
@@ -217,6 +218,16 @@ async function switchBotHomeFetchV1(
   init?: RequestInit,
   env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
 ): Promise<Response> {
+  if (shouldBlockPhysicalDoV1()) {
+    const method = String(init?.method || "GET").toUpperCase();
+    if (method === "POST") {
+      return new Response(
+        JSON.stringify({ statusCode: 100, message: "success", body: {} }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    throw new Error("tester_demo_mock_skip_status");
+  }
   const headers = createSwitchBotHomeAuthHeadersV1(env);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -417,6 +428,15 @@ export async function sendSwitchBotCommandV1(
   payload: SwitchBotCommandPayloadV1,
   env: SwitchBotHomeEnvV1 = getSwitchBotHomeEnvV1()
 ): Promise<SwitchBotApiResultV1<{ message: string }>> {
+  if (shouldBlockPhysicalDoV1()) {
+    return {
+      ok: true,
+      statusCode: 100,
+      data: {
+        message: `tester demo mock: ${payload.command}`,
+      },
+    };
+  }
   const id = String(deviceId || "").trim();
   if (!isSwitchBotHomeConfiguredV1(env)) {
     return {

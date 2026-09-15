@@ -7,6 +7,7 @@ import {
   resolveHomeSiteId,
   showSecurityRemoteToastV1,
 } from "./security-floor-remote-config-v1.js";
+import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 
 const HOME_API = "/api/home/v1";
 const RELAY_PULSE_API = "/api/devices/rp2350/relay/1/pulse";
@@ -72,7 +73,7 @@ async function pulseUnlockRelay(btn) {
   try {
     const res = await fetch(RELAY_PULSE_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         durationMs: UNLOCK_MS,
         reason: "smart_intercom_unlock",
@@ -87,7 +88,7 @@ async function pulseUnlockRelay(btn) {
     try {
       await fetch(`${HOME_API}/control`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           siteId: homeSiteId(),
           target: "intercom",
@@ -128,7 +129,7 @@ function openCallAnswer() {
   /* Home API answer（ベストエフォート） */
   fetch(`${HOME_API}/control`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       siteId: homeSiteId(),
       target: "intercom",
@@ -169,7 +170,7 @@ function bindIntercomUi() {
     );
     fetch(`${HOME_API}/control`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         siteId: homeSiteId(),
         target: "intercom",

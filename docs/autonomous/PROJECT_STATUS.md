@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2484-itabashi-bath-pulse` |
+| SW | `tisly-pwa-v2538-tester-demo-webview` |
 
 ---
 
@@ -1579,7 +1579,9 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | API | POST /api/devices/rp2350/relay/1/pulse �E POST /api/remote-test/ch1/pulse �E home uto_fill �A�� |
 | �R�}���h | ch1_pulse_500 ? �t�@�[���� ON��500ms��OFF ����[�J�����s |
 | SW | 	isly-pwa-v2484-itabashi-bath-pulse |
-| �R�[�h | home-sites-v1.ts �E home-control-v1.ts �E p2350-relay-pulse-v1.ts �E p2350-relay-v1.ts �E firmware main.py |
+| �R�[�h | home-sites-v1.ts �E home-control-v1.ts �E 
+p2350-relay-pulse-v1.ts �E 
+p2350-relay-v1.ts �E firmware main.py |
 | �e�X�g | server/test/tisly-home-v1.test.ts |
 | �m�F | /home-v1?siteId=HOME-JP-ITABASHI-LIVE �E https://tisly.jp/api/health |
 
@@ -1768,6 +1770,19 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | Knowledge | FACTORY-MULTI-ANGLE-SKETCH-001 append |
 | SW | tisly-pwa-v2512-multi-angle-sketch |
 | 確認 | /3d-generator · https://tisly.jp/api/health |
+
+### TESTER001 実機遮断デモ + Android 全画面 WebView（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | ココナラ審査用に TESTER001 を実機から切り離し、Android を Chrome 枠なし WebView 化する |
+| TESTER001 | ログインセッションの RP2350 DO / SwitchBot 実機送信を遮断。200 OK モックで画面カードは操作可能 |
+| 既存保護 | 豊島邸・板橋自宅・ナレッジ配列は削除しない。TOMS001 の実機経路は維持 |
+| Android | `StartActivity`（TiSLY HOME + 開始する）→ アプリ内 WebView で `https://tisly.jp/customer` |
+| AAB | `npm run build:android` → `play-console-upload/TiSLY-com.tisly.app.aab` |
+| SW | `tisly-pwa-v2538-tester-demo-webview` |
+| テスト | `server/test/tester-hardware-mock-v1.test.ts` |
+| 確認 | `/customer` · https://tisly.jp/api/health |
 
 ---
 

@@ -24,6 +24,24 @@ export function getCustomerToken() {
   );
 }
 
+/** HOME / Security 制御 API に載せるセッションヘッダ */
+export function getTislySessionHeadersV1(extra) {
+  const headers = { ...(extra || {}) };
+  const token = getCustomerToken();
+  const code = customerCodeFromPath();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (code) headers["X-Tisly-Customer-Code"] = code;
+  return headers;
+}
+
+try {
+  if (typeof window !== "undefined") {
+    window.getTislySessionHeadersV1 = getTislySessionHeadersV1;
+  }
+} catch {
+  /* ignore */
+}
+
 export function setCustomerToken(token, customerCode) {
   if (token) {
     localStorage.setItem(ADMIN_TOKEN_KEY, token);

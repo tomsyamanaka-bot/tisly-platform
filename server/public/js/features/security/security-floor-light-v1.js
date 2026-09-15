@@ -144,10 +144,25 @@
   }
 
   function postJson(url, body) {
+    var headers = { "Content-Type": "application/json" };
+    try {
+      var token =
+        localStorage.getItem("tisly_admin_token") ||
+        sessionStorage.getItem("tisly_token") ||
+        "";
+      var code =
+        localStorage.getItem("tisly_customer_code") ||
+        sessionStorage.getItem("tisly_customer_code") ||
+        "";
+      if (token) headers.Authorization = "Bearer " + token;
+      if (code) headers["X-Tisly-Customer-Code"] = code;
+    } catch (e) {
+      /* ignore */
+    }
     return fetch(url, {
       method: "POST",
       cache: "no-store",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify(body),
     }).catch(function () {
       return null;
