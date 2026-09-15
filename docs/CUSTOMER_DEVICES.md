@@ -208,7 +208,7 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 |------|-----|
 | customerCode | `TESTER001` |
 | 表示名 | テスターデモ（板橋） |
-| ログイン | `tester.user` / `tisly-test-2026`（顧客コードは大文字小文字を問わない） |
+| ログイン | `tester.user` / 任意（最上流ハードコード。固定トークン `tester-token-2026`。顧客コードは大文字小文字を問わない） |
 | 入口 | `https://tisly.jp/customer`（社内 `/app` の見積・3D・事業カードは非表示） |
 | HOME / Security | `HOME-JP-ITABASHI-LIVE` / `SEC-JP-ITABASHI-LIVE`（画面構成は板橋と同じ） |
 | RP2350 | **物理 DO 遮断**（リレー／パトライト／湯はりパルスは 200 OK モック。実機 `rp2350-itabashi-main-01` へは送らない） |
@@ -278,6 +278,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-15 | TESTER001 を最上流ハードコード認証（DB 前に 200・token `tester-token-2026`・SW v2541） |
 | 2026-09-15 | TESTER001 ログインを API パススルー＋無条件フォールバック化し、PWA キャッシュを v2540 で破棄 |
 | 2026-09-15 | TESTER001 ログイン自己修復（Customer not found 解消・表示名「テスターデモ（板橋）」） |
 | 2026-09-15 | TESTER001 を実機遮断デモ化（物理 DO 非送信・画面はインタラクティブ） |

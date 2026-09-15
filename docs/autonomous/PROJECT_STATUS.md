@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2540-tester-login-passthrough` |
+| SW | `tisly-pwa-v2541-tester-login-hardpass` |
 
 ---
 
@@ -1776,11 +1776,11 @@ p2350-relay-v1.ts �E firmware main.py |
 | 領域 | 内容 |
 |------|------|
 | 目的 | ココナラ審査用に TESTER001 を実機から切り離し、Android を Chrome 枠なし WebView 化する |
-| TESTER001 | `tester.user` / `tisly-test-2026` は DB 成否に関わらず 200。フロントはローカル配列判定せず API へパススルー。RP2350 DO はモック |
+| TESTER001 | `tester.user` / 任意（サーバー最上流で無条件 200。固定トークン `tester-token-2026`）。DB 成否に関わらず 200。フロントはローカル配列判定せず API へパススルー＋固定セッション直結。RP2350 DO はモック |
 | 既存保護 | 豊島邸・板橋自宅・ナレッジ配列は削除しない。TOMS001 の実機経路は維持 |
 | Android | `StartActivity`（TiSLY HOME + 開始する）→ アプリ内 WebView で `https://tisly.jp/customer` |
 | AAB | `npm run build:android` → `play-console-upload/TiSLY-com.tisly.app.aab` |
-| SW | `tisly-pwa-v2540-tester-login-passthrough` |
+| SW | `tisly-pwa-v2541-tester-login-hardpass` |
 | テスト | `server/test/tester-hardware-mock-v1.test.ts` · `server/test/tester-tenant-v1.test.ts` |
 | 確認 | `/customer` · https://tisly.jp/api/health |
 

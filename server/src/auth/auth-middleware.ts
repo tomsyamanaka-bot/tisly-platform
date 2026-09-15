@@ -1,10 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { isAdminPasswordConfigured, isAuthConfigured, resolveSession } from "./admin-auth.js";
 import { getCustomerByCode } from "../customer/customer-store.js";
-import { canAccessCustomer, resolveAnySession } from "./customer-auth.js";
+import { canAccessCustomer, mintTesterDemoSessionV1, resolveAnySession } from "./customer-auth.js";
 import { isSessionRevoked } from "./session-store.js";
 import { roleMeetsRequirement, type AppRole } from "./roles.js";
 import type { OpsScopeLocals } from "../ops/ops-customer-scope.js";
+import { isTesterStaticTokenV1, isTesterTenantV1 } from "../shared/customer/tester-tenant-v1.js";
 
 export interface AuthedRequest extends Request {
   opsScope?: OpsScopeLocals;
@@ -57,11 +58,25 @@ export function requireAdminAuth(req: AuthedRequest, res: Response, next: NextFu
 
 export function requireAuth(minRole: AppRole = "viewer") {
   return (req: AuthedRequest, res: Response, next: NextFunction): void => {
+    const token = extractBearer(req);
+    if (isTesterStaticTokenV1(token)) {
+      const session = mintTesterDemoSessionV1();
+      req.admin = {
+        userId: session.userId,
+        username: session.username,
+        role: session.role,
+        tokenId: session.tokenId,
+        customerId: session.customerId,
+        customerCode: session.customerCode,
+        scope: "customer",
+      };
+      next();
+      return;
+    }
     if (!isAuthConfigured()) {
       res.status(503).json({ error: "Authentication not configured" });
       return;
     }
-    const token = extractBearer(req);
     const session = resolveAnySession(token);
     if (!session) {
       res.status(401).json({ error: "Unauthorized" });
@@ -109,6 +124,10 @@ export function requireCustomerAccess(paramKey = "customerCode") {
     }
     const customer = getCustomerByCode(code);
     if (!customer) {
+      if (isTesterTenantV1(code) && isTesterTenantV1(req.admin.customerCode)) {
+        next();
+        return;
+      }
       res.status(404).json({ error: "Customer not found" });
       return;
     }

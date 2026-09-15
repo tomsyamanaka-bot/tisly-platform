@@ -14,8 +14,63 @@ export const TESTER_USERNAME_V1 = "tester.user";
 
 export const TESTER_LOGIN_PASSWORD_V1 = "tisly-test-2026";
 
+/** ログイン応答用の固定トークン（JWT 不要・全端末共通） */
+export const TESTER_STATIC_TOKEN_V1 = "tester-token-2026";
+
+/** 公開ロール（内部権限は viewer に正規化） */
+export const TESTER_LOGIN_ROLE_PUBLIC_V1 = "customer";
+
 /** ログイン応答用の公開モジュール名 */
 export const TESTER_PORTAL_MODULE_LABELS_V1 = ["security", "home"] as const;
+
+export function isTesterStaticTokenV1(token: string | null | undefined): boolean {
+  return String(token ?? "").trim() === TESTER_STATIC_TOKEN_V1;
+}
+
+export function extractLoginCustomerCodeV1(
+  body: Record<string, unknown> | null | undefined
+): string {
+  const src = body ?? {};
+  return String(
+    src.customerCode ?? src.customer_code ?? src.tenantId ?? src.tenant_id ?? ""
+  )
+    .trim()
+    .toUpperCase();
+}
+
+/** TESTER001 ログイン API の固定 JSON（DB 照会前に返す） */
+export function buildTesterHardcodedLoginBodyV1(extras?: {
+  urls?: { customer: string; tv: string; admin: string };
+  expiresInMinutes?: number;
+}): Record<string, unknown> {
+  return {
+    success: true,
+    token: TESTER_STATIC_TOKEN_V1,
+    tenantId: TESTER_CUSTOMER_CODE_V1,
+    customerCode: TESTER_CUSTOMER_CODE_V1,
+    userName: TESTER_USERNAME_V1,
+    siteId: TESTER_HOME_SITE_ID_V1,
+    displayName: TESTER_DISPLAY_NAME_V1,
+    role: TESTER_LOGIN_ROLE_PUBLIC_V1,
+    modules: [...TESTER_PORTAL_MODULE_LABELS_V1],
+    hardwareMock: true,
+    ok: true,
+    user: {
+      id: `cu-${TESTER_CUSTOMER_CODE_V1}-user`,
+      username: TESTER_USERNAME_V1,
+      role: "viewer",
+      customerId: TESTER_CUSTOMER_ID_V1,
+      customerCode: TESTER_CUSTOMER_CODE_V1,
+    },
+    scope: "customer",
+    urls: extras?.urls ?? {
+      customer: "/customer/TESTER001",
+      tv: "/tv/TESTER001",
+      admin: "/admin/TESTER001",
+    },
+    expiresInMinutes: extras?.expiresInMinutes ?? 480,
+  };
+}
 
 export function isTesterDemoPasswordV1(password: string | null | undefined): boolean {
   const given = String(password ?? "");

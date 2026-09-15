@@ -15,10 +15,11 @@ import {
 import { logAudit } from "../provisioning/audit-log.js";
 import { ensureTester001CustomerV1 } from "../customer/seed-tester001-v1.js";
 import {
-  isTesterDemoPasswordV1,
+  isTesterStaticTokenV1,
   isTesterTenantV1,
   TESTER_CUSTOMER_CODE_V1,
   TESTER_CUSTOMER_ID_V1,
+  TESTER_STATIC_TOKEN_V1,
   TESTER_USERNAME_V1,
 } from "../shared/customer/tester-tenant-v1.js";
 import { normalizeCustomerTenantCodeV1 } from "../shared/customer/customer-tenant-profile-v1.js";
@@ -40,16 +41,17 @@ export function loginCustomer(
   password: string,
   meta?: { ip?: string; userAgent?: string }
 ): CustomerSession | null {
-  if (!config.auth.jwtSecret) return null;
   const code = normalizeCustomerTenantCodeV1(customerCode);
-  const user = String(username ?? "").trim();
   if (isTesterTenantV1(code)) {
     try {
       ensureTester001CustomerV1();
     } catch {
-      /* シード失敗時は呼び出し元の無条件フォールバックへ */
+      /* シード失敗でも固定セッションを返す */
     }
+    return mintTesterDemoSessionV1(meta);
   }
+  if (!config.auth.jwtSecret) return null;
+  const user = String(username ?? "").trim();
   const customer = getCustomerByCode(code);
   if (!customer || customer.status !== "active") return null;
 
@@ -116,69 +118,35 @@ export function loginCustomer(
   };
 }
 
-/** DB 参照に失敗しても TESTER001 デモセッションを発行する */
-export function mintTesterDemoSessionV1(meta?: {
+/** DB / JWT なしで TESTER001 デモセッションを発行する */
+export function mintTesterDemoSessionV1(_meta?: {
   ip?: string;
   userAgent?: string;
 }): CustomerSession {
-  const { token, jti } = signToken({
-    sub: `cu-${TESTER_CUSTOMER_CODE_V1}-user`,
-    username: TESTER_USERNAME_V1,
-    role: "viewer",
-    customerId: TESTER_CUSTOMER_ID_V1,
-    customerCode: TESTER_CUSTOMER_CODE_V1,
-    scope: "customer",
-  });
-  try {
-    createSession({
-      userId: `cu-${TESTER_CUSTOMER_CODE_V1}-user`,
-      tokenId: jti,
-      ipAddress: meta?.ip,
-      userAgent: meta?.userAgent,
-    });
-  } catch {
-    /* セッション表が使えなくても JWT は有効 */
-  }
   return {
     userId: `cu-${TESTER_CUSTOMER_CODE_V1}-user`,
     username: TESTER_USERNAME_V1,
     role: "viewer",
     customerId: TESTER_CUSTOMER_ID_V1,
     customerCode: TESTER_CUSTOMER_CODE_V1,
-    token,
-    tokenId: jti,
+    token: TESTER_STATIC_TOKEN_V1,
+    tokenId: TESTER_STATIC_TOKEN_V1,
     scope: "customer",
   };
 }
 
-/** TESTER001 + デモパスワードは DB 成否に関わらずセッションを返す */
+/** TESTER001 はパスワード成否に関わらずセッションを返す */
 export function loginTesterDemoUnconditionalV1(
-  username: string,
-  password: string,
+  _username?: string,
+  _password?: string,
   meta?: { ip?: string; userAgent?: string }
-): CustomerSession | null {
-  if (!isTesterDemoPasswordV1(password)) return null;
+): CustomerSession {
   try {
     ensureTester001CustomerV1();
   } catch {
-    /* シード失敗でもフォールバックへ */
+    /* シード失敗でも固定セッションへ */
   }
-  try {
-    const session = loginCustomer(
-      TESTER_CUSTOMER_CODE_V1,
-      username || TESTER_USERNAME_V1,
-      password,
-      meta
-    );
-    if (session) return session;
-  } catch {
-    /* 通常ログイン失敗時は無条件発行 */
-  }
-  try {
-    return mintTesterDemoSessionV1(meta);
-  } catch {
-    return null;
-  }
+  return mintTesterDemoSessionV1(meta);
 }
 
 export function loginUnified(
@@ -193,8 +161,23 @@ export function loginUnified(
 
 export function resolveCustomerSession(token: string | undefined): CustomerSession | null {
   if (!token) return null;
+  if (isTesterStaticTokenV1(token)) {
+    return mintTesterDemoSessionV1();
+  }
   const payload = verifyToken(token);
   if (!payload || payload.scope !== "customer" || !payload.customerId) return null;
+  if (isTesterTenantV1(payload.customerCode)) {
+    return {
+      userId: payload.sub,
+      username: payload.username || TESTER_USERNAME_V1,
+      role: "viewer",
+      customerId: payload.customerId || TESTER_CUSTOMER_ID_V1,
+      customerCode: TESTER_CUSTOMER_CODE_V1,
+      token,
+      tokenId: payload.jti,
+      scope: "customer",
+    };
+  }
   const customer = getCustomerById(payload.customerId);
   if (!customer) return null;
   return {

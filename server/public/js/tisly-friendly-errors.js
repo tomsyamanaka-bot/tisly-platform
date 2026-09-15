@@ -64,7 +64,12 @@ export function renderFriendlyErrorHtml(err, status) {
 }
 
 export function friendlyLoginError(body, status) {
-  if (body?.success === true || body?.hardwareMock === true || body?.tenantId === "TESTER001") {
+  if (
+    body?.success === true ||
+    body?.hardwareMock === true ||
+    body?.tenantId === "TESTER001" ||
+    body?.token === "tester-token-2026"
+  ) {
     return "";
   }
   const err = body?.error || "";
@@ -72,7 +77,7 @@ export function friendlyLoginError(body, status) {
     return "パスワードが違うようです。入力し直すか、担当者に確認してください。";
   }
   if (/customer not found/i.test(err)) {
-    return err;
+    return "顧客コードが見つかりません。大文字・数字を確認してください（例: TOMS001）。";
   }
   if (/customer|会社コード|顧客コード|tenant/i.test(err)) {
     return "顧客コードが見つかりません。大文字・数字を確認してください（例: TOMS001）。";

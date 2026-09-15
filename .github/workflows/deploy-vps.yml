@@ -395,6 +395,14 @@ jobs:
             sudo -n systemctl restart "${SERVICE_NAME}"
           fi
 
+          echo "=== pm2 restart (flush stale Node memory if present) ==="
+          if command -v pm2 >/dev/null 2>&1; then
+            pm2 restart all || true
+            pm2 save || true
+          else
+            echo "pm2 not installed — systemd restart is the primary process refresh"
+          fi
+
           echo "=== localhost health check (before public) ==="
           LOCAL_OK=false
           for attempt in $(seq 1 60); do

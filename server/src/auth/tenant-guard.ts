@@ -2,6 +2,7 @@ import type { NextFunction, Response } from "express";
 import { getCustomerByCode, getCustomerById } from "../customer/customer-store.js";
 import { canAccessCustomer } from "./customer-auth.js";
 import type { AuthedRequest } from "./auth-middleware.js";
+import { isTesterTenantV1 } from "../shared/customer/tester-tenant-v1.js";
 
 /**
  * Ensures authenticated users cannot access another customer's data via URL params.
@@ -23,6 +24,10 @@ export function requireTenantMatch(paramKey = "customerCode") {
     }
     const customer = getCustomerByCode(String(code));
     if (!customer) {
+      if (isTesterTenantV1(code) && isTesterTenantV1(req.admin.customerCode)) {
+        next();
+        return;
+      }
       res.status(404).json({ error: "Customer not found" });
       return;
     }

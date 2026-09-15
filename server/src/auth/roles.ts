@@ -39,6 +39,7 @@ export function canChangeCustomerSettings(role: string): boolean {
 }
 
 export function normalizeRole(role: string): AppRole {
+  if (role === "customer") return "viewer";
   if (role === "admin" && !role.includes("customer")) return "super_admin";
   return (CUSTOMER_ROLES.includes(role as AppRole) ? role : "viewer") as AppRole;
 }

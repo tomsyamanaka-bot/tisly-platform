@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "note": "静的テナントマスター。既存顧客は削除せず追記のみ。",
+  "entryUrl": "https://tisly.jp/customer",
+  "tenants": [
+    {
+      "customerCode": "TOMS001",
+      "displayName": "板橋自宅",
+      "homeSiteId": "HOME-JP-ITABASHI-LIVE",
+      "securitySiteId": "SEC-JP-ITABASHI-LIVE",
+      "role": "live"
+    },
+    {
+      "customerCode": "TOYOSHIMA001",
+      "displayName": "豊島邸",
+      "homeSiteId": "HOME-JP-TOYOSHIMA",
+      "securitySiteId": "SEC-JP-TOYOSHIMA-001",
+      "role": "live"
+    },
+    {
+      "customerCode": "TESTER001",
+      "displayName": "テスターデモ（板橋）",
+      "homeSiteId": "HOME-JP-ITABASHI-LIVE",
+      "securitySiteId": "SEC-JP-ITABASHI-LIVE",
+      "role": "tester",
+      "userName": "tester.user",
+      "token": "tester-token-2026",
+      "hardwareMock": true,
+      "modules": ["security", "home"]
+    }
+  ]
+}

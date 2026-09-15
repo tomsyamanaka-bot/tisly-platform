@@ -136,6 +136,31 @@ function isTesterCode(code) {
   return String(code || "").trim().toUpperCase() === "TESTER001";
 }
 
+const TESTER_HARDCODED_LOGIN = {
+  success: true,
+  token: "tester-token-2026",
+  tenantId: "TESTER001",
+  customerCode: "TESTER001",
+  userName: "tester.user",
+  siteId: "HOME-JP-ITABASHI-LIVE",
+  displayName: "テスターデモ（板橋）",
+  role: "customer",
+  modules: ["security", "home"],
+  hardwareMock: true,
+};
+
+function applyTesterSession(data) {
+  const token = data.token || TESTER_HARDCODED_LOGIN.token;
+  setCustomerSession(token, "TESTER001", data.userName || data.user?.username || "tester.user");
+  saveTenantProfile({
+    customerCode: "TESTER001",
+    displayName: data.displayName || "テスターデモ（板橋）",
+    securitySiteId: "SEC-JP-ITABASHI-LIVE",
+    homeSiteId: data.siteId || "HOME-JP-ITABASHI-LIVE",
+    useToyoshimaDashboard: false,
+  });
+}
+
 export async function loginCustomer(credentials) {
   let customerCode = String(credentials.customerCode || "")
     .trim()
@@ -144,6 +169,43 @@ export async function loginCustomer(credentials) {
   const username = String(credentials.username || "").trim();
   const password = String(credentials.password || "");
   const testerBypass = isTesterCode(customerCode);
+
+  if (testerBypass) {
+    let data = { ...TESTER_HARDCODED_LOGIN };
+    try {
+      const res = await fetch("/api/auth/customer/login?t=" + Date.now(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
+        body: JSON.stringify({ customerCode, username, password }),
+      });
+      const apiData = await res.json().catch(() => ({}));
+      if (
+        apiData &&
+        (apiData.success === true ||
+          apiData.ok === true ||
+          apiData.hardwareMock === true ||
+          apiData.token ||
+          res.ok)
+      ) {
+        data = { ...TESTER_HARDCODED_LOGIN, ...apiData };
+        if (!data.token) data.token = TESTER_HARDCODED_LOGIN.token;
+      }
+    } catch {
+      /* API 未到達でも TESTER001 はローカル直結 */
+    }
+    applyTesterSession(data);
+    try {
+      if (data.token) await refreshTenantProfile();
+    } catch {
+      /* プロファイル取得失敗でもセッションは維持 */
+    }
+    return data;
+  }
 
   const res = await fetch("/api/auth/customer/login?t=" + Date.now(), {
     method: "POST",
@@ -156,26 +218,12 @@ export async function loginCustomer(credentials) {
     body: JSON.stringify({ customerCode, username, password }),
   });
   const data = await res.json().catch(() => ({}));
-  const testerOk =
-    testerBypass &&
-    (data.success === true || data.ok === true || data.hardwareMock === true) &&
-    (data.token || data.tenantId === "TESTER001");
-  if ((!res.ok && !testerOk) || (!data?.token && !testerOk)) {
+  if (!res.ok || !data?.token) {
     throw new Error(data?.error || "ログインに失敗しました");
   }
-  const code =
-    data.tenantId || data.user?.customerCode || customerCode || "TESTER001";
-  const user = data.userName || data.user?.username || username || "tester.user";
+  const code = data.tenantId || data.user?.customerCode || customerCode;
+  const user = data.userName || data.user?.username || username;
   setCustomerSession(data.token, code, user);
-  if (testerBypass || isTesterCode(code)) {
-    saveTenantProfile({
-      customerCode: "TESTER001",
-      displayName: data.displayName || "テスターデモ（板橋）",
-      securitySiteId: "SEC-JP-ITABASHI-LIVE",
-      homeSiteId: data.siteId || "HOME-JP-ITABASHI-LIVE",
-      useToyoshimaDashboard: false,
-    });
-  }
   if (data.token) await refreshTenantProfile();
   return data;
 }

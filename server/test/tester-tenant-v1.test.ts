@@ -169,6 +169,9 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.equal(login.body.userName, "tester.user");
     assert.equal(login.body.siteId, "HOME-JP-ITABASHI-LIVE");
     assert.equal(login.body.displayName, "テスターデモ（板橋）");
+    assert.equal(login.body.role, "customer");
+    assert.equal(login.body.customerCode, "TESTER001");
+    assert.equal(login.body.token, "tester-token-2026");
     assert.deepEqual(login.body.modules, ["security", "home"]);
     assert.match(
       String(login.headers["cache-control"] || ""),
@@ -272,7 +275,62 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.equal(login.body.success, true);
     assert.equal(login.body.userName, "tester.user");
     assert.equal(login.body.siteId, "HOME-JP-ITABASHI-LIVE");
+    assert.equal(login.body.token, "tester-token-2026");
     assert.ok(login.body.token);
+  });
+
+  it("TESTER001 logs in without password and never returns Customer not found", async () => {
+    const login = await request(app)
+      .post("/api/auth/customer/login")
+      .send({
+        customerCode: "tester001",
+      });
+    assert.equal(login.status, 200, JSON.stringify(login.body));
+    assert.equal(login.body.success, true);
+    assert.equal(login.body.token, "tester-token-2026");
+    assert.equal(login.body.tenantId, "TESTER001");
+    assert.equal(login.body.customerCode, "TESTER001");
+    assert.equal(login.body.userName, "tester.user");
+    assert.equal(login.body.siteId, "HOME-JP-ITABASHI-LIVE");
+    assert.equal(login.body.displayName, "テスターデモ（板橋）");
+    assert.equal(login.body.role, "customer");
+    assert.equal(login.body.hardwareMock, true);
+    assert.deepEqual(login.body.modules, ["security", "home"]);
+    assert.notEqual(login.body.error, "Customer not found");
+
+    const wrong = await request(app)
+      .post("/api/auth/customer-login")
+      .send({
+        customerCode: "TESTER001",
+        username: "anyone",
+        password: "wrong-password",
+      });
+    assert.equal(wrong.status, 200, JSON.stringify(wrong.body));
+    assert.equal(wrong.body.token, "tester-token-2026");
+    assert.notEqual(wrong.body.error, "Customer not found");
+
+    const session = await request(app)
+      .get("/api/customer-portal/v1/session-home")
+      .set("Authorization", "Bearer tester-token-2026");
+    assert.equal(session.status, 200, JSON.stringify(session.body));
+    assert.equal(session.body.customerCode, "TESTER001");
+  });
+
+  it("static tenant master lists include TESTER001", () => {
+    const constantsTs = fs.readFileSync(
+      path.join(serverRoot, "src/constants/customers.ts"),
+      "utf8"
+    );
+    const tenantsJson = JSON.parse(
+      fs.readFileSync(path.join(serverRoot, "data/tenants.json"), "utf8")
+    );
+    assert.match(constantsTs, /TESTER001/);
+    assert.ok(
+      (tenantsJson.tenants || []).some(
+        (t: { customerCode: string }) => t.customerCode === "TESTER001"
+      )
+    );
+    assert.equal(tenantsJson.entryUrl, "https://tisly.jp/customer");
   });
 
   it("login client always posts to the auth API (no local Customer not found)", () => {
@@ -282,6 +340,7 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     );
     assert.match(sessionJs, /\/api\/auth\/customer\/login/);
     assert.match(sessionJs, /cache: "no-store"/);
+    assert.match(sessionJs, /tester-token-2026/);
     assert.doesNotMatch(
       sessionJs,
       /throw new Error\(["']Customer not found/
