@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2538-tester-demo-webview";
+const SW_VERSION = "tisly-pwa-v2539-tester-login-fix";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2538-tester-demo-webview
  * tisly-pwa-v2537-gv-scheme-direct
  * tisly-pwa-v2531-customer-tabs
  * tisly-pwa-v2530-customer-fw-ssot

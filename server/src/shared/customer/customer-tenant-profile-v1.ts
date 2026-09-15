@@ -48,7 +48,7 @@ const CUSTOMER_TENANT_PROFILES_V1: Record<
   TOYOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
   // テスター専用：板橋自宅実機へ直結
   TESTER001: {
-    displayName: "板橋自宅（テスト）",
+    displayName: "テスターデモ（板橋）",
     securitySiteId: SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
     homeSiteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
     useToyoshimaDashboard: false,

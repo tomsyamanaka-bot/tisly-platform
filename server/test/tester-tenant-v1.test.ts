@@ -52,6 +52,8 @@ const {
   TESTER_RP2350_MAIN_ID_V1,
   TESTER_SECURITY_SITE_ID_V1,
   isTesterTenantV1,
+  sanitizeTesterEnabledModulesV1,
+  TESTER_DISPLAY_NAME_V1,
 } = await import("../src/shared/customer/tester-tenant-v1.js");
 const { listTenantScopedSecuritySitesV1 } = await import(
   "../src/shared/customer/customer-security-sites-v1.js"
@@ -80,8 +82,14 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
 
   it("does not retire TESTER001 as obsolete demo", () => {
     assert.equal(isObsoleteDemoCustomerCodeV1("TESTER001"), false);
+    assert.equal(isObsoleteDemoCustomerCodeV1("tester001"), false);
     assert.equal(isTesterTenantV1("TESTER001"), true);
     assert.equal(isTesterTenantV1("TOMS001"), false);
+    assert.equal(TESTER_DISPLAY_NAME_V1, "テスターデモ（板橋）");
+    const mapped = sanitizeTesterEnabledModulesV1(["security", "home"]);
+    assert.ok(mapped.includes("security_floor_v1"));
+    assert.ok(mapped.includes("tisly_home_v1"));
+    assert.ok(!mapped.includes("estimate_v1"));
   });
 
   it("keeps canonical customers intact", () => {
@@ -155,6 +163,11 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.equal(login.status, 200, login.body?.error);
     assert.equal(login.body.user?.customerCode, "TESTER001");
     assert.equal(login.body.scope, "customer");
+    assert.equal(login.body.hardwareMock, true);
+    assert.equal(
+      getCustomerByCode("TESTER001")?.customer_name,
+      "テスターデモ（板橋）"
+    );
 
     const session = await request(app)
       .get("/api/customer-portal/v1/session-home")
@@ -210,6 +223,29 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.match(filterJs, /見積/);
     assert.match(filterJs, /3Dプリン/);
     assert.match(filterJs, /HOME-JP-ITABASHI-LIVE/);
+  });
+
+  it("accepts lowercase code, alias path, and restores a deleted tester row", async () => {
+    const db = getDatabase();
+    db.prepare(
+      `UPDATE customers SET status = 'deleted' WHERE customer_code = 'TESTER001' COLLATE NOCASE`
+    ).run();
+    assert.equal(getCustomerByCode("TESTER001"), undefined);
+
+    const login = await request(app)
+      .post("/api/auth/customer-login")
+      .send({
+        customerCode: "tester001",
+        username: "Tester.user",
+        password: "tisly-test-2026",
+      });
+    assert.equal(login.status, 200, login.body?.error);
+    assert.equal(login.body.user?.customerCode, "TESTER001");
+    assert.equal(login.body.hardwareMock, true);
+    assert.equal(
+      getCustomerByCode("TESTER001")?.customer_name,
+      "テスターデモ（板橋）"
+    );
   });
 
   it("does not overwrite Itabashi or Toyoshima names", () => {

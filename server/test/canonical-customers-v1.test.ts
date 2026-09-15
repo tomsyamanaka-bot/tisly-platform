@@ -56,9 +56,11 @@ describe("canonical customers v1 — 豊島邸 / 板橋自宅", () => {
 
   after(() => closeDatabase());
 
-  it("active customers are only TOMS001 and TOYOSHIMA001", () => {
+  it("keeps TOMS001, TOYOSHIMA001, and TESTER001 active", () => {
     const codes = listCustomers(true).map((c) => c.customer_code);
-    assert.deepEqual(codes.sort(), ["TOMS001", "TOYOSHIMA001"].sort());
+    assert.ok(codes.includes("TOMS001"));
+    assert.ok(codes.includes("TOYOSHIMA001"));
+    assert.ok(codes.includes("TESTER001"));
     for (const obsolete of OBSOLETE_DEMO_CUSTOMER_CODES_V1) {
       assert.ok(!codes.includes(obsolete), `still active: ${obsolete}`);
     }

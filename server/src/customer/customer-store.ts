@@ -20,12 +20,14 @@ const CUSTOMER_SELECT_COLS = `
 `;
 
 export function getCustomerByCode(code: string): CustomerRow | undefined {
+  const normalized = String(code ?? "").trim().toUpperCase();
+  if (!normalized) return undefined;
   return getDatabase()
     .prepare(
       `SELECT ${CUSTOMER_SELECT_COLS}
        FROM customers WHERE customer_code = ? COLLATE NOCASE AND status != 'deleted'`
     )
-    .get(code.toUpperCase()) as CustomerRow | undefined;
+    .get(normalized) as CustomerRow | undefined;
 }
 
 export function getCustomerById(id: string): CustomerRow | undefined {

@@ -29,6 +29,9 @@ import {
 } from "../../auth/totp.js";
 import { logAudit } from "../../provisioning/audit-log.js";
 import { config } from "../../config.js";
+import { ensureTester001CustomerV1 } from "../../customer/seed-tester001-v1.js";
+import { isTesterTenantV1 } from "../../shared/customer/tester-tenant-v1.js";
+import { normalizeCustomerTenantCodeV1 } from "../../shared/customer/customer-tenant-profile-v1.js";
 
 export const authRouter = Router();
 
@@ -58,6 +61,80 @@ function applyLoginLimiter(
   next: Parameters<ReturnType<typeof buildLoginLimiter>>[2]
 ): void {
   loginLimiter(req, res, next);
+}
+
+function handleCustomerLogin(
+  req: Parameters<ReturnType<typeof buildLoginLimiter>>[0],
+  res: Parameters<ReturnType<typeof buildLoginLimiter>>[1]
+): void {
+  if (!config.auth.jwtSecret) {
+    res.status(503).json({ error: "Authentication not configured — set JWT_SECRET" });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const customerCode = normalizeCustomerTenantCodeV1(
+    String(
+      body.customerCode ??
+        body.customer_code ??
+        body.tenantId ??
+        body.tenant_id ??
+        ""
+    )
+  );
+  const username = String(body.username ?? body.user ?? "").trim();
+  const password = String(body.password ?? "");
+  if (!customerCode || !username || !password) {
+    res.status(400).json({ error: "customerCode, username, password required" });
+    return;
+  }
+  if (isTesterTenantV1(customerCode)) {
+    ensureTester001CustomerV1();
+  }
+  const customer = getCustomerByCode(customerCode);
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  const userRow = getDatabase()
+    .prepare(
+      `SELECT id FROM customer_users
+       WHERE customer_id = ? AND username = ? COLLATE NOCASE AND status = 'active'`
+    )
+    .get(customer.customer_id, username) as { id: string } | undefined;
+  if (userRow && isCustomerUserLocked(userRow.id)) {
+    res.status(423).json({
+      error: "Account locked — too many failed attempts",
+      lockMinutes: Number(process.env.CUSTOMER_LOGIN_LOCK_MINUTES ?? 15),
+    });
+    return;
+  }
+
+  const session = loginCustomer(customerCode, username, password, {
+    ip: req.ip,
+    userAgent: req.header("user-agent") ?? undefined,
+  });
+  if (!session) {
+    res.status(401).json({
+      error: "Invalid credentials",
+      failedAttempts: userRow ? getCustomerFailedLoginCount(userRow.id) : 0,
+    });
+    return;
+  }
+  res.json({
+    ok: true,
+    token: session.token,
+    user: {
+      id: session.userId,
+      username: session.username,
+      role: session.role,
+      customerId: session.customerId,
+      customerCode: session.customerCode,
+    },
+    scope: "customer",
+    urls: customerUrls(customer.customer_code),
+    hardwareMock: isTesterTenantV1(session.customerCode),
+    expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
+  });
 }
 
 authRouter.post("/login", applyLoginLimiter, (req, res) => {
@@ -105,64 +182,8 @@ authRouter.post("/login", applyLoginLimiter, (req, res) => {
   });
 });
 
-authRouter.post("/customer/login", applyLoginLimiter, (req, res) => {
-  if (!config.auth.jwtSecret) {
-    res.status(503).json({ error: "Authentication not configured — set JWT_SECRET" });
-    return;
-  }
-  const { customerCode, username, password } = req.body as {
-    customerCode?: string;
-    username?: string;
-    password?: string;
-  };
-  if (!customerCode || !username || !password) {
-    res.status(400).json({ error: "customerCode, username, password required" });
-    return;
-  }
-  const customer = getCustomerByCode(customerCode);
-  if (!customer) {
-    res.status(404).json({ error: "Customer not found" });
-    return;
-  }
-  const userRow = getDatabase()
-    .prepare(
-      `SELECT id FROM customer_users WHERE customer_id = ? AND username = ? AND status = 'active'`
-    )
-    .get(customer.customer_id, username) as { id: string } | undefined;
-  if (userRow && isCustomerUserLocked(userRow.id)) {
-    res.status(423).json({
-      error: "Account locked — too many failed attempts",
-      lockMinutes: Number(process.env.CUSTOMER_LOGIN_LOCK_MINUTES ?? 15),
-    });
-    return;
-  }
-
-  const session = loginCustomer(customerCode, username, password, {
-    ip: req.ip,
-    userAgent: req.header("user-agent") ?? undefined,
-  });
-  if (!session) {
-    res.status(401).json({
-      error: "Invalid credentials",
-      failedAttempts: userRow ? getCustomerFailedLoginCount(userRow.id) : 0,
-    });
-    return;
-  }
-  res.json({
-    ok: true,
-    token: session.token,
-    user: {
-      id: session.userId,
-      username: session.username,
-      role: session.role,
-      customerId: session.customerId,
-      customerCode: session.customerCode,
-    },
-    scope: "customer",
-    urls: customerUrls(customer.customer_code),
-    expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
-  });
-});
+authRouter.post("/customer/login", applyLoginLimiter, handleCustomerLogin);
+authRouter.post("/customer-login", applyLoginLimiter, handleCustomerLogin);
 
 authRouter.post("/logout", requireAdminAuth, (req: AuthedRequest, res) => {
   if (req.admin) {

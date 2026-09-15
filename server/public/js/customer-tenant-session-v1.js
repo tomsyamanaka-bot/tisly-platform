@@ -48,7 +48,7 @@ const LOCAL_TENANT_MAP = {
   // テスター専用：板橋自宅実機へ直結
   TESTER001: {
     customerCode: "TESTER001",
-    displayName: "板橋自宅（テスト）",
+    displayName: "テスターデモ（板橋）",
     securitySiteId: "SEC-JP-ITABASHI-LIVE",
     homeSiteId: "HOME-JP-ITABASHI-LIVE",
     useToyoshimaDashboard: false,

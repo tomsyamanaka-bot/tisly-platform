@@ -43,8 +43,8 @@ export function isObsoleteDemoCustomerCodeV1(code: string): boolean {
   if ((CANONICAL_CUSTOMER_CODES_V1 as readonly string[]).includes(c)) {
     return false;
   }
-  // テスター専用テナントは退役対象外
-  if (isTesterTenantV1(c)) return false;
+  // テスター専用テナントは退役対象外（TEST* 正規表現より先に判定）
+  if (c === "TESTER001" || isTesterTenantV1(c)) return false;
   if ((OBSOLETE_DEMO_CUSTOMER_CODES_V1 as readonly string[]).includes(c)) {
     return true;
   }

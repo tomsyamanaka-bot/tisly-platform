@@ -13,7 +13,7 @@ export const TESTER_CUSTOMER_CODE_V1 = "TESTER001";
 export const TESTER_USERNAME_V1 = "tester.user";
 
 /** お客様画面の表示名 */
-export const TESTER_DISPLAY_NAME_V1 = "板橋自宅（テスト）";
+export const TESTER_DISPLAY_NAME_V1 = "テスターデモ（板橋）";
 
 /** 内部顧客 ID（既存 ID は使わない） */
 export const TESTER_CUSTOMER_ID_V1 = "cust-tester001";
@@ -39,6 +39,7 @@ export const TESTER_TENANT_CODES_V1 = [TESTER_CUSTOMER_CODE_V1] as const;
 /**
  * /customer・/app で許可するモジュール。
  * 見積・事業・3Dプリンターは含めない。
+ * 指示上の ["security", "home"] は内部 ID へ正規化する。
  */
 export const TESTER_ENABLED_MODULES_V1: string[] = [
   "security_floor_v1",
@@ -46,6 +47,14 @@ export const TESTER_ENABLED_MODULES_V1: string[] = [
   "camera_preview_v1",
   "customer_portal",
 ];
+
+/** 指示・旧別名 → 内部モジュール ID */
+const TESTER_MODULE_ALIASES_V1: Record<string, string> = {
+  security: "security_floor_v1",
+  home: "tisly_home_v1",
+  security_floor: "security_floor_v1",
+  tisly_home: "tisly_home_v1",
+};
 
 /**
  * テスター画面から完全除外するモジュール。
@@ -108,7 +117,9 @@ export function sanitizeTesterEnabledModulesV1(
     return [...TESTER_ENABLED_MODULES_V1];
   }
   const out: string[] = [];
-  for (const id of src) {
+  for (const raw of src) {
+    const key = String(raw || "").trim();
+    const id = TESTER_MODULE_ALIASES_V1[key] || key;
     if (allowed.has(id) && !out.includes(id)) out.push(id);
   }
   return out.length ? out : [...TESTER_ENABLED_MODULES_V1];

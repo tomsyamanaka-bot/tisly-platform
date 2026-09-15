@@ -13,6 +13,9 @@ import {
   recordCustomerFailedLogin,
 } from "./customer-login-security.js";
 import { logAudit } from "../provisioning/audit-log.js";
+import { ensureTester001CustomerV1 } from "../customer/seed-tester001-v1.js";
+import { isTesterTenantV1 } from "../shared/customer/tester-tenant-v1.js";
+import { normalizeCustomerTenantCodeV1 } from "../shared/customer/customer-tenant-profile-v1.js";
 
 export interface CustomerSession {
   userId: string;
@@ -32,15 +35,21 @@ export function loginCustomer(
   meta?: { ip?: string; userAgent?: string }
 ): CustomerSession | null {
   if (!config.auth.jwtSecret) return null;
-  const customer = getCustomerByCode(customerCode);
+  const code = normalizeCustomerTenantCodeV1(customerCode);
+  const user = String(username ?? "").trim();
+  if (isTesterTenantV1(code)) {
+    ensureTester001CustomerV1();
+  }
+  const customer = getCustomerByCode(code);
   if (!customer || customer.status !== "active") return null;
 
   const row = getDatabase()
     .prepare(
       `SELECT id, customer_id, username, password_hash, role, status
-       FROM customer_users WHERE customer_id = ? AND username = ? AND status = 'active'`
+       FROM customer_users
+       WHERE customer_id = ? AND username = ? COLLATE NOCASE AND status = 'active'`
     )
-    .get(customer.customer_id, username) as
+    .get(customer.customer_id, user) as
     | {
         id: string;
         customer_id: string;
