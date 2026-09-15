@@ -12,6 +12,18 @@ export const TESTER_CUSTOMER_CODE_V1 = "TESTER001";
 /** テスターログインユーザー名 */
 export const TESTER_USERNAME_V1 = "tester.user";
 
+export const TESTER_LOGIN_PASSWORD_V1 = "tisly-test-2026";
+
+/** ログイン応答用の公開モジュール名 */
+export const TESTER_PORTAL_MODULE_LABELS_V1 = ["security", "home"] as const;
+
+export function isTesterDemoPasswordV1(password: string | null | undefined): boolean {
+  const given = String(password ?? "");
+  if (!given) return false;
+  const fromEnv = String(process.env.TESTER001_PASSWORD ?? "").trim();
+  return given === TESTER_LOGIN_PASSWORD_V1 || (Boolean(fromEnv) && given === fromEnv);
+}
+
 /** お客様画面の表示名 */
 export const TESTER_DISPLAY_NAME_V1 = "テスターデモ（板橋）";
 

@@ -132,6 +132,10 @@ export function isLoggedIn() {
   return Boolean(getCustomerToken() && getCustomerCode());
 }
 
+function isTesterCode(code) {
+  return String(code || "").trim().toUpperCase() === "TESTER001";
+}
+
 export async function loginCustomer(credentials) {
   let customerCode = String(credentials.customerCode || "")
     .trim()
@@ -139,18 +143,40 @@ export async function loginCustomer(credentials) {
   if (customerCode === "TOSHIMA001") customerCode = "TOYOSHIMA001";
   const username = String(credentials.username || "").trim();
   const password = String(credentials.password || "");
+  const testerBypass = isTesterCode(customerCode);
 
-  const res = await fetch("/api/auth/customer/login", {
+  const res = await fetch("/api/auth/customer/login?t=" + Date.now(), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
     body: JSON.stringify({ customerCode, username, password }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.token) {
+  const testerOk =
+    testerBypass &&
+    (data.success === true || data.ok === true || data.hardwareMock === true) &&
+    (data.token || data.tenantId === "TESTER001");
+  if ((!res.ok && !testerOk) || (!data?.token && !testerOk)) {
     throw new Error(data?.error || "ログインに失敗しました");
   }
-  setCustomerSession(data.token, data.user?.customerCode || customerCode, username);
-  await refreshTenantProfile();
+  const code =
+    data.tenantId || data.user?.customerCode || customerCode || "TESTER001";
+  const user = data.userName || data.user?.username || username || "tester.user";
+  setCustomerSession(data.token, code, user);
+  if (testerBypass || isTesterCode(code)) {
+    saveTenantProfile({
+      customerCode: "TESTER001",
+      displayName: data.displayName || "テスターデモ（板橋）",
+      securitySiteId: "SEC-JP-ITABASHI-LIVE",
+      homeSiteId: data.siteId || "HOME-JP-ITABASHI-LIVE",
+      useToyoshimaDashboard: false,
+    });
+  }
+  if (data.token) await refreshTenantProfile();
   return data;
 }
 

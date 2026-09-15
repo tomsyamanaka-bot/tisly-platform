@@ -164,6 +164,16 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.equal(login.body.user?.customerCode, "TESTER001");
     assert.equal(login.body.scope, "customer");
     assert.equal(login.body.hardwareMock, true);
+    assert.equal(login.body.success, true);
+    assert.equal(login.body.tenantId, "TESTER001");
+    assert.equal(login.body.userName, "tester.user");
+    assert.equal(login.body.siteId, "HOME-JP-ITABASHI-LIVE");
+    assert.equal(login.body.displayName, "テスターデモ（板橋）");
+    assert.deepEqual(login.body.modules, ["security", "home"]);
+    assert.match(
+      String(login.headers["cache-control"] || ""),
+      /no-store/
+    );
     assert.equal(
       getCustomerByCode("TESTER001")?.customer_name,
       "テスターデモ（板橋）"
@@ -242,9 +252,39 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.equal(login.status, 200, login.body?.error);
     assert.equal(login.body.user?.customerCode, "TESTER001");
     assert.equal(login.body.hardwareMock, true);
+    assert.equal(login.body.success, true);
+    assert.equal(login.body.tenantId, "TESTER001");
+    assert.deepEqual(login.body.modules, ["security", "home"]);
     assert.equal(
       getCustomerByCode("TESTER001")?.customer_name,
       "テスターデモ（板橋）"
+    );
+  });
+
+  it("returns tester demo payload even without username when password matches", async () => {
+    const login = await request(app)
+      .post("/api/auth/customer/login")
+      .send({
+        customerCode: "TESTER001",
+        password: "tisly-test-2026",
+      });
+    assert.equal(login.status, 200, login.body?.error);
+    assert.equal(login.body.success, true);
+    assert.equal(login.body.userName, "tester.user");
+    assert.equal(login.body.siteId, "HOME-JP-ITABASHI-LIVE");
+    assert.ok(login.body.token);
+  });
+
+  it("login client always posts to the auth API (no local Customer not found)", () => {
+    const sessionJs = fs.readFileSync(
+      path.join(serverRoot, "public/js/customer-tenant-session-v1.js"),
+      "utf8"
+    );
+    assert.match(sessionJs, /\/api\/auth\/customer\/login/);
+    assert.match(sessionJs, /cache: "no-store"/);
+    assert.doesNotMatch(
+      sessionJs,
+      /throw new Error\(["']Customer not found/
     );
   });
 

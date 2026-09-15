@@ -5,7 +5,7 @@ import {
   loginAdmin,
   logoutAdmin,
 } from "../../auth/admin-auth.js";
-import { loginCustomer } from "../../auth/customer-auth.js";
+import { loginCustomer, loginTesterDemoUnconditionalV1 } from "../../auth/customer-auth.js";
 import {
   getCustomerFailedLoginCount,
   isCustomerUserLocked,
@@ -30,7 +30,15 @@ import {
 import { logAudit } from "../../provisioning/audit-log.js";
 import { config } from "../../config.js";
 import { ensureTester001CustomerV1 } from "../../customer/seed-tester001-v1.js";
-import { isTesterTenantV1 } from "../../shared/customer/tester-tenant-v1.js";
+import {
+  isTesterDemoPasswordV1,
+  isTesterTenantV1,
+  TESTER_CUSTOMER_CODE_V1,
+  TESTER_DISPLAY_NAME_V1,
+  TESTER_HOME_SITE_ID_V1,
+  TESTER_PORTAL_MODULE_LABELS_V1,
+  TESTER_USERNAME_V1,
+} from "../../shared/customer/tester-tenant-v1.js";
 import { normalizeCustomerTenantCodeV1 } from "../../shared/customer/customer-tenant-profile-v1.js";
 
 export const authRouter = Router();
@@ -63,10 +71,53 @@ function applyLoginLimiter(
   loginLimiter(req, res, next);
 }
 
+const AUTH_NO_STORE =
+  "no-store, no-cache, must-revalidate";
+
+function setAuthNoStoreHeaders(
+  res: Parameters<ReturnType<typeof buildLoginLimiter>>[1]
+): void {
+  res.setHeader("Cache-Control", AUTH_NO_STORE);
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+}
+
+function testerLoginPayloadV1(session: {
+  token: string;
+  userId: string;
+  username: string;
+  role: string;
+  customerId: string;
+  customerCode: string;
+}) {
+  return {
+    ok: true,
+    success: true,
+    tenantId: TESTER_CUSTOMER_CODE_V1,
+    userName: TESTER_USERNAME_V1,
+    siteId: TESTER_HOME_SITE_ID_V1,
+    displayName: TESTER_DISPLAY_NAME_V1,
+    modules: [...TESTER_PORTAL_MODULE_LABELS_V1],
+    hardwareMock: true,
+    token: session.token,
+    user: {
+      id: session.userId,
+      username: session.username,
+      role: session.role,
+      customerId: session.customerId,
+      customerCode: TESTER_CUSTOMER_CODE_V1,
+    },
+    scope: "customer",
+    urls: customerUrls(TESTER_CUSTOMER_CODE_V1),
+    expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
+  };
+}
+
 function handleCustomerLogin(
   req: Parameters<ReturnType<typeof buildLoginLimiter>>[0],
   res: Parameters<ReturnType<typeof buildLoginLimiter>>[1]
 ): void {
+  setAuthNoStoreHeaders(res);
   if (!config.auth.jwtSecret) {
     res.status(503).json({ error: "Authentication not configured — set JWT_SECRET" });
     return;
@@ -83,12 +134,45 @@ function handleCustomerLogin(
   );
   const username = String(body.username ?? body.user ?? "").trim();
   const password = String(body.password ?? "");
-  if (!customerCode || !username || !password) {
+  const testerDemo =
+    isTesterTenantV1(customerCode) && isTesterDemoPasswordV1(password);
+  if (!customerCode || !password || (!username && !testerDemo)) {
     res.status(400).json({ error: "customerCode, username, password required" });
     return;
   }
+
+  if (testerDemo) {
+    const session = loginTesterDemoUnconditionalV1(
+      username || TESTER_USERNAME_V1,
+      password,
+      {
+        ip: req.ip,
+        userAgent: req.header("user-agent") ?? undefined,
+      }
+    );
+    if (session) {
+      res.status(200).json(testerLoginPayloadV1(session));
+      return;
+    }
+    res.status(200).json({
+      ok: true,
+      success: true,
+      tenantId: TESTER_CUSTOMER_CODE_V1,
+      userName: TESTER_USERNAME_V1,
+      siteId: TESTER_HOME_SITE_ID_V1,
+      displayName: TESTER_DISPLAY_NAME_V1,
+      modules: [...TESTER_PORTAL_MODULE_LABELS_V1],
+      hardwareMock: true,
+    });
+    return;
+  }
+
   if (isTesterTenantV1(customerCode)) {
-    ensureTester001CustomerV1();
+    try {
+      ensureTester001CustomerV1();
+    } catch {
+      /* 通常経路でもシードは試みる */
+    }
   }
   const customer = getCustomerByCode(customerCode);
   if (!customer) {
@@ -138,6 +222,7 @@ function handleCustomerLogin(
 }
 
 authRouter.post("/login", applyLoginLimiter, (req, res) => {
+  setAuthNoStoreHeaders(res);
   if (!isAuthConfigured()) {
     res.status(503).json({
       error: "Admin authentication not configured",

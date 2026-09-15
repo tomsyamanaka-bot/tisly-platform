@@ -64,9 +64,15 @@ export function renderFriendlyErrorHtml(err, status) {
 }
 
 export function friendlyLoginError(body, status) {
+  if (body?.success === true || body?.hardwareMock === true || body?.tenantId === "TESTER001") {
+    return "";
+  }
   const err = body?.error || "";
   if (status === 401 || /password|パスワード|認証/i.test(err)) {
     return "パスワードが違うようです。入力し直すか、担当者に確認してください。";
+  }
+  if (/customer not found/i.test(err)) {
+    return err;
   }
   if (/customer|会社コード|顧客コード|tenant/i.test(err)) {
     return "顧客コードが見つかりません。大文字・数字を確認してください（例: TOMS001）。";
