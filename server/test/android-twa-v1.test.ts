@@ -20,7 +20,10 @@ describe("android-twa-v1", () => {
     assert.equal(m.packageId, "com.tisly.app");
     assert.equal(m.name, "TiSLY");
     assert.equal(m.host, "tisly.jp");
-    assert.equal(m.startUrl, "/app");
+    assert.equal(m.startUrl, "/customer");
+    assert.equal(m.minSdkVersion, 24);
+    assert.equal(m.appVersionCode, 3);
+    assert.equal(m.appVersion, "1.1.1");
     assert.ok(String(m.iconUrl).includes("/icons/icon-512.png"));
     assert.ok(String(m.webManifestUrl).includes("manifest.webmanifest"));
   });

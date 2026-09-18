@@ -95,6 +95,52 @@ function writeKeystoreProperties() {
   log(`Wrote ${propsPath} (gitignored)`);
 }
 
+/** Play Protect requires minSdk >= 24; keep compile/target >= 34. */
+function applyPlaySdkVersionsToAppGradle() {
+  const gradlePath = path.join(androidDir, "app", "build.gradle");
+  if (!fs.existsSync(gradlePath)) {
+    fail(`Missing ${gradlePath} — run project generation first`);
+  }
+  const twa = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const minSdk = Math.max(24, Number(twa.minSdkVersion) || 24);
+  const versionCode = Number(twa.appVersionCode) || 3;
+  const versionName = String(twa.appVersion || "1.1.1");
+  let src = fs.readFileSync(gradlePath, "utf8");
+  src = src.replace(/minSdkVersion\s+\d+/, `minSdkVersion ${minSdk}`);
+  src = src.replace(/\bminSdk\s+\d+/, `minSdk ${minSdk}`);
+  src = src.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+  src = src.replace(/versionName\s+"[^"]*"/, `versionName "${versionName}"`);
+  const bumpIfLow = (re, label, replacement) => {
+    const m = src.match(re);
+    if (m && Number(m[1]) < 34) {
+      src = src.replace(re, replacement);
+      log(`Bumped ${label} from ${m[1]} to 34`);
+    }
+  };
+  bumpIfLow(/compileSdkVersion\s+(\d+)/, "compileSdkVersion", "compileSdkVersion 34");
+  bumpIfLow(/compileSdk\s+(\d+)/, "compileSdk", "compileSdk 34");
+  bumpIfLow(/targetSdkVersion\s+(\d+)/, "targetSdkVersion", "targetSdkVersion 34");
+  bumpIfLow(/targetSdk\s+(\d+)/, "targetSdk", "targetSdk 34");
+  fs.writeFileSync(gradlePath, src, "utf8");
+  log(`Applied Play SDK/version: minSdk=${minSdk} versionCode=${versionCode} versionName=${versionName}`);
+}
+
+function verifyPlaySdkVersionsInAppGradle() {
+  const gradlePath = path.join(androidDir, "app", "build.gradle");
+  const src = fs.readFileSync(gradlePath, "utf8");
+  const minSdk = Number((src.match(/minSdkVersion\s+(\d+)/) || src.match(/\bminSdk\s+(\d+)/) || [])[1]);
+  const compileSdk = Number((src.match(/compileSdkVersion\s+(\d+)/) || src.match(/\bcompileSdk\s+(\d+)/) || [])[1]);
+  const targetSdk = Number((src.match(/targetSdkVersion\s+(\d+)/) || src.match(/\btargetSdk\s+(\d+)/) || [])[1]);
+  const versionCode = Number((src.match(/versionCode\s+(\d+)/) || [])[1]);
+  const versionName = (src.match(/versionName\s+"([^"]*)"/) || [])[1];
+  if (!(minSdk >= 24)) fail(`minSdkVersion must be >= 24, got ${minSdk}`);
+  if (!(compileSdk >= 34)) fail(`compileSdkVersion must be >= 34, got ${compileSdk}`);
+  if (!(targetSdk >= 34)) fail(`targetSdkVersion must be >= 34, got ${targetSdk}`);
+  if (versionCode !== 3) fail(`versionCode must be 3, got ${versionCode}`);
+  if (versionName !== "1.1.1") fail(`versionName must be 1.1.1, got ${versionName}`);
+  log(`Verified app/build.gradle minSdk=${minSdk} compileSdk=${compileSdk} targetSdk=${targetSdk} ${versionCode} (${versionName})`);
+}
+
 /**
  * Bubblewrap 生成後の app/build.gradle に
  * signingConfigs.release をマージする
@@ -117,6 +163,7 @@ function applySigningToAppGradle() {
     } else {
       log("app/build.gradle already has release signingConfig");
     }
+    applyPlaySdkVersionsToAppGradle();
     return;
   }
 
@@ -156,6 +203,7 @@ function applySigningToAppGradle() {
 
   fs.writeFileSync(gradlePath, src, "utf8");
   log("Applied signingConfigs.release to app/build.gradle");
+  applyPlaySdkVersionsToAppGradle();
 }
 
 function verifyAabSigned(aabPath) {
@@ -571,6 +619,7 @@ async function main() {
   ensureReleaseKeystore();
   writeKeystoreProperties();
   applySigningToAppGradle();
+  verifyPlaySdkVersionsInAppGradle();
 
   if (skipSigning) {
     log("Building unsigned AAB (--skip-signing). Not for Play Console upload.");

@@ -20,8 +20,8 @@
     "path": "./tisly-release-key.jks",
     "alias": "tisly"
   },
-  "appVersionCode": 2,
-  "appVersion": "1.1.0",
+  "appVersionCode": 3,
+  "appVersion": "1.1.1",
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://tisly.jp/manifest.webmanifest",
@@ -38,7 +38,7 @@
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://tisly.jp/",
-  "minSdkVersion": 21,
+  "minSdkVersion": 24,
   "orientation": "portrait-primary",
   "fingerprints": [
     {
