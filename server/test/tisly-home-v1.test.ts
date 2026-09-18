@@ -1431,5 +1431,6 @@ describe("tisly-home-v1", () => {
     assert.match(html, /hm-log-open-detail/);
     assert.match(html, /詳細を見る（もっと見る）/);
     assert.match(html, /hm-log-dialog/);
+    assert.match(html, /センサー検知・セキュリティ履歴（直近50件）/);
   });
 });

@@ -21,6 +21,11 @@ import {
   GUARD_VIEWER_SCHEME_V1,
   renderGuardViewerStoreHelpHtmlV1,
 } from "./open-guard-viewer-v1.js";
+import {
+  bindSecurityHistoryModalV1,
+  openSecurityHistoryModalV1,
+  setSecurityHistorySiteIdV1,
+} from "./security-history-modal-v1.js";
 
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
 const TOYOSHIMA_HOME_ID = "HOME-JP-TOYOSHIMA";
@@ -1900,7 +1905,8 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
 
   root.dataset.mounted = "1";
   renderScheduleDialog();
-  renderLogDialog();
+  bindSecurityHistoryModalV1();
+  setSecurityHistorySiteIdV1(TOYOSHIMA_SEC_ID);
   ensureSnapshotLightbox();
   bindScheduleDialog();
   bindSettingsSliders();
@@ -2440,16 +2446,10 @@ function bindToyoshimaControls() {
         return;
       }
       if (action === "open_log") {
-        const full = $("ts-log-full");
-        const dashRes = await fetch(
-          `${HOME_API}/toyoshima/dashboard?siteId=${encodeURIComponent(TOYOSHIMA_SEC_ID)}`,
-          { cache: "no-store" }
+        setSecurityHistorySiteIdV1(TOYOSHIMA_SEC_ID);
+        openSecurityHistoryModalV1({ siteId: TOYOSHIMA_SEC_ID }).catch(
+          () => {}
         );
-        const dashData = await dashRes.json();
-        if (full && dashData?.dashboard?.timeline) {
-          full.innerHTML = renderTimelineFull(dashData.dashboard.timeline);
-        }
-        $("ts-log-dialog")?.showModal?.();
         return;
       }
 

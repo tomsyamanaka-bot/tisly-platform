@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2537" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2537" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2542" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2542" />
   <script type="importmap">
   {
     "imports": {
@@ -774,53 +774,23 @@
     </form>
   </dialog>
 
-  <dialog class="sf-log-dialog" id="sf-log-dialog">
-    <div class="sf-log-dialog-inner">
-      <div class="sf-log-dialog-head">
-        <h2>📜 詳細ログ・全履歴</h2>
-        <form method="dialog">
-          <button type="submit" class="sf-ghost">閉じる</button>
-        </form>
-      </div>
-      <div class="sf-log-dialog-filters">
-        <input
-          type="date"
-          id="sf-log-date"
-          class="sf-mini"
-          aria-label="日付"
-        />
-        <select id="sf-log-kind" class="sf-mini" aria-label="種別">
-          <option value="">種別すべて</option>
-          <option value="security">防犯</option>
-          <option value="home">住設</option>
-          <option value="system">システム</option>
-          <option value="侵入検知">侵入検知</option>
-          <option value="開放検知">開放検知</option>
-          <option value="人感検知">人感検知</option>
-          <option value="ガス漏れ">ガス漏れ</option>
-        </select>
-        <select id="sf-log-floor" class="sf-mini" aria-label="フロア">
-          <option value="">フロアすべて</option>
-        </select>
-        <input id="sf-log-q" class="sf-mini" placeholder="キーワード" />
-      </div>
-      <div class="sf-log-table-wrap">
-        <table class="sf-log-table">
-          <thead>
-            <tr>
-              <th>時刻</th><th>フロア</th><th>場所</th>
-              <th>種別</th><th>デバイス</th><th>ステータス</th><th>対応者</th>
-            </tr>
-          </thead>
-          <tbody id="sf-log-body"></tbody>
-        </table>
-      </div>
-      <div class="sf-log-dialog-actions">
-        <button type="button" class="sf-btn" id="sf-log-csv">CSVエクスポート</button>
-        <form method="dialog">
-          <button type="submit" class="sf-ghost">閉じる</button>
-        </form>
-      </div>
+  <dialog class="sf-log-dialog sf-sec-history-dialog" id="sf-log-dialog" aria-labelledby="sf-sec-history-title">
+    <div class="sf-sec-history-inner">
+      <header class="sf-sec-history-head">
+        <h2 id="sf-sec-history-title">🛡️ センサー検知・セキュリティ履歴（直近50件）</h2>
+        <button type="button" class="sf-sec-history-x" data-sf-history-close>
+          ✕ 閉じる
+        </button>
+      </header>
+      <div class="sf-sec-history-list" id="sf-sec-history-list"></div>
+      <table class="sf-log-table" hidden>
+        <tbody id="sf-log-body"></tbody>
+      </table>
+      <footer class="sf-sec-history-foot">
+        <button type="button" class="sf-sec-history-close" data-sf-history-close>
+          閉じる
+        </button>
+      </footer>
     </div>
   </dialog>
 
@@ -835,7 +805,8 @@
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2529"></script>
   <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2529"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2516"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2537"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2533"></script>
+  <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2542"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2542"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2542"></script>
 </body>
 </html>

@@ -422,6 +422,10 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-log-compact/);
     assert.match(html, /sf-log-dialog/);
     assert.match(html, /詳細を見る（もっと見る）/);
+    assert.match(html, /センサー検知・セキュリティ履歴（直近50件）/);
+    assert.match(html, /sf-sec-history-list/);
+    assert.match(html, /✕ 閉じる/);
+    assert.match(html, /security-history-modal-v1\.js\?v=\d+/);
     assert.match(html, /importmap/);
     assert.match(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
@@ -577,7 +581,7 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /bindSecurityOrbit/);
     assert.match(opJs, /updateSecurityIso3d/);
     assert.match(opJs, /sf-log-compact|logIconFor/);
-    assert.match(opJs, /sf-log-dialog|sf-log-open-detail/);
+    assert.match(opJs, /sf-log-dialog|sf-log-open-detail|bindSecurityHistoryModalV1/);
     assert.match(opJs, /\\uFEFF/);
     assert.match(opJs, /startAlarmPolling|alarmSignature|refreshLiveAlarms/);
     assert.match(opJs, /【発報中】/);
@@ -630,6 +634,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=2520/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=\d+/);
+    assert.match(customerHtml, /security-history-modal-v1\.js\?v=\d+/);
+    assert.match(customerHtml, /センサー検知・セキュリティ履歴（直近50件）/);
+    assert.match(customerHtml, /sf-sec-history-list/);
+    assert.match(customerHtml, /詳細を見る（もっと見る）/);
     assert.match(customerHtml, /sf-itabashi-assure-card/);
     assert.match(customerHtml, /盤内温度（実測℃）/);
     assert.match(customerHtml, /システムバージョン/);
@@ -829,6 +837,7 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /fetchItabashiStatus|useItabashiStatus/);
     assert.match(customerJs, /sf-itabashi-assure-card|paintItabashiAssureCard/);
     assert.match(customerJs, /startItabashiAssurePolling/);
+    assert.match(customerJs, /bindSecurityHistoryModalV1|setSecurityHistorySiteIdV1/);
 
     const statusHookJs = fs.readFileSync(
       path.join(
@@ -1048,5 +1057,59 @@ describe("security-floor-v1", () => {
       (l: { status: string }) => l.status !== "done"
     );
     assert.equal(cleared.length, 0);
+  });
+
+  it("lists last 50 Itabashi/TESTER sensor history cards without deleting live data", async () => {
+    const { listSecurityHistoryV1 } = await import(
+      "../src/security-floor/security-history-v1.js"
+    );
+    recordHomeDiSecurityAlarmV1({
+      homeSiteId: "HOME-JP-ITABASHI-LIVE",
+      di: 1,
+      pattern: "pattern_a",
+    });
+    const history = listSecurityHistoryV1({
+      siteId: "SEC-JP-ITABASHI-LIVE",
+      includeMock: true,
+      limit: 50,
+    });
+    assert.equal(history.ok, true);
+    assert.equal(history.items.length, 50);
+    assert.match(history.title, /センサー検知・セキュリティ履歴（直近50件）/);
+    assert.ok(
+      history.items.some((row) => /駐車場センサー DI1/.test(row.sensorLabel))
+    );
+    assert.ok(
+      history.items.some((row) => /ガレージセンサー DI2/.test(row.sensorLabel))
+    );
+    assert.ok(
+      history.items.every((row) =>
+        /防犯ライト点灯・通知送信済み|通知送信済み/.test(row.resultLabel)
+      )
+    );
+    assert.match(history.items[0].atLabel, /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}/);
+
+    const api = await request(app)
+      .get("/api/security-floor/v1/history")
+      .query({
+        siteId: "HOME-JP-ITABASHI-LIVE",
+        customerCode: "TESTER001",
+        limit: 50,
+      });
+    assert.equal(api.status, 200);
+    assert.equal(api.body.items.length, 50);
+    assert.equal(api.body.homeSiteId, "HOME-JP-ITABASHI-LIVE");
+
+    const modalJs = fs.readFileSync(
+      path.join(
+        publicDir,
+        "js/features/security/security-history-modal-v1.js"
+      ),
+      "utf8"
+    );
+    assert.match(modalJs, /openSecurityHistoryModalV1/);
+    assert.match(modalJs, /data-sf-history-close/);
+    assert.match(modalJs, /sf-log-open-detail|data-ts-action=['\"]open_log['\"]/);
+    assert.match(modalJs, /showModal/);
   });
 });

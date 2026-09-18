@@ -51,6 +51,10 @@ import {
   restoreOperatorPropertyScope,
   setPropertyScope,
 } from "../../shared/property-scope-v1.js";
+import {
+  bindSecurityHistoryModalV1,
+  setSecurityHistorySiteIdV1,
+} from "./security-history-modal-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -233,6 +237,7 @@ function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
   window.__TISLY_SF_SITE_ID = state.siteId;
+  setSecurityHistorySiteIdV1(state.siteId);
   // 豊島邸では旧 KPI（別系統心拍）を完全除外
   const kpi = $("sf-kpi");
   if (kpi) {
@@ -1016,9 +1021,7 @@ function bind() {
   });
   $("sf-export")?.addEventListener("click", exportReport);
   $("sf-log-csv")?.addEventListener("click", exportReport);
-  $("sf-log-open-detail")?.addEventListener("click", () => {
-    $("sf-log-dialog")?.showModal?.();
-  });
+  bindSecurityHistoryModalV1();
   $("sf-opt-sens")?.addEventListener("change", (e) => {
     state.showSensors = e.target.checked;
     if (state.site) renderSite(state.site, state.dash);

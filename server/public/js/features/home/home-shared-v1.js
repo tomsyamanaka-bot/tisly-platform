@@ -1006,20 +1006,41 @@ function readSystemLogFiltersV1() {
 function renderSystemLogDetailBodyV1(logs) {
   const body = byId("hm-log-detail-body");
   if (!body) return;
-  const filtered = filterSystemLogsV1(logs, readSystemLogFiltersV1());
+  const filtered = filterSystemLogsV1(logs, readSystemLogFiltersV1()).slice(
+    0,
+    50
+  );
   if (!filtered.length) {
     body.innerHTML = '<p class="hm-empty">該当するログはありません</p>';
     return;
   }
   body.innerHTML = filtered
     .map((row) => {
-      const t = row.timeLabel || row.createdAt || "";
-      const cat = row.categoryLabel || row.category || "";
-      return `<p class="hm-log-line"><span class="hm-log-cat">${escapeHtml(
-        systemLogIconV1(row) + " " + cat
-      )}</span> [${escapeHtml(t)}] ${escapeHtml(row.siteName || "")}: ${escapeHtml(
-        row.message || ""
-      )}</p>`;
+      const iso = row.createdAt || "";
+      const t =
+        row.timeLabel && /\d{4}\//.test(String(row.timeLabel))
+          ? row.timeLabel
+          : iso
+            ? new Date(iso).toLocaleString("ja-JP", {
+                timeZone: "Asia/Tokyo",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              })
+            : "";
+      const title = row.message || row.displayLine || "";
+      return `<article class="hm-log-compact-row">
+        <span class="hm-log-ico" aria-hidden="true">${systemLogIconV1(row)}</span>
+        <div class="hm-log-main">
+          <p class="hm-log-title">${escapeHtml(title)}</p>
+          <p class="hm-log-sub">${escapeHtml(row.siteName || "")}</p>
+        </div>
+        <time class="hm-log-time">${escapeHtml(t)}</time>
+      </article>`;
     })
     .join("");
 }
@@ -1054,10 +1075,22 @@ function exportSystemLogsCsvV1() {
 export function bindSystemLogModalV1() {
   if (window.__TISLY_HM_LOG_MODAL_BOUND) return;
   window.__TISLY_HM_LOG_MODAL_BOUND = true;
-  byId("hm-log-open-detail")?.addEventListener("click", () => {
-    renderSystemLogDetailBodyV1(__hmSystemLogsCache);
-    byId("hm-log-dialog")?.showModal?.();
-  });
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest?.("#hm-log-open-detail, .hm-log-more");
+      if (!btn) return;
+      e.preventDefault();
+      renderSystemLogDetailBodyV1(__hmSystemLogsCache);
+      const dlg = byId("hm-log-dialog");
+      try {
+        dlg?.showModal?.();
+      } catch {
+        dlg?.setAttribute("open", "");
+      }
+    },
+    true
+  );
   byId("hm-log-csv")?.addEventListener("click", exportSystemLogsCsvV1);
   ["hm-log-cat", "hm-log-date"].forEach((id) => {
     byId(id)?.addEventListener("change", () => {

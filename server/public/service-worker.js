@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2541-tester-login-hardpass";
+const SW_VERSION = "tisly-pwa-v2542-security-history-modal";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2541-tester-login-hardpass
  * tisly-pwa-v2540-tester-login-passthrough
  * tisly-pwa-v2539-tester-login-fix
  * tisly-pwa-v2538-tester-demo-webview
@@ -37,9 +38,9 @@ const SW_VERSION = "tisly-pwa-v2541-tester-login-hardpass";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2540-tester-login-passthrough";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2540-tester-login-passthrough";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2540-tester-login-passthrough";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2542-security-history-modal";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2542-security-history-modal";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2542-security-history-modal";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */

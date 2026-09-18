@@ -50,6 +50,10 @@ import {
 import { setPropertyScope } from "../../shared/property-scope-v1.js";
 import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
 import { resolveHomeSiteId } from "./security-floor-remote-config-v1.js";
+import {
+  bindSecurityHistoryModalV1,
+  setSecurityHistorySiteIdV1,
+} from "./security-history-modal-v1.js";
 
 const HOME_API = "/api/home/v1";
 const SECURITY_ASSET_COMMIT_KEY = "tisly-security-customer-commit";
@@ -307,6 +311,7 @@ function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
   window.__TISLY_SF_SITE_ID = state.siteId;
+  setSecurityHistorySiteIdV1(state.siteId);
 
   const fixed = $("sf-site-fixed-label");
   if (fixed) {
@@ -794,9 +799,7 @@ function bind() {
     if (!btn) return;
     setMode(btn.getAttribute("data-mode")).catch(() => {});
   });
-  $("sf-log-open-detail")?.addEventListener("click", () => {
-    $("sf-log-dialog")?.showModal?.();
-  });
+  bindSecurityHistoryModalV1();
 }
 
 function setTenantResolving(on, profileName) {

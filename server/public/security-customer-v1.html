@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2537" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2537" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2542" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2542" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -418,29 +418,23 @@
 
   <div id="ts-dashboard-root" hidden aria-label="豊島邸 Security ダッシュボード"></div>
 
-  <dialog class="sf-log-dialog" id="sf-log-dialog">
-    <div class="sf-log-dialog-inner">
-      <div class="sf-log-dialog-head">
-        <h2>📜 詳細ログ・全履歴</h2>
-        <form method="dialog">
-          <button type="submit" class="sf-ghost">閉じる</button>
-        </form>
-      </div>
-      <div class="sf-log-table-wrap">
-        <table class="sf-log-table">
-          <thead>
-            <tr>
-              <th>時刻</th><th>場所</th><th>内容</th><th>状態</th>
-            </tr>
-          </thead>
-          <tbody id="sf-log-body"></tbody>
-        </table>
-      </div>
-      <div class="sf-log-dialog-actions">
-        <form method="dialog">
-          <button type="submit" class="sf-ghost">閉じる</button>
-        </form>
-      </div>
+  <dialog class="sf-log-dialog sf-sec-history-dialog" id="sf-log-dialog" aria-labelledby="sf-sec-history-title">
+    <div class="sf-sec-history-inner">
+      <header class="sf-sec-history-head">
+        <h2 id="sf-sec-history-title">🛡️ センサー検知・セキュリティ履歴（直近50件）</h2>
+        <button type="button" class="sf-sec-history-x" data-sf-history-close>
+          ✕ 閉じる
+        </button>
+      </header>
+      <div class="sf-sec-history-list" id="sf-sec-history-list"></div>
+      <table class="sf-log-table" hidden>
+        <tbody id="sf-log-body"></tbody>
+      </table>
+      <footer class="sf-sec-history-foot">
+        <button type="button" class="sf-sec-history-close" data-sf-history-close>
+          閉じる
+        </button>
+      </footer>
     </div>
   </dialog>
 
@@ -449,7 +443,8 @@
   <script src="/js/features/floorplan-builder/floorplan-security-bridge-v1.js?v=2520"></script>
   <script type="module" src="/js/features/security/security-floor-iso3d-v1.js?v=2520"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2520"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2537"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2537"></script>
+  <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2542"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2542"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2542"></script>
 </body>
 </html>

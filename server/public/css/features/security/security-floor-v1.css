@@ -1643,6 +1643,10 @@
   color: #1e3a8a;
   font-weight: 800;
   font-size: 0.95rem;
+  cursor: pointer;
+  position: relative;
+  z-index: 6;
+  pointer-events: auto;
 }
 
 .sf-log-more:active {
@@ -1675,43 +1679,145 @@
   white-space: nowrap;
 }
 
-/* 詳細ログ・全履歴モーダル */
-.sf-log-dialog {
-  width: min(960px, 96vw);
-  max-height: min(92vh, 920px);
+/* 詳細ログ・全履歴モーダル（白ベース × ネイビー） */
+.sf-log-dialog,
+.sf-sec-history-dialog {
+  width: min(640px, 96vw);
+  max-height: min(92vh, 860px);
   padding: 0;
-  border: 0;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
-  background: #0b101b;
-  color: #e2e8f0;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
 }
 
-.sf-log-dialog::backdrop {
-  background: rgba(2, 6, 23, 0.72);
+.sf-log-dialog::backdrop,
+.sf-sec-history-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(4px);
 }
 
-.sf-log-dialog-inner {
+.sf-log-dialog-inner,
+.sf-sec-history-inner {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  max-height: min(92vh, 920px);
+  grid-template-rows: auto 1fr auto;
+  max-height: min(92vh, 860px);
+  background: #ffffff;
 }
 
-.sf-log-dialog-head {
+.sf-log-dialog-head,
+.sf-sec-history-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px 10px;
-  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
-.sf-log-dialog-head h2 {
+.sf-log-dialog-head h2,
+.sf-sec-history-head h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.02rem;
   font-weight: 900;
-  color: #7dd3fc;
+  color: #1e3a8a;
+  line-height: 1.35;
+}
+
+.sf-sec-history-x {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid #1e3a8a;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sf-sec-history-list {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 8px;
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  max-height: min(64vh, 620px);
+  background: #f8fafc;
+}
+
+.sf-hist-card {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.sf-hist-ico {
+  font-size: 1.45rem;
+  line-height: 1;
+  text-align: center;
+  padding-top: 2px;
+}
+
+.sf-hist-body {
+  min-width: 0;
+}
+
+.sf-hist-at {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.sf-hist-sensor {
+  margin: 4px 0 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.sf-hist-result {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.sf-hist-empty {
+  margin: 24px 8px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.sf-sec-history-foot {
+  display: flex;
+  justify-content: center;
+  padding: 12px 18px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.sf-sec-history-close {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid #1e3a8a;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
 }
 
 .sf-log-dialog-filters {
@@ -1719,13 +1825,13 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 18px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .sf-log-dialog-filters .sf-mini {
-  background: #111827;
-  border-color: #334155;
-  color: #e2e8f0;
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #0f172a;
 }
 
 .sf-log-dialog .sf-log-table-wrap {
@@ -1736,15 +1842,15 @@
 
 .sf-log-dialog .sf-log-table th,
 .sf-log-dialog .sf-log-table td {
-  border-bottom-color: rgba(51, 65, 85, 0.7);
-  color: #e2e8f0;
+  border-bottom-color: #e2e8f0;
+  color: #0f172a;
 }
 
 .sf-log-dialog .sf-log-table th {
-  color: #7dd3fc;
+  color: #1e3a8a;
   position: sticky;
   top: 0;
-  background: #0b101b;
+  background: #ffffff;
   z-index: 1;
 }
 
@@ -1753,7 +1859,7 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 18px 16px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  border-top: 1px solid #e2e8f0;
 }
 
 .sf-log-dialog-actions .sf-ghost,

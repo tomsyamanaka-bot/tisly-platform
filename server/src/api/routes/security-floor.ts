@@ -31,6 +31,8 @@ import {
   demoTogglePrimaryAlertV1,
   setSecurityLightingV1,
 } from "../../security-floor/security-floor-soc-v1.js";
+import { listSecurityHistoryV1 } from "../../security-floor/security-history-v1.js";
+import { isTesterTenantV1 } from "../../shared/customer/tester-tenant-v1.js";
 import {
   countPushSubscriptions,
   isVapidConfigured,
@@ -92,6 +94,27 @@ securityFloorRouter.get("/customer", (req, res) => {
     siteId
   );
   res.json({ ok: true, dashboard });
+});
+
+/** 最近のできごと · センサー検知履歴（直近50件） */
+securityFloorRouter.get("/history", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  const homeSiteId = String(req.query.homeSiteId ?? "").trim();
+  const customerCode = String(
+    req.query.customerCode ??
+      (req as AuthedRequest).admin?.customerCode ??
+      ""
+  ).trim();
+  const includeMock =
+    String(req.query.includeMock ?? "") === "1" ||
+    isTesterTenantV1(customerCode);
+  const history = listSecurityHistoryV1({
+    siteId: siteId || null,
+    homeSiteId: homeSiteId || null,
+    includeMock,
+    limit: Number(req.query.limit ?? 50),
+  });
+  res.json(history);
 });
 
 securityFloorRouter.get("/operator", (req, res) => {
