@@ -95,34 +95,37 @@ function writeKeystoreProperties() {
   log(`Wrote ${propsPath} (gitignored)`);
 }
 
-/** Play Protect requires minSdk >= 24; keep compile/target >= 34. */
+/** Play Console requires minSdk >= 24 and target/compile SDK >= 36. */
+const PLAY_MIN_SDK = 24;
+const PLAY_COMPILE_SDK = 36;
+const PLAY_TARGET_SDK = 36;
+
 function applyPlaySdkVersionsToAppGradle() {
   const gradlePath = path.join(androidDir, "app", "build.gradle");
   if (!fs.existsSync(gradlePath)) {
     fail(`Missing ${gradlePath} — run project generation first`);
   }
   const twa = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  const minSdk = Math.max(24, Number(twa.minSdkVersion) || 24);
-  const versionCode = Number(twa.appVersionCode) || 3;
-  const versionName = String(twa.appVersion || "1.1.1");
+  const minSdk = Math.max(PLAY_MIN_SDK, Number(twa.minSdkVersion) || PLAY_MIN_SDK);
+  const versionCode = Number(twa.appVersionCode) || 4;
+  const versionName = String(twa.appVersion || "1.1.2");
   let src = fs.readFileSync(gradlePath, "utf8");
   src = src.replace(/minSdkVersion\s+\d+/, `minSdkVersion ${minSdk}`);
   src = src.replace(/\bminSdk\s+\d+/, `minSdk ${minSdk}`);
   src = src.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
   src = src.replace(/versionName\s+"[^"]*"/, `versionName "${versionName}"`);
-  const bumpIfLow = (re, label, replacement) => {
-    const m = src.match(re);
-    if (m && Number(m[1]) < 34) {
+  const forceSdk = (re, replacement, label) => {
+    if (re.test(src)) {
       src = src.replace(re, replacement);
-      log(`Bumped ${label} from ${m[1]} to 34`);
+      log(`Forced ${label} → ${replacement}`);
     }
   };
-  bumpIfLow(/compileSdkVersion\s+(\d+)/, "compileSdkVersion", "compileSdkVersion 34");
-  bumpIfLow(/compileSdk\s+(\d+)/, "compileSdk", "compileSdk 34");
-  bumpIfLow(/targetSdkVersion\s+(\d+)/, "targetSdkVersion", "targetSdkVersion 34");
-  bumpIfLow(/targetSdk\s+(\d+)/, "targetSdk", "targetSdk 34");
+  forceSdk(/compileSdkVersion\s+\d+/, `compileSdkVersion ${PLAY_COMPILE_SDK}`, "compileSdkVersion");
+  forceSdk(/\bcompileSdk\s+\d+/, `compileSdk ${PLAY_COMPILE_SDK}`, "compileSdk");
+  forceSdk(/targetSdkVersion\s+\d+/, `targetSdkVersion ${PLAY_TARGET_SDK}`, "targetSdkVersion");
+  forceSdk(/\btargetSdk\s+\d+/, `targetSdk ${PLAY_TARGET_SDK}`, "targetSdk");
   fs.writeFileSync(gradlePath, src, "utf8");
-  log(`Applied Play SDK/version: minSdk=${minSdk} versionCode=${versionCode} versionName=${versionName}`);
+  log(`Applied Play SDK/version: minSdk=${minSdk} compileSdk=${PLAY_COMPILE_SDK} targetSdk=${PLAY_TARGET_SDK} versionCode=${versionCode} versionName=${versionName}`);
 }
 
 function verifyPlaySdkVersionsInAppGradle() {
@@ -133,11 +136,11 @@ function verifyPlaySdkVersionsInAppGradle() {
   const targetSdk = Number((src.match(/targetSdkVersion\s+(\d+)/) || src.match(/\btargetSdk\s+(\d+)/) || [])[1]);
   const versionCode = Number((src.match(/versionCode\s+(\d+)/) || [])[1]);
   const versionName = (src.match(/versionName\s+"([^"]*)"/) || [])[1];
-  if (!(minSdk >= 24)) fail(`minSdkVersion must be >= 24, got ${minSdk}`);
-  if (!(compileSdk >= 34)) fail(`compileSdkVersion must be >= 34, got ${compileSdk}`);
-  if (!(targetSdk >= 34)) fail(`targetSdkVersion must be >= 34, got ${targetSdk}`);
-  if (versionCode !== 3) fail(`versionCode must be 3, got ${versionCode}`);
-  if (versionName !== "1.1.1") fail(`versionName must be 1.1.1, got ${versionName}`);
+  if (!(minSdk >= PLAY_MIN_SDK)) fail(`minSdkVersion must be >= ${PLAY_MIN_SDK}, got ${minSdk}`);
+  if (!(compileSdk >= PLAY_COMPILE_SDK)) fail(`compileSdkVersion must be >= ${PLAY_COMPILE_SDK}, got ${compileSdk}`);
+  if (!(targetSdk >= PLAY_TARGET_SDK)) fail(`targetSdkVersion must be >= ${PLAY_TARGET_SDK}, got ${targetSdk}`);
+  if (versionCode !== 4) fail(`versionCode must be 4, got ${versionCode}`);
+  if (versionName !== "1.1.2") fail(`versionName must be 1.1.2, got ${versionName}`);
   log(`Verified app/build.gradle minSdk=${minSdk} compileSdk=${compileSdk} targetSdk=${targetSdk} ${versionCode} (${versionName})`);
 }
 
@@ -637,6 +640,7 @@ async function main() {
   const published = publishAabOutputs(aab);
   log(`AAB ready: ${published.aabPath}`);
   log(`Play Console upload copy: ${published.uploadAab}`);
+  process.exit(0);
 }
 
 main().catch((e) => {
