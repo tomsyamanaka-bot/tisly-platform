@@ -36,6 +36,11 @@ import {
 import { resolveCustomerTenantProfileV1 } from "./customer-tenant-profile-v1.js";
 import { isTesterTenantV1 } from "./tester-tenant-v1.js";
 import {
+  rememberIssuedPasswordV1,
+  resolveLoginCredentialV1,
+  type CustomerLoginCredentialV1,
+} from "./customer-login-credentials-v1.js";
+import {
   buildModulesFromPortalTogglesV1,
   defaultPortalModulesForNewCustomerV1,
   getCustomerPortalModulesV1,
@@ -61,6 +66,8 @@ export interface CustomerAccountRowV1 {
   portalModules: string[];
   portalCardToggles: Record<PortalCardToggleIdV1, boolean>;
   users: CustomerAccountUserV1[];
+  /** 社内詳細パネル用（顧客画面には出さない） */
+  loginCredential: CustomerLoginCredentialV1;
   bindings: ReturnType<typeof getCustomerTenantBindingsV1>;
   tenantProfile: ReturnType<typeof resolveCustomerTenantProfileV1>;
   deviceCount: number;
@@ -100,6 +107,10 @@ export function listCustomerAccountsAdminV1(opts?: {
         code
       ),
       users,
+      loginCredential: resolveLoginCredentialV1(
+        code,
+        users.map((u) => u.username)
+      ),
       bindings: getCustomerTenantBindingsV1(code),
       tenantProfile: resolveCustomerTenantProfileV1(code),
       deviceCount: listDevicesForCustomer(c.customer_id).length,
@@ -161,6 +172,8 @@ export function createCustomerAccountAdminV1(input: {
          status = 'active'`
     )
     .run(userId, customerId, username, hash);
+  /* 発行直後の平文を詳細パネルへ残す */
+  rememberIssuedPasswordV1(code, username, password);
 
   const modules = input.portalCardToggles
     ? buildModulesFromPortalTogglesV1(input.portalCardToggles)
@@ -283,6 +296,8 @@ export function resetCustomerUserPasswordAdminV1(input: {
        WHERE id = ?`
     )
     .run(hash, row.id);
+  /* 再発行PWを詳細表示へ即反映 */
+  rememberIssuedPasswordV1(code, username, password);
 
   return { ok: true, username };
 }
@@ -313,6 +328,7 @@ export function addCustomerUserAdminV1(input: {
          status = 'active'`
     )
     .run(id, customer.customer_id, username, hash, role);
+  rememberIssuedPasswordV1(code, username, password);
 
   return { id, username, role, status: "active" };
 }

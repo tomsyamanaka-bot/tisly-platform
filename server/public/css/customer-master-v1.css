@@ -234,6 +234,83 @@ body.cm-v1 {
   z-index: 9999;
 }
 
+.cm-btn.cm-detail-btn.is-on {
+  background: #dbeafe;
+  border-color: var(--cm-navy);
+  color: var(--cm-navy);
+}
+
+.cm-auth-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.cm-auth-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--cm-navy);
+}
+
+.cm-auth-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cm-auth-meta {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cm-auth-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--cm-muted);
+}
+
+.cm-auth-value,
+.cm-auth-select {
+  font-family: ui-monospace, monospace;
+  font-size: 0.92rem;
+  color: var(--cm-navy-dark);
+  word-break: break-all;
+}
+
+.cm-auth-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cm-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.cm-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cm-auth-bundle {
+  margin-top: 12px;
+  width: 100%;
+}
+
 @media (max-width: 640px) {
   .cm-card-head {
     flex-direction: column;

@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2548-toyoshima-2step-flash` |
+| SW | `tisly-pwa-v2549-customer-auth-detail` |
 
 ---
 
@@ -1872,5 +1872,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 旧表・はなれ端子・板橋自宅・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2548-toyoshima-2step-flash` |
 | 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |
+
+### 社内顧客管理 認証情報詳細パネル（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 社内 Customer Master で顧客コード・ログインID・初期パスワードを展開表示し、個別／3点一括コピーする |
+| 画面 | `/app/customer-master-v1`（社内専用）。お客様入口 `https://tisly.jp/customer` は変更なし |
+| 表示 | マスク `••••••••` · 👁️ で平文切替 · 📋 個別コピー · 🔑 3点一括コピー |
+| 参照 | 正規顧客は `CUSTOMER_DEMO_PASSWORD`（既定 `demo-remote-2026`）。発行・再発行PWは詳細パネルへ即反映 |
+| 既存保護 | テナント配列・豊島邸／板橋データは削除せず。顧客向け API には平文を出さない |
+| SW | `tisly-pwa-v2549-customer-auth-detail` |
+| 確認 | `/app/customer-master-v1` · https://tisly.jp/api/health |
 
 

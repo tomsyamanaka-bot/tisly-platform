@@ -18,6 +18,10 @@ const { resetRateLimitsForTests } = await import(
   "../src/security/rate-limit.js"
 );
 const {
+  formatLoginBundleTextV1,
+  pickPrimaryUsernameV1,
+} = await import("../src/shared/customer/customer-login-credentials-v1.js");
+const {
   listCameraPreviewsForCustomerV1,
   buildCameraPreviewSessionV1,
 } = await import("../src/camera/camera-preview-v1.js");
@@ -70,6 +74,35 @@ describe("customer account admin + camera preview v1", () => {
     assert.ok(Array.isArray(res.body.accounts));
     assert.ok(res.body.accounts.some((a: { customerCode: string }) => a.customerCode === "TOMS001"));
     assert.ok(res.body.accounts.some((a: { customerCode: string }) => a.customerCode === "TOYOSHIMA001"));
+  });
+
+  it("binds canonical login credentials for staff detail panel", async () => {
+    const res = await request(app)
+      .get("/api/customer-portal/v1/admin/accounts")
+      .set("Authorization", `Bearer ${tomsAdmin}`);
+    assert.equal(res.status, 200);
+    const toy = res.body.accounts.find(
+      (a: { customerCode: string }) => a.customerCode === "TOYOSHIMA001"
+    );
+    const toms = res.body.accounts.find(
+      (a: { customerCode: string }) => a.customerCode === "TOMS001"
+    );
+    assert.equal(toy.loginCredential.username, "toyoshima001.admin");
+    assert.equal(toy.loginCredential.password, "demo-remote-2026");
+    assert.equal(toy.loginCredential.portalUrl, "https://tisly.jp/customer");
+    assert.equal(toms.loginCredential.username, "toms001.admin");
+    assert.equal(toms.loginCredential.password, "demo-remote-2026");
+    const bundle = formatLoginBundleTextV1(toy.loginCredential);
+    assert.match(bundle, /TOYOSHIMA001/);
+    assert.match(bundle, /toyoshima001\.admin/);
+    assert.match(bundle, /demo-remote-2026/);
+    assert.equal(
+      pickPrimaryUsernameV1("TOYOSHIMA001", [
+        "toyoshima001.owner",
+        "toyoshima001.admin",
+      ]),
+      "toyoshima001.admin"
+    );
   });
 
   it("denies account admin for non-internal tenant", async () => {
@@ -172,5 +205,43 @@ describe("customer account admin + camera preview v1", () => {
     assert.equal(res.status, 200);
     assert.match(res.text, /customer-master-v1\.js/);
     assert.match(res.text, /顧客アカウント/);
+  });
+
+  it("customer master assets include auth detail copy controls", async () => {
+    const page = await request(app).get("/app/customer-master-v1");
+    assert.equal(page.status, 200);
+    const js = await request(app).get("/js/customer-master-v1.js");
+    assert.equal(js.status, 200);
+    assert.match(js.text, /詳細（認証情報）/);
+    assert.match(js.text, /3点一括コピー/);
+    assert.match(js.text, /data-cm-reveal-pw/);
+    const css = await request(app).get("/css/customer-master-v1.css");
+    assert.equal(css.status, 200);
+    assert.match(css.text, /cm-auth-panel/);
+  });
+
+  it("remembers issued password on new account for detail panel", async () => {
+    const created = await request(app)
+      .post("/api/customer-portal/v1/admin/accounts")
+      .set("Authorization", `Bearer ${tomsAdmin}`)
+      .send({
+        customerCode: "AUTHCOPY01",
+        customerName: "認証コピー試験",
+        username: "authcopy01.owner",
+        password: "copy-trial-2026",
+      });
+    assert.equal(created.status, 201, created.body?.error);
+    assert.equal(
+      created.body.account?.loginCredential?.password,
+      "copy-trial-2026"
+    );
+    const listed = await request(app)
+      .get("/api/customer-portal/v1/admin/accounts?customerCode=AUTHCOPY01")
+      .set("Authorization", `Bearer ${tomsAdmin}`);
+    assert.equal(listed.status, 200);
+    assert.equal(
+      listed.body.accounts?.[0]?.loginCredential?.password,
+      "copy-trial-2026"
+    );
   });
 });
