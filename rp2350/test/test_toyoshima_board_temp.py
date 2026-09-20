@@ -132,7 +132,65 @@ def test_main_event_message():
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None, send_event)
     with patch.object(ts.asyncio, "create_task", MagicMock()):
         ctrl._fire_di(1)
-    assert events[0][2] == "母屋 遠近検知"
+    assert events[0][2] == "⚠️ 外周で接近検知"
+
+
+def test_twostep_di1_only_light1_at_night():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({
+        "security_mode": "2STEP",
+        "light_schedule": {"start": "18:00", "end": "06:00"},
+        "light_duration_sec": 30,
+        "flash_duration_sec": 15,
+        "flash_enabled": True,
+    })
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(1)
+    assert plan["do1"] is True
+    assert plan["do2"] is False
+    assert plan["do3"] is False
+    assert plan["message"] == "⚠️ 外周で接近検知"
+    assert plan["light_ms"] == 30_000
+
+
+def test_twostep_di2_full_and_flash_at_night():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({
+        "securityMode": "2STEP",
+        "flashEnabled": True,
+        "flashDurationSec": 15,
+    })
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(2)
+    assert plan["do1"] is True
+    assert plan["do2"] is True
+    assert plan["do3"] is True
+    assert plan["flash_ms"] == 15_000
+    assert plan["message"] == "🚨 建物至近で侵入検知！"
+
+
+def test_direct_di1_full_response():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({"security_mode": "DIRECT", "flash_enabled": True})
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(1)
+    assert plan["do1"] is True
+    assert plan["do2"] is True
+    assert plan["do3"] is True
+
+
+def test_silent_skips_outputs():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({"security_mode": "SILENT", "flash_enabled": True})
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(2)
+    assert plan["do1"] is False
+    assert plan["do2"] is False
+    assert plan["do3"] is False
 
 
 def test_kick_watchdog_none_safe():
@@ -189,6 +247,10 @@ if __name__ == "__main__":
     test_main_schedule_lights_vs_patlite()
     test_detached_event_messages()
     test_main_event_message()
+    test_twostep_di1_only_light1_at_night()
+    test_twostep_di2_full_and_flash_at_night()
+    test_direct_di1_full_response()
+    test_silent_skips_outputs()
     test_kick_watchdog_none_safe()
     test_init_watchdog_host_returns_none()
     test_send_heartbeat_with_retry_retries_three_times()

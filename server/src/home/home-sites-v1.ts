@@ -1076,6 +1076,8 @@ export const HOME_SITES_V1: HomeSiteV1[] = [
       "母屋: RP2350 8CH — DI1/DI2 遠近ビーム、DO1/DO2 100V ライト、DO3 パトライト",
       "はなれ: RP2350 6CH — DI1 道路側 / DI2 通路側、DO1 100V / DO2 パトライト",
       "24h 通知と夜間ライト点灯スケジュールは独立判定",
+      "母屋確定: DI1遠外周 / DI2近アプローチ · DO1主照明 / DO2増設 / DO3 100Vフラッシュ（CRサージ）",
+      "遠近2段階 2STEP|DIRECT|SILENT · フラッシュ連動は PWA 遠隔設定",
     ],
   },
 ];

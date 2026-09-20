@@ -5,7 +5,8 @@ Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython
 母屋（主装置 8ch）・はなれ（子機 6ch）を BUILDING で切替。
 
 機能:
-- DI 100ms デバウンス + ライト / パトライト連動
+- DI 100ms デバウンス + 遠近2段階ライト / フラッシュ
+- クラウド同期 security_mode / light_schedule
 - 5 分 heartbeat（board_temp / 過熱フラグ）
 - 物理 WDT 8 秒
 - VPS /api/home/v1/toyoshima へイベント送信

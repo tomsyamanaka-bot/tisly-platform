@@ -68,6 +68,34 @@
 | DO2 | 100V 防犯ライト 2 | 点灯時間帯のみ |
 | DO3 | 24V パトライト | **24h** 点滅（`PATLITE_BLINK_MS=500`） |
 
+### 2.2.1 主装置 確定アサイン（遠近2段階・2026-09-21 追記）
+
+既存 2.2 行は残す。運用の正は本表。
+各リレー接点は **CR サージアブソーバー保護** を適用する。
+
+| 端子 | 確定役割 | 備考 |
+|------|----------|------|
+| DI1 | 赤外線ビーム（遠・外周境界） | `DI_BEAM_FAR=1` · 24h Push「⚠️ 外周で接近検知」 |
+| DI2 | 赤外線ビーム（近・建物アプローチ） | `DI_BEAM_NEAR=2` · 24h Push「🚨 建物至近で侵入検知！」 |
+| DO1 | 100V 防犯ライト 1（主照明） | 夜間のみ · DI1 単独でも点灯 |
+| DO2 | 100V 防犯ライト 2（増設投光器） | 夜間のみ · DI2 または DIRECT で点灯 |
+| DO3 | 100V フラッシュライト（ストロボ・威嚇回転灯） | 夜間 · `flash_enabled` 時のみ · `flash_duration_sec` |
+
+**遠近2段階ロジック（`security_mode`）**
+
+| モード | 動作 |
+|--------|------|
+| `2STEP`（既定） | DI1→DO1 のみ / DI2→DO1+DO2 + DO3フラッシュ |
+| `DIRECT` | DI1/DI2 とも DO1+DO2 + DO3フラッシュ |
+| `SILENT` | 24h Push のみ（ライト・フラッシュ省略） |
+
+| 項目 | 値 |
+|------|-----|
+| `light_schedule` | 18:00〜06:00（JST・既存と同一） |
+| `light_duration_sec` | クラウド同期（既存 `lightingDurationSec`） |
+| `flash_duration_sec` | 既定 15 秒 |
+| `flash_enabled` | 既定 True |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |
@@ -97,9 +125,11 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | ライト点灯時間帯 | **18:00〜06:00（JST・日またぎ）** |
 | guardMode（初回 merge） | `scheduled` |
 | 点灯維持秒数 | **45 秒**（`lightingDurationSec` / `DEFAULT_OUTPUT_MS=45000`） |
+| フラッシュ維持秒数 | **15 秒**（`flashDurationSec` / `DEFAULT_FLASH_MS=15000`） |
+| 遠近モード | **2STEP**（`securityMode` · PWA 遠隔設定） |
 | デバウンス | **100 ms**（`DI_DEBOUNCE_MS` / `diConfirmMs` / `debounceDi*` / `debounceBeamMs`） |
 | 通知 | 24h（ライトのみ時間帯制限） |
-| 日中挙動 | 通知＋パトライトのみ（ライト省略） |
+| 日中挙動 | 母屋: 通知のみ（ライト・フラッシュ省略） / はなれ: 通知＋DO2パトライト |
 
 ### 2.6 Guard Viewer / EZCloud ライブ共有（方法A）
 
@@ -278,6 +308,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-21 | 豊島邸 主装置の遠近2段階を確定追記。DI1遠外周 / DI2近アプローチ、DO1主照明 / DO2増設投光器 / DO3 100Vフラッシュ（CRサージ保護）。PWA から 2STEP/DIRECT/SILENT を遠隔設定。既存 2.2 行・はなれ端子・板橋自宅は非破壊 |
 | 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |
 | 2026-09-21 | 板橋 Security の物件セレクタ空値とオフライン誤判定を修復。初期選択を SEC-JP-ITABASHI-LIVE / HOME-JP-ITABASHI-LIVE に固定し、5分以内HBでオンライン描画。DI/DO配列は変更なし |
 | 2026-09-21 | Security画面から3D間取りUIを撤去。板橋のライト遠隔（DO2/DO3）と遠隔ルールをステータス直下へ再配置。RP2350端子・設定配列は変更なし |

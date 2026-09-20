@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2547-tester-login-force-restart` |
+| SW | `tisly-pwa-v2548-toyoshima-2step-flash` |
 
 ---
 
@@ -1860,5 +1860,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2547-tester-login-force-restart` |
 | 確認 | https://tisly.jp/customer · https://tisly.jp/api/health |
 
+### 豊島邸 遠近2段階ビーム＆100Vフラッシュ連動（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 豊島邸主装置の赤外線ビーム遠近2段階と 100V ライト2台＋フラッシュ連動を PWA から遠隔設定する |
+| 端子 | DI1 遠・外周 / DI2 近・アプローチ / DO1 主照明 / DO2 増設投光器 / DO3 100Vフラッシュ（CRサージ保護） |
+| モード | `2STEP` · `DIRECT` · `SILENT` — クラウド同期 `security_mode` |
+| 動作 | DI1: 24h Push「⚠️ 外周で接近検知」· 夜間 DO1 / DI2: 24h Push「🚨 建物至近で侵入検知！」· 夜間 DO1+DO2 + フラッシュ |
+| 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
+| 既存保護 | 2.2 旧表・はなれ端子・板橋自宅・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2548-toyoshima-2step-flash` |
+| 確認 | `/security-v1` · `/customer/security` · https://tisly.jp/api/health |
 
 

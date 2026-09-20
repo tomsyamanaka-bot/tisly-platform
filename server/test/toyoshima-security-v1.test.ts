@@ -18,6 +18,10 @@ import {
 } from "../src/home/home-toyoshima-security-v1.js";
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
 import {
+  buildHomeSecurityFirmwareRulesV1,
+  updateHomeSecurityRulesV1,
+} from "../src/home/home-security-rules-v1.js";
+import {
   findSecuritySiteV1,
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
 } from "../src/security-floor/security-floor-sites-v1.js";
@@ -100,7 +104,7 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.commHealth.uiOnline, true);
     assert.equal(dash.commHealth.isHardwareOnline, true);
     assert.ok(Array.isArray(dash.notifySensors));
-    assert.equal(dash.notifySensors.length, 3);
+    assert.equal(dash.notifySensors.length, 4);
     assert.equal(dash.alarm.active, false);
   });
 
@@ -135,7 +139,7 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(typeof dash.patliteThreatEnabled, "boolean");
     assert.ok(
-      dash.notifySensors.some((s) => s.label.includes("遠近センサー"))
+      dash.notifySensors.some((s) => s.label.includes("外周ビーム"))
     );
   });
 
@@ -389,5 +393,93 @@ describe("toyoshima-security-v1", () => {
     assert.ok(dash.timeline.length >= before + 1);
     assert.equal(dash.timeline[0]?.kind, "mode_change");
     assert.match(dash.timeline[0]?.title || "", /おでかけ警戒/);
+  });
+
+  it("2STEP DI1 lights only DO1 during all-day schedule", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "2STEP",
+      flashEnabled: true,
+      flashDurationSec: 15,
+    });
+    const result = await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+    });
+    assert.equal(result.message, "⚠️ 外周で接近検知");
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, false);
+    assert.equal(dash.main.do[2].blinking, false);
+  });
+
+  it("2STEP DI2 lights DO1+DO2 and flashes DO3", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "2STEP",
+      flashEnabled: true,
+    });
+    const result = await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    assert.equal(result.message, "🚨 建物至近で侵入検知！");
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[2].blinking, true);
+  });
+
+  it("SILENT mode skips lights and flash", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "SILENT",
+      flashEnabled: true,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, false);
+    assert.equal(dash.main.do[1].on, false);
+    assert.equal(dash.main.do[2].blinking, false);
+  });
+
+  it("firmware JSON exposes 2-step keys for RP2350 sync", () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      securityMode: "2STEP",
+      flashDurationSec: 15,
+      flashEnabled: true,
+    });
+    const fw = buildHomeSecurityFirmwareRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    assert.equal(fw.security_mode, "2STEP");
+    assert.equal(fw.flash_duration_sec, 15);
+    assert.equal(fw.flash_enabled, true);
+    assert.equal(fw.light_schedule.start, fw.light_start);
+    assert.equal(typeof fw.light_duration_sec, "number");
+  });
+
+  it("PWA dashboard exposes 2-step remote settings", () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      securityMode: "2STEP",
+      flashEnabled: true,
+      flashDurationSec: 15,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.securityMode, "2STEP");
+    assert.equal(typeof dash.flashEnabled, "boolean");
+    assert.equal(dash.flashDurationSec, 15);
+    assert.match(dash.main.di[0].label, /外周/);
+    assert.match(dash.main.do[2].label, /フラッシュ/);
   });
 });

@@ -2,10 +2,11 @@
 豊島邸 Security 制御 — 母屋 / はなれ
 
 DI1/DI2 立上りを 100ms デバウンスで確定し、
-ライト・パトライト出力と VPS イベント送信を行う。
+遠近2段階のライト／フラッシュと
+VPS イベント送信を行う。
 
 24 時間常時通知。ライト点灯は 18:00〜06:00 のみ。
-日中は通知＋パトライトのみ作動する。
+日中は通知のみ（ライト・フラッシュ省略）。
 
 付帯: チップ内蔵温度（CORE_TEMP / ADC4） /
 5分 heartbeat / 物理 WDT 8 秒
@@ -31,6 +32,10 @@ DI_DEBOUNCE_MS = 100
 PATLITE_BLINK_MS = 500
 # 既定出力維持（ms）
 DEFAULT_OUTPUT_MS = 45_000
+# フラッシュ既定維持（ms）
+DEFAULT_FLASH_MS = 15_000
+# 遠近モード既定（クラウド同期）
+DEFAULT_SECURITY_MODE = "2STEP"
 # 夜間スケジュール既定（JST）
 DEFAULT_LIGHT_START = "18:00"
 DEFAULT_LIGHT_END = "06:00"
@@ -85,6 +90,9 @@ class ToyoshimaBaseController:
         self._security_paused = False
         self._guard_mode = "scheduled"
         self._output_ms = DEFAULT_OUTPUT_MS
+        self._flash_ms = DEFAULT_FLASH_MS
+        self._flash_enabled = True
+        self._security_mode = DEFAULT_SECURITY_MODE
         self._active_tasks = []
 
     def set_di_reader(self, get_di):
@@ -126,10 +134,53 @@ class ToyoshimaBaseController:
             self._debounce_beam_ms = beam
         else:
             self._debounce_beam_ms = self._di_confirm_ms
+        # 遠近モード（2STEP / DIRECT / SILENT）
+        mode = str(
+            rules.get("security_mode", rules.get("securityMode", ""))
+        ).strip().upper()
+        if mode in ("2STEP", "DIRECT", "SILENT"):
+            self._security_mode = mode
+        # light_schedule: {"start","end"} も受け取る
+        sched = rules.get("light_schedule")
+        if isinstance(sched, dict):
+            if sched.get("start"):
+                self._light_start = str(sched.get("start"))
+            if sched.get("end"):
+                self._light_end = str(sched.get("end"))
+        # ライト維持秒（クラウドキー）
+        light_sec = rules.get("light_duration_sec")
+        if light_sec is None:
+            light_sec = rules.get("lighting_duration_sec")
+        if light_sec is not None:
+            try:
+                sec = int(light_sec)
+                if 5 <= sec <= 180:
+                    self._output_ms = sec * 1000
+            except Exception:
+                pass
+        # フラッシュ維持秒
+        flash_sec = rules.get("flash_duration_sec")
+        if flash_sec is None:
+            flash_sec = rules.get("flashDurationSec")
+        if flash_sec is not None:
+            try:
+                fsec = int(flash_sec)
+                if 5 <= fsec <= 180:
+                    self._flash_ms = fsec * 1000
+            except Exception:
+                pass
+        if "flash_enabled" in rules:
+            self._flash_enabled = bool(rules.get("flash_enabled"))
+        elif "flashEnabled" in rules:
+            self._flash_enabled = bool(rules.get("flashEnabled"))
         return True
 
     def log(self, msg):
-        print("[豊島邸 security]", msg)
+        line = "[豊島邸 security] {}".format(msg)
+        try:
+            print(line)
+        except UnicodeEncodeError:
+            print(line.encode("ascii", "replace").decode("ascii"))
 
     def _jst_minutes(self):
         utc_sec = int(time.time())
@@ -241,14 +292,20 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     """
     母屋 — Waveshare RP2350 8CH（主装置）
 
-    DI1/DI2: 遠近ビームセンサー
-    DO1/DO2: ライト1 / ライト2（夜間のみ）
-    DO3: パトライト（24h）
+    DI1: 赤外線ビーム（遠・外周境界）
+    DI2: 赤外線ビーム（近・建物アプローチ）
+    DO1: 100V 防犯ライト1（主照明）
+    DO2: 100V 防犯ライト2（増設投光器）
+    DO3: 100V フラッシュ（ストロボ）
     """
 
     DO_LIGHT_1 = 1
     DO_LIGHT_2 = 2
+    DO_FLASH = 3
+    # 互換エイリアス（旧パトライト）
     DO_PATLITE = 3
+    DI_BEAM_FAR = 1
+    DI_BEAM_NEAR = 2
     DI_BEAM_1 = 1
     DI_BEAM_2 = 2
 
@@ -256,40 +313,82 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         """母屋ビームは debounceBeamMs を使用。"""
         return getattr(self, "_debounce_beam_ms", self._di_confirm_ms)
 
+    def plan_main_response(self, di):
+        """
+        遠近2段階の出力計画を返す。
+        ホストテストから同期で検証する。
+        """
+        mode = str(getattr(self, "_security_mode", "2STEP")).upper()
+        silent = mode == "SILENT"
+        full = (not silent) and (
+            mode == "DIRECT" or di == self.DI_BEAM_NEAR
+        )
+        light_ok = (not silent) and self._can_run_lights()
+        flash_on = (
+            light_ok
+            and full
+            and bool(getattr(self, "_flash_enabled", True))
+        )
+        if di == self.DI_BEAM_FAR:
+            msg = "⚠️ 外周で接近検知"
+        else:
+            msg = "🚨 建物至近で侵入検知！"
+        return {
+            "mode": mode,
+            "message": msg,
+            "do1": light_ok,
+            "do2": light_ok and full,
+            "do3": flash_on,
+            "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
+            "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
+        }
+
     def _fire_di(self, di):
-        if di not in (self.DI_BEAM_1, self.DI_BEAM_2):
+        if di not in (self.DI_BEAM_FAR, self.DI_BEAM_NEAR):
             return
         if not self._is_armed_now():
-            self.log("disarmed - 母屋 遠近検知を無視")
+            self.log("disarmed - 母屋 ビーム検知を無視")
             return
-        self._notify_vps("main", di, "母屋 遠近検知")
+        plan = self.plan_main_response(di)
+        self._notify_vps("main", di, plan["message"])
+        if plan["mode"] == "SILENT":
+            self.log("SILENT — ライト/フラッシュ省略")
+            return
         try:
-            asyncio.create_task(self._main_beam_response())
+            asyncio.create_task(self._main_beam_response(di))
         except Exception as exc:
             self.log("main response err: {}".format(exc))
 
-    async def _main_beam_response(self):
+    async def _main_beam_response(self, di):
         """
-        DO3 パトライトは常時作動。
-        DO1+DO2 ライトは夜間スケジュールのみ。
+        2STEP: DI1=DO1 / DI2=DO1+DO2+DO3
+        DIRECT: DI1/DI2 とも全開＋フラッシュ
+        夜間スケジュール外は通知のみ。
         """
-        light_ok = self._can_run_lights()
-        if light_ok:
-            self._set_ch(self.DO_LIGHT_1, True)
-            self._set_ch(self.DO_LIGHT_2, True)
-        else:
-            self.log("日中 — ライト省略（通知＋パトライトのみ）")
-        blink = asyncio.create_task(
-            self._drive_blink(self.DO_PATLITE, self._output_ms)
-        )
-        await asyncio.sleep_ms(self._output_ms)
-        if light_ok:
-            self._set_ch(self.DO_LIGHT_1, False)
-            self._set_ch(self.DO_LIGHT_2, False)
-        try:
-            await blink
-        except Exception:
-            self._set_ch(self.DO_PATLITE, False)
+        plan = self.plan_main_response(di)
+        tasks = []
+        if plan["do1"]:
+            tasks.append(
+                asyncio.create_task(
+                    self._drive_steady(self.DO_LIGHT_1, plan["light_ms"])
+                )
+            )
+        if plan["do2"]:
+            tasks.append(
+                asyncio.create_task(
+                    self._drive_steady(self.DO_LIGHT_2, plan["light_ms"])
+                )
+            )
+        if plan["do3"]:
+            tasks.append(
+                asyncio.create_task(
+                    self._drive_blink(self.DO_FLASH, plan["flash_ms"])
+                )
+            )
+        if not tasks:
+            self.log("日中 — ライト省略（通知のみ）")
+            return
+        await asyncio.gather(*tasks)
 
 
 class ToyoshimaDetachedController(ToyoshimaBaseController):

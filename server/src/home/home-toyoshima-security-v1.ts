@@ -153,7 +153,9 @@ export interface ToyoshimaTimelineEventV1 {
 export type ToyoshimaNotifySensorIdV1 =
   | "detached_road"
   | "detached_path"
-  | "main_beam";
+  | "main_beam"
+  | "main_beam_far"
+  | "main_beam_near";
 
 export interface ToyoshimaNotifySensorV1 {
   id: ToyoshimaNotifySensorIdV1;
@@ -318,6 +320,12 @@ export interface ToyoshimaSecurityDashboardV1 {
   perimeterTimeoutSec: number;
   /** おでかけ警戒時パトライト威嚇 */
   patliteThreatEnabled: boolean;
+  /** 遠近2段階モード */
+  securityMode: "2STEP" | "DIRECT" | "SILENT";
+  /** 母屋 DO3 フラッシュ連動 */
+  flashEnabled: boolean;
+  /** フラッシュ維持秒数 */
+  flashDurationSec: number;
   /**
    * ハートビート死活監視
    * false 時は Push・Shelly自動再投入を抑止
@@ -384,21 +392,21 @@ function defaultMainBuilding(): ToyoshimaBuildingStateV1 {
     di: [
       {
         ch: 1,
-        label: "遠近ビームセンサー DI1",
+        label: "赤外線ビーム（遠・外周境界） DI1",
         state: "normal",
       },
       {
         ch: 2,
-        label: "遠近ビームセンサー DI2",
+        label: "赤外線ビーム（近・建物アプローチ） DI2",
         state: "normal",
       },
     ],
     do: [
-      { ch: 1, label: "100V 防犯ライト 1号機 (DO1)", on: false },
-      { ch: 2, label: "100V 防犯ライト 2号機 (DO2)", on: false },
+      { ch: 1, label: "100V 防犯ライト 1（主照明） (DO1)", on: false },
+      { ch: 2, label: "100V 防犯ライト 2（増設投光器） (DO2)", on: false },
       {
         ch: 3,
-        label: "24V パトライト (DO3)",
+        label: "100V フラッシュライト（ストロボ） (DO3)",
         on: false,
         blinking: false,
       },
@@ -888,21 +896,29 @@ async function sendToyoshimaPush(input: {
   }
 }
 
-/** 母屋：遠近センサー検知 → DO1+DO2 点灯（夜間のみ） */
-async function handleMainBeamDetect(siteId: string): Promise<void> {
+/** 母屋：遠近2段階検知 → ライト／フラッシュ連動 */
+async function handleMainBeamDetect(
+  siteId: string,
+  di: ToyoshimaDiChannelV1
+): Promise<void> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
   const armed = isHomeSecurityArmedV1(rules);
   const lightsActive = isHomeGuardActiveV1(rules);
-  /* 在宅見守りでは屋内（母屋）はログのみ */
-  const mainActive = customerMode === "away";
+  const securityMode = String(rules.securityMode || "2STEP").toUpperCase();
+  const flashEnabled = rules.flashEnabled !== false;
+  const isFar = di === 1;
+  /* 解除以外は外周・至近とも有効 */
+  const beamActive =
+    customerMode === "away" || customerMode === "home";
 
-  runtime.main.di.forEach((d) => {
-    d.state = "detecting";
-  });
+  const diState = findDi(runtime.main, di);
+  if (diState) diState.state = "detecting";
 
-  const title = "🚨 豊島邸 母屋";
+  const title = isFar
+    ? "⚠️ 外周で接近検知"
+    : "🚨 建物至近で侵入検知！";
   const at = nowIso();
   const snapshot = captureSecurityAlarmSnapshotV1({
     eventKind: "main_beam",
@@ -914,7 +930,9 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
     building: "main",
     kind: "main_beam",
     title,
-    detail: "母屋 遠近ビームセンサー",
+    detail: isFar
+      ? "母屋 DI1 遠・外周境界"
+      : "母屋 DI2 近・建物アプローチ",
     snapshot,
   });
 
@@ -922,39 +940,47 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
     siteId: homeId,
     category: "sensor_alert",
     message: title,
-    detail: { building: "main", di: [1, 2], customerMode },
+    detail: { building: "main", di, customerMode, securityMode },
     actor: "rp2350",
   });
 
-  if (
-    armed &&
-    mainActive &&
-    isHomeNotifyAnyPushV1(rules.notifyStagedMode)
-  ) {
+  const notifyMode = isFar
+    ? rules.notifyMainFarMode || rules.notifyStagedMode
+    : rules.notifyMainNearMode || rules.notifyStagedMode;
+
+  if (armed && beamActive && isHomeNotifyAnyPushV1(notifyMode)) {
     await sendToyoshimaPush({
-      title: "🚨 豊島邸 母屋",
-      body: "母屋 遠近ビームセンサー侵入検知",
-      eventType: "toyoshima_main_beam",
-      severity:
-        rules.notifyStagedMode === "silent" ? "silent" : "critical",
+      title,
+      body: isFar
+        ? "豊島邸 外周で接近を検知しました"
+        : "豊島邸 建物至近で侵入を検知しました",
+      eventType: isFar
+        ? "toyoshima_main_beam_far"
+        : "toyoshima_main_beam_near",
+      severity: notifyMode === "silent" ? "silent" : "critical",
       snapshotUrl: snapshot?.imageUrl,
     });
   }
 
-  runtime.alarmLatch = mainActive && armed;
+  runtime.alarmLatch = beamActive && armed;
   touchToyoshimaDeviceCommV1("main");
 
-  if (mainActive && lightsActive) {
-    const d1 = findDo(runtime.main, 1);
-    const d2 = findDo(runtime.main, 2);
+  const silent = securityMode === "SILENT";
+  const full =
+    !silent && (securityMode === "DIRECT" || !isFar);
+  const d1 = findDo(runtime.main, 1);
+  const d2 = findDo(runtime.main, 2);
+  if (beamActive && lightsActive && !silent) {
     if (d1) d1.on = true;
-    if (d2) d2.on = true;
+    if (full && d2) d2.on = true;
     appendTimeline({
       at,
       building: "main",
       kind: "manual",
-      title: "外側防犯ライト点灯（DO2）",
-      detail: "母屋 DO2 · センサー連動",
+      title: full
+        ? "防犯ライト1+2 点灯（至近／即時）"
+        : "防犯ライト1 点灯（外周）",
+      detail: `母屋 2STEP · ${securityMode}`,
     });
     const durationMs = rules.lightingDurationSec * 1000;
     setTimeout(() => {
@@ -963,14 +989,23 @@ async function handleMainBeamDetect(siteId: string): Promise<void> {
     }, durationMs);
   }
 
-  if (mainActive && armed && rules.patliteThreatEnabled !== false) {
-    startPatliteBlink("main", 3, rules.di2AlertDurationSec * 1000);
+  if (
+    beamActive &&
+    armed &&
+    lightsActive &&
+    !silent &&
+    full &&
+    flashEnabled
+  ) {
+    startPatliteBlink(
+      "main",
+      3,
+      (rules.flashDurationSec ?? 15) * 1000
+    );
   }
 
   setTimeout(() => {
-    runtime.main.di.forEach((d) => {
-      d.state = "normal";
-    });
+    if (diState) diState.state = "normal";
   }, 5000);
 }
 
@@ -1106,11 +1141,14 @@ export async function processToyoshimaSecurityEventV1(input: {
   }
 
   if (input.building === "main") {
-    await handleMainBeamDetect(siteId);
+    await handleMainBeamDetect(siteId, di);
     return {
       ok: true,
       pushSent: true,
-      message: "母屋 遠近検知",
+      message:
+        di === 1
+          ? "⚠️ 外周で接近検知"
+          : "🚨 建物至近で侵入検知！",
     };
   }
 
@@ -1294,10 +1332,20 @@ function buildToyoshimaNotifySensorsV1(
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi2Mode),
     },
     {
-      id: "main_beam",
-      label: "遠近センサー（母屋）",
-      mode: rules.notifyStagedMode,
-      modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyStagedMode),
+      id: "main_beam_far",
+      label: "外周ビーム（母屋・遠）",
+      mode: rules.notifyMainFarMode || rules.notifyStagedMode,
+      modeLabel: toyoshimaNotifyModeLabelV1(
+        rules.notifyMainFarMode || rules.notifyStagedMode
+      ),
+    },
+    {
+      id: "main_beam_near",
+      label: "建物至近ビーム（母屋・近）",
+      mode: rules.notifyMainNearMode || rules.notifyStagedMode,
+      modeLabel: toyoshimaNotifyModeLabelV1(
+        rules.notifyMainNearMode || rules.notifyStagedMode
+      ),
     },
   ];
 }
@@ -1305,7 +1353,10 @@ function buildToyoshimaNotifySensorsV1(
 function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
   const items: string[] = [];
   if (runtime.main.di.some((d) => d.state === "detecting")) {
-    items.push("母屋 遠近センサー検知");
+    const far = runtime.main.di.find((d) => d.ch === 1 && d.state === "detecting");
+    items.push(
+      far ? "母屋 外周ビーム検知" : "母屋 建物至近ビーム検知"
+    );
   }
   if (runtime.detached.di.some((d) => d.state === "detecting")) {
     const det = runtime.detached.di.find((d) => d.state === "detecting");
@@ -1317,7 +1368,7 @@ function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
     items.push("はなれ パトライト作動中");
   }
   if (runtime.main.do.some((d) => d.blinking)) {
-    items.push("母屋 パトライト作動中");
+    items.push("母屋 フラッシュライト作動中");
   }
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
     const comm = runtime.deviceComm[building];
@@ -1492,11 +1543,17 @@ export function getToyoshimaSocHeartbeatSnapshotV1(): {
 
 const NOTIFY_SENSOR_FIELD: Record<
   ToyoshimaNotifySensorIdV1,
-  "notifyDi1Mode" | "notifyDi2Mode" | "notifyStagedMode"
+  | "notifyDi1Mode"
+  | "notifyDi2Mode"
+  | "notifyStagedMode"
+  | "notifyMainFarMode"
+  | "notifyMainNearMode"
 > = {
   detached_road: "notifyDi1Mode",
   detached_path: "notifyDi2Mode",
   main_beam: "notifyStagedMode",
+  main_beam_far: "notifyMainFarMode",
+  main_beam_near: "notifyMainNearMode",
 };
 
 /** センサー通知モードを切替 */
@@ -1513,6 +1570,9 @@ export function updateToyoshimaNotifyModeV1(input: {
     throw new Error("mode must be critical, silent, or off");
   }
   const field = NOTIFY_SENSOR_FIELD[input.sensorId];
+  if (!field) {
+    throw new Error("sensorId invalid");
+  }
   const rules = updateHomeSecurityRulesV1(homeId, {
     [field]: input.mode,
   });
@@ -1750,6 +1810,12 @@ export function buildToyoshimaSecurityDashboardV1(
       rules.lightingDurationSec ?? rules.di1DurationSec ?? 45,
     perimeterTimeoutSec: rules.perimeterTimeoutSec ?? 120,
     patliteThreatEnabled: rules.patliteThreatEnabled !== false,
+    securityMode: (rules.securityMode as
+      | "2STEP"
+      | "DIRECT"
+      | "SILENT") || "2STEP",
+    flashEnabled: rules.flashEnabled !== false,
+    flashDurationSec: rules.flashDurationSec ?? 15,
     heartbeatWatchEnabled: ops.heartbeatWatchEnabled !== false,
     monthlyDetectionCount,
     monthlyDetectionLabel: `${monthlyDetectionCount}件`,

@@ -66,7 +66,7 @@ const TOYOSHIMA_OUTPUTS_V1: HardwareTestOutputV1[] = [
   {
     id: "main-do3",
     channel: 3,
-    label: "母屋 DO3 パトライト",
+    label: "母屋 DO3 100Vフラッシュ",
     building: "main",
     kind: "patlite",
   },

@@ -46,6 +46,9 @@ function syncSettingsState(dash) {
     scheduleStart: dash.scheduleStart || "18:00",
     scheduleEnd: dash.scheduleEnd || "06:00",
     customerMode: dash.customerMode || "home",
+    securityMode: String(dash.securityMode || "2STEP").toUpperCase(),
+    flashEnabled: dash.flashEnabled !== false,
+    flashDurationSec: dash.flashDurationSec ?? 15,
   };
 }
 
@@ -72,7 +75,28 @@ let settingsState = {
   scheduleStart: "18:00",
   scheduleEnd: "06:00",
   customerMode: "home",
+  securityMode: "2STEP",
+  flashEnabled: true,
+  flashDurationSec: 15,
 };
+
+const SECURITY_MODE_OPTIONS = [
+  {
+    id: "2STEP",
+    label: "遠近2段階",
+    desc: "外周はライト1、至近は全点灯",
+  },
+  {
+    id: "DIRECT",
+    label: "すぐ全点灯",
+    desc: "遠近ともライト1+2とフラッシュ",
+  },
+  {
+    id: "SILENT",
+    label: "通知のみ",
+    desc: "ライトとフラッシュは動かさない",
+  },
+];
 
 function $(id) {
   return document.getElementById(id);
@@ -383,6 +407,42 @@ function applyHardwareStatusFromDash(dash, view = null) {
 }
 
 /** 顧客向け · 日常詳細設定（常時表示カード） */
+function renderTwoStepRemoteBlock(dash) {
+  const mode = String(
+    dash.securityMode || settingsState.securityMode || "2STEP"
+  ).toUpperCase();
+  const flashOn = dash.flashEnabled !== false;
+  const flashSec = dash.flashDurationSec ?? settingsState.flashDurationSec ?? 15;
+  const buttons = SECURITY_MODE_OPTIONS.map(
+    (opt) => `<button type="button" class="ts-seg-btn ${
+      mode === opt.id ? "is-on" : ""
+    }" data-ts-security-mode="${opt.id}">
+        <span class="ts-seg-label">${opt.label}</span>
+        <span class="ts-seg-desc">${opt.desc}</span>
+      </button>`
+  ).join("");
+  return `<section class="ts-daily-block" id="ts-twostep-block">
+        <h4 class="ts-daily-h">遠近ビーム連動</h4>
+        <p class="ts-hint">外周と建物至近で点灯の仕方を切り替えます</p>
+        <div class="ts-seg-row" id="ts-security-mode">${buttons}</div>
+        <label class="ts-switch-row" for="ts-flash-enabled">
+          <span class="ts-label">フラッシュライト連動</span>
+          <span class="ts-switch">
+            <input type="checkbox" id="ts-flash-enabled" ${flashOn ? "checked" : ""} />
+            <span class="ts-switch-ui" aria-hidden="true"></span>
+            <span class="ts-switch-text" id="ts-flash-enabled-label">${flashOn ? "ON" : "OFF"}</span>
+          </span>
+        </label>
+        <label class="ts-slider-field" for="ts-flash-duration">
+          <span class="ts-label">フラッシュ点灯時間</span>
+          <div class="ts-slider-row">
+            <input type="range" id="ts-flash-duration" min="5" max="60" step="1" value="${flashSec}" />
+            <span class="ts-slider-val" id="ts-flash-duration-val">${flashSec}秒</span>
+          </div>
+        </label>
+      </section>`;
+}
+
 function renderCustomerDailySettings(dash) {
   const mode = dash.customerMode || "home";
   const lightSec = dash.lightingDurationSec ?? 45;
@@ -456,6 +516,8 @@ function renderCustomerDailySettings(dash) {
         </label>
         ${patliteBlock}
       </section>
+
+      ${renderTwoStepRemoteBlock(dash)}
 
       <section class="ts-daily-block">
         <h4 class="ts-daily-h">② 自動点灯スケジュール設定</h4>
@@ -962,6 +1024,7 @@ function renderSettingsCard(dash) {
   const periSec = dash.perimeterTimeoutSec ?? 120;
   return `<section class="ts-card ts-settings-card" id="ts-settings-card">
     <h3 class="ts-card-head">⚙️ 詳細設定</h3>
+    ${renderTwoStepRemoteBlock(dash)}
     <label class="ts-slider-field" for="ts-lighting-duration">
       <span class="ts-label">DOライト点灯維持時間</span>
       <div class="ts-slider-row">
@@ -976,7 +1039,7 @@ function renderSettingsCard(dash) {
         <span class="ts-slider-val" id="ts-perimeter-timeout-val">${periSec}秒</span>
       </div>
     </label>
-    <p class="ts-hint">スライダー変更は自動保存されます</p>
+    <p class="ts-hint">スライダー変更は自動保存され、実機へ即時反映されます</p>
   </section>`;
 }
 
@@ -1158,6 +1221,9 @@ function dashSignature(dash) {
     cmode: dash.customerMode,
     lightSec: dash.lightingDurationSec,
     patlite: dash.patliteThreatEnabled,
+    secMode: dash.securityMode,
+    flashOn: dash.flashEnabled,
+    flashSec: dash.flashDurationSec,
     hbWatch: dash.heartbeatWatchEnabled,
     monthDet: dash.monthlyDetectionCount,
     // 通信ヘルス SSOT を soft patch 判定に含める
@@ -1223,7 +1289,7 @@ function renderBuildingCard(building) {
             <span>2号機（出力2）</span>
           </label>
         </div>
-        <p class="ts-sub">24V パトライト（出力3）</p>
+        <p class="ts-sub">100V フラッシュライト（出力3）</p>
         <div class="ts-row">
           ${doStatus(d3 || { on: false })}
           <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">手動テスト</button>
@@ -1504,6 +1570,12 @@ function patchToyoshimaDashboard(dash) {
         const lv = $("ts-lighting-duration-val");
         if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
       }
+      const flashSlider = $("ts-flash-duration");
+      if (flashSlider && !flashSlider.matches(":active")) {
+        flashSlider.value = String(settingsState.flashDurationSec ?? 15);
+        const fv = $("ts-flash-duration-val");
+        if (fv) fv.textContent = `${settingsState.flashDurationSec ?? 15}秒`;
+      }
       const notifyRoot = $("ts-customer-notify");
       if (notifyRoot && dash.notifySensors) {
         notifyRoot.innerHTML = (dash.notifySensors || [])
@@ -1584,6 +1656,7 @@ function patchToyoshimaDashboard(dash) {
 
   const lightSlider = $("ts-lighting-duration");
   const periSlider = $("ts-perimeter-timeout");
+  const flashSlider = $("ts-flash-duration");
   if (lightSlider && !lightSlider.matches(":active")) {
     lightSlider.value = String(settingsState.lightingDurationSec);
     const lv = $("ts-lighting-duration-val");
@@ -1593,6 +1666,11 @@ function patchToyoshimaDashboard(dash) {
     periSlider.value = String(settingsState.perimeterTimeoutSec);
     const pv = $("ts-perimeter-timeout-val");
     if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+  }
+  if (flashSlider && !flashSlider.matches(":active")) {
+    flashSlider.value = String(settingsState.flashDurationSec ?? 15);
+    const fv = $("ts-flash-duration-val");
+    if (fv) fv.textContent = `${settingsState.flashDurationSec ?? 15}秒`;
   }
 
   const modeCard = $("ts-mode-card");
@@ -1707,6 +1785,9 @@ async function saveSettingsDebounced() {
         scheduleStart: settingsState.scheduleStart,
         scheduleEnd: settingsState.scheduleEnd,
         patliteThreatEnabled: settingsState.patliteThreatEnabled,
+        securityMode: settingsState.securityMode || "2STEP",
+        flashEnabled: settingsState.flashEnabled !== false,
+        flashDurationSec: settingsState.flashDurationSec ?? 15,
       };
       if (!isCustomerPortal()) {
         payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
@@ -1763,6 +1844,7 @@ function bindSettingsSliders() {
   root.addEventListener("input", (e) => {
     const light = e.target.closest("#ts-lighting-duration");
     const peri = e.target.closest("#ts-perimeter-timeout");
+    const flashDur = e.target.closest("#ts-flash-duration");
     const start = e.target.closest("#ts-daily-schedule-start");
     const end = e.target.closest("#ts-daily-schedule-end");
     if (light) {
@@ -1775,6 +1857,12 @@ function bindSettingsSliders() {
       settingsState.perimeterTimeoutSec = Number(peri.value) || 120;
       const pv = $("ts-perimeter-timeout-val");
       if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+      saveSettingsDebounced();
+    }
+    if (flashDur) {
+      settingsState.flashDurationSec = Number(flashDur.value) || 15;
+      const fv = $("ts-flash-duration-val");
+      if (fv) fv.textContent = `${settingsState.flashDurationSec}秒`;
       saveSettingsDebounced();
     }
     if (start) {
@@ -1794,6 +1882,13 @@ function bindSettingsSliders() {
       settingsState.patliteThreatEnabled = !!patlite.checked;
       const lab = $("ts-patlite-threat-label");
       if (lab) lab.textContent = patlite.checked ? "ON" : "OFF";
+      saveSettingsDebounced();
+    }
+    const flashEn = e.target.closest("#ts-flash-enabled");
+    if (flashEn) {
+      settingsState.flashEnabled = !!flashEn.checked;
+      const lab = $("ts-flash-enabled-label");
+      if (lab) lab.textContent = flashEn.checked ? "ON" : "OFF";
       saveSettingsDebounced();
     }
     const hbWatch = e.target.closest("#ts-hb-watch");
@@ -1886,7 +1981,6 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
         <div id="ts-ota-root">${renderOtaCard(dash)}</div>
         <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
-        <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
         ${renderCloudStreamCard()}
         ${renderCustomerCameraCard()}
         ${renderBuildingCard(dash.main)}
@@ -1894,6 +1988,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">
         <div id="ts-alarm-root">${renderAlarmCard(dash)}</div>
+        <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
         <div id="ts-notify-root">${renderNotifyCard(dash)}</div>
         ${renderOpsCard()}
       </div>
@@ -2190,6 +2285,23 @@ function bindToyoshimaControls() {
       } finally {
         modeBtn.disabled = false;
       }
+      return;
+    }
+
+    const secModeBtn = e.target.closest("[data-ts-security-mode]");
+    if (secModeBtn) {
+      e.preventDefault();
+      const mode = String(
+        secModeBtn.getAttribute("data-ts-security-mode") || "2STEP"
+      ).toUpperCase();
+      settingsState.securityMode = mode;
+      document.querySelectorAll("[data-ts-security-mode]").forEach((btn) => {
+        btn.classList.toggle(
+          "is-on",
+          btn.getAttribute("data-ts-security-mode") === mode
+        );
+      });
+      saveSettingsDebounced();
       return;
     }
 

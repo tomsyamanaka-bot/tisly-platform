@@ -1546,3 +1546,54 @@
   border-left: 4px solid #1e3a8a;
 }
 
+/* 遠近2段階・遠隔設定（白×紺） */
+.ts-seg-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+@media (min-width: 640px) {
+  .ts-seg-row {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.ts-seg-btn {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ts-seg-btn .ts-seg-label {
+  font-weight: 900;
+  font-size: 0.98rem;
+  color: #1e3a8a;
+}
+
+.ts-seg-btn .ts-seg-desc {
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.ts-seg-btn.is-on {
+  border-color: #1e3a8a;
+  background: #1e3a8a;
+  color: #ffffff;
+}
+
+.ts-seg-btn.is-on .ts-seg-label,
+.ts-seg-btn.is-on .ts-seg-desc {
+  color: #ffffff;
+}
+
+

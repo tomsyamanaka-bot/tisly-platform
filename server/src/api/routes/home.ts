@@ -86,6 +86,7 @@ import {
   type HomeDi2StandaloneLightModeV1,
   type HomeGuardModeV1,
   type HomeNotifyModeV1,
+  type HomeSecurityModeV1,
 } from "../../home/home-security-rules-v1.js";
 import {
   buildHomeSecurityNotifyPolicyV1,
@@ -672,6 +673,16 @@ function applyHomeSecurityRulesPatchV1(
     securityPausedUntil: body?.securityPausedUntil as string | null | undefined,
     customerSecurityMode: body?.customerSecurityMode as
       | CustomerSecurityModeV1
+      | undefined,
+    patliteThreatEnabled: body?.patliteThreatEnabled as boolean | undefined,
+    securityMode: body?.securityMode as HomeSecurityModeV1 | undefined,
+    flashDurationSec: body?.flashDurationSec as number | undefined,
+    flashEnabled: body?.flashEnabled as boolean | undefined,
+    notifyMainFarMode: body?.notifyMainFarMode as
+      | HomeNotifyModeV1
+      | undefined,
+    notifyMainNearMode: body?.notifyMainNearMode as
+      | HomeNotifyModeV1
       | undefined,
     diConfirmMs: body?.diConfirmMs as number | undefined,
     debounceDi1Ms: body?.debounceDi1Ms as number | undefined,
@@ -1669,7 +1680,9 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
     if (
       sensorId !== "detached_road" &&
       sensorId !== "detached_path" &&
-      sensorId !== "main_beam"
+      sensorId !== "main_beam" &&
+      sensorId !== "main_beam_far" &&
+      sensorId !== "main_beam_near"
     ) {
       res.status(400).json({ ok: false, error: "sensorId invalid" });
       return;

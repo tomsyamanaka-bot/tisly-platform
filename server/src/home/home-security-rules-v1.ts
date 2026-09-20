@@ -52,6 +52,9 @@ export type HomeDi2StandaloneLightModeV1 =
 /** Web Push 通知条件トグル（緊急 / サイレント / OFF） */
 export type HomeNotifyModeV1 = "critical" | "silent" | "off";
 
+/** 豊島邸 遠近ビーム連動モード */
+export type HomeSecurityModeV1 = "2STEP" | "DIRECT" | "SILENT";
+
 /** JST 夜間開始（18:00）— 実機 security_light.py と同期 */
 export const HOME_GUARD_NIGHT_START_HOUR_JST_V1 = 18;
 /** JST 夜間終了（06:00） */
@@ -110,6 +113,19 @@ export interface HomeSecurityRulesV1 {
    * （在宅見守りでは常に OFF）
    */
   patliteThreatEnabled?: boolean;
+  /**
+   * 遠近2段階モード
+   * 2STEP / DIRECT / SILENT
+   */
+  securityMode?: HomeSecurityModeV1;
+  /** 100V フラッシュ維持秒数（5〜180） */
+  flashDurationSec?: number;
+  /** 母屋 DO3 フラッシュ連動 */
+  flashEnabled?: boolean;
+  /** 母屋 外周ビーム Push */
+  notifyMainFarMode?: HomeNotifyModeV1;
+  /** 母屋 至近ビーム Push */
+  notifyMainNearMode?: HomeNotifyModeV1;
   /** DI 確定デバウンス（ms）— 既定100 */
   diConfirmMs?: number;
   /** 外周・道路側 DI1 デバウンス（ms） */
@@ -145,6 +161,16 @@ export interface HomeSecurityRulesPatchV1 {
   customerSecurityMode?: "away" | "home" | "disarmed";
   /** おでかけ警戒時パトライト威嚇 */
   patliteThreatEnabled?: boolean;
+  /** 遠近2段階モード */
+  securityMode?: HomeSecurityModeV1;
+  /** 100V フラッシュ維持秒数 */
+  flashDurationSec?: number;
+  /** 母屋 DO3 フラッシュ連動 */
+  flashEnabled?: boolean;
+  /** 母屋 外周ビーム Push */
+  notifyMainFarMode?: HomeNotifyModeV1;
+  /** 母屋 至近ビーム Push */
+  notifyMainNearMode?: HomeNotifyModeV1;
   diConfirmMs?: number;
   debounceDi1Ms?: number;
   debounceDi2Ms?: number;
@@ -187,6 +213,16 @@ export interface HomeSecurityFirmwareRulesV1 {
   debounceBeamMs: number;
   /** 夜間ライト点灯維持（秒）— RP2350 実機キー */
   lighting_duration_sec: number;
+  /** ライト維持秒（エイリアス） */
+  light_duration_sec: number;
+  /** 遠近2段階モード */
+  security_mode: HomeSecurityModeV1;
+  /** 点灯時間帯オブジェクト */
+  light_schedule: { start: string; end: string };
+  /** フラッシュ維持秒 */
+  flash_duration_sec: number;
+  /** フラッシュ連動 */
+  flash_enabled: boolean;
   /** おでかけ警戒時のパトライト威嚇 */
   patlite_threat_enabled: boolean;
   /** VPS 算出の JST 分（0〜1439） */
@@ -259,6 +295,22 @@ const DI2_STANDALONE_MODES: HomeDi2StandaloneLightModeV1[] = [
   "off",
 ];
 const NOTIFY_MODES: HomeNotifyModeV1[] = ["critical", "silent", "off"];
+const SECURITY_MODES: HomeSecurityModeV1[] = [
+  "2STEP",
+  "DIRECT",
+  "SILENT",
+];
+
+/** 遠近モードを正規化 */
+export function parseHomeSecurityModeV1(
+  value: unknown,
+  fallback: HomeSecurityModeV1 = "2STEP"
+): HomeSecurityModeV1 {
+  const raw = String(value ?? "").trim().toUpperCase();
+  return SECURITY_MODES.includes(raw as HomeSecurityModeV1)
+    ? (raw as HomeSecurityModeV1)
+    : fallback;
+}
 
 export function isHomeNotifyModeV1(value: unknown): value is HomeNotifyModeV1 {
   return (
@@ -305,6 +357,11 @@ const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   notifyDi2Mode: "critical",
   securityPausedUntil: null,
   patliteThreatEnabled: true,
+  securityMode: "2STEP",
+  flashDurationSec: 15,
+  flashEnabled: true,
+  notifyMainFarMode: "critical",
+  notifyMainNearMode: "critical",
   diConfirmMs: 100,
   debounceDi1Ms: 100,
   debounceDi2Ms: 100,
@@ -494,6 +551,29 @@ function parseRulesJson(
       parsed.patliteThreatEnabled === undefined
         ? DEFAULT_RULES.patliteThreatEnabled !== false
         : Boolean(parsed.patliteThreatEnabled),
+    securityMode: parseHomeSecurityModeV1(
+      parsed.securityMode ?? parsed.security_mode,
+      DEFAULT_RULES.securityMode ?? "2STEP"
+    ),
+    flashDurationSec: clampSec(
+      parsed.flashDurationSec ?? parsed.flash_duration_sec,
+      DEFAULT_RULES.flashDurationSec ?? 15
+    ),
+    flashEnabled:
+      parsed.flashEnabled === undefined &&
+      parsed.flash_enabled === undefined
+        ? DEFAULT_RULES.flashEnabled !== false
+        : Boolean(
+            parsed.flashEnabled ?? parsed.flash_enabled
+          ),
+    notifyMainFarMode: parseNotifyMode(
+      parsed.notifyMainFarMode,
+      DEFAULT_RULES.notifyMainFarMode ?? "critical"
+    ),
+    notifyMainNearMode: parseNotifyMode(
+      parsed.notifyMainNearMode,
+      DEFAULT_RULES.notifyMainNearMode ?? "critical"
+    ),
     diConfirmMs: clampDebounceMsV1(
       parsed.diConfirmMs,
       DEFAULT_RULES.diConfirmMs ?? 100
@@ -723,6 +803,30 @@ export function updateHomeSecurityRulesV1(
       patch.patliteThreatEnabled !== undefined
         ? Boolean(patch.patliteThreatEnabled)
         : current.patliteThreatEnabled !== false,
+    securityMode:
+      patch.securityMode !== undefined
+        ? parseHomeSecurityModeV1(
+            patch.securityMode,
+            current.securityMode ?? "2STEP"
+          )
+        : current.securityMode ?? "2STEP",
+    flashDurationSec:
+      patch.flashDurationSec !== undefined
+        ? clampSec(
+            patch.flashDurationSec,
+            current.flashDurationSec ?? 15
+          )
+        : current.flashDurationSec ?? 15,
+    flashEnabled:
+      patch.flashEnabled !== undefined
+        ? Boolean(patch.flashEnabled)
+        : current.flashEnabled !== false,
+    notifyMainFarMode: isHomeNotifyModeV1(patch.notifyMainFarMode)
+      ? patch.notifyMainFarMode
+      : current.notifyMainFarMode ?? "critical",
+    notifyMainNearMode: isHomeNotifyModeV1(patch.notifyMainNearMode)
+      ? patch.notifyMainNearMode
+      : current.notifyMainNearMode ?? "critical",
     diConfirmMs:
       patch.diConfirmMs !== undefined
         ? clampDebounceMsV1(patch.diConfirmMs, current.diConfirmMs ?? 100)
@@ -850,6 +954,17 @@ export function buildHomeSecurityFirmwareRulesV1(
       rules.diConfirmMs ?? 100
     ),
     lighting_duration_sec: rules.lightingDurationSec,
+    light_duration_sec: rules.lightingDurationSec,
+    security_mode: parseHomeSecurityModeV1(
+      rules.securityMode,
+      "2STEP"
+    ),
+    light_schedule: {
+      start: rules.scheduleStart,
+      end: rules.scheduleEnd,
+    },
+    flash_duration_sec: rules.flashDurationSec ?? 15,
+    flash_enabled: rules.flashEnabled !== false,
     patlite_threat_enabled: rules.patliteThreatEnabled !== false,
     /* RP2350 RTC 未設定でも
      * VPS の JST 判定を正とする */
