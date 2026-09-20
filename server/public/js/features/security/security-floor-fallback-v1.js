@@ -16,6 +16,42 @@ export const UI_VISIBLE_SITE_IDS = [
 /** 板橋自宅の HOME / RP2350 propertyId */
 export const ITABASHI_PROPERTY_ID = "HOME-JP-ITABASHI-LIVE";
 
+/** 板橋自宅として同一物件とみなす ID */
+export const ITABASHI_SITE_ALIASES_V1 = Object.freeze([
+  "SEC-JP-ITABASHI-LIVE",
+  "HOME-JP-ITABASHI-LIVE",
+  "TOMS001",
+  "HOME001",
+  "ITABASHI001",
+]);
+
+/**
+ * HOME / 顧客コードを Security ID へ寄せる
+ * 空文字は空のまま返す
+ */
+export function mapItabashiSiteAliasV1(raw) {
+  const id = String(raw || "").trim();
+  if (!id) return "";
+  if (ITABASHI_SITE_ALIASES_V1.includes(id)) {
+    return FALLBACK_DEFAULT_SITE_ID;
+  }
+  return id;
+}
+
+/**
+ * セレクタ初期値を必ず実在 ID にする
+ * 不明値は板橋自宅へ戻す
+ */
+export function resolveOperatorSiteIdV1(raw, allowedIds) {
+  const allow = (allowedIds || []).filter(Boolean);
+  const mapped = mapItabashiSiteAliasV1(raw);
+  if (mapped && allow.includes(mapped)) return mapped;
+  if (allow.includes(FALLBACK_DEFAULT_SITE_ID)) {
+    return FALLBACK_DEFAULT_SITE_ID;
+  }
+  return allow[0] || FALLBACK_DEFAULT_SITE_ID;
+}
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }

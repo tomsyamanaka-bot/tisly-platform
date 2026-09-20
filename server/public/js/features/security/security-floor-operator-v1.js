@@ -19,6 +19,7 @@ import {
 } from "./security-floor-orbit-v1.js";
 import {
   FALLBACK_DEFAULT_SITE_ID,
+  ITABASHI_PROPERTY_ID,
   applyLocalAck,
   applyLocalGuardMode,
   applyLocalLights,
@@ -26,8 +27,8 @@ import {
   getFallbackOperatorBundle,
   listFallbackSites,
   markSecurityUiReady,
+  resolveOperatorSiteIdV1,
 } from "./security-floor-fallback-v1.js";
-import { updateSecurityIso3d } from "./security-floor-iso3d-v1.js";
 import { refreshSecurityRemoteConfigV1 } from "./security-floor-remote-config-v1.js";
 import {
   hideToyoshimaDashboard,
@@ -88,6 +89,16 @@ function setText(id, text) {
 function setHtml(id, html) {
   const el = $(id);
   if (el) el.innerHTML = html;
+}
+
+/**
+ * 3Dマウントがある時だけエンジンを読む
+ * three.js の静的読込で画面全体を止めない
+ */
+async function updateSecurityIso3d(site, floorId, opts = {}) {
+  if (!document.getElementById("sf-iso3d-mount")) return;
+  const mod = await import("./security-floor-iso3d-v1.js");
+  return mod.updateSecurityIso3d(site, floorId, opts);
 }
 
 async function fetchJson(url, opts) {
@@ -202,18 +213,27 @@ function fillSiteSelect(sites) {
     .join("");
   const ids = list.map((s) => s.siteId);
   restoreOperatorPropertyScope(ids, FALLBACK_DEFAULT_SITE_ID);
-  const restoredId = window.__TISLY_SF_SITE_ID;
-  if (restoredId && ids.includes(restoredId)) {
-    state.siteId = restoredId;
-  } else if (!ids.includes(state.siteId)) {
-    state.siteId = ids.includes(FALLBACK_DEFAULT_SITE_ID)
-      ? FALLBACK_DEFAULT_SITE_ID
-      : ids[0];
-  }
-  const row = list.find((s) => s.siteId === state.siteId);
+  /* HOME ID や空値は板橋 Security ID へ寄せる */
+  state.siteId = resolveOperatorSiteIdV1(
+    window.__TISLY_SF_SITE_ID || state.siteId,
+    ids
+  );
+  const row = list.find((s) => s.siteId === state.siteId) || list[0];
+  if (row) state.siteId = row.siteId;
   state.selectedPropertyId =
-    row?.propertyId || getSelectedPropertyId() || state.siteId;
+    row?.propertyId ||
+    (state.siteId === FALLBACK_DEFAULT_SITE_ID
+      ? ITABASHI_PROPERTY_ID
+      : getSelectedPropertyId() || state.siteId);
   sel.value = state.siteId;
+  if (!sel.value || sel.selectedIndex < 0) {
+    const itabashi = list.find((s) => s.siteId === FALLBACK_DEFAULT_SITE_ID);
+    const fallback = itabashi || list[0];
+    if (fallback) {
+      state.siteId = fallback.siteId;
+      sel.value = fallback.siteId;
+    }
+  }
   sel.disabled = list.length <= 1;
   sel.hidden = false;
   sel.removeAttribute("aria-hidden");
@@ -957,6 +977,10 @@ async function refreshOperatorStatus(btn) {
   btn.disabled = true;
   btn.classList.add("is-spinning");
   try {
+    /* 空セレクタなら板橋自宅を再セット */
+    if (!$("sf-site-select")?.value) {
+      fillSiteSelect(state.siteOptions);
+    }
     if (isToyoshimaSecuritySite(state.siteId)) {
       await fetchToyoshimaStatus({ force: true });
       await loadToyoshimaDashboard({ forceHealthSync: true });
@@ -1089,6 +1113,11 @@ async function boot() {
   await loadOperatorSites();
   applySiteLayout(true);
   syncHeaderTitle(currentSiteOption() || { displayName: "板橋自宅" });
+  if (isItabashiSecuritySite(state.siteId)) {
+    /* 物件確定後に生存HBを即時取得 */
+    const status = await fetchItabashiStatus({ force: true }).catch(() => null);
+    if (status) paintItabashiKpi(status);
+  }
   if (!isToyoshimaSecuritySite(state.siteId)) {
     await loadOperator();
   }

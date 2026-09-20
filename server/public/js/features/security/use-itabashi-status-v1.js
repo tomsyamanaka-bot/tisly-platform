@@ -141,8 +141,10 @@ export function applyItabashiHardwareStatus(status) {
     badge.hidden = !(status.firmwareLatest === true && status.firmwareLabel !== "―");
   }
   const pill = document.getElementById("sf-online");
-  if (pill && document.body.classList.contains("sf-customer")) {
-    /* 顧客ヘッダーは applyToyoshima 側で更新 */
+  if (pill) {
+    pill.textContent = online ? "🟢 オンライン" : "🔴 オフライン";
+    pill.classList.toggle("is-offline", !online);
+    pill.classList.remove("is-alert");
   }
   const latencyEl = document.getElementById("ib-latency-val");
   if (latencyEl && status.latencyMs != null) {

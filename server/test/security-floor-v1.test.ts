@@ -703,6 +703,11 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /板橋自宅|豊島邸/);
     assert.doesNotMatch(opJs, /単一物件のため切替不可表示/);
     assert.match(opHtml, /sf-site-select/);
+    assert.match(opHtml, /value="SEC-JP-ITABASHI-LIVE"[^>]*>板橋自宅/);
+    assert.match(opJs, /resolveOperatorSiteIdV1/);
+    assert.match(opJs, /await import\("\.\/security-floor-iso3d-v1\.js"\)/);
+    assert.doesNotMatch(opJs, /import \{ updateSecurityIso3d \} from/);
+    assert.match(fbJs, /ITABASHI_SITE_ALIASES_V1|mapItabashiSiteAliasV1/);
     assert.match(opHtml, /toyoshima-security-dashboard-v1\.js/);
     assert.match(opHtml, /ts-dashboard-root/);
     assert.match(opHtml, /sf-pro-tools/);
@@ -884,6 +889,8 @@ describe("security-floor-v1", () => {
     assert.match(itabashiHookJs, /useItabashiStatus/);
     assert.match(itabashiHookJs, /\/api\/home\/v1\/itabashi\/status/);
     assert.match(itabashiHookJs, /applyItabashiHardwareStatus/);
+    assert.match(itabashiHookJs, /🟢 オンライン/);
+    assert.match(itabashiHookJs, /forceSync/);
     assert.match(itabashiHookJs, /cv-board-temp-val/);
     assert.match(itabashiHookJs, /―（取得中）/);
 

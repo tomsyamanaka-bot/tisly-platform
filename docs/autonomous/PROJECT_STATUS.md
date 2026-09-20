@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2545-security-no-3d-map` |
+| SW | `tisly-pwa-v2546-itabashi-site-online` |
 
 ---
 
@@ -1838,6 +1838,16 @@ p2350-relay-v1.ts �E firmware main.py |
 | UI | 社内タブは「警報」「ログ」。顧客は「家のようす／お知らせ／履歴」。白×紺のままコンパクト配置 |
 | SW | `tisly-pwa-v2545-security-no-3d-map` |
 | 確認 | `/security-v1` · `/security-customer-v1` · https://tisly.jp/api/health |
+
+### 板橋自宅 Security 物件選択・オンライン初期化（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 物件セレクタが空のまま起動し 🔴 オフライン固定になる不具合を直し、板橋自宅を初期選択して 5 分以内の HB で 🟢 オンラインを描く |
+| 原因 | 3D撤去後も iso3d が `three` を静的 import し、operator/customer モジュール全体が起動失敗 |
+| 修正 | iso3d はマウントがある時だけ動的 import。セレクタ初期値は `SEC-JP-ITABASHI-LIVE`。boot/更新で `/api/home/v1/itabashi/status` を no-store 再取得 |
+| SW | `tisly-pwa-v2546-itabashi-site-online` |
+| 確認 | `/security-v1` · https://tisly.jp/api/health |
 
 
 

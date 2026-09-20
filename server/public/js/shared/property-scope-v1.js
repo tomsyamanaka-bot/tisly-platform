@@ -130,26 +130,50 @@ export function setPropertyScope(next = {}) {
  * @param {string[]} allowedSiteIds
  * @param {string} fallbackSiteId
  */
+function mapStoredOperatorSiteId(raw) {
+  const id = String(raw || "").trim();
+  if (
+    id === "HOME-JP-ITABASHI-LIVE" ||
+    id === "TOMS001" ||
+    id === "HOME001" ||
+    id === "ITABASHI001"
+  ) {
+    return "SEC-JP-ITABASHI-LIVE";
+  }
+  return id;
+}
+
 export function restoreOperatorPropertyScope(
   allowedSiteIds,
   fallbackSiteId
 ) {
   const allow = new Set(allowedSiteIds || []);
   const stored = readStored();
-  if (stored?.selectedSiteId && allow.has(stored.selectedSiteId)) {
+  const storedSiteId = mapStoredOperatorSiteId(stored?.selectedSiteId);
+  if (storedSiteId && allow.has(storedSiteId)) {
+    const propertyId =
+      storedSiteId === "SEC-JP-ITABASHI-LIVE"
+        ? stored?.selectedPropertyId || "HOME-JP-ITABASHI-LIVE"
+        : stored?.selectedPropertyId || storedSiteId;
     return setPropertyScope({
-      siteId: stored.selectedSiteId,
-      propertyId: stored.selectedPropertyId || stored.selectedSiteId,
+      siteId: storedSiteId,
+      propertyId,
       displayName: stored.displayName || "",
       locked: false,
       source: "restore",
       persist: false,
     });
   }
+  const fallback = mapStoredOperatorSiteId(fallbackSiteId) || fallbackSiteId;
+  const propertyId =
+    fallback === "SEC-JP-ITABASHI-LIVE"
+      ? "HOME-JP-ITABASHI-LIVE"
+      : fallback;
   return setPropertyScope({
-    siteId: fallbackSiteId,
-    propertyId: fallbackSiteId,
-    displayName: "",
+    siteId: fallback,
+    propertyId,
+    displayName:
+      fallback === "SEC-JP-ITABASHI-LIVE" ? "板橋自宅" : "",
     locked: false,
     source: "default",
     persist: false,

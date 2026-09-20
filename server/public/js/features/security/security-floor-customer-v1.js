@@ -22,7 +22,6 @@ import {
   listFallbackSites,
   markSecurityUiReady,
 } from "./security-floor-fallback-v1.js";
-import { updateSecurityIso3d } from "./security-floor-iso3d-v1.js";
 import {
   hideToyoshimaDashboard,
   isToyoshimaSecuritySite,
@@ -150,6 +149,16 @@ function setText(id, text) {
 function setHtml(id, html) {
   const el = $(id);
   if (el) el.innerHTML = html;
+}
+
+/**
+ * 3Dマウントがある時だけエンジンを読む
+ * three.js の静的読込で画面全体を止めない
+ */
+async function updateSecurityIso3d(site, floorId, opts = {}) {
+  if (!document.getElementById("sf-iso3d-mount")) return;
+  const mod = await import("./security-floor-iso3d-v1.js");
+  return mod.updateSecurityIso3d(site, floorId, opts);
 }
 
 async function fetchJson(url, opts) {
