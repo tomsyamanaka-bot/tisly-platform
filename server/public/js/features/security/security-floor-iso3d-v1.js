@@ -2124,6 +2124,8 @@ async function maybeFetchActiveFloorplan() {
  * site API データ＋ビルダー間取りで 3D を更新
  */
 export async function updateSecurityIso3d(site, floorId, opts = {}) {
+  /* 3Dマウントが無い画面では何もしない */
+  if (!document.getElementById("sf-iso3d-mount")) return;
   state.site = site || state.site;
   state.floorId = floorId || state.floorId || "1f";
   if (opts.showCameras != null) state.showCameras = !!opts.showCameras;

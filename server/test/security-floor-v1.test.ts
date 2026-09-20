@@ -263,6 +263,8 @@ describe("security-floor-v1", () => {
     assert.match(css, /#334155/);
     assert.match(css, /touch-action: pan-y/);
     assert.match(css, /display: none !important/);
+    assert.match(css, /sf-soc-hero--compact/);
+    assert.match(css, /auto-fit/);
     assert.match(css, /clamp\(260px|max-height:\s*300px|isometric-container/);
 
     const customer = await request(app).get(
@@ -357,14 +359,22 @@ describe("security-floor-v1", () => {
       path.join(publicDir, "security-v1.html"),
       "utf8"
     );
-    assert.match(html, /sf-iso-wrap/);
-    assert.match(html, /sf-iso-orbit/);
-    assert.match(html, /sf-iso3d-mount/);
-    assert.match(html, /data-room-id="my-1f-katte"/);
-    assert.match(html, /勝手口キッチン/);
-    assert.match(html, /リビング洋/);
-    assert.match(html, /和10畳/);
-    assert.match(html, /廊下（3尺）/);
+    assert.doesNotMatch(html, /sf-iso-wrap/);
+    assert.doesNotMatch(html, /sf-iso-orbit/);
+    assert.doesNotMatch(html, /sf-iso3d-mount/);
+    assert.doesNotMatch(html, /data-room-id="my-1f-katte"/);
+    assert.doesNotMatch(html, />3Dマップ</);
+    assert.doesNotMatch(html, /階層展開/);
+    assert.match(html, />警報</);
+    assert.match(html, />ログ</);
+    assert.match(html, /防犯ライト手動遠隔操作（DO2\/DO3）/);
+    assert.match(html, /sf-soc-hero--compact/);
+    assert.ok(
+      html.indexOf("sf-status-hero") < html.indexOf("sf-manual-light")
+    );
+    assert.ok(
+      html.indexOf("sf-manual-light") < html.indexOf("sf-remote-config")
+    );
     assert.match(html, /アラーム対応完了/);
     assert.match(html, /TiSLY Security/);
     assert.match(html, /sf-remote-config/);
@@ -383,7 +393,7 @@ describe("security-floor-v1", () => {
     assert.match(html, /security-floor-push-v1\.js\?v=\d+/);
     assert.match(html, /security-floor-light-v1\.js\?v=\d+/);
     assert.match(html, /security-floor-operator-v1\.js\?v=\d+/);
-    assert.match(html, /security-floor-iso3d-v1\.js\?v=\d+/);
+    assert.doesNotMatch(html, /security-floor-iso3d-v1\.js/);
     assert.match(html, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(html, /security-floor-v1\.css\?v=\d+/);
     assert.match(html, /sf-brand-logo/);
@@ -409,10 +419,10 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(html, /勝手口カメラ 01/);
     assert.match(html, /sf-push-reregister/);
     assert.match(html, /Push通知を再登録・購読/);
-    assert.match(html, /sf-iso3d-stack/);
-    assert.match(html, /sf-iso3d-toolbar/);
-    assert.match(html, /sf-iso3d-floor-switch/);
-    assert.match(html, /id="sf-floor-tabs"/);
+    assert.doesNotMatch(html, /sf-iso3d-stack/);
+    assert.doesNotMatch(html, /sf-iso3d-toolbar/);
+    assert.doesNotMatch(html, /sf-iso3d-floor-switch/);
+    assert.doesNotMatch(html, /id="sf-floor-tabs"/);
     assert.doesNotMatch(html, /縦スワイプ/);
     assert.doesNotMatch(html, /タブでフロア切替/);
     assert.doesNotMatch(html, /sf-orbit-hint/);
@@ -426,10 +436,10 @@ describe("security-floor-v1", () => {
     assert.match(html, /sf-sec-history-list/);
     assert.match(html, /✕ 閉じる/);
     assert.match(html, /security-history-modal-v1\.js\?v=\d+/);
-    assert.match(html, /importmap/);
-    assert.match(html, /viewBox="-10 -12 120 124"/);
+    assert.doesNotMatch(html, /importmap/);
+    assert.doesNotMatch(html, /viewBox="-10 -12 120 124"/);
     assert.match(html, /← 戻る/);
-    assert.match(html, /data-focus="1f"/);
+    assert.doesNotMatch(html, /data-focus="1f"/);
     assert.doesNotMatch(html, /読み込み中/);
     assert.doesNotMatch(html, /3Dマップを再描画しています/);
     assert.doesNotMatch(html, /home-quick-switch/);
@@ -462,6 +472,7 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.match(iso3dJs, /3Dマウントが無い画面では何もしない/);
     assert.match(iso3dJs, /OrbitControls/);
     assert.match(iso3dJs, /createNeonPinMesh3d/);
     assert.match(iso3dJs, /TislySecurityIso3d/);
@@ -578,6 +589,7 @@ describe("security-floor-v1", () => {
     );
     assert.match(opJs, /bootFallback/);
     assert.match(opJs, /applyLocalPrimaryAlert/);
+    assert.match(opJs, /pane: "alert"/);
     assert.match(opJs, /bindSecurityOrbit/);
     assert.match(opJs, /updateSecurityIso3d/);
     assert.match(opJs, /sf-log-compact|logIconFor/);
@@ -619,7 +631,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /role="tablist"/);
     assert.match(customerHtml, /data-pane="alert"/);
     assert.match(customerHtml, /security-floor-light-v1\.js/);
-    assert.match(customerHtml, /security-floor-iso3d-v1\.js/);
+    assert.doesNotMatch(customerHtml, /security-floor-iso3d-v1\.js/);
     assert.match(customerHtml, /security-floor-push-v1\.js/);
     assert.match(customerHtml, /sf-customer-camera/);
     assert.match(customerHtml, /カメラを見る/);
@@ -629,10 +641,14 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /アプリが起動しない場合はこちら/);
     assert.match(customerHtml, /sf-customer-lighting-duration/);
     assert.match(customerHtml, /日常詳細設定/);
+    assert.ok(
+      customerHtml.indexOf('id="sf-customer-daily-settings"') <
+        customerHtml.indexOf('class="sf-soc-mid"')
+    );
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
-    assert.match(customerHtml, /security-time-range-v1\.js\?v=2544/);
+    assert.match(customerHtml, /security-time-range-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-history-modal-v1\.js\?v=\d+/);
     assert.match(customerHtml, /センサー検知・セキュリティ履歴（直近50件）/);
@@ -642,7 +658,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /盤内温度（実測℃）/);
     assert.match(customerHtml, /システムバージョン/);
     assert.match(customerHtml, /toyoshima-security-v1\.css\?v=\d+/);
-    assert.match(customerHtml, /security-floor-light-v1\.js\?v=2520/);
+    assert.match(customerHtml, /security-floor-light-v1\.js\?v=\d+/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
     assert.doesNotMatch(customerHtml, /sf-pro-tools/);
     assert.doesNotMatch(customerHtml, /最新ファームウェアを現場実機へ遠隔配信/);
@@ -661,15 +677,17 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /sf-brand-logo/);
     assert.match(customerHtml, /tisly-shield-logo-128\.png/);
     assert.doesNotMatch(customerHtml, /sf-crystal/);
-    assert.match(customerHtml, /sf-iso3d-mount/);
-    assert.match(customerHtml, /sf-iso3d-stack/);
-    assert.match(customerHtml, /sf-iso3d-floor-switch/);
+    assert.doesNotMatch(customerHtml, /sf-iso3d-mount/);
+    assert.doesNotMatch(customerHtml, /sf-iso3d-stack/);
+    assert.doesNotMatch(customerHtml, /sf-iso3d-floor-switch/);
+    assert.doesNotMatch(customerHtml, /階層展開/);
+    assert.match(customerHtml, /家のようす/);
     assert.doesNotMatch(customerHtml, /縦スワイプ/);
     assert.doesNotMatch(customerHtml, /タブでフロア切替/);
     assert.doesNotMatch(customerHtml, /sf-orbit-hint/);
     assert.match(customerHtml, /sf-log-compact/);
-    assert.match(customerHtml, /data-room-id="my-1f-katte"/);
-    assert.match(customerHtml, /data-focus="1f"/);
+    assert.doesNotMatch(customerHtml, /data-room-id="my-1f-katte"/);
+    assert.doesNotMatch(customerHtml, /data-focus="1f"/);
     assert.match(customerHtml, /is-resolving-tenant|sf-tenant-skeleton/);
     assert.match(customerHtml, /安心ステータスを確認中/);
     assert.doesNotMatch(customerHtml, /読み込み中/);

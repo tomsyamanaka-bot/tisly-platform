@@ -186,12 +186,13 @@ describe("floorplan-builder-v1", () => {
     }
   });
 
-  it("Security HTML にブリッジ script が追記されている", () => {
+  it("Security HTML から 3D マップ UI を外している", () => {
     const html = fs.readFileSync(
       path.join(publicDir, "security-v1.html"),
       "utf8"
     );
-    assert.match(html, /floorplan-security-bridge-v1\.js/);
+    assert.doesNotMatch(html, /floorplan-security-bridge-v1\.js/);
+    assert.doesNotMatch(html, /sf-iso3d-mount/);
     // 既存スクリプトは残す
     assert.match(html, /security-floor-light-v1\.js/);
     assert.match(html, /security-floor-operator-v1\.js/);
@@ -329,9 +330,9 @@ describe("floorplan-builder-v1", () => {
     );
     assert.match(pinMesh, /drawDeviceIconSvgV1/);
     assert.match(pinMesh, /PIN_SPRITE_W/);
-    assert.match(pinMesh, /0x22c55e/);
-    assert.match(pinMesh, /0xa855f7/);
-    assert.match(pinMesh, /白フチ/);
+    assert.match(pinMesh, /0x16a34a|0x22c55e/);
+    assert.match(pinMesh, /0x7c3aed|0xa855f7/);
+    assert.match(pinMesh, /白カプセル/);
   });
 
   it("デバイス配置が security bridge に 3D 座標付きで含まれる", () => {

@@ -1,6 +1,6 @@
 /**
- * 社内向けダークSOC
- * 3D俯瞰 · 発報連動 · ログ
+ * 社内向け Security Floor
+ * 警報 · ライト操作 · ログ
  * 全物件を selectedPropertyId で同期切替
  */
 
@@ -70,7 +70,7 @@ const state = {
   logFloor: "",
   logQ: "",
   logDate: "",
-  pane: "map",
+  pane: "alert",
   pollTimer: null,
   alarmSig: "",
   layoutSiteId: null,
@@ -708,14 +708,23 @@ function renderSite(site, dash) {
       );
     }
     const floors = site.floors || [];
-    setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId, site));
+    /* 3Dキャンバスが無い画面では
+     * 俯瞰描画をスキップする */
+    if ($("sf-floor-tabs")) {
+      setHtml("sf-floor-tabs", renderSocLayerButtons(floors, state.floorId, site));
+    }
     const mapOpts = {
       showCameras: false,
       showSensors: state.showSensors,
       showZones: state.showZones,
       showLabels: state.showLabels,
     };
-    setHtml("sf-map-wrap", renderIsoStack(site, state.floorId, mapOpts));
+    if ($("sf-map-wrap")) {
+      setHtml("sf-map-wrap", renderIsoStack(site, state.floorId, mapOpts));
+      bindSecurityOrbit();
+      applySecurityOrbit();
+      setSecurityDrumFloor(state.floorId);
+    }
     setHtml("sf-modes", renderGuardModes(site.guardMode));
     setHtml(
       "sf-notes",
@@ -724,12 +733,11 @@ function renderSite(site, dash) {
     renderKpi(site, state.dash);
     renderAlarms(site);
     renderLogs(site);
-    bindSecurityOrbit();
-    applySecurityOrbit();
-    setSecurityDrumFloor(state.floorId);
-    updateSecurityIso3d(site, state.floorId, mapOpts).catch((e) => {
-      console.warn("[security-floor] iso3d", e);
-    });
+    if ($("sf-iso3d-mount")) {
+      updateSecurityIso3d(site, state.floorId, mapOpts).catch((e) => {
+        console.warn("[security-floor] iso3d", e);
+      });
+    }
     markSecurityUiReady();
   } catch (err) {
     setText("sf-status-label", "表示を再構築しました");
@@ -1052,7 +1060,7 @@ function bind() {
   });
   document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.pane = btn.getAttribute("data-pane") || "map";
+      state.pane = btn.getAttribute("data-pane") || "alert";
       document
         .querySelectorAll(".sf-mobile-tabs button")
         .forEach((b) => b.classList.toggle("is-on", b === btn));

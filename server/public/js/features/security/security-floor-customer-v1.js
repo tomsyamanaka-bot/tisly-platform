@@ -1,6 +1,6 @@
 /**
  * お客様向け見守り
- * 3D俯瞰とやさしい警報表示
+ * ステータスとやさしい警報表示
  * ログイン後は自邸1件に完全固定
  */
 
@@ -415,14 +415,23 @@ function renderDash(dash, opts = {}) {
     setText("sf-guard-label", dash.guardModeLabel || "—");
     if (!soft) {
       const floors = dash.floors || [];
-      setHtml(
-        "sf-floor-tabs",
-        renderSocLayerButtons(floors, state.floorId, dash)
-      );
-      setHtml(
-        "sf-map-wrap",
-        renderIsoStack(dash, state.floorId, { showCameras: false })
-      );
+      /* 3Dキャンバスが無い画面では
+       * 俯瞰描画をスキップする */
+      if ($("sf-floor-tabs")) {
+        setHtml(
+          "sf-floor-tabs",
+          renderSocLayerButtons(floors, state.floorId, dash)
+        );
+      }
+      if ($("sf-map-wrap")) {
+        setHtml(
+          "sf-map-wrap",
+          renderIsoStack(dash, state.floorId, { showCameras: false })
+        );
+        bindSecurityOrbit();
+        applySecurityOrbit();
+        setSecurityDrumFloor(state.floorId);
+      }
       setHtml("sf-modes", renderGuardModes(dash.guardMode));
       setHtml(
         "sf-notes",
@@ -471,15 +480,14 @@ function renderDash(dash, opts = {}) {
         })
         .join("")
     );
-    if (!soft) {
-      bindSecurityOrbit();
-      applySecurityOrbit();
-      setSecurityDrumFloor(state.floorId);
+    if (!soft && $("sf-iso3d-mount")) {
       updateSecurityIso3d(dash, state.floorId, { showCameras: false }).catch(
         (e) => {
           console.warn("[security-customer] iso3d", e);
         }
       );
+    }
+    if (!soft) {
       markSecurityUiReady();
     } else {
       try {

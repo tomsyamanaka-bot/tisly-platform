@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-08-21  
+**最終更新:** 2026-09-21  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1 / Knowledge Acquisition v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2541-tester-login-hardpass` |
+| SW | `tisly-pwa-v2545-security-no-3d-map` |
 
 ---
 
@@ -1828,6 +1828,16 @@ p2350-relay-v1.ts �E firmware main.py |
 | 実機 | `execute_vps_sensor_command` が DO2+DO3 を維持秒数後に自動消灯。物理 DI1/DI2 は `_can_run_lights()`（VPS `jstMinutes`）で即時序列 |
 | SW | `tisly-pwa-v2544-itabashi-di-trigger-lights` |
 | 確認 | `/security-v1` Pro DI擬似発報 · https://tisly.jp/api/health |
+
+### Security画面 3DマップUI完全撤去（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 板橋自宅および Security 画面から 3D 間取りキャンバス・階層タブ・展開スライダー・「3Dマップ」タブを外し、ステータス直下にライト操作と遠隔ルールを置く |
+| 対象 | `/security-v1` · `/security-customer-v1`。iso3d エンジンと間取り配列・RP2350 DI/DO は削除しない |
+| UI | 社内タブは「警報」「ログ」。顧客は「家のようす／お知らせ／履歴」。白×紺のままコンパクト配置 |
+| SW | `tisly-pwa-v2545-security-no-3d-map` |
+| 確認 | `/security-v1` · `/security-customer-v1` · https://tisly.jp/api/health |
 
 
 

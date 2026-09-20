@@ -470,8 +470,8 @@
 .sf-soc-shell {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
-  padding: 12px 14px 28px;
+  gap: 10px;
+  padding: 8px 14px 24px;
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -1906,7 +1906,26 @@
 }
 
 .sf-status-hero {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+/* 3D間取りは画面から撤去。
+ * エンジンCSSは残し、表示だけ隠す。 */
+.sf-iso-wrap,
+.sf-iso3d-toolbar,
+.sf-iso3d-floor-switch,
+.sf-iso3d-scene,
+.sf-iso3d-mount {
+  display: none !important;
+}
+
+.sf-soc-hero--compact {
+  margin: 0;
+}
+
+.sf-soc-hero--compact .sf-status-hero,
+.sf-soc-hero--compact .sf-status {
+  margin-bottom: 0;
 }
 
 .sf-status-hero.is-alert {
@@ -1970,7 +1989,7 @@
   }
   .sf-mobile-tabs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     gap: 6px;
     padding: 8px 12px 0;
     position: relative;
