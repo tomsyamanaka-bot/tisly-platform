@@ -76,7 +76,7 @@ RGB_LED_PIN = 2
 RGB_LED_COUNT = 1
 
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.6.3-manual-light-bypass"
+FIRMWARE_VERSION = "1.6.4-sensor-di-pulse"
 
 # 全現場共通 OTA（config.py 自体は遠隔上書きしない）
 OTA_SITE = "itabashi"

@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2543-itabashi-light-bypass";
+const SW_VERSION = "tisly-pwa-v2544-itabashi-di-trigger-lights";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2543-itabashi-light-bypass
  * tisly-pwa-v2542-security-history-modal
  * tisly-pwa-v2541-tester-login-hardpass
  * tisly-pwa-v2540-tester-login-passthrough

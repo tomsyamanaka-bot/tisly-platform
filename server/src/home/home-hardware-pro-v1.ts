@@ -8,6 +8,7 @@
 import { queueRp2350RelayPulseV1 } from "../device/rp2350-relay-pulse-v1.js";
 import { shellyToggle } from "../device/shelly-real-client.js";
 import { processHomeSecurityEventV1 } from "./home-security-notify-v1.js";
+import { queueHomeSensorLinkedLightsV1 } from "./home-security-light-v1.js";
 import {
   getRemoteTestStatus,
   queueDeviceSoftRebootV1,
@@ -350,6 +351,8 @@ export interface HardwareDiTriggerInputV1 {
   building?: ToyoshimaBuildingIdV1;
   di?: number;
   actor?: string;
+  /** テスト用。省略時は実時刻（JST 評価） */
+  at?: Date;
 }
 
 /** DI 擬似発報 — 物理センサーなしで一連シーケンスを検証 */
@@ -359,6 +362,12 @@ export async function triggerHardwareDiTestV1(
   ok: boolean;
   message: string;
   pushSent?: boolean;
+  isWithinTimeRange?: boolean;
+  lightsActive?: boolean;
+  lightsQueued?: boolean;
+  lightCommand?: string;
+  durationSec?: number;
+  jstMinutes?: number;
 }> {
   const siteId = String(input.siteId || "").trim();
   findHomeSiteV1(siteId);
@@ -406,16 +415,45 @@ export async function triggerHardwareDiTestV1(
     di: target.di,
     pattern: "operator_di_test",
   });
+  /* 実センサーと同じ JST 窓評価のあと
+   * 夜間なら DO2/DO3 を即時キューする */
+  const lights = queueHomeSensorLinkedLightsV1({
+    siteId,
+    di: target.di === 2 ? 2 : 1,
+    pattern: result.pattern,
+    actor,
+    at: input.at,
+  });
   recordSystemLogV1({
     siteId,
     category: "manual_control",
     message: `DI擬似発報: ${target.label}`,
-    detail: { diId: target.id, di: target.di, pattern: result.pattern },
+    detail: {
+      diId: target.id,
+      di: target.di,
+      pattern: result.pattern,
+      isWithinTimeRange: lights.isWithinTimeRange,
+      lightsQueued: lights.queued,
+      lightCommand: lights.command,
+      durationSec: lights.durationSec,
+      jstMinutes: lights.jstMinutes,
+    },
     actor,
   });
+  const lightNote = lights.queued
+    ? `（DO2+DO3 を${lights.durationSec}秒点灯）`
+    : lights.isWithinTimeRange
+      ? ""
+      : "（点灯時間帯外のためリレーは動作しません）";
   return {
     ok: true,
-    message: `${target.label} の擬似発報を実行しました`,
+    message: `${target.label} の擬似発報を実行しました${lightNote}`,
     pushSent: result.pushSent,
+    isWithinTimeRange: lights.isWithinTimeRange,
+    lightsActive: lights.lightsActive,
+    lightsQueued: lights.queued,
+    lightCommand: lights.command,
+    durationSec: lights.durationSec,
+    jstMinutes: lights.jstMinutes,
   };
 }

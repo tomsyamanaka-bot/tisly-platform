@@ -632,7 +632,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /自動点灯スケジュール/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
-    assert.match(customerHtml, /security-time-range-v1\.js\?v=2543/);
+    assert.match(customerHtml, /security-time-range-v1\.js\?v=2544/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-history-modal-v1\.js\?v=\d+/);
     assert.match(customerHtml, /センサー検知・セキュリティ履歴（直近50件）/);

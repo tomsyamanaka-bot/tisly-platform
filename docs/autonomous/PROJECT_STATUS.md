@@ -1818,4 +1818,16 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2543-itabashi-light-bypass` |
 | 確認 | `/security-v1` · `/api/home/v1/control` · https://tisly.jp/api/health |
 
+### 板橋自宅 DI擬似発報→実機DO点灯パイプライン（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | `test-di-trigger` が Push/ログだけで終わらず、実センサーと同じ JST 評価を通して夜間は RP2350 の DO2/DO3 を即時点灯する |
+| API | `POST /api/home/v1/hardware/test-di-trigger` → `queueHomeSensorLinkedLightsV1` → `sensor_pulse_{A\|B\|C}_{ms}` |
+| 時刻 | `isWithinTimeRange` は Asia/Tokyo（UTC+9）。19:00 JST は窓内でリレーをブロックしない |
+| 実機 | `execute_vps_sensor_command` が DO2+DO3 を維持秒数後に自動消灯。物理 DI1/DI2 は `_can_run_lights()`（VPS `jstMinutes`）で即時序列 |
+| SW | `tisly-pwa-v2544-itabashi-di-trigger-lights` |
+| 確認 | `/security-v1` Pro DI擬似発報 · https://tisly.jp/api/health |
+
+
 

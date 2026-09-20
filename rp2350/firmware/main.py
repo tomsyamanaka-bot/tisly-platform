@@ -28,6 +28,7 @@ from machine import Pin
 
 import config
 from security_light import SecurityLightController
+from security_light import is_vps_sensor_command
 
 try:
     from toyoshima_security import send_heartbeat_with_retry
@@ -962,87 +963,59 @@ def _parse_channel_command(cmd):
 
 
 async def exec_command(cmd):
-
-        if _security and cmd in SECURITY_LIGHT_COMMANDS:
-
+    """VPS 命令を実行する。
+    手動ライトは時間帯を無視する。
+    擬似発報は維持時間後に消灯する。
+    """
+    if _security and cmd in SECURITY_LIGHT_COMMANDS:
         log("manual light bypass schedule: {}".format(cmd))
-
         handled = await _security.execute_manual_command(cmd)
-
         if handled:
-
             try:
-
                 send_heartbeat()
-
             except Exception as e:
-
                 log_error("heartbeat exception: {}".format(e))
-
             return
 
-
+    if _security and is_vps_sensor_command(cmd):
+        log("VPS sensor-linked light: {}".format(cmd))
+        handled = await _security.execute_vps_sensor_command(cmd)
+        if handled:
+            try:
+                send_heartbeat()
+            except Exception as e:
+                log_error("heartbeat exception: {}".format(e))
+            return
 
     parsed = _parse_channel_command(cmd)
-
     if parsed:
-
         channel, on, pulse_ms = parsed
-
         gpio = config.CH_GPIO[channel]
-
         log("command received: {}".format(cmd))
-
         if pulse_ms is not None:
-
-            # ワンショット: ON → sleep → OFF（自動ボタン短絡）
-
+            # ワンショット: ON → sleep → OFF
             set_ch_output(channel, True)
-
             log("CH{} PULSE ON {}ms gpio={}".format(
-
                 channel, pulse_ms, gpio
-
             ))
-
             await asyncio.sleep_ms(pulse_ms)
-
             set_ch_output(channel, False)
-
             log("CH{} PULSE OFF gpio={}".format(channel, gpio))
-
         else:
-
             set_ch_output(channel, on)
-
             log(
-
                 "CH{} {} gpio={}".format(
-
                     channel, "ON" if on else "OFF", gpio
-
                 )
-
             )
-
         try:
-
             send_heartbeat()
-
         except Exception as e:
-
             log_error("heartbeat exception: {}".format(e))
-
         return
 
-
-
     if cmd:
-
         log_error("unknown command: {}".format(cmd))
-
-
-
 
 
 async def async_main():

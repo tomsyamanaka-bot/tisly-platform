@@ -358,6 +358,63 @@ export function queueSecurityLightCommandV1(
   return { ok: true, command, queuedAt };
 }
 
+/** VPS 擬似発報のセンサー連動点灯命令か */
+export function isSensorLinkedLightCommandV1(command: string): boolean {
+  const cmd = String(command || "").trim();
+  if (cmd === "sensor_di1" || cmd === "sensor_di2") {
+    return true;
+  }
+  if (cmd.startsWith("light_sensor_pulse_")) {
+    return true;
+  }
+  if (cmd.startsWith("sensor_pulse_")) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * センサー連動（擬似発報）の DO 点灯をキューする。
+ * 実機は DO2/GPIO18 と DO3/GPIO19 を
+ * 指定ミリ秒だけ ON して自動 OFF する。
+ */
+export function queueSensorLinkedLightCommandV1(
+  command: string
+): {
+  ok: boolean;
+  error?: string;
+  command?: string;
+  queuedAt?: string;
+  mocked?: boolean;
+  transport?: string;
+} {
+  const cmd = String(command || "").trim();
+  if (!isSensorLinkedLightCommandV1(cmd)) {
+    return { ok: false, error: "未対応のセンサー連動命令です" };
+  }
+  const queuedAt = new Date().toISOString();
+  if (shouldBlockPhysicalDoV1()) {
+    state.lastCommand = cmd;
+    state.lastCommandAt = queuedAt;
+    pushLog(
+      cmd,
+      `sensor light ${cmd} (tester demo mock — no physical DO)`
+    );
+    return {
+      ok: true,
+      command: cmd,
+      queuedAt,
+      mocked: true,
+      transport: TESTER_HARDWARE_MOCK_TRANSPORT_V1,
+    };
+  }
+  state.pendingCommand = cmd;
+  state.lastCommand = cmd;
+  state.lastCommandAt = queuedAt;
+  pushLog(cmd, `sensor light ${cmd} (pending)`);
+  return { ok: true, command: cmd, queuedAt };
+}
+
 /**
  * DO CHn ワンショットパルスをキューする。
  * ファームが ON → sleep(ms) → OFF をローカル実行する。

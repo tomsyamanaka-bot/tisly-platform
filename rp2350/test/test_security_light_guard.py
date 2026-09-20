@@ -264,6 +264,55 @@ def test_itabashi_light_gpio_map():
     assert sl.ITABASHI_LIGHT_GPIO[3] == 19
 
 
+def test_parse_vps_sensor_pulse_66s():
+    """66秒維持の擬似発報コマンドを解釈する。"""
+    import security_light as sl
+
+    letter, ms = sl.parse_vps_sensor_command(
+        "sensor_pulse_A_66000"
+    )
+    assert letter == "A"
+    assert ms == 66000
+    assert sl.is_vps_sensor_command("sensor_pulse_A_66000") is True
+    assert sl.is_vps_sensor_command("light_sensor_pulse_45000") is True
+
+
+def test_vps_sensor_pulse_ignores_daytime_rtc():
+    """VPS 擬似発報は実機 RTC が昼でも序列を起動する。"""
+    import asyncio
+
+    utc = 3 * 3600
+    started = []
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = SecurityLightController(lambda ch, on: None)
+        ctrl.apply_rules({"version": 40, "guardMode": "always"})
+        assert ctrl._can_run_lights() is False
+        ctrl._start_sequence = lambda pattern, duration_ms=None: started.append(
+            (pattern, duration_ms)
+        )
+        ok = asyncio.run(
+            ctrl.execute_vps_sensor_command("sensor_pulse_A_66000")
+        )
+        assert ok is True
+    assert started == [("A", 66000)]
+
+
+def test_physical_di1_lights_when_vps_jst_is_1900():
+    """物理 DI1 は VPS 19:00 JST なら即時点灯可。"""
+    utc_day = 3 * 3600
+    with patch("security_light.time.time", return_value=utc_day):
+        ctrl = _ctrl(
+            {
+                "version": 41,
+                "guardMode": "always",
+                "jstMinutes": 19 * 60,
+                "lightScheduleActive": True,
+            }
+        )
+        assert ctrl._is_armed_now() is True
+        assert ctrl._can_run_lights() is True
+
+
 if __name__ == "__main__":
     test_always_guard_active_at_night()
     test_always_daytime_lights_off()
@@ -282,4 +331,7 @@ if __name__ == "__main__":
     test_manual_on_bypasses_daytime_schedule()
     test_vps_jst_minutes_overrides_local_rtc()
     test_itabashi_light_gpio_map()
+    test_parse_vps_sensor_pulse_66s()
+    test_vps_sensor_pulse_ignores_daytime_rtc()
+    test_physical_di1_lights_when_vps_jst_is_1900()
     print("ok")

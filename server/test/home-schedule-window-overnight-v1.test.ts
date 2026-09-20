@@ -14,6 +14,7 @@ function jstDate(hour: number, minute: number): Date {
 describe("isWithinTimeRange overnight", () => {
   it("covers overnight 18:00-06:00", () => {
     assert.equal(isWithinTimeRange("18:00", "06:00", jstDate(18, 0)), true);
+    assert.equal(isWithinTimeRange("18:00", "06:00", jstDate(19, 0)), true);
     assert.equal(isWithinTimeRange("18:00", "06:00", jstDate(23, 30)), true);
     assert.equal(isWithinTimeRange("18:00", "06:00", jstDate(0, 0)), true);
     assert.equal(isWithinTimeRange("18:00", "06:00", jstDate(5, 59)), true);
@@ -34,6 +35,18 @@ describe("isWithinTimeRange overnight", () => {
   });
 
   it("uses UTC+9 arithmetic (hour12 trap)", () => {
+    /* 19:00 JST = 10:00 UTC — 夜間窓内でブロックしない */
+    const sevenPm = new Date("2026-09-20T10:00:00.000Z");
+    assert.equal(getJstMinutesOfDayV1(sevenPm), 19 * 60);
+    assert.equal(isWithinTimeRange("18:00", "06:00", sevenPm), true);
+    const intlHour = Number(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(sevenPm).find((p) => p.type === "hour")?.value
+    );
+    assert.equal(intlHour, 19);
     /* 18:00 JST = 09:00 UTC — hour12 だと 6 時になる */
     const dusk = new Date("2026-09-20T09:00:00.000Z");
     assert.equal(getJstMinutesOfDayV1(dusk), 18 * 60);
@@ -57,6 +70,10 @@ describe("isHomeScheduleWindowActiveV1 overnight", () => {
   it("covers overnight 18:00-06:00", () => {
     assert.equal(
       isHomeScheduleWindowActiveV1("18:00", "06:00", jstDate(18, 0)),
+      true
+    );
+    assert.equal(
+      isHomeScheduleWindowActiveV1("18:00", "06:00", jstDate(19, 0)),
       true
     );
     assert.equal(

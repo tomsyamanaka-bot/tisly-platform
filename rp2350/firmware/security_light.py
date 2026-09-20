@@ -53,6 +53,62 @@ MANUAL_OFF_COMMANDS = (
 )
 
 
+def _clamp_pulse_ms(ms, default_ms):
+    """点灯維持 ms を 1〜300 秒に収める。"""
+    try:
+        value = int(ms)
+    except Exception:
+        value = int(default_ms)
+    if value < 1000:
+        return 1000
+    if value > 300000:
+        return 300000
+    return value
+
+
+def is_vps_sensor_command(cmd):
+    """VPS 擬似発報の点灯命令か。"""
+    raw = str(cmd or "").strip()
+    if raw in ("sensor_di1", "sensor_di2"):
+        return True
+    if raw.startswith("light_sensor_pulse_"):
+        return True
+    if raw.startswith("sensor_pulse_"):
+        return True
+    return False
+
+
+def parse_vps_sensor_command(cmd, default_ms=_DEFAULT_DURATION_MS):
+    """pattern と維持 ms を返す。"""
+    raw = str(cmd or "").strip()
+    pattern = "A"
+    ms = int(default_ms)
+    if raw == "sensor_di1":
+        return "A", _clamp_pulse_ms(ms, default_ms)
+    if raw == "sensor_di2":
+        return "C", _clamp_pulse_ms(ms, default_ms)
+    if raw.startswith("light_sensor_pulse_"):
+        suffix = raw[len("light_sensor_pulse_"):]
+        try:
+            ms = int(suffix)
+        except Exception:
+            ms = int(default_ms)
+        return "A", _clamp_pulse_ms(ms, default_ms)
+    if raw.startswith("sensor_pulse_"):
+        parts = raw.split("_")
+        # sensor_pulse_A_66000
+        if len(parts) >= 4:
+            letter = str(parts[2] or "A").upper()
+            if letter in ("A", "B", "C"):
+                pattern = letter
+            try:
+                ms = int(parts[3])
+            except Exception:
+                ms = int(default_ms)
+        return pattern, _clamp_pulse_ms(ms, default_ms)
+    return None
+
+
 def _parse_hm(value, fallback):
     """HH:MM を (hour, minute) に変換。"""
     raw = str(value or "").strip()
@@ -438,7 +494,7 @@ class SecurityLightController:
                 return
             self._start_sequence("C")
 
-    def _start_sequence(self, pattern):
+    def _start_sequence(self, pattern, duration_ms=None):
         self._seq_id += 1
         seq_id = self._seq_id
         if self._active_task is not None:
@@ -447,21 +503,21 @@ class SecurityLightController:
             except Exception:
                 pass
         self._active_task = asyncio.create_task(
-            self._run_sequence(pattern, seq_id)
+            self._run_sequence(pattern, seq_id, duration_ms)
         )
 
     def _all_security_off(self):
         self._set_ch(CH_24V, False)
         self._set_ch(CH_100V, False)
 
-    async def _run_sequence(self, pattern, seq_id):
+    async def _run_sequence(self, pattern, seq_id, duration_ms=None):
         try:
             if pattern == "A":
-                await self._pattern_a(seq_id)
+                await self._pattern_a(seq_id, duration_ms)
             elif pattern == "B":
-                await self._pattern_b(seq_id)
+                await self._pattern_b(seq_id, duration_ms)
             elif pattern == "C":
-                await self._pattern_c(seq_id)
+                await self._pattern_c(seq_id, duration_ms)
         except asyncio.CancelledError:
             # 手動命令中は消灯しない
             # （キャンセル競合で即OFFする不具合対策）
@@ -475,10 +531,11 @@ class SecurityLightController:
     def _seq_alive(self, seq_id):
         return self._seq_id == seq_id
 
-    async def _pattern_a(self, seq_id):
+    async def _pattern_a(self, seq_id, duration_ms=None):
         """駐車場センサー (DI1): DO2 + DO3 を同時点灯。"""
         mode = self._di1_mode
-        duration_ms = self._di1_duration_ms
+        if not duration_ms:
+            duration_ms = self._di1_duration_ms
         if mode == "off":
             self.log("Pattern A: lights OFF (config)")
             return
@@ -493,8 +550,9 @@ class SecurityLightController:
         if self._seq_alive(seq_id):
             self._all_security_off()
 
-    async def _pattern_b(self, seq_id):
-        duration_ms = self._di2_duration_ms
+    async def _pattern_b(self, seq_id, duration_ms=None):
+        if not duration_ms:
+            duration_ms = self._di2_duration_ms
         await self._run_dual_lights(
             seq_id,
             duration_ms,
@@ -505,8 +563,9 @@ class SecurityLightController:
             self._all_security_off()
             self._clear_perimeter_flag()
 
-    async def _pattern_c(self, seq_id):
-        duration_ms = self._di2_standalone_ms
+    async def _pattern_c(self, seq_id, duration_ms=None):
+        if not duration_ms:
+            duration_ms = self._di2_standalone_ms
         await self._run_dual_lights(
             seq_id,
             duration_ms,
@@ -607,6 +666,27 @@ class SecurityLightController:
             except Exception:
                 pass
             self._manual_task = None
+
+    async def execute_vps_sensor_command(self, cmd):
+        """VPS が JST 判定済みの擬似発報点灯。
+        実機 RTC の昼夜誤判定では止めない。
+        DO2+DO3 を維持時間後に消灯する。
+        """
+        parsed = parse_vps_sensor_command(
+            cmd, self._di1_duration_ms
+        )
+        if not parsed:
+            self.log("unknown sensor pulse: {}".format(cmd))
+            return False
+        pattern, duration_ms = parsed
+        self._manual_hold = False
+        self.log(
+            "VPS sensor pulse {} {}s DO2+DO3".format(
+                pattern, duration_ms // 1000
+            )
+        )
+        self._start_sequence(pattern, duration_ms)
+        return True
 
     async def execute_manual_command(self, cmd):
         """VPS 手動命令。

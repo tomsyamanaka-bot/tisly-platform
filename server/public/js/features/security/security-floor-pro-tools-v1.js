@@ -145,7 +145,19 @@ async function runDiTrigger(diId, building) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  toast(data.message || "DI擬似発報を実行しました");
+  let msg = data.message || "DI擬似発報を実行しました";
+  if (data.lightsQueued) {
+    msg =
+      `${msg}` +
+      (String(msg).includes("DO2")
+        ? ""
+        : `（DO2+DO3 ${data.durationSec || ""}秒点灯）`);
+  } else if (data.isWithinTimeRange === false) {
+    if (!String(msg).includes("時間帯外")) {
+      msg += "（点灯時間帯外のためリレーは動作しません）";
+    }
+  }
+  toast(msg);
   await loadDiStatus().catch(() => {});
 }
 
