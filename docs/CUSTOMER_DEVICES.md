@@ -96,6 +96,19 @@
 | `flash_duration_sec` | 既定 15 秒 |
 | `flash_enabled` | 既定 True |
 
+### 2.2.2 実機DO直結キック（2026-09-21 追記）
+
+既存 2.2 / 2.2.1 は残す。手動点灯は昼夜を無視する。
+
+| 項目 | 値 |
+|------|-----|
+| 命令キュー | `GET /api/home/v1/toyoshima/command?deviceId=`（板橋 `/api/remote-test/command` とは分離） |
+| 手動バイパス | 照明一括ON / ライト1 / ライト2 / フラッシュ威嚇テスト → 即時 DO ON |
+| GPIO | CH1=GPIO17 / CH2=GPIO18 / CH3=GPIO19（Waveshare RO1〜RO3） |
+| 極性 | HIGH=コイルON（DO青LED点灯）· `RO_ACTIVE_LOW=false` |
+| `force_relay_test` | 既定 True。センサー連動も昼間にリレー可 |
+| OTA | `main.py`←`main_toyoshima.py` · `config.py` は skipFiles |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |
@@ -130,6 +143,7 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | デバウンス | **100 ms**（`DI_DEBOUNCE_MS` / `diConfirmMs` / `debounceDi*` / `debounceBeamMs`） |
 | 通知 | 24h（ライトのみ時間帯制限） |
 | 日中挙動 | 母屋: 通知のみ（ライト・フラッシュ省略） / はなれ: 通知＋DO2パトライト |
+| `force_relay_test` | **True**（テスト時は昼間でもセンサー連動リレー） |
 
 ### 2.6 Guard Viewer / EZCloud ライブ共有（方法A）
 

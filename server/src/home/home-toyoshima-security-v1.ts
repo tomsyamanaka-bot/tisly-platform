@@ -44,6 +44,9 @@ import {
 import { findHomeSiteV1 } from "./home-sites-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import {
+  queueToyoshimaDeviceCommandV1,
+} from "./home-toyoshima-command-queue-v1.js";
+import {
   captureSecurityAlarmSnapshotV1,
   type SecurityAlarmSnapshotV1,
 } from "./home-security-alarm-snapshot-v1.js";
@@ -326,6 +329,8 @@ export interface ToyoshimaSecurityDashboardV1 {
   flashEnabled: boolean;
   /** フラッシュ維持秒数 */
   flashDurationSec: number;
+  /** 昼間でもセンサー連動リレー */
+  forceRelayTest: boolean;
   /**
    * ハートビート死活監視
    * false 時は Push・Shelly自動再投入を抑止
@@ -1174,17 +1179,28 @@ export function applyToyoshimaManualControlV1(input: {
     | "do3_off"
     | "patlite_test";
   actor?: string;
+  /** false なら実機キューへ積まない（一括側でまとめる） */
+  queueDevice?: boolean;
 }): { ok: boolean; state: ToyoshimaBuildingStateV1 } {
   const siteId = resolveHomeSiteId(
     String(input.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
   );
   const building = getBuilding(input.building);
   const actor = input.actor ?? "app";
+  const queueDevice = input.queueDevice !== false;
   touchToyoshimaDeviceCommV1(input.building);
 
   if (input.action === "patlite_test") {
     const ch = input.building === "main" ? 3 : 2;
     startPatliteBlink(input.building, ch as ToyoshimaDoChannelV1, 10_000);
+    /* 手動テストは昼夜を無視して実機へ即時キック */
+    if (queueDevice) {
+      queueToyoshimaDeviceCommandV1({
+        building: input.building,
+        command: input.building === "main" ? "flash_test" : "patlite_test",
+        durationMs: 15_000,
+      });
+    }
     appendTimeline({
       at: nowIso(),
       building: input.building,
@@ -1221,6 +1237,14 @@ export function applyToyoshimaManualControlV1(input: {
       dout.on = spec.on;
       dout.blinking = false;
     }
+  }
+
+  /* PWA 手動はスケジュール外でも実機リレーを動かす */
+  if (queueDevice) {
+    queueToyoshimaDeviceCommandV1({
+      building: input.building,
+      command: input.action,
+    });
   }
 
   appendTimeline({
@@ -1271,6 +1295,12 @@ export function pulseToyoshimaDoV1(input: {
     building: input.building,
     action: onAction,
     actor: input.actor ?? "operator-pro",
+    queueDevice: false,
+  });
+  queueToyoshimaDeviceCommandV1({
+    building: input.building,
+    command: `ch${input.channel}_pulse_${durationMs}`,
+    durationMs,
   });
 
   setTimeout(() => {
@@ -1627,14 +1657,26 @@ export function applyToyoshimaBulkLightsV1(input: {
       building,
       action: on ? "do1_on" : "do1_off",
       actor,
+      queueDevice: false,
     });
     if (building === "main") {
       applyToyoshimaManualControlV1({
         building,
         action: on ? "do2_on" : "do2_off",
         actor,
+        queueDevice: false,
       });
     }
+    /* 一括ON/OFFは個別CHに加え bulk も送る */
+    queueToyoshimaDeviceCommandV1({
+      building,
+      command: on ? "bulk_on" : "bulk_off",
+      durationMs:
+        on && input.durationSec != null
+          ? Math.max(5, Math.min(180, Math.round(Number(input.durationSec) || 180))) *
+            1000
+          : undefined,
+    });
   }
   const durationSec =
     on && input.durationSec != null
@@ -1816,6 +1858,7 @@ export function buildToyoshimaSecurityDashboardV1(
       | "SILENT") || "2STEP",
     flashEnabled: rules.flashEnabled !== false,
     flashDurationSec: rules.flashDurationSec ?? 15,
+    forceRelayTest: rules.forceRelayTest !== false,
     heartbeatWatchEnabled: ops.heartbeatWatchEnabled !== false,
     monthlyDetectionCount,
     monthlyDetectionLabel: `${monthlyDetectionCount}件`,

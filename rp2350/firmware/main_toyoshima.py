@@ -76,10 +76,26 @@ W5500_MISO = 36
 W5500_CS = 33
 W5500_RST = 25
 
+
+def _relay_gpio_level(channel, on):
+    """論理ONをGPIOレベルへ変換する。
+    Waveshare 8RO は HIGH=コイルON。
+    """
+    invert = False
+    invert_map = getattr(config, "CH_INVERT", None)
+    if invert_map:
+        invert = bool(invert_map.get(channel, False))
+    if bool(getattr(config, "RO_ACTIVE_LOW", False)):
+        invert = not invert
+    if invert:
+        return 0 if on else 1
+    return 1 if on else 0
+
+
 CH_PINS = {}
 for ch, gpio in config.CH_GPIO.items():
     pin = Pin(gpio, Pin.OUT)
-    pin.value(0)
+    pin.value(_relay_gpio_level(ch, False))
     CH_PINS[ch] = pin
 
 DI_PINS = {}
@@ -366,11 +382,23 @@ def http_post(path, payload):
 
 
 def set_ch_output(channel, on):
-    """リレー出力と ch_states を同期更新。"""
+    """リレー出力と ch_states を同期更新。
+    HIGH でコイルON・DO青LED点灯。
+    """
     if channel not in CH_PINS:
         return
-    CH_PINS[channel].value(1 if on else 0)
+    gpio = config.CH_GPIO.get(channel)
+    level = _relay_gpio_level(channel, on)
+    CH_PINS[channel].value(level)
     ch_states[str(channel)] = "on" if on else "off"
+    log(
+        "CH{} GPIO{} -> {} (logic {})".format(
+            channel,
+            gpio,
+            "HIGH" if level else "LOW",
+            "ON" if on else "OFF",
+        )
+    )
 
 
 def read_di_state(di):
@@ -563,20 +591,30 @@ def poll_security_rules():
 
 
 def poll_command():
-    """PWA 手動命令（任意・トークン必須）。"""
-    path = "/api/remote-test/command"
+    """豊島専用キューをポーリングする。
+    板橋 remote-test とは分離する。
+    """
+    device_id = _device_id()
+    path = (
+        "/api/home/v1/toyoshima/command?deviceId=" + device_id
+    )
     body, status = http_get(path)
+    if status == 403:
+        log_error("AUTH 403 — REMOTE_TEST_TOKEN を確認")
+        return None
     if status != 200 or not body:
         return None
     try:
         data = json.loads(body)
-        return data.get("command") or data.get("cmd")
+        if not isinstance(data, dict):
+            return None
+        return data
     except Exception:
         return None
 
 
-async def exec_manual_do(cmd):
-    """簡易手動 DO（do1_on 等）。"""
+async def exec_manual_do(cmd, duration_ms=0):
+    """コントローラ未初期化時の GPIO 直叩き。"""
     mapping = {
         "do1_on": (1, True),
         "do1_off": (1, False),
@@ -590,11 +628,42 @@ async def exec_manual_do(cmd):
         "ch2_off": (2, False),
         "ch3_on": (3, True),
         "ch3_off": (3, False),
+        "light1_on": (1, True),
+        "light1_off": (1, False),
+        "light2_on": (2, True),
+        "light2_off": (2, False),
     }
     if cmd in mapping:
         ch, on = mapping[cmd]
         set_ch_output(ch, on)
         log("EXEC {} -> CH{} {}".format(cmd, ch, "ON" if on else "OFF"))
+        if on and duration_ms > 0:
+            await asyncio.sleep_ms(int(duration_ms))
+            set_ch_output(ch, False)
+        return True
+    if cmd in ("bulk_on", "light_all_on"):
+        set_ch_output(1, True)
+        if _building() != "detached":
+            set_ch_output(2, True)
+        log("EXEC bulk_on")
+        if duration_ms > 0:
+            await asyncio.sleep_ms(int(duration_ms))
+            set_ch_output(1, False)
+            if _building() != "detached":
+                set_ch_output(2, False)
+        return True
+    if cmd in ("bulk_off", "light_all_off"):
+        set_ch_output(1, False)
+        set_ch_output(2, False)
+        log("EXEC bulk_off")
+        return True
+    if cmd in ("flash_test", "patlite_test"):
+        ch = 2 if _building() == "detached" else 3
+        ms = duration_ms if duration_ms > 0 else 15000
+        set_ch_output(ch, True)
+        log("EXEC {} CH{} {}ms".format(cmd, ch, ms))
+        await asyncio.sleep_ms(int(ms))
+        set_ch_output(ch, False)
         return True
     return False
 
@@ -631,7 +700,7 @@ async def async_main():
     kick_watchdog(_wdt)
 
     for ch in sorted(CH_PINS.keys()):
-        CH_PINS[ch].value(0)
+        CH_PINS[ch].value(_relay_gpio_level(ch, False))
         ch_states[str(ch)] = "off"
 
     for di in sorted(DI_PINS.keys()):
@@ -736,9 +805,27 @@ async def async_main():
             poll_counter = 0
             poll_security_rules()
 
-        cmd = poll_command()
-        if cmd:
-            await exec_manual_do(str(cmd).strip())
+        payload = poll_command()
+        if payload:
+            cmd = str(
+                payload.get("command") or payload.get("cmd") or ""
+            ).strip()
+            try:
+                duration_ms = int(payload.get("durationMs") or 0)
+            except Exception:
+                duration_ms = 0
+            if cmd:
+                handled = False
+                if _security:
+                    try:
+                        handled = await _security.execute_manual_command(
+                            cmd, duration_ms
+                        )
+                    except Exception as cmd_exc:
+                        log_error("manual: {}".format(cmd_exc))
+                        handled = False
+                if not handled:
+                    await exec_manual_do(cmd, duration_ms)
 
         changed, edges = poll_inputs()
         if edges:

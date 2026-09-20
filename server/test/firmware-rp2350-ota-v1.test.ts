@@ -67,6 +67,8 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(main.status, 200);
     assert.match(main.text, /豊島邸/);
+    assert.match(main.text, /toyoshima\/command/);
+    assert.match(main.text, /_relay_gpio_level/);
     assert.match(main.headers["content-type"] || "", /text\/plain/);
 
     const logic = await request(app).get(
@@ -214,5 +216,42 @@ describe("firmware-rp2350-ota-v1", () => {
     const version = await request(app).get("/api/firmware/itabashi/version");
     assert.equal(version.body.kitting.shippable, true);
     assert.match(version.body.kitting.label, /出荷準備完了/);
+  });
+
+  it("POST /api/devices/firmware/ota stages toyoshima with force", async () => {
+    resetTislyOtaStoreForTestV1();
+    const res = await request(app)
+      .post("/api/devices/firmware/ota")
+      .send({
+        siteId: "TOYOSHIMA001",
+        channel: "production",
+        force: true,
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.sites[0].siteId, "toyoshima");
+    assert.equal(res.body.sites[0].force, true);
+    assert.equal(res.body.sites[0].pending, true);
+  });
+
+  it("GET toyoshima command returns queued live-kick", async () => {
+    const { queueToyoshimaDeviceCommandV1 } = await import(
+      "../src/home/home-toyoshima-command-queue-v1.js"
+    );
+    queueToyoshimaDeviceCommandV1({
+      deviceId: "rp2350-toyoshima-main-01",
+      command: "do1_on",
+    });
+    const res = await request(app).get(
+      "/api/home/v1/toyoshima/command?deviceId=rp2350-toyoshima-main-01"
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.command, "do1_on");
+    assert.equal(res.body.bypassSchedule, true);
+    const empty = await request(app).get(
+      "/api/home/v1/toyoshima/command?deviceId=rp2350-toyoshima-main-01"
+    );
+    assert.equal(empty.body.command, null);
   });
 });

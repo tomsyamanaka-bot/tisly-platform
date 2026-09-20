@@ -92,8 +92,10 @@ class ToyoshimaBaseController:
         self._output_ms = DEFAULT_OUTPUT_MS
         self._flash_ms = DEFAULT_FLASH_MS
         self._flash_enabled = True
+        self._force_relay_test = True
         self._security_mode = DEFAULT_SECURITY_MODE
         self._active_tasks = []
+        self._manual_task = None
 
     def set_di_reader(self, get_di):
         """DI 状態 callable(di) -> 'on'|'off'。"""
@@ -173,6 +175,11 @@ class ToyoshimaBaseController:
             self._flash_enabled = bool(rules.get("flash_enabled"))
         elif "flashEnabled" in rules:
             self._flash_enabled = bool(rules.get("flashEnabled"))
+        # テスト時は昼間でもリレーを動かす
+        if "force_relay_test" in rules:
+            self._force_relay_test = bool(rules.get("force_relay_test"))
+        elif "forceRelayTest" in rules:
+            self._force_relay_test = bool(rules.get("forceRelayTest"))
         return True
 
     def log(self, msg):
@@ -209,11 +216,15 @@ class ToyoshimaBaseController:
         return True
 
     def _can_run_lights(self):
-        """DO ライト点灯可否 — 時間帯のみ。"""
+        """DO ライト点灯可否。
+        force_relay_test 時は昼夜を無視する。
+        """
         if self._security_paused:
             return False
         if self._guard_mode == "off":
             return False
+        if bool(getattr(self, "_force_relay_test", False)):
+            return True
         return self._is_in_light_schedule()
 
     def on_di_edge(self, di, prev_state, new_state):
@@ -287,6 +298,148 @@ class ToyoshimaBaseController:
             except Exception as exc:
                 self.log("event err: {}".format(exc))
 
+    def _bulk_do_channels(self):
+        """一括点灯の対象 CH。"""
+        return (1,)
+
+    def _flash_do_channel(self):
+        """フラッシュ／パトライト CH。"""
+        return 3
+
+    def _cancel_manual(self):
+        """直前の手動タスクを止める。"""
+        task = getattr(self, "_manual_task", None)
+        if not task:
+            return
+        try:
+            task.cancel()
+        except Exception:
+            pass
+        self._manual_task = None
+
+    def _parse_pulse_command(self, cmd):
+        """ch1_pulse_1000 形式を分解する。"""
+        if "_pulse_" not in cmd:
+            return None
+        head, ms_s = cmd.split("_pulse_", 1)
+        try:
+            ms = int(ms_s)
+        except Exception:
+            return None
+        ch_map = {
+            "ch1": 1,
+            "do1": 1,
+            "light1": 1,
+            "ch2": 2,
+            "do2": 2,
+            "light2": 2,
+            "ch3": 3,
+            "do3": 3,
+            "flash": 3,
+        }
+        ch = ch_map.get(head)
+        if ch is None:
+            return None
+        if ms < 100:
+            ms = 100
+        if ms > 180000:
+            ms = 180000
+        return ch, ms
+
+    async def _hold_then_off(self, channels, duration_ms):
+        """指定秒のあと対象 CH を落とす。"""
+        try:
+            await asyncio.sleep_ms(int(duration_ms))
+            for ch in channels:
+                self._set_ch(ch, False)
+        except asyncio.CancelledError:
+            raise
+
+    async def execute_manual_command(self, cmd, duration_ms=0):
+        """PWA 手動命令。
+        昼夜・警戒を完全バイパスする。
+        """
+        cmd = str(cmd or "").strip().lower()
+        if not cmd:
+            return False
+        try:
+            duration_ms = int(duration_ms or 0)
+        except Exception:
+            duration_ms = 0
+        self.log("manual cmd bypass schedule: {}".format(cmd))
+        self._cancel_manual()
+
+        pulse = self._parse_pulse_command(cmd)
+        if pulse:
+            ch, ms = pulse
+            self._set_ch(ch, True)
+            self._manual_task = asyncio.create_task(
+                self._hold_then_off((ch,), ms)
+            )
+            return True
+
+        on_map = {
+            "do1_on": 1,
+            "ch1_on": 1,
+            "light1_on": 1,
+            "do2_on": 2,
+            "ch2_on": 2,
+            "light2_on": 2,
+            "do3_on": 3,
+            "ch3_on": 3,
+            "flash_on": 3,
+        }
+        off_map = {
+            "do1_off": 1,
+            "ch1_off": 1,
+            "light1_off": 1,
+            "do2_off": 2,
+            "ch2_off": 2,
+            "light2_off": 2,
+            "do3_off": 3,
+            "ch3_off": 3,
+            "flash_off": 3,
+        }
+        if cmd in on_map:
+            ch = on_map[cmd]
+            self._set_ch(ch, True)
+            if duration_ms > 0:
+                self._manual_task = asyncio.create_task(
+                    self._hold_then_off((ch,), duration_ms)
+                )
+            return True
+        if cmd in off_map:
+            self._set_ch(off_map[cmd], False)
+            return True
+
+        if cmd in ("bulk_on", "light_all_on"):
+            channels = self._bulk_do_channels()
+            for ch in channels:
+                self._set_ch(ch, True)
+            if duration_ms > 0:
+                self._manual_task = asyncio.create_task(
+                    self._hold_then_off(channels, duration_ms)
+                )
+            return True
+        if cmd in ("bulk_off", "light_all_off"):
+            for ch in self._bulk_do_channels():
+                self._set_ch(ch, False)
+            return True
+
+        if cmd in ("flash_test", "patlite_test"):
+            flash_ch = self._flash_do_channel()
+            ms = duration_ms if duration_ms > 0 else int(
+                getattr(self, "_flash_ms", DEFAULT_FLASH_MS)
+            )
+            self._set_ch(flash_ch, True)
+            self._manual_task = asyncio.create_task(
+                self._drive_blink(flash_ch, ms)
+            )
+            return True
+
+        self.log("unknown manual cmd: {}".format(cmd))
+        return False
+
 
 class ToyoshimaMainHouseController(ToyoshimaBaseController):
     """
@@ -308,6 +461,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     DI_BEAM_NEAR = 2
     DI_BEAM_1 = 1
     DI_BEAM_2 = 2
+
+    def _bulk_do_channels(self):
+        """母屋一括はライト1+2。"""
+        return (self.DO_LIGHT_1, self.DO_LIGHT_2)
+
+    def _flash_do_channel(self):
+        return self.DO_FLASH
 
     def _debounce_ms_for_di(self, di):
         """母屋ビームは debounceBeamMs を使用。"""
@@ -404,6 +564,13 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
     DO_PATLITE = 2
     DI_ROAD = 1
     DI_PATH = 2
+
+    def _bulk_do_channels(self):
+        """はなれ一括はライトのみ。"""
+        return (self.DO_LIGHT,)
+
+    def _flash_do_channel(self):
+        return self.DO_PATLITE
 
     def _fire_di(self, di):
         if di not in (self.DI_ROAD, self.DI_PATH):

@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2549-customer-auth-detail` |
+| SW | `tisly-pwa-v2550-toyoshima-relay-kick` |
 
 ---
 
@@ -1884,5 +1884,21 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | テナント配列・豊島邸／板橋データは削除せず。顧客向け API には平文を出さない |
 | SW | `tisly-pwa-v2549-customer-auth-detail` |
 | 確認 | `/app/customer-master-v1` · https://tisly.jp/api/health |
+
+### 豊島邸 実機DOリレー直結キック＆OTA復旧（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | PWA 手動点灯を昼夜無視で実機 CH1〜CH3 へ即時キックし、DO青LED点灯まで疎通する |
+| 命令 | 豊島専用 `GET /api/home/v1/toyoshima/command?deviceId=`（板橋 remote-test と分離） |
+| 手動 | 一括ON / ライト1 / ライト2 / フラッシュ威嚇はスケジュール完全バイパス |
+| センサー | DI1→DO1 / DI2→DO1+DO2+DO3フラッシュ。`force_relay_test` 時は昼間もリレー可 |
+| GPIO | Waveshare RO1〜RO8 = GPIO17〜24。HIGH=コイルON |
+| OTA | `/app` 「最新ファームウェアを現場実機へ遠隔配信」`force:true` · `POST /api/devices/firmware/ota` |
+| 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
+| 既存保護 | 2.2 / 2.2.1・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2550-toyoshima-relay-kick` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
 
 

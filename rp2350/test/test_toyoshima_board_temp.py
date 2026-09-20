@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+import asyncio
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "firmware"))
@@ -97,6 +98,7 @@ def test_main_schedule_lights_vs_patlite():
         outputs[ch] = on
 
     ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl._force_relay_test = False
     # JST 21:00 = UTC 12:00
     utc_night = 12 * 3600
     with patch.object(ts.time, "time", return_value=utc_night):
@@ -107,6 +109,34 @@ def test_main_schedule_lights_vs_patlite():
     with patch.object(ts.time, "time", return_value=utc_day):
         assert ctrl._is_armed_now() is True
         assert ctrl._can_run_lights() is False
+
+
+def test_force_relay_test_allows_daytime_relays():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        assert ctrl._can_run_lights() is True
+        plan = ctrl.plan_main_response(1)
+    assert plan["do1"] is True
+    assert plan["do2"] is False
+
+
+def test_manual_do_bypasses_daytime_schedule():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        ok = asyncio.run(ctrl.execute_manual_command("do1_on"))
+        ok2 = asyncio.run(ctrl.execute_manual_command("bulk_on"))
+    assert ok is True
+    assert ok2 is True
+    assert outputs[1] is True
+    assert outputs[2] is True
 
 
 def test_detached_event_messages():

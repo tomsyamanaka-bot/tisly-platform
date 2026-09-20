@@ -106,7 +106,7 @@ import { gasMonitorRouter } from "./api/routes/gas-monitor.js";
 import { meterTelemetryRouter } from "./api/routes/meter-telemetry.js";
 import { demandSecurityRouter } from "./api/routes/demand-security.js";
 import { homeRouter } from "./api/routes/home.js";
-import { firmwareRouter } from "./api/routes/firmware.js";
+import { firmwareDevicesOtaRouter, firmwareRouter } from "./api/routes/firmware.js";
 import { logsRouter } from "./api/routes/logs.js";
 import { attendanceRouter } from "./api/routes/attendance.js";
 import { rp2350RelayV1Router } from "./api/routes/rp2350-relay-v1.js";
@@ -209,6 +209,8 @@ export function createApp(): express.Application {
   app.use("/api/home/v1", homeRouter);
   /* 全現場 RP2350 OTA 配信（既存データ非破壊） */
   app.use("/api/firmware", firmwareRouter);
+  /* 実機 OTA 別名（テナントガード前） */
+  app.use("/api/devices/firmware", firmwareDevicesOtaRouter);
   app.use("/api/attendance/v1", attendanceRouter);
   app.use("/api/logs", logsRouter);
   // RP2350 DO リレーワンショット（/api/devices より先にマウント）

@@ -3,9 +3,11 @@
  * GET  /api/firmware/:siteId/version
  * GET  /api/firmware/:siteId/script
  * POST /api/firmware/:siteId/deploy
+ * POST /api/firmware/ota
+ * POST /api/devices/firmware/ota
  */
 
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import {
   deployTislyOtaFirmwareV1,
   getTislyOtaScriptV1,
@@ -16,11 +18,61 @@ import {
 } from "../../firmware/tisly-rp2350-ota-v1.js";
 
 export const firmwareRouter = Router();
+/* /api/devices より先にマウントする別名 */
+export const firmwareDevicesOtaRouter = Router();
 
 function parseChannel(raw: unknown): TislyOtaChannelV1 {
   return String(raw ?? "").trim() === "staging"
     ? "staging"
     : "production";
+}
+
+function firstParam(raw: unknown): string {
+  if (Array.isArray(raw)) return String(raw[0] ?? "").trim();
+  return String(raw ?? "").trim();
+}
+
+function respondFirmwareDeploy(
+  req: Request,
+  res: Response,
+  pathSiteId?: string
+): void {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const pathKey = resolveTislyOtaSiteKeyV1(
+    pathSiteId || firstParam(req.params.siteId)
+  );
+  const bodyKey = resolveTislyOtaSiteKeyV1(
+    String(body.currentSiteId ?? body.siteId ?? "")
+  );
+  const allSites =
+    body.allSites === true ||
+    body.scope === "all" ||
+    pathKey === "all" ||
+    bodyKey === "all";
+  if (!allSites && !pathKey && !bodyKey) {
+    res.status(404).json({ ok: false, error: "unknown firmware site" });
+    return;
+  }
+  /* 単独配信は選択中の
+   * currentSiteId を path より優先する
+   */
+  let siteKey: "toyoshima" | "itabashi" | "all";
+  if (allSites) {
+    siteKey = "all";
+  } else if (bodyKey) {
+    siteKey = bodyKey;
+  } else if (pathKey) {
+    siteKey = pathKey;
+  } else {
+    res.status(404).json({ ok: false, error: "unknown firmware site" });
+    return;
+  }
+  const result = deployTislyOtaFirmwareV1({
+    siteKey,
+    channel: parseChannel(body.channel ?? req.query.channel),
+    force: body.force === true,
+  });
+  res.json(result);
 }
 
 firmwareRouter.get("/catalog", (req, res) => {
@@ -79,39 +131,24 @@ firmwareRouter.get("/:siteId/script", (req, res) => {
   res.send(script.body);
 });
 
-firmwareRouter.post("/:siteId/deploy", (req, res) => {
-  const body = (req.body ?? {}) as Record<string, unknown>;
-  const pathKey = resolveTislyOtaSiteKeyV1(req.params.siteId);
-  const bodyKey = resolveTislyOtaSiteKeyV1(
-    String(body.currentSiteId ?? body.siteId ?? "")
+firmwareRouter.post("/ota", (req, res) => {
+  const siteId = firstParam(
+    (req.body as { siteId?: unknown } | undefined)?.siteId ??
+      req.query.siteId ??
+      "toyoshima"
   );
-  const allSites =
-    body.allSites === true ||
-    body.scope === "all" ||
-    pathKey === "all" ||
-    bodyKey === "all";
-  if (!allSites && !pathKey && !bodyKey) {
-    res.status(404).json({ ok: false, error: "unknown firmware site" });
-    return;
-  }
-  /* 単独配信は選択中の
-   * currentSiteId を path より優先する
-   */
-  let siteKey: "toyoshima" | "itabashi" | "all";
-  if (allSites) {
-    siteKey = "all";
-  } else if (bodyKey) {
-    siteKey = bodyKey;
-  } else if (pathKey) {
-    siteKey = pathKey;
-  } else {
-    res.status(404).json({ ok: false, error: "unknown firmware site" });
-    return;
-  }
-  const result = deployTislyOtaFirmwareV1({
-    siteKey,
-    channel: parseChannel(body.channel ?? req.query.channel),
-    force: body.force === true,
-  });
-  res.json(result);
+  respondFirmwareDeploy(req, res, siteId);
+});
+
+firmwareRouter.post("/:siteId/deploy", (req, res) => {
+  respondFirmwareDeploy(req, res);
+});
+
+firmwareDevicesOtaRouter.post("/ota", (req, res) => {
+  const siteId = firstParam(
+    (req.body as { siteId?: unknown } | undefined)?.siteId ??
+      req.query.siteId ??
+      "toyoshima"
+  );
+  respondFirmwareDeploy(req, res, siteId);
 });

@@ -48,7 +48,10 @@ DHCP_TIMEOUT_SEC = 12
 RGB_LED_PIN = 2
 RGB_LED_COUNT = 1
 
-# CH1〜CH8 リレー GPIO（Waveshare 02_MQTT サンプル）
+# CH1〜CH8 リレー GPIO
+# Waveshare RP2350-POE-ETH-8DI-8RO
+# 公式 RO1〜RO8 = GPIO17〜24
+# CH1=GPIO17 / CH2=GPIO18 / CH3=GPIO19
 CH_GPIO = {
     1: 17,
     2: 18,
@@ -58,6 +61,19 @@ CH_GPIO = {
     6: 22,
     7: 23,
     8: 24,
+}
+
+# HIGH=コイルON（DO青LED点灯）
+RO_ACTIVE_LOW = False
+CH_INVERT = {
+    1: False,
+    2: False,
+    3: False,
+    4: False,
+    5: False,
+    6: False,
+    7: False,
+    8: False,
 }
 
 # DI1〜DI8 デジタル入力 GPIO
@@ -79,7 +95,7 @@ DI_ACTIVE_LOW = True
 DI_DEBOUNCE_MS = 100
 
 # ファームウェア版
-FIRMWARE_VERSION = "1.1.0-toyoshima-online"
+FIRMWARE_VERSION = "1.2.0-toyoshima-relay-kick"
 
 # 全現場共通 OTA（config.py 自体は遠隔上書きしない）
 OTA_SITE = "toyoshima"

@@ -16,6 +16,10 @@ import {
   TOYOSHIMA_HEARTBEAT_OFFLINE_MS_V1,
   updateToyoshimaNotifyModeV1,
 } from "../src/home/home-toyoshima-security-v1.js";
+import {
+  consumeToyoshimaDeviceCommandV1,
+  resetToyoshimaDeviceCommandQueueForTestV1,
+} from "../src/home/home-toyoshima-command-queue-v1.js";
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
 import {
   buildHomeSecurityFirmwareRulesV1,
@@ -29,6 +33,7 @@ import {
 describe("toyoshima-security-v1", () => {
   afterEach(() => {
     resetToyoshimaSecurityStateForTestV1();
+    resetToyoshimaDeviceCommandQueueForTestV1();
   });
 
   it("HOME site is registered at catalog tail", () => {
@@ -481,5 +486,44 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.flashDurationSec, 15);
     assert.match(dash.main.di[0].label, /外周/);
     assert.match(dash.main.do[2].label, /フラッシュ/);
+  });
+
+  it("manual DO queues dedicated live-kick command", () => {
+    applyToyoshimaManualControlV1({
+      building: "main",
+      action: "do1_on",
+    });
+    const row = consumeToyoshimaDeviceCommandV1(
+      "rp2350-toyoshima-main-01"
+    );
+    assert.equal(row?.command, "do1_on");
+    assert.equal(row?.bypassSchedule, true);
+    assert.equal(row?.forceRelayTest, true);
+  });
+
+  it("bulk lights queues one bulk command per building", () => {
+    applyToyoshimaBulkLightsV1({ action: "on", durationSec: 30 });
+    const main = consumeToyoshimaDeviceCommandV1("main");
+    const detached = consumeToyoshimaDeviceCommandV1("detached");
+    assert.equal(main?.command, "bulk_on");
+    assert.equal(detached?.command, "bulk_on");
+    assert.equal(main?.durationMs, 30_000);
+  });
+
+  it("flash test queues flash_test for 15s", () => {
+    applyToyoshimaManualControlV1({
+      building: "main",
+      action: "patlite_test",
+    });
+    const row = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(row?.command, "flash_test");
+    assert.equal(row?.durationMs, 15_000);
+  });
+
+  it("firmware JSON exposes force_relay_test", () => {
+    const fw = buildHomeSecurityFirmwareRulesV1(
+      HOME_JP_TOYOSHIMA_SITE_ID_V1
+    );
+    assert.equal(fw.force_relay_test, true);
   });
 });

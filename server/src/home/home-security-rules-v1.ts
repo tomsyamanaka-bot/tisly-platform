@@ -134,6 +134,10 @@ export interface HomeSecurityRulesV1 {
   debounceDi2Ms?: number;
   /** 母屋ビーム等 外周ビーム（ms） */
   debounceBeamMs?: number;
+  /**
+   * テスト時は昼間でもセンサー連動リレーを動かす
+   */
+  forceRelayTest?: boolean;
   updatedAt: string;
 }
 
@@ -175,6 +179,8 @@ export interface HomeSecurityRulesPatchV1 {
   debounceDi1Ms?: number;
   debounceDi2Ms?: number;
   debounceBeamMs?: number;
+  /** テスト時は昼間でもリレー作動 */
+  forceRelayTest?: boolean;
 }
 
 /** RP2350 向けファームウェア JSON */
@@ -223,6 +229,8 @@ export interface HomeSecurityFirmwareRulesV1 {
   flash_duration_sec: number;
   /** フラッシュ連動 */
   flash_enabled: boolean;
+  /** 昼間でもセンサー連動リレー */
+  force_relay_test: boolean;
   /** おでかけ警戒時のパトライト威嚇 */
   patlite_threat_enabled: boolean;
   /** VPS 算出の JST 分（0〜1439） */
@@ -360,6 +368,7 @@ const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   securityMode: "2STEP",
   flashDurationSec: 15,
   flashEnabled: true,
+  forceRelayTest: true,
   notifyMainFarMode: "critical",
   notifyMainNearMode: "critical",
   diConfirmMs: 100,
@@ -565,6 +574,13 @@ function parseRulesJson(
         ? DEFAULT_RULES.flashEnabled !== false
         : Boolean(
             parsed.flashEnabled ?? parsed.flash_enabled
+          ),
+    forceRelayTest:
+      parsed.forceRelayTest === undefined &&
+      parsed.force_relay_test === undefined
+        ? DEFAULT_RULES.forceRelayTest !== false
+        : Boolean(
+            parsed.forceRelayTest ?? parsed.force_relay_test
           ),
     notifyMainFarMode: parseNotifyMode(
       parsed.notifyMainFarMode,
@@ -821,6 +837,10 @@ export function updateHomeSecurityRulesV1(
       patch.flashEnabled !== undefined
         ? Boolean(patch.flashEnabled)
         : current.flashEnabled !== false,
+    forceRelayTest:
+      patch.forceRelayTest !== undefined
+        ? Boolean(patch.forceRelayTest)
+        : current.forceRelayTest !== false,
     notifyMainFarMode: isHomeNotifyModeV1(patch.notifyMainFarMode)
       ? patch.notifyMainFarMode
       : current.notifyMainFarMode ?? "critical",
@@ -965,6 +985,7 @@ export function buildHomeSecurityFirmwareRulesV1(
     },
     flash_duration_sec: rules.flashDurationSec ?? 15,
     flash_enabled: rules.flashEnabled !== false,
+    force_relay_test: rules.forceRelayTest !== false,
     patlite_threat_enabled: rules.patliteThreatEnabled !== false,
     /* RP2350 RTC 未設定でも
      * VPS の JST 判定を正とする */

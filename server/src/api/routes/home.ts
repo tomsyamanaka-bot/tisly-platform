@@ -139,6 +139,7 @@ import {
   syncToyoshimaConfigToFirmwareV1,
   updateToyoshimaNotifyModeV1,
 } from "../../home/home-toyoshima-security-v1.js";
+import { consumeToyoshimaDeviceCommandV1 } from "../../home/home-toyoshima-command-queue-v1.js";
 import {
   getToyoshimaOpsConfigV1,
   updateToyoshimaOpsConfigV1,
@@ -678,6 +679,9 @@ function applyHomeSecurityRulesPatchV1(
     securityMode: body?.securityMode as HomeSecurityModeV1 | undefined,
     flashDurationSec: body?.flashDurationSec as number | undefined,
     flashEnabled: body?.flashEnabled as boolean | undefined,
+    forceRelayTest: (body?.forceRelayTest ?? body?.force_relay_test) as
+      | boolean
+      | undefined,
     notifyMainFarMode: body?.notifyMainFarMode as
       | HomeNotifyModeV1
       | undefined,
@@ -1337,6 +1341,31 @@ homeRouter.get("/activity-timeline", (req, res) => {
 
 /** 豊島邸 Security ダッシュボード */
 function registerToyoshimaHomeRoutes(prefix: string): void {
+  homeRouter.get(`${prefix}/command`, (req, res) => {
+    /* 豊島実機の専用命令キュー
+     * 板橋 remote-test とは分離する */
+    const token = String(
+      req.headers["x-remote-test-token"] ?? ""
+    ).trim();
+    const expected = String(process.env.REMOTE_TEST_TOKEN ?? "").trim();
+    if (expected && token !== expected) {
+      res.status(403).json({ ok: false, error: "forbidden" });
+      return;
+    }
+    const deviceId = String(
+      req.query.deviceId ?? req.query.building ?? "main"
+    ).trim();
+    const command = consumeToyoshimaDeviceCommandV1(deviceId);
+    res.json({
+      ok: true,
+      command: command?.command ?? null,
+      bypassSchedule: true,
+      forceRelayTest: true,
+      durationMs: command?.durationMs,
+      queuedAt: command?.queuedAt ?? null,
+    });
+  });
+
   homeRouter.get(`${prefix}/dashboard`, (req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");

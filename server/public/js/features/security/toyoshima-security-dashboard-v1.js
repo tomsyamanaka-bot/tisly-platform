@@ -49,6 +49,7 @@ function syncSettingsState(dash) {
     securityMode: String(dash.securityMode || "2STEP").toUpperCase(),
     flashEnabled: dash.flashEnabled !== false,
     flashDurationSec: dash.flashDurationSec ?? 15,
+    forceRelayTest: dash.forceRelayTest !== false,
   };
 }
 
@@ -78,6 +79,7 @@ let settingsState = {
   securityMode: "2STEP",
   flashEnabled: true,
   flashDurationSec: 15,
+  forceRelayTest: true,
 };
 
 const SECURITY_MODE_OPTIONS = [
@@ -412,6 +414,7 @@ function renderTwoStepRemoteBlock(dash) {
     dash.securityMode || settingsState.securityMode || "2STEP"
   ).toUpperCase();
   const flashOn = dash.flashEnabled !== false;
+  const forceRelay = dash.forceRelayTest !== false;
   const flashSec = dash.flashDurationSec ?? settingsState.flashDurationSec ?? 15;
   const buttons = SECURITY_MODE_OPTIONS.map(
     (opt) => `<button type="button" class="ts-seg-btn ${
@@ -431,6 +434,14 @@ function renderTwoStepRemoteBlock(dash) {
             <input type="checkbox" id="ts-flash-enabled" ${flashOn ? "checked" : ""} />
             <span class="ts-switch-ui" aria-hidden="true"></span>
             <span class="ts-switch-text" id="ts-flash-enabled-label">${flashOn ? "ON" : "OFF"}</span>
+          </span>
+        </label>
+        <label class="ts-switch-row" for="ts-force-relay-test">
+          <span class="ts-label">昼間でもセンサー連動リレー（テスト）</span>
+          <span class="ts-switch">
+            <input type="checkbox" id="ts-force-relay-test" ${forceRelay ? "checked" : ""} />
+            <span class="ts-switch-ui" aria-hidden="true"></span>
+            <span class="ts-switch-text" id="ts-force-relay-test-label">${forceRelay ? "ON" : "OFF"}</span>
           </span>
         </label>
         <label class="ts-slider-field" for="ts-flash-duration">
@@ -542,7 +553,26 @@ function renderCustomerDailySettings(dash) {
 
       <section class="ts-daily-block">
         <h4 class="ts-daily-h">④ 外構ライト手動操作</h4>
-        <p class="ts-hint">帰宅時や庭の確認用（パトライトは動きません）</p>
+        <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
+        <div class="ts-btn-row">
+          <button type="button" class="ts-btn ts-btn-primary" data-ts-action="bulk_lights_on">
+            💡 照明を一括ON
+          </button>
+          <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="bulk_lights_off">
+            💡 照明を一括OFF
+          </button>
+        </div>
+        <div class="ts-btn-row">
+          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do1_on">
+            💡 ライト1点灯
+          </button>
+          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do2_on">
+            💡 ライト2点灯
+          </button>
+          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">
+            ⚡ フラッシュ威嚇テスト
+          </button>
+        </div>
         <div class="ts-btn-row">
           <button type="button" class="ts-btn ts-btn-primary" data-ts-action="manual_lights_3min">
             💡 照明を点灯（3分間）
@@ -1014,7 +1044,7 @@ function renderOtaCard(dash) {
     </div>
     <p class="ts-hint" id="ts-ota-note">${escapeHtml(note)}</p>
     <button type="button" class="ts-sync-btn" data-ts-action="ota_deploy">
-      🚀 最新ファームウェアを現場実機へ配信
+      🚀 最新ファームウェアを現場実機へ遠隔配信
     </button>
   </section>`;
 }
@@ -1069,9 +1099,15 @@ function renderNotifyCard(dash) {
 function renderOpsCard() {
   return `<section class="ts-card ts-ops-card">
     <h3 class="ts-card-head">💡 照明一括操作</h3>
+    <p class="ts-hint">手動操作は昼夜スケジュールを無視して即時点灯します</p>
     <div class="ts-btn-row">
       <button type="button" class="ts-btn" data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
       <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
+    </div>
+    <div class="ts-btn-row">
+      <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do1_on">💡 ライト1点灯</button>
+      <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do2_on">💡 ライト2点灯</button>
+      <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">⚡ フラッシュ威嚇テスト</button>
     </div>
     <h3 class="ts-card-head ts-section-gap">🔔 プッシュ通知管理</h3>
     <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
@@ -1224,6 +1260,7 @@ function dashSignature(dash) {
     secMode: dash.securityMode,
     flashOn: dash.flashEnabled,
     flashSec: dash.flashDurationSec,
+    forceRelay: dash.forceRelayTest,
     hbWatch: dash.heartbeatWatchEnabled,
     monthDet: dash.monthlyDetectionCount,
     // 通信ヘルス SSOT を soft patch 判定に含める
@@ -1282,17 +1319,17 @@ function renderBuildingCard(building) {
         <div class="ts-toggle-row">
           <label class="ts-toggle">
             <input type="checkbox" data-ts-building="main" data-ts-action="do1_on" data-ts-off="do1_off" ${d1?.on ? "checked" : ""} />
-            <span>1号機（出力1）</span>
+            <span>ライト1点灯（出力1）</span>
           </label>
           <label class="ts-toggle">
             <input type="checkbox" data-ts-building="main" data-ts-action="do2_on" data-ts-off="do2_off" ${d2?.on ? "checked" : ""} />
-            <span>2号機（出力2）</span>
+            <span>ライト2点灯（出力2）</span>
           </label>
         </div>
         <p class="ts-sub">100V フラッシュライト（出力3）</p>
         <div class="ts-row">
           ${doStatus(d3 || { on: false })}
-          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">手動テスト</button>
+          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">フラッシュ威嚇テスト</button>
         </div>
       </div>`;
   } else {
@@ -1788,6 +1825,7 @@ async function saveSettingsDebounced() {
         securityMode: settingsState.securityMode || "2STEP",
         flashEnabled: settingsState.flashEnabled !== false,
         flashDurationSec: settingsState.flashDurationSec ?? 15,
+        forceRelayTest: settingsState.forceRelayTest !== false,
       };
       if (!isCustomerPortal()) {
         payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
@@ -1889,6 +1927,13 @@ function bindSettingsSliders() {
       settingsState.flashEnabled = !!flashEn.checked;
       const lab = $("ts-flash-enabled-label");
       if (lab) lab.textContent = flashEn.checked ? "ON" : "OFF";
+      saveSettingsDebounced();
+    }
+    const forceRelay = e.target.closest("#ts-force-relay-test");
+    if (forceRelay) {
+      settingsState.forceRelayTest = !!forceRelay.checked;
+      const lab = $("ts-force-relay-test-label");
+      if (lab) lab.textContent = forceRelay.checked ? "ON" : "OFF";
       saveSettingsDebounced();
     }
     const hbWatch = e.target.closest("#ts-hb-watch");
@@ -2370,6 +2415,7 @@ function bindToyoshimaControls() {
             body: JSON.stringify({
               channel: "production",
               siteId: TOYOSHIMA_HOME_ID,
+              force: true,
             }),
           });
           const data = await res.json().catch(() => ({}));
