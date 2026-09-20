@@ -31,11 +31,27 @@ export function extractLoginCustomerCodeV1(
   body: Record<string, unknown> | null | undefined
 ): string {
   const src = body ?? {};
-  return String(
+  const primary = String(
     src.customerCode ?? src.customer_code ?? src.tenantId ?? src.tenant_id ?? ""
   )
     .trim()
     .toUpperCase();
+  if (primary) return primary;
+  /* 顧客コード空でもユーザー名で判定 */
+  const username = String(src.username ?? src.user ?? "").trim();
+  const userUp = username.toUpperCase();
+  if (userUp === TESTER_CUSTOMER_CODE_V1) return TESTER_CUSTOMER_CODE_V1;
+  if (username.toLowerCase() === TESTER_USERNAME_V1) {
+    return TESTER_CUSTOMER_CODE_V1;
+  }
+  return "";
+}
+
+/** ログイン JSON が TESTER001 か */
+export function isTesterLoginBodyV1(
+  body: Record<string, unknown> | null | undefined
+): boolean {
+  return isTesterTenantV1(extractLoginCustomerCodeV1(body));
 }
 
 /** TESTER001 ログイン API の固定 JSON（DB 照会前に返す） */

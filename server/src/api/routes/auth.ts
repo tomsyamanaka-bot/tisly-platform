@@ -33,6 +33,7 @@ import { ensureTester001CustomerV1 } from "../../customer/seed-tester001-v1.js";
 import {
   buildTesterHardcodedLoginBodyV1,
   extractLoginCustomerCodeV1,
+  isTesterLoginBodyV1,
   isTesterTenantV1,
 } from "../../shared/customer/tester-tenant-v1.js";
 import { normalizeCustomerTenantCodeV1 } from "../../shared/customer/customer-tenant-profile-v1.js";
@@ -85,27 +86,56 @@ function setAuthNoStoreHeaders(
   res.setHeader("Expires", "0");
 }
 
+function respondTesterHardcodedLogin(
+  res: Parameters<ReturnType<typeof buildLoginLimiter>>[1]
+): void {
+  setAuthNoStoreHeaders(res);
+  try {
+    ensureTester001CustomerV1();
+  } catch {
+    /* シード失敗でも固定 JSON を返す */
+  }
+  res.status(200).json(
+    buildTesterHardcodedLoginBodyV1({
+      urls: customerUrls("TESTER001"),
+      expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
+    })
+  );
+}
+
+function passthroughTesterLogin(
+  req: Parameters<ReturnType<typeof buildLoginLimiter>>[0],
+  res: Parameters<ReturnType<typeof buildLoginLimiter>>[1],
+  next: Parameters<ReturnType<typeof buildLoginLimiter>>[2]
+): void {
+  /* レート制限より前に TESTER001 を通す */
+  if (req.body.customerCode?.toUpperCase() === "TESTER001") {
+    respondTesterHardcodedLogin(res);
+    return;
+  }
+  if (isTesterLoginBodyV1((req.body ?? {}) as Record<string, unknown>)) {
+    respondTesterHardcodedLogin(res);
+    return;
+  }
+  next();
+}
+
 function handleCustomerLogin(
   req: Parameters<ReturnType<typeof buildLoginLimiter>>[0],
   res: Parameters<ReturnType<typeof buildLoginLimiter>>[1]
 ): void {
+  /* TESTER001 は関数先頭で即 200 */
+  if (req.body.customerCode?.toUpperCase() === "TESTER001") {
+    respondTesterHardcodedLogin(res);
+    return;
+  }
   setAuthNoStoreHeaders(res);
   const body = (req.body ?? {}) as Record<string, unknown>;
   const rawCode = extractLoginCustomerCodeV1(body);
 
-  /* 最上流: TESTER001 は DB / JWT / パスワード照会の前に 200 を返す */
+  /* 別名・ユーザー名だけの TESTER001 も DB 前に 200 */
   if (isTesterTenantV1(rawCode)) {
-    try {
-      ensureTester001CustomerV1();
-    } catch {
-      /* シード失敗でも固定セッションは発行する */
-    }
-    res.status(200).json(
-      buildTesterHardcodedLoginBodyV1({
-        urls: customerUrls("TESTER001"),
-        expiresInMinutes: Number(process.env.SESSION_EXPIRES_MINUTES ?? 480),
-      })
-    );
+    respondTesterHardcodedLogin(res);
     return;
   }
 
@@ -214,8 +244,18 @@ authRouter.post("/login", applyLoginLimiter, (req, res) => {
   });
 });
 
-authRouter.post("/customer/login", applyLoginLimiter, handleCustomerLogin);
-authRouter.post("/customer-login", applyLoginLimiter, handleCustomerLogin);
+authRouter.post(
+  "/customer/login",
+  passthroughTesterLogin,
+  applyLoginLimiter,
+  handleCustomerLogin
+);
+authRouter.post(
+  "/customer-login",
+  passthroughTesterLogin,
+  applyLoginLimiter,
+  handleCustomerLogin
+);
 
 authRouter.post("/logout", requireAdminAuth, (req: AuthedRequest, res) => {
   if (req.admin) {

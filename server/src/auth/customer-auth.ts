@@ -41,6 +41,15 @@ export function loginCustomer(
   password: string,
   meta?: { ip?: string; userAgent?: string }
 ): CustomerSession | null {
+  /* TESTER001 は関数先頭で固定セッション */
+  if (String(customerCode ?? "").toUpperCase() === "TESTER001") {
+    try {
+      ensureTester001CustomerV1();
+    } catch {
+      /* シード失敗でも固定セッションを返す */
+    }
+    return mintTesterDemoSessionV1(meta);
+  }
   const code = normalizeCustomerTenantCodeV1(customerCode);
   if (isTesterTenantV1(code)) {
     try {

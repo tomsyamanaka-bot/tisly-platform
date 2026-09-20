@@ -43,8 +43,17 @@ npm run release:gate
 log "npm run db:init"
 npm run db:init
 
-log "systemctl restart ${SERVICE_NAME}"
-sudo systemctl restart "${SERVICE_NAME}"
+log "force-restart Node (systemd + pm2 restart all)"
+FORCE_RESTART="${REPO_ROOT}/scripts/vps-force-restart-node.sh"
+if [ -f "${FORCE_RESTART}" ]; then
+  SERVICE_NAME="${SERVICE_NAME}" TISLY_PORT="${TISLY_PORT:-3080}" \
+    PROBE_TESTER_LOGIN=1 bash "${FORCE_RESTART}"
+else
+  sudo systemctl restart "${SERVICE_NAME}"
+  if command -v pm2 >/dev/null 2>&1; then
+    pm2 restart all || true
+  fi
+fi
 
 log "nginx -t && reload"
 sudo nginx -t

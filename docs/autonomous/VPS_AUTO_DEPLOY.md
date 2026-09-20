@@ -11,15 +11,16 @@ flowchart LR
   C --> D[SSH → VPS]
   D --> E[scripts/deploy-vps.sh]
   E --> F[git fetch & reset / npm install / build]
-  F --> G[systemctl restart tisly-server]
-  G --> H[/api/health で commitShort 確認]
-  H --> I[成功 or Actions 失敗]
+  F --> G[vps-force-restart-node.sh]
+  G --> H[systemctl restart + pm2 restart all]
+  H --> I[/api/health で commitShort 確認]
+  I --> J[TESTER001 login probe]
 ```
 
 1. `master` への push で `.github/workflows/deploy-vps.yml` が起動
 2. GitHub Actions が VPS へ SSH
 3. VPS 上で `bash /opt/tisly/scripts/deploy-vps.sh` を実行
-4. スクリプトが `git fetch origin` → `git reset --hard origin/master` → `npm install` → `npm run build` → `release-gate-last.json` 同期確認 → `systemctl restart` → health 確認（`server/data/*.json` は Git 管理外のためローカルデータで止まらない）
+4. スクリプトが `git fetch origin` → `git reset --hard origin/master` → `npm install` → `npm run build` → `release-gate-last.json` 同期確認 → `scripts/vps-force-restart-node.sh`（`systemctl restart tisly-server` + `pm2 restart all` + `:3080` 残留停止）→ health 確認と TESTER001 ログイン probe（`server/data/*.json` は Git 管理外のためローカルデータで止まらない）
 5. Actions 側でも `https://tisly.jp/api/health` の `commitShort` が push した commit と一致するか再確認
 6. いずれかが失敗したら GitHub Actions を **失敗** 扱いにする
 

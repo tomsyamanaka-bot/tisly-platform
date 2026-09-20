@@ -341,10 +341,74 @@ describe("tester tenant TESTER001 / Itabashi live", () => {
     assert.match(sessionJs, /\/api\/auth\/customer\/login/);
     assert.match(sessionJs, /cache: "no-store"/);
     assert.match(sessionJs, /tester-token-2026/);
+    assert.match(sessionJs, /tester\.user/);
     assert.doesNotMatch(
       sessionJs,
       /throw new Error\(["']Customer not found/
     );
+  });
+
+  it("hardcodes TESTER001 at the top of every customer login handler", () => {
+    const authTs = fs.readFileSync(
+      path.join(serverRoot, "src/api/routes/auth.ts"),
+      "utf8"
+    );
+    assert.match(
+      authTs,
+      /req\.body\.customerCode\?\.toUpperCase\(\) === ["']TESTER001["']/
+    );
+    assert.match(authTs, /passthroughTesterLogin/);
+    assert.match(authTs, /post\(\s*["']\/customer\/login["']/);
+    assert.match(authTs, /post\(\s*["']\/customer-login["']/);
+    const loginTs = fs.readFileSync(
+      path.join(serverRoot, "src/auth/customer-auth.ts"),
+      "utf8"
+    );
+    assert.match(
+      loginTs,
+      /String\(customerCode \?\? ""\)\.toUpperCase\(\) === ["']TESTER001["']/
+    );
+  });
+
+  it("accepts username TESTER001 or tester.user without customerCode", async () => {
+    const byUser = await request(app)
+      .post("/api/auth/customer/login")
+      .send({ username: "TESTER001" });
+    assert.equal(byUser.status, 200, JSON.stringify(byUser.body));
+    assert.equal(byUser.body.success, true);
+    assert.equal(byUser.body.tenantId, "TESTER001");
+    assert.notEqual(byUser.body.error, "Customer not found");
+
+    const byTesterUser = await request(app)
+      .post("/api/auth/customer-login")
+      .send({ username: "tester.user", password: "x" });
+    assert.equal(byTesterUser.status, 200, JSON.stringify(byTesterUser.body));
+    assert.equal(byTesterUser.body.success, true);
+    assert.deepEqual(byTesterUser.body.modules, ["security", "home"]);
+    assert.notEqual(byTesterUser.body.error, "Customer not found");
+  });
+
+  it("VPS deploy force-restarts systemd and pm2", () => {
+    const repoRoot = path.resolve(serverRoot, "..");
+    const helper = fs.readFileSync(
+      path.join(repoRoot, "scripts/vps-force-restart-node.sh"),
+      "utf8"
+    );
+    assert.match(helper, /pm2 restart all/);
+    assert.match(helper, /systemctl restart/);
+    assert.match(helper, /TESTER001/);
+    const yml = fs.readFileSync(
+      path.join(repoRoot, ".github/workflows/deploy-vps.yml"),
+      "utf8"
+    );
+    assert.match(yml, /vps-force-restart-node\.sh/);
+    assert.match(yml, /pm2 restart all/);
+    const deployVps = fs.readFileSync(
+      path.join(repoRoot, "scripts/deploy-vps.sh"),
+      "utf8"
+    );
+    assert.match(deployVps, /vps-force-restart-node\.sh/);
+    assert.match(deployVps, /pm2 restart all/);
   });
 
   it("does not overwrite Itabashi or Toyoshima names", () => {

@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2546-itabashi-site-online` |
+| SW | `tisly-pwa-v2547-tester-login-force-restart` |
 
 ---
 
@@ -1846,8 +1846,19 @@ p2350-relay-v1.ts �E firmware main.py |
 | 目的 | 物件セレクタが空のまま起動し 🔴 オフライン固定になる不具合を直し、板橋自宅を初期選択して 5 分以内の HB で 🟢 オンラインを描く |
 | 原因 | 3D撤去後も iso3d が `three` を静的 import し、operator/customer モジュール全体が起動失敗 |
 | 修正 | iso3d はマウントがある時だけ動的 import。セレクタ初期値は `SEC-JP-ITABASHI-LIVE`。boot/更新で `/api/home/v1/itabashi/status` を no-store 再取得 |
-| SW | `tisly-pwa-v2546-itabashi-site-online` |
+| SW | `tisly-pwa-v2547-tester-login-force-restart` |
 | 確認 | `/security-v1` · https://tisly.jp/api/health |
+
+### TESTER001 ハードコード認証 + VPS プロセス強制再起動（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 本番 `https://tisly.jp/customer` で TESTER001 が `Customer not found` にならないよう、ログイン API 先頭で 200 を返し、デプロイ時に Node を強制再起動する |
+| API | `POST /api/auth/customer/login` と `/api/auth/customer-login`。`req.body.customerCode === TESTER001` を関数最上部で判定。ユーザー名 `TESTER001` / `tester.user` も通す |
+| 応答 | `success` · `tenantId: TESTER001` · `userName: tester.user` · `siteId: HOME-JP-ITABASHI-LIVE` · `displayName: テスターデモ（板橋）` · `modules: ["security","home"]` · `hardwareMock: true` |
+| 再起動 | `scripts/vps-force-restart-node.sh` — `systemctl stop/start/restart tisly-server` · `pm2 restart all` · `:3080` 残留 kill · ログイン probe |
+| SW | `tisly-pwa-v2547-tester-login-force-restart` |
+| 確認 | https://tisly.jp/customer · https://tisly.jp/api/health |
 
 
 

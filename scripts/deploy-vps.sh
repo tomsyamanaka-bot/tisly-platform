@@ -84,21 +84,29 @@ if [ -f "${NGINX_SRC}" ]; then
   fi
 fi
 
-echo "=== restart ==="
-sudo systemctl restart "${SERVICE_NAME}"
-
-echo "=== localhost health check ==="
-LOCAL_OK=false
-for attempt in $(seq 1 60); do
-  if curl -sf --max-time 3 "http://127.0.0.1:3080/api/health" | grep -q commitShort; then
-    LOCAL_OK=true
-    log "localhost health OK (${attempt})"
-    break
+echo "=== force-restart Node (systemd + pm2 restart all) ==="
+FORCE_RESTART="${REPO_ROOT}/scripts/vps-force-restart-node.sh"
+if [ -f "${FORCE_RESTART}" ]; then
+  SERVICE_NAME="${SERVICE_NAME}" TISLY_PORT=3080 PROBE_TESTER_LOGIN=1 \
+    bash "${FORCE_RESTART}" || fail "force-restart Node に失敗"
+else
+  sudo systemctl restart "${SERVICE_NAME}"
+  if command -v pm2 >/dev/null 2>&1; then
+    pm2 restart all || true
   fi
-  log "localhost health 待機中 (${attempt}/60)..."
-  sleep 1
-done
-[ "${LOCAL_OK}" = "true" ] || fail "localhost:3080/api/health に到達できません"
+  echo "=== localhost health check ==="
+  LOCAL_OK=false
+  for attempt in $(seq 1 60); do
+    if curl -sf --max-time 3 "http://127.0.0.1:3080/api/health" | grep -q commitShort; then
+      LOCAL_OK=true
+      log "localhost health OK (${attempt})"
+      break
+    fi
+    log "localhost health 待機中 (${attempt}/60)..."
+    sleep 1
+  done
+  [ "${LOCAL_OK}" = "true" ] || fail "localhost:3080/api/health に到達できません"
+fi
 
 echo "=== public health check ==="
 HEALTH_BODY=""

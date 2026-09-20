@@ -278,6 +278,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |
 | 2026-09-21 | 板橋 Security の物件セレクタ空値とオフライン誤判定を修復。初期選択を SEC-JP-ITABASHI-LIVE / HOME-JP-ITABASHI-LIVE に固定し、5分以内HBでオンライン描画。DI/DO配列は変更なし |
 | 2026-09-21 | Security画面から3D間取りUIを撤去。板橋のライト遠隔（DO2/DO3）と遠隔ルールをステータス直下へ再配置。RP2350端子・設定配列は変更なし |
 | 2026-09-20 | 板橋 DI擬似発報（test-di-trigger）を実センサーと同じ JST 18:00〜06:00 評価に通し、夜間は DO2/GPIO18·DO3/GPIO19 を維持秒数だけ即時点灯。物理DIも VPS JST 同期で即時ON |

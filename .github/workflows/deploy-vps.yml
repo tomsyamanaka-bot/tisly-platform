@@ -388,19 +388,22 @@ jobs:
             fi
           fi
 
-          echo "=== restart ==="
-          if [ "$(id -u)" -eq 0 ]; then
-            systemctl restart "${SERVICE_NAME}"
+          echo "=== force-restart Node (systemd + pm2 restart all + leftover :3080) ==="
+          FORCE_RESTART="${REPO_ROOT}/scripts/vps-force-restart-node.sh"
+          if [ -f "${FORCE_RESTART}" ]; then
+            SERVICE_NAME="${SERVICE_NAME}" TISLY_PORT=3080 PROBE_TESTER_LOGIN=1 \
+              bash "${FORCE_RESTART}"
           else
-            sudo -n systemctl restart "${SERVICE_NAME}"
-          fi
-
-          echo "=== pm2 restart (flush stale Node memory if present) ==="
-          if command -v pm2 >/dev/null 2>&1; then
-            pm2 restart all || true
-            pm2 save || true
-          else
-            echo "pm2 not installed — systemd restart is the primary process refresh"
+            echo "WARN: vps-force-restart-node.sh missing — fallback restart"
+            if [ "$(id -u)" -eq 0 ]; then
+              systemctl restart "${SERVICE_NAME}"
+            else
+              sudo -n systemctl restart "${SERVICE_NAME}"
+            fi
+            if command -v pm2 >/dev/null 2>&1; then
+              pm2 restart all || true
+              pm2 save || true
+            fi
           fi
 
           echo "=== localhost health check (before public) ==="
@@ -459,6 +462,19 @@ jobs:
               || { echo "ERROR: GOOGLE_MAPS_API_KEY set but health googleMapsApiConfigured is not true"; exit 1; }
           fi
 
+          echo "=== public TESTER001 login probe ==="
+          PUB_LOGIN="$(curl -sS --max-time 20 -X POST \
+            https://tisly.jp/api/auth/customer/login \
+            -H "Content-Type: application/json" \
+            -H "Cache-Control: no-store" \
+            -d '{"customerCode":"TESTER001","username":"tester.user","password":"x"}' \
+            || true)"
+          echo "${PUB_LOGIN}" | head -c 280
+          echo "${PUB_LOGIN}" | grep -q "Customer not found" \
+            && { echo "ERROR: public TESTER001 login returned Customer not found"; exit 1; }
+          echo "${PUB_LOGIN}" | grep -q '"success":true' \
+            || { echo "ERROR: public TESTER001 login did not return success"; exit 1; }
+
           echo ""
           echo "========================================"
           echo "  DEPLOY OK"
@@ -487,6 +503,17 @@ jobs:
             echo "::error::uptime ${uptime}s — 再起動後のプロセスではありません"
             exit 1
           fi
+          echo "=== public TESTER001 login (GitHub Actions) ==="
+          pub_login="$(curl -sS --max-time 20 -X POST \
+            https://tisly.jp/api/auth/customer/login \
+            -H "Content-Type: application/json" \
+            -H "Cache-Control: no-store" \
+            -d '{"customerCode":"TESTER001","username":"tester.user","password":"x"}' \
+            || true)"
+          echo "${pub_login}" | grep -q "Customer not found" \
+            && { echo "::error::TESTER001 が Customer not found"; exit 1; }
+          echo "${pub_login}" | grep -q '"success":true' \
+            || { echo "::error::TESTER001 ログインが success ではありません"; exit 1; }
           echo "commitShort verified: ${short}"
 
       - name: Deploy summary
