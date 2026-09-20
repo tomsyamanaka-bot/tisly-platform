@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2550-toyoshima-relay-kick` |
+| SW | `tisly-pwa-v2551-toyoshima-light-kick-ui` |
 
 ---
 
@@ -1899,6 +1899,20 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 / 2.2.1・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2550-toyoshima-relay-kick` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 手動ライトボタン結線＆センサーリレー保証（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 「ライト1点灯」「ライト2点灯」「フラッシュ威嚇テスト」が無反応だった UI を修復し、センサー連動で DO 青 LED を点灯する |
+| UI | `data-ts-light-kick` を document capture で結線。soft patch でボタン DOM を壊さない |
+| トースト | 「ライト1を点灯しました」「ライト2を点灯しました」「フラッシュ威嚇テストを開始しました」 |
+| センサー | `force_relay_test` 時は昼夜・警戒OFFでも CH を即時 HIGH |
+| 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
+| 既存保護 | 豊島・板橋・ナレッジ配列は削除せず |
+| SW | `tisly-pwa-v2551-toyoshima-light-kick-ui` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
 
 
 

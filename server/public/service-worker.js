@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2550-toyoshima-relay-kick";
+const SW_VERSION = "tisly-pwa-v2551-toyoshima-light-kick-ui";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2550-toyoshima-relay-kick
  * tisly-pwa-v2549-customer-auth-detail
  * tisly-pwa-v2548-toyoshima-2step-flash
  * tisly-pwa-v2547-tester-login-force-restart

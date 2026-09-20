@@ -747,6 +747,9 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /パトライト威嚇/);
     assert.match(toyoshimaJs, /🔔 通知ON|通知を受け取る/);
     assert.match(toyoshimaJs, /manual_lights_3min/);
+    assert.match(toyoshimaJs, /data-ts-light-kick/);
+    assert.match(toyoshimaJs, /ライト1を点灯しました/);
+    assert.match(toyoshimaJs, /bindToyoshimaLightKickButtons/);
     assert.match(toyoshimaJs, /patliteThreatEnabled/);
     assert.match(toyoshimaJs, /data-ts-security-mode/);
     assert.match(toyoshimaJs, /flashEnabled/);

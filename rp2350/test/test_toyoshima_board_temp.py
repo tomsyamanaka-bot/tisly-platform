@@ -139,6 +139,22 @@ def test_manual_do_bypasses_daytime_schedule():
     assert outputs[2] is True
 
 
+def test_force_relay_kicks_gpio_on_daytime_di1():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        plan = ctrl.plan_main_response(1)
+        ctrl._kick_relays_now(plan)
+    assert plan["do1"] is True
+    assert outputs[1] is True
+
+
 def test_detached_event_messages():
     events = []
 

@@ -268,6 +268,65 @@ function showToast(message) {
   showToast._timer = setTimeout(() => el.classList.remove("is-visible"), 3200);
 }
 
+const LIGHT_KICK_TOAST = {
+  do1_on: "ライト1を点灯しました",
+  do2_on: "ライト2を点灯しました",
+  do3_on: "フラッシュを点灯しました",
+  patlite_test: "フラッシュ威嚇テストを開始しました",
+};
+
+function renderManualLightKickRow() {
+  /* document capture で必ず拾う
+   * soft patch で DOM が壊れても再結線不要 */
+  return `<div class="ts-btn-row ts-manual-light-kicks">
+      <button type="button" class="ts-btn" data-ts-light-kick="do1_on"
+        data-ts-building="main" data-ts-action="do1_on">💡 ライト1点灯</button>
+      <button type="button" class="ts-btn" data-ts-light-kick="do2_on"
+        data-ts-building="main" data-ts-action="do2_on">💡 ライト2点灯</button>
+      <button type="button" class="ts-btn" data-ts-light-kick="patlite_test"
+        data-ts-building="main" data-ts-action="patlite_test">⚡ フラッシュ威嚇テスト</button>
+    </div>`;
+}
+
+async function kickToyoshimaManualLight(action, building) {
+  const data = await postJson("/toyoshima/control", {
+    siteId: TOYOSHIMA_HOME_ID,
+    building: building || "main",
+    action,
+    actor: isCustomerPortal() ? "customer-portal" : "app",
+  });
+  if (data.dashboard) {
+    renderToyoshimaDashboard(data.dashboard, { soft: true });
+  }
+  showToast(LIGHT_KICK_TOAST[action] || "ライトを点灯しました");
+}
+
+function bindToyoshimaLightKickButtons() {
+  if (window.__TISLY_TS_LIGHT_KICK_BOUND) return;
+  window.__TISLY_TS_LIGHT_KICK_BOUND = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest?.("[data-ts-light-kick]");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const action = btn.getAttribute("data-ts-light-kick");
+      const building = btn.getAttribute("data-ts-building") || "main";
+      if (!action || btn.disabled) return;
+      btn.disabled = true;
+      kickToyoshimaManualLight(action, building)
+        .catch((err) => {
+          showToast(err.message || "点灯に失敗しました");
+        })
+        .finally(() => {
+          btn.disabled = false;
+        });
+    },
+    true
+  );
+}
+
 function normalizeTimeHm(value, fallback) {
   const raw = String(value || "").trim();
   const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(raw);
@@ -562,17 +621,7 @@ function renderCustomerDailySettings(dash) {
             💡 照明を一括OFF
           </button>
         </div>
-        <div class="ts-btn-row">
-          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do1_on">
-            💡 ライト1点灯
-          </button>
-          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do2_on">
-            💡 ライト2点灯
-          </button>
-          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">
-            ⚡ フラッシュ威嚇テスト
-          </button>
-        </div>
+        ${renderManualLightKickRow()}
         <div class="ts-btn-row">
           <button type="button" class="ts-btn ts-btn-primary" data-ts-action="manual_lights_3min">
             💡 照明を点灯（3分間）
@@ -1104,11 +1153,7 @@ function renderOpsCard() {
       <button type="button" class="ts-btn" data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
       <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
     </div>
-    <div class="ts-btn-row">
-      <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do1_on">💡 ライト1点灯</button>
-      <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="do2_on">💡 ライト2点灯</button>
-      <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">⚡ フラッシュ威嚇テスト</button>
-    </div>
+    ${renderManualLightKickRow()}
     <h3 class="ts-card-head ts-section-gap">🔔 プッシュ通知管理</h3>
     <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
     <p class="ts-push-diag" id="ts-push-diag" role="status">permission: —</p>
@@ -1329,7 +1374,8 @@ function renderBuildingCard(building) {
         <p class="ts-sub">100V フラッシュライト（出力3）</p>
         <div class="ts-row">
           ${doStatus(d3 || { on: false })}
-          <button type="button" class="ts-btn" data-ts-building="main" data-ts-action="patlite_test">フラッシュ威嚇テスト</button>
+          <button type="button" class="ts-btn" data-ts-light-kick="patlite_test"
+            data-ts-building="main" data-ts-action="patlite_test">フラッシュ威嚇テスト</button>
         </div>
       </div>`;
   } else {
@@ -1598,9 +1644,9 @@ function patchToyoshimaDashboard(dash) {
     }
 
     const daily = $("ts-daily-settings");
-    if (daily && !daily.querySelector(":active, :focus")) {
-      daily.outerHTML = renderCustomerDailySettings(dash);
-    } else {
+    if (daily) {
+      /* 手動点灯ボタンを残す
+       * soft patch ではスライダーのみ更新 */
       const lightSlider = $("ts-lighting-duration");
       if (lightSlider && !lightSlider.matches(":active")) {
         lightSlider.value = String(settingsState.lightingDurationSec);
@@ -1748,6 +1794,9 @@ function patchBuildingCard(building) {
     `[data-ts-building-card="${building.id}"]`
   );
   if (!card) return false;
+  if (card.querySelector(":active, :focus, [data-ts-light-kick]")) {
+    return true;
+  }
   card.outerHTML = renderBuildingCard(building);
   return true;
 }
@@ -2030,6 +2079,11 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         ${renderCustomerCameraCard()}
         ${renderBuildingCard(dash.main)}
         ${renderBuildingCard(dash.detached)}
+        <section class="ts-card" id="ts-map-manual-lights">
+          <h3 class="ts-card-head">💡 外構ライト手動操作</h3>
+          <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
+          ${renderManualLightKickRow()}
+        </section>
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">
         <div id="ts-alarm-root">${renderAlarmCard(dash)}</div>
@@ -2060,6 +2114,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   }
   /* 社内/顧客とも iframe 安全起動にする */
   bindCustomerCamera();
+  bindToyoshimaLightKickButtons();
   bindToyoshimaControls();
   bindToyoshimaCustomerTabs();
   restoreActiveCustomerPane();
@@ -2647,6 +2702,7 @@ export function stopToyoshimaPolling() {
 
 export function startToyoshimaPolling() {
   bindToyoshimaCustomerTabs();
+  bindToyoshimaLightKickButtons();
   if (window.__TISLY_TOYOSHIMA_POLL) return;
   const tick = () => {
     const root = $("ts-dashboard-root");

@@ -217,14 +217,14 @@ class ToyoshimaBaseController:
 
     def _can_run_lights(self):
         """DO ライト点灯可否。
-        force_relay_test 時は昼夜を無視する。
+        force_relay_test 時は昼夜・警戒を無視する。
         """
+        if bool(getattr(self, "_force_relay_test", False)):
+            return True
         if self._security_paused:
             return False
         if self._guard_mode == "off":
             return False
-        if bool(getattr(self, "_force_relay_test", False)):
-            return True
         return self._is_in_light_schedule()
 
     def on_di_edge(self, di, prev_state, new_state):
@@ -275,6 +275,7 @@ class ToyoshimaBaseController:
 
     async def _drive_steady(self, channel, duration_ms):
         self._set_ch(channel, True)
+        self.log("relay CH{} HIGH {}ms".format(channel, duration_ms))
         await asyncio.sleep_ms(duration_ms)
         self._set_ch(channel, False)
 
@@ -506,7 +507,8 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     def _fire_di(self, di):
         if di not in (self.DI_BEAM_FAR, self.DI_BEAM_NEAR):
             return
-        if not self._is_armed_now():
+        force = bool(getattr(self, "_force_relay_test", False))
+        if (not self._is_armed_now()) and (not force):
             self.log("disarmed - 母屋 ビーム検知を無視")
             return
         plan = self.plan_main_response(di)
@@ -518,14 +520,25 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             asyncio.create_task(self._main_beam_response(di))
         except Exception as exc:
             self.log("main response err: {}".format(exc))
+            self._kick_relays_now(plan)
+
+    def _kick_relays_now(self, plan):
+        """create_task 失敗時も即時 HIGH。"""
+        if plan.get("do1"):
+            self._set_ch(self.DO_LIGHT_1, True)
+        if plan.get("do2"):
+            self._set_ch(self.DO_LIGHT_2, True)
+        if plan.get("do3"):
+            self._set_ch(self.DO_FLASH, True)
 
     async def _main_beam_response(self, di):
         """
         2STEP: DI1=DO1 / DI2=DO1+DO2+DO3
         DIRECT: DI1/DI2 とも全開＋フラッシュ
-        夜間スケジュール外は通知のみ。
+        force_relay_test 時は昼夜無視。
         """
         plan = self.plan_main_response(di)
+        self._kick_relays_now(plan)
         tasks = []
         if plan["do1"]:
             tasks.append(
@@ -575,7 +588,8 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
     def _fire_di(self, di):
         if di not in (self.DI_ROAD, self.DI_PATH):
             return
-        if not self._is_armed_now():
+        force = bool(getattr(self, "_force_relay_test", False))
+        if (not self._is_armed_now()) and (not force):
             self.log("disarmed - はなれ検知を無視")
             return
         if di == self.DI_ROAD:
@@ -595,6 +609,7 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         """
         light_task = None
         if self._can_run_lights():
+            self._set_ch(self.DO_LIGHT, True)
             light_task = asyncio.create_task(
                 self._drive_steady(self.DO_LIGHT, self._output_ms)
             )
