@@ -33,6 +33,24 @@ CH_24V = 2
 CH_100V = 3
 DI_OUTER = 1
 DI_INNER = 2
+# 板橋自宅 DO→GPIO（CUSTOMER_DEVICES）
+# DO2 / GPIO18 = 外側100V
+# DO3 / GPIO19 = 投光器
+ITABASHI_LIGHT_GPIO = {
+    CH_24V: 18,
+    CH_100V: 19,
+}
+MANUAL_ON_COMMANDS = (
+    "light_24v_on",
+    "light_24v_strobe",
+    "light_100v_on",
+    "light_all_on",
+)
+MANUAL_OFF_COMMANDS = (
+    "light_24v_off",
+    "light_100v_off",
+    "light_all_off",
+)
 
 
 def _parse_hm(value, fallback):
@@ -72,6 +90,7 @@ class SecurityLightController:
         self._seq_id = 0
         self._active_task = None
         self._manual_task = None
+        self._manual_hold = False
         self._rules_version = 0
         self._guard_mode = "night_only"
         self._schedule_start = _DEFAULT_SCHEDULE_START
@@ -79,6 +98,11 @@ class SecurityLightController:
         self._light_start = _DEFAULT_SCHEDULE_START
         self._light_end = _DEFAULT_SCHEDULE_END
         self._guard_active = True
+        self._vps_jst_minutes = 0
+        self._vps_jst_ticks = 0
+        self._vps_jst_valid = False
+        self._vps_light_active = True
+        self._vps_light_active_set = False
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
         self._di2_duration_ms = _DEFAULT_DURATION_MS
@@ -101,10 +125,33 @@ class SecurityLightController:
         """現在の DI 状態を返す callable(di) -> 'on'|'off' を登録。"""
         self._get_di = get_di
 
+    def _sync_vps_clock(self, rules):
+        """VPS の JST 分を毎回同期する。
+        version が変わらなくても時刻は更新する。
+        """
+        if "jstMinutes" in rules:
+            try:
+                jm = int(rules.get("jstMinutes"))
+                if 0 <= jm <= 1439:
+                    self._vps_jst_minutes = jm
+                    self._vps_jst_valid = True
+                    try:
+                        self._vps_jst_ticks = time.ticks_ms()
+                    except Exception:
+                        self._vps_jst_ticks = 0
+            except Exception:
+                pass
+        if "lightScheduleActive" in rules:
+            self._vps_light_active = bool(
+                rules.get("lightScheduleActive")
+            )
+            self._vps_light_active_set = True
+
     def apply_rules(self, rules):
-        """VPS から取得したルール JSON を反映。"""
+        """VPS から最新防犯ルール JSON を反映。"""
         if not rules or not isinstance(rules, dict):
             return False
+        self._sync_vps_clock(rules)
         ver = int(rules.get("version", 0))
         if ver <= self._rules_version and ver > 0:
             return False
@@ -208,7 +255,20 @@ class SecurityLightController:
         print("[tisly security]", msg)
 
     def _jst_minutes(self):
-        """RTC を UTC 想定し JST の分（0-1439）を返す。"""
+        """JST の分（0-1439）を返す。
+        VPS 同期値を優先し、
+        無ければ RTC を UTC とみなして +9h。
+        """
+        if self._vps_jst_valid:
+            extra = 0
+            try:
+                elapsed = time.ticks_diff(
+                    time.ticks_ms(), self._vps_jst_ticks
+                )
+                extra = int(elapsed) // 60000
+            except Exception:
+                extra = 0
+            return (self._vps_jst_minutes + extra) % (24 * 60)
         utc_sec = int(time.time())
         jst_sec = utc_sec + 9 * 3600
         return (jst_sec // 60) % (24 * 60)
@@ -243,13 +303,24 @@ class SecurityLightController:
         return True
 
     def _can_run_lights(self):
-        """防犯ライト（DO リレー）点灯可否 — 時間帯のみ。"""
+        """センサー連動の点灯可否。
+        手動命令は execute_manual 側でバイパス。
+        """
         if self._security_paused:
             self.log("security paused - lights off")
             return False
         if self._guard_mode == "off":
             self.log("guard off (DISARMED) - lights off")
             return False
+        # VPS JST 分があればそれを正とする
+        if self._vps_jst_valid:
+            return self._is_in_light_schedule()
+        if self._vps_light_active_set:
+            if not self._vps_light_active:
+                self.log(
+                    "VPS lightScheduleActive=false - lights off"
+                )
+            return self._vps_light_active
         if not self._is_in_light_schedule():
             self.log(
                 "outside light schedule ({}~{}) - lights off".format(
@@ -392,7 +463,10 @@ class SecurityLightController:
             elif pattern == "C":
                 await self._pattern_c(seq_id)
         except asyncio.CancelledError:
-            self._all_security_off()
+            # 手動命令中は消灯しない
+            # （キャンセル競合で即OFFする不具合対策）
+            if not self._manual_hold:
+                self._all_security_off()
             raise
         finally:
             if self._seq_id == seq_id:
@@ -535,9 +609,16 @@ class SecurityLightController:
             self._manual_task = None
 
     async def execute_manual_command(self, cmd):
-        """VPS 手動命令 — タイマー動作を上書き即時制御。"""
+        """VPS 手動命令。
+        点灯時間帯インターロックを完全バイパスし、
+        対象リレーへ即時 ON/OFF する。
+        """
+        if cmd in MANUAL_ON_COMMANDS:
+            self._manual_hold = True
+        elif cmd in MANUAL_OFF_COMMANDS:
+            self._manual_hold = False
         self._cancel_active()
-        self.log("manual cmd: {}".format(cmd))
+        self.log("manual cmd bypass schedule: {}".format(cmd))
 
         if cmd == "light_24v_on":
             self._set_ch(CH_24V, True)
@@ -573,7 +654,8 @@ class SecurityLightController:
                     self._strobe_on_ms if ch_on else self._strobe_off_ms
                 )
         except asyncio.CancelledError:
-            self._set_ch(channel, False)
+            if not self._manual_hold:
+                self._set_ch(channel, False)
             raise
         finally:
             if self._seq_id == seq_id:

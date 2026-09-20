@@ -8,9 +8,13 @@
 
 import { getDatabase } from "../db/database.js";
 import { findHomeSiteV1 } from "./home-sites-v1.js";
-import { isWithinTimeRange } from "./home-security-time-range-v1.js";
+import {
+  getJstMinutesOfDayV1,
+  isWithinTimeRange,
+} from "./home-security-time-range-v1.js";
 
 export { isWithinTimeRange } from "./home-security-time-range-v1.js";
+export { getJstMinutesOfDayV1 } from "./home-security-time-range-v1.js";
 
 /** 警戒モード（PWA 表示用）
  * night_only は scheduled の互換エイリアス */
@@ -185,6 +189,10 @@ export interface HomeSecurityFirmwareRulesV1 {
   lighting_duration_sec: number;
   /** おでかけ警戒時のパトライト威嚇 */
   patlite_threat_enabled: boolean;
+  /** VPS 算出の JST 分（0〜1439） */
+  jstMinutes: number;
+  /** VPS 側の点灯時間帯判定（JST） */
+  lightScheduleActive: boolean;
 }
 
 const GUARD_MODES: HomeGuardModeV1[] = [
@@ -843,6 +851,13 @@ export function buildHomeSecurityFirmwareRulesV1(
     ),
     lighting_duration_sec: rules.lightingDurationSec,
     patlite_threat_enabled: rules.patliteThreatEnabled !== false,
+    /* RP2350 RTC 未設定でも
+     * VPS の JST 判定を正とする */
+    jstMinutes: getJstMinutesOfDayV1(),
+    lightScheduleActive: isHomeScheduleWindowActiveV1(
+      rules.scheduleStart,
+      rules.scheduleEnd
+    ),
   };
 }
 

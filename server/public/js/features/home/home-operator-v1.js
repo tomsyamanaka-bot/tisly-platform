@@ -223,6 +223,8 @@ async function handleControl(el) {
       deviceKey,
       value,
       actor: "社内オペレーター",
+      /* 手動ライトは時間帯を無視する */
+      bypassSchedule: target === "security_light",
     });
     if (isBathPulse && pulseStatus) {
       pulseStatus.classList.remove("is-sending");

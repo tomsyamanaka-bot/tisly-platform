@@ -65,6 +65,8 @@ async function sendLightCommand(action, btn) {
         target: "security_light",
         action,
         actor: "security-v1",
+        /* 手動ボタンは点灯時間帯を無視する */
+        bypassSchedule: true,
       }),
     });
     const data = await res.json();

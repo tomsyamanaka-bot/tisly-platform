@@ -531,17 +531,47 @@ def poll_inputs():
     return changed, edges
 
 
+def _relay_gpio_level(channel, on):
+    """論理ON/OFFをGPIOレベルへ変換する。
+    Waveshare 8RO は HIGH=コイルON。
+    CH_INVERT / RO_ACTIVE_LOW 時のみ反転する。
+    """
+    invert = False
+    invert_map = getattr(config, "CH_INVERT", None)
+    if invert_map:
+        invert = bool(invert_map.get(channel, False))
+    if bool(getattr(config, "RO_ACTIVE_LOW", False)):
+        invert = not invert
+    if invert:
+        return 0 if on else 1
+    return 1 if on else 0
+
+
 def set_ch_output(channel, on):
-
-    """リレー出力と ch_states を同期更新。"""
-
+    """リレー出力と ch_states を同期更新。
+    板橋 DO2=GPIO18 / DO3=GPIO19 を明示駆動。
+    """
     if channel not in CH_PINS:
-
         return
-
-    CH_PINS[channel].value(1 if on else 0)
-
+    gpio = config.CH_GPIO.get(channel)
+    expected = {2: 18, 3: 19}.get(channel)
+    if expected is not None and gpio != expected:
+        log_error(
+            "CH{} GPIO mismatch expected {} got {}".format(
+                channel, expected, gpio
+            )
+        )
+    level = _relay_gpio_level(channel, on)
+    CH_PINS[channel].value(level)
     ch_states[str(channel)] = "on" if on else "off"
+    log(
+        "CH{} GPIO{} → {} (logic {})".format(
+            channel,
+            gpio,
+            "HIGH" if level else "LOW",
+            "ON" if on else "OFF",
+        )
+    )
 
 
 def handle_security_di_edges(edges):
@@ -933,9 +963,9 @@ def _parse_channel_command(cmd):
 
 async def exec_command(cmd):
 
-    if _security and cmd in SECURITY_LIGHT_COMMANDS:
+        if _security and cmd in SECURITY_LIGHT_COMMANDS:
 
-        log("command received: {}".format(cmd))
+        log("manual light bypass schedule: {}".format(cmd))
 
         handled = await _security.execute_manual_command(cmd)
 
@@ -967,9 +997,7 @@ async def exec_command(cmd):
 
             # ワンショット: ON → sleep → OFF（自動ボタン短絡）
 
-            CH_PINS[channel].value(1)
-
-            ch_states[str(channel)] = "on"
+            set_ch_output(channel, True)
 
             log("CH{} PULSE ON {}ms gpio={}".format(
 
@@ -979,17 +1007,13 @@ async def exec_command(cmd):
 
             await asyncio.sleep_ms(pulse_ms)
 
-            CH_PINS[channel].value(0)
-
-            ch_states[str(channel)] = "off"
+            set_ch_output(channel, False)
 
             log("CH{} PULSE OFF gpio={}".format(channel, gpio))
 
         else:
 
-            CH_PINS[channel].value(1 if on else 0)
-
-            ch_states[str(channel)] = "on" if on else "off"
+            set_ch_output(channel, on)
 
             log(
 
@@ -1038,11 +1062,22 @@ async def async_main():
 
     for ch in sorted(CH_PINS.keys()):
 
-        CH_PINS[ch].value(0)
+        CH_PINS[ch].value(_relay_gpio_level(ch, False))
 
         ch_states[str(ch)] = "off"
 
         log("CH{} GPIO{} → OFF".format(ch, config.CH_GPIO[ch]))
+
+    for ch, gpio in ((2, 18), (3, 19)):
+        actual = config.CH_GPIO.get(ch)
+        if actual == gpio:
+            log("itabashi light bind CH{} → GPIO{} OK".format(ch, gpio))
+        else:
+            log_error(
+                "itabashi light bind CH{} expected GPIO{} got {}".format(
+                    ch, gpio, actual
+                )
+            )
 
 
 

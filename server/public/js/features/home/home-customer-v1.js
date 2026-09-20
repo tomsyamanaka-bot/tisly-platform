@@ -338,6 +338,8 @@ async function handleControl(el) {
 
       audience: "customer",
 
+      bypassSchedule: target === "security_light",
+
     });
 
     if (isBathPulse && pulseStatus) {

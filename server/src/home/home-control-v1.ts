@@ -77,6 +77,8 @@ export interface HomeControlResultV1 {
   statusCode?: number;
   /** SwitchBot API の message 原文 */
   switchBotMessage?: string;
+  /** 防犯ライト手動命令の時間帯バイパス */
+  bypassSchedule?: boolean;
 }
 
 const AIRCON_MIN_TEMP_C = 16;

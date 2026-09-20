@@ -209,6 +209,61 @@ def test_apply_rules_rejects_too_short_confirm():
     assert ctrl._di_confirm_ms == 50
 
 
+def test_manual_on_bypasses_daytime_schedule():
+    """手動点灯は日中でもリレーONする。"""
+    import asyncio
+
+    lights = []
+    utc = 3 * 3600
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = SecurityLightController(
+            lambda ch, on: lights.append((ch, on))
+        )
+        ctrl.apply_rules({"version": 30, "guardMode": "always"})
+        assert ctrl._can_run_lights() is False
+        ok = asyncio.run(ctrl.execute_manual_command("light_all_on"))
+        assert ok is True
+        assert ctrl._manual_hold is True
+    assert (2, True) in lights
+    assert (3, True) in lights
+
+
+def test_vps_jst_minutes_overrides_local_rtc():
+    """VPS JST 分を正とし RTC ズレを無視する。"""
+    utc_day = 3 * 3600
+    with patch("security_light.time.time", return_value=utc_day):
+        ctrl = _ctrl(
+            {
+                "version": 31,
+                "guardMode": "always",
+                "jstMinutes": 21 * 60,
+                "lightScheduleActive": True,
+            }
+        )
+        assert ctrl._is_in_light_schedule() is True
+        assert ctrl._can_run_lights() is True
+        skipped = ctrl.apply_rules(
+            {
+                "version": 31,
+                "jstMinutes": 12 * 60,
+                "lightScheduleActive": False,
+            }
+        )
+        assert skipped is False
+        assert ctrl._vps_jst_minutes == 12 * 60
+        assert ctrl._can_run_lights() is False
+
+
+def test_itabashi_light_gpio_map():
+    """DO2=GPIO18 / DO3=GPIO19 のバインド。"""
+    import security_light as sl
+
+    assert sl.CH_24V == 2
+    assert sl.CH_100V == 3
+    assert sl.ITABASHI_LIGHT_GPIO[2] == 18
+    assert sl.ITABASHI_LIGHT_GPIO[3] == 19
+
+
 if __name__ == "__main__":
     test_always_guard_active_at_night()
     test_always_daytime_lights_off()
@@ -224,4 +279,7 @@ if __name__ == "__main__":
     test_default_di_confirm_ms_is_50()
     test_apply_rules_accepts_50ms_confirm()
     test_apply_rules_rejects_too_short_confirm()
+    test_manual_on_bypasses_daytime_schedule()
+    test_vps_jst_minutes_overrides_local_rtc()
+    test_itabashi_light_gpio_map()
     print("ok")

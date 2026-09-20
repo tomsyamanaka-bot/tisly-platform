@@ -57,6 +57,17 @@ DI_GPIO = {
 # 入力は active-low（接点 ON = GPIO LOW）
 DI_ACTIVE_LOW = True
 
+# リレーは HIGH=コイルON（Waveshare 02_MQTT 準拠）
+# True にすると全CHの HIGH/LOW を反転する
+RO_ACTIVE_LOW = False
+
+# チャネル単位の HIGH/LOW 反転（未指定は反転しない）
+CH_INVERT = {
+    1: False,
+    2: False,  # DO2 / GPIO18 外側100V
+    3: False,  # DO3 / GPIO19 投光器
+}
+
 # DI ハードデバウンス（ms）。確定は security_light の 50ms 継続 ON
 DI_DEBOUNCE_MS = 50
 
@@ -65,7 +76,7 @@ RGB_LED_PIN = 2
 RGB_LED_COUNT = 1
 
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.6.2-di-confirm-50ms"
+FIRMWARE_VERSION = "1.6.3-manual-light-bypass"
 
 # 全現場共通 OTA（config.py 自体は遠隔上書きしない）
 OTA_SITE = "itabashi"

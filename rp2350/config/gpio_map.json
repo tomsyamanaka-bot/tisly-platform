@@ -92,7 +92,7 @@
       "gpio_pin": 18,
       "active_low": false,
       "debounce_ms": 0,
-      "hardware_note": "100Vライト② — Waveshare 02_MQTT サンプル GPIO18",
+      "hardware_note": "100Vライト② — Waveshare 02_MQTT サンプル GPIO18 / 板橋自宅 DO2 外側100V 防犯ライト",
       "verify_status": "wiki_confirmed"
     },
     "RO3": {
@@ -101,7 +101,7 @@
       "gpio_pin": 19,
       "active_low": false,
       "debounce_ms": 0,
-      "hardware_note": "パトライト — Waveshare 02_MQTT サンプル GPIO19",
+      "hardware_note": "パトライト — Waveshare 02_MQTT サンプル GPIO19 / 板橋自宅 DO3 100V投光器ライト",
       "verify_status": "wiki_confirmed"
     },
     "RO4": {

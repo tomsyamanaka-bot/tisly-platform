@@ -58,19 +58,26 @@ export interface HomeSecurityLightControlResultV1 {
   queuedAt?: string;
   transport?: "remote_test_poll" | "tester_demo_mock" | string;
   mocked?: boolean;
+  /** 手動命令は点灯時間帯をバイパス */
+  bypassSchedule?: boolean;
 }
 
 /**
  * 手動ライト命令を VPS キューへ投入。
  * UI は /api/home/v1/control (target=security_light) 経由。
+ * 点灯・威嚇点滅・緊急全点灯は
+ * 点灯時間帯インターロックを完全バイパスする。
  */
 export function applyHomeSecurityLightControlV1(input: {
   siteId: string;
   action: string;
   actor?: string | null;
+  bypassSchedule?: boolean;
 }): HomeSecurityLightControlResultV1 {
   const siteId = String(input.siteId || "").trim();
   const action = String(input.action || "").trim();
+  /* 手動 PWA 即時命令は常に時間帯を無視する */
+  const bypassSchedule = true;
 
   if (!siteId) {
     return { ok: false, error: "siteId が必要です" };
@@ -106,6 +113,7 @@ export function applyHomeSecurityLightControlV1(input: {
         command: action,
         transport: "remote_test_poll",
         queuedAt: queued.queuedAt,
+        bypassSchedule,
       },
       actor: input.actor ?? "app",
     });
@@ -119,5 +127,6 @@ export function applyHomeSecurityLightControlV1(input: {
     queuedAt: queued.queuedAt,
     transport: queued.transport ?? "remote_test_poll",
     mocked: queued.mocked === true,
+    bypassSchedule,
   };
 }

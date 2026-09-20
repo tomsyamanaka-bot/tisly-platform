@@ -3,26 +3,25 @@
  * 板橋自宅・豊島邸など HOME 系で共用する。
  * 現在時刻は常に Asia/Tokyo（JST）で評価する。
  * VPS が UTC でも誤判定しない。
+ *
+ * Intl の hour12 無視や 24:00 表記に依存せず、
+ * JST=UTC+9（日本は DST なし）で分を算出する。
  */
+
+const JST_OFFSET_MS_V1 = 9 * 60 * 60 * 1000;
+const MINUTES_PER_DAY_V1 = 24 * 60;
 
 /** JST の「その日の分」（0〜1439）を返す */
 export function getJstMinutesOfDayV1(at: Date = new Date()): number {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Tokyo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(at);
-  let hour = Number(
-    parts.find((p) => p.type === "hour")?.value ?? "0"
-  );
-  const minute = Number(
-    parts.find((p) => p.type === "minute")?.value ?? "0"
-  );
-  /* 一部環境の 24:00 表記を 0 時に正規化 */
-  if (hour === 24) hour = 0;
+  const ms = at instanceof Date ? at.getTime() : Date.now();
+  if (!Number.isFinite(ms)) return 0;
+  /* UTC ミリ秒へ +9h し、UTC ゲッタで JST 時分を読む */
+  const jst = new Date(ms + JST_OFFSET_MS_V1);
+  const hour = jst.getUTCHours();
+  const minute = jst.getUTCMinutes();
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
-  return hour * 60 + minute;
+  return ((hour * 60 + minute) % MINUTES_PER_DAY_V1 + MINUTES_PER_DAY_V1) %
+    MINUTES_PER_DAY_V1;
 }
 
 /**

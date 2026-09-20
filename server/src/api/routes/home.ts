@@ -605,6 +605,7 @@ homeRouter.post("/control", async (req, res) => {
     action,
     deviceKey,
     dashboard,
+    bypassSchedule: result.bypassSchedule === true,
   });
 });
 

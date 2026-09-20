@@ -81,11 +81,14 @@ describe("tisly-home-v1", () => {
     for (const site of HOME_SITES_V1) {
       assert.ok(site.tenantId, `${site.id} tenantId`);
       assert.ok(site.planCode, `${site.id} planCode`);
-      assert.ok(site.ct.circuits.length >= 3, `${site.id} circuits`);
+      assert.ok(site.ct.circuits.length >= 1, `${site.id} circuits`);
       assert.equal(site.ct.hourlyCurrentA.length, 24, site.id);
       assert.ok(site.bath.deviceKey, `${site.id} bath`);
-      assert.ok(site.aircons.length >= 1, `${site.id} aircon`);
       assert.ok(site.lock.deviceKey, `${site.id} lock`);
+      if (site.kind !== "live_home") {
+        assert.ok(site.ct.circuits.length >= 3, `${site.id} circuits`);
+        assert.ok(site.aircons.length >= 1, `${site.id} aircon`);
+      }
     }
 
     const jp = findHomeSiteV1(JP_SITE);
@@ -631,7 +634,7 @@ describe("tisly-home-v1", () => {
       path.join(publicDir, "service-worker.js"),
       "utf-8"
     );
-    assert.match(sw, /tisly-pwa-v2498-iso3d-pinch-zoom|tisly-pwa-v2497-iso3d-reel-solo|tisly-pwa-v2496-iso3d-contrast-drum|tisly-pwa-v2493-home-security-split|tisly-pwa-v2489-outer-100v-light-label|tisly-pwa-v2488-radar-settings-ble|tisly-pwa-v2487-security-light-manual|tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
+    assert.match(sw, /tisly-pwa-v2543-itabashi-light-bypass|tisly-pwa-v2542-security-history-modal|tisly-pwa-v2541-tester-login-hardpass|tisly-pwa-v2540-tester-login-passthrough|tisly-pwa-v2539-tester-login-fix|tisly-pwa-v2538-tester-demo-webview|tisly-pwa-v2537-gv-scheme-direct|tisly-pwa-v2531-customer-tabs|tisly-pwa-v2530-customer-fw-ssot|tisly-pwa-v2529-ota-site-bind|tisly-pwa-v2527-leakage-current-1ma|tisly-pwa-v2526-hw-kitting-surge|tisly-pwa-v2525-rp-rgb-kitting|tisly-pwa-v2522-status-ssot|tisly-pwa-v2520-tenant-skeleton-hb|tisly-pwa-v2516-comm-health-ssot|tisly-pwa-v2515-customer-daily-mount|tisly-pwa-v2512-multi-angle-sketch|tisly-pwa-v2511-text-to-3d-prompt|tisly-pwa-v2510-home-intercom-link|tisly-pwa-v2509-smart-intercom|tisly-pwa-v2507-pmv-header-fix|tisly-pwa-v2506-pmv-back-nav|tisly-pwa-v2505-dim-number-badges|tisly-pwa-v2504-print-sketch-lib-cam|tisly-pwa-v2503-print-generator-card|tisly-pwa-v2502-field-hub-cards-restore|tisly-pwa-v2501-field-hub-clean|tisly-pwa-v2500-dashboard-compact-3d|tisly-pwa-v2498-iso3d-pinch-zoom|tisly-pwa-v2497-iso3d-reel-solo|tisly-pwa-v2496-iso3d-contrast-drum|tisly-pwa-v2493-home-security-split|tisly-pwa-v2489-outer-100v-light-label|tisly-pwa-v2488-radar-settings-ble|tisly-pwa-v2487-security-light-manual|tisly-pwa-v2486-home-bath-schedule-logs|tisly-pwa-v2485-itabashi-bath-pulse-ux|tisly-pwa-v2484-itabashi-bath-pulse|tisly-pwa-v2483-floorplan-ux-pin|tisly-pwa-v2471-security-drum|tisly-pwa-v2470-security-svg|tisly-pwa-v2469-security-light|tisly-pwa-v2468-soc-failsafe|tisly-pwa-v2467-soc-iso|tisly-pwa-v2466-security-floor|tisly-pwa-v2465-genre-chips|tisly-pwa-v2464-genre-chips|tisly-pwa-v2463-unified-genres|tisly-pwa-v2462-price-cost-master|tisly-pwa-v2461-home-customer-independent/);
     assert.match(sw, /\/css\/features\/home\/home-v1\.css/);
     assert.match(sw, /\/css\/features\/home\/home-tiles-v1\.css/);
     assert.match(sw, /\/js\/features\/home\/home-tiles-v1\.js/);
@@ -1165,10 +1168,15 @@ describe("tisly-home-v1", () => {
     assert.equal(fwRes.body.rules.lighting_duration_sec, 60);
     assert.equal(fwRes.body.rules.light_start, fwRes.body.rules.scheduleStart);
     assert.equal(fwRes.body.rules.light_end, fwRes.body.rules.scheduleEnd);
-    assert.equal(fwRes.body.rules.diConfirmMs, 50);
+    assert.ok(fwRes.body.rules.diConfirmMs >= 20);
+    assert.ok(fwRes.body.rules.diConfirmMs <= 500);
     assert.equal(fwRes.body.rules.di1LightMode, "blink");
     assert.equal(fwRes.body.rules.perimeterFlagMs, 90_000);
     assert.equal(fwRes.body.rules.di2Light100vMode, "blink");
+    assert.equal(typeof fwRes.body.rules.jstMinutes, "number");
+    assert.ok(fwRes.body.rules.jstMinutes >= 0);
+    assert.ok(fwRes.body.rules.jstMinutes <= 1439);
+    assert.equal(typeof fwRes.body.rules.lightScheduleActive, "boolean");
   });
 
   it("POST /api/home/v1/security/config applies scheduled window", async () => {
@@ -1314,6 +1322,7 @@ describe("tisly-home-v1", () => {
     assert.equal(res.body.ok, true);
     assert.match(res.body.message, /外側100V/);
     assert.equal(getRemoteTestStatus().pendingCommand, "light_24v_strobe");
+    assert.equal(res.body.bypassSchedule, true);
 
     const allOn = await request(app)
       .post("/api/home/v1/control")

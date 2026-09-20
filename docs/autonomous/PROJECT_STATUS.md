@@ -1807,3 +1807,15 @@ p2350-relay-v1.ts �E firmware main.py |
 | Info.plist テンプレ | `ios-ci/Info.plist.permissions.template.xml` |
 | 旧 WF | `ios-deploy.yml` は誘導のみ（タグ二重起動防止） |
 
+### 板橋自宅 防犯ライト手動バイパス + JST 判定修正（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | PWA 手動点灯・威嚇・緊急全点灯を時間帯インターロックから切り離し、センサー連動は JST 18:00〜06:00 を正しく判定する |
+| 手動 | `bypassSchedule: true` · ファーム `execute_manual_command` はスケジュール非参照 · キャンセル競合で即消灯しない |
+| GPIO | 板橋 DO2=GPIO18 · DO3=GPIO19 · 論理ON→HIGH（`RO_ACTIVE_LOW` / `CH_INVERT` で反転可） |
+| 時刻 | VPS は UTC+9 算術 · firmware JSON に `jstMinutes` / `lightScheduleActive` |
+| SW | `tisly-pwa-v2543-itabashi-light-bypass` |
+| 確認 | `/security-v1` · `/api/home/v1/control` · https://tisly.jp/api/health |
+
+

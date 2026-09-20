@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  getJstMinutesOfDayV1,
   isHomeScheduleWindowActiveV1,
   isWithinTimeRange,
 } from "../src/home/home-security-rules-v1.js";
@@ -30,6 +31,25 @@ describe("isWithinTimeRange overnight", () => {
 
   it("treats equal start/end as all-day", () => {
     assert.equal(isWithinTimeRange("00:00", "00:00", jstDate(12, 0)), true);
+  });
+
+  it("uses UTC+9 arithmetic (hour12 trap)", () => {
+    /* 18:00 JST = 09:00 UTC — hour12 だと 6 時になる */
+    const dusk = new Date("2026-09-20T09:00:00.000Z");
+    assert.equal(getJstMinutesOfDayV1(dusk), 18 * 60);
+    assert.equal(isWithinTimeRange("18:00", "06:00", dusk), true);
+    /* 12:00 JST = 03:00 UTC — 日中は窓外 */
+    const noon = new Date("2026-09-20T03:00:00.000Z");
+    assert.equal(getJstMinutesOfDayV1(noon), 12 * 60);
+    assert.equal(isWithinTimeRange("18:00", "06:00", noon), false);
+    /* 21:00 JST = 12:00 UTC */
+    const night = new Date("2026-09-20T12:00:00.000Z");
+    assert.equal(getJstMinutesOfDayV1(night), 21 * 60);
+    assert.equal(isWithinTimeRange("18:00", "06:00", night), true);
+    /* 00:30 JST = 15:30 UTC 前日 */
+    const afterMidnight = new Date("2026-09-19T15:30:00.000Z");
+    assert.equal(getJstMinutesOfDayV1(afterMidnight), 30);
+    assert.equal(isWithinTimeRange("18:00", "06:00", afterMidnight), true);
   });
 });
 

@@ -7,20 +7,13 @@
 
   function getJstMinutesOfDay(now) {
     var at = now instanceof Date ? now : new Date();
-    var parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Tokyo",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).formatToParts(at);
-    var hour = 0;
-    var minute = 0;
-    var i;
-    for (i = 0; i < parts.length; i++) {
-      if (parts[i].type === "hour") hour = Number(parts[i].value);
-      if (parts[i].type === "minute") minute = Number(parts[i].value);
-    }
-    if (hour === 24) hour = 0;
+    var ms = at.getTime();
+    if (!Number.isFinite(ms)) return 0;
+    /* Intl hour12 誤判定を避け
+     * UTC+9 算術で JST 分を算出する */
+    var jst = new Date(ms + 9 * 60 * 60 * 1000);
+    var hour = jst.getUTCHours();
+    var minute = jst.getUTCMinutes();
     if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
     return hour * 60 + minute;
   }
