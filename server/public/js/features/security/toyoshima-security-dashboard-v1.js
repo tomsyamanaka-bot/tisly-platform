@@ -371,6 +371,7 @@ function renderCustomerStatusBanner(dash) {
   const view = buildCommHealthView(dash);
   applyHardwareStatusFromDash(dash, view);
   return `<div id="ts-customer-status-stack">
+  ${renderCustomerAssureHealthCard(view)}
   <section class="ts-card ts-safety-card ${
     alerting ? "is-alert" : "is-ok"
   }" id="ts-status-banner">
@@ -394,7 +395,6 @@ function renderCustomerStatusBanner(dash) {
       </div>
     </div>
   </section>
-  ${renderCustomerAssureHealthCard(view)}
   </div>`;
 }
 
@@ -403,12 +403,11 @@ function renderCustomerStatusBanner(dash) {
  * 危険スイッチは含めず稼働状態のみ表示
  */
 function renderCustomerAssureHealthCard(view) {
-  return `<section class="ts-card ts-assure-health-card" id="ts-customer-health-card" aria-label="システム安心・通信ヘルス">
+  return `<section class="ts-card ts-assure-health-card" id="ts-customer-health-card" data-ssot="toyoshima-commHealth" aria-label="システム安心・通信ヘルス">
     <div class="ts-assure-head-row">
       <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
       <button type="button" class="ts-refresh-btn" data-ts-action="refresh_status" aria-label="最新状態に更新">
-        <span class="ts-refresh-ico" aria-hidden="true">🔄</span>
-        <span class="ts-refresh-label">最新状態に更新</span>
+        🔄 最新状態に更新
       </button>
     </div>
     <div class="ts-assure-grid">
@@ -424,7 +423,6 @@ function renderCustomerAssureHealthCard(view) {
         <span class="ts-assure-key">盤内温度</span>
         <span class="ts-assure-val ts-board-temp is-${view.tempLevel}" id="ts-assure-temp">${view.tempEmoji} ${escapeHtml(view.tempLabel)}</span>
       </div>
-      <!-- 実機稼働版は OTA SSOT と同期する -->
       <div class="ts-assure-row">
         <span class="ts-assure-key">システムバージョン</span>
         <span class="ts-assure-val ts-assure-fw-wrap" id="ts-assure-fw-wrap">

@@ -139,7 +139,12 @@ import {
   syncToyoshimaConfigToFirmwareV1,
   updateToyoshimaNotifyModeV1,
 } from "../../home/home-toyoshima-security-v1.js";
-import { consumeToyoshimaDeviceCommandV1 } from "../../home/home-toyoshima-command-queue-v1.js";
+import {
+  consumeOrWaitToyoshimaDeviceCommandV1,
+  consumeToyoshimaDeviceCommandV1,
+  parseToyoshimaCommandWaitMsV1,
+  serializeToyoshimaDeviceCommandV1,
+} from "../../home/home-toyoshima-command-queue-v1.js";
 import {
   getToyoshimaOpsConfigV1,
   updateToyoshimaOpsConfigV1,
@@ -1341,9 +1346,9 @@ homeRouter.get("/activity-timeline", (req, res) => {
 
 /** 豊島邸 Security ダッシュボード */
 function registerToyoshimaHomeRoutes(prefix: string): void {
-  homeRouter.get(`${prefix}/command`, (req, res) => {
+  homeRouter.get(`${prefix}/command`, async (req, res) => {
     /* 豊島実機の専用命令キュー
-     * 板橋 remote-test とは分離する */
+     * waitMs で長待ちし即時届ける */
     const token = String(
       req.headers["x-remote-test-token"] ?? ""
     ).trim();
@@ -1355,15 +1360,12 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
     const deviceId = String(
       req.query.deviceId ?? req.query.building ?? "main"
     ).trim();
-    const command = consumeToyoshimaDeviceCommandV1(deviceId);
-    res.json({
-      ok: true,
-      command: command?.command ?? null,
-      bypassSchedule: true,
-      forceRelayTest: true,
-      durationMs: command?.durationMs,
-      queuedAt: command?.queuedAt ?? null,
-    });
+    const waitMs = parseToyoshimaCommandWaitMsV1(req.query.waitMs);
+    const command =
+      waitMs > 0
+        ? await consumeOrWaitToyoshimaDeviceCommandV1(deviceId, waitMs)
+        : consumeToyoshimaDeviceCommandV1(deviceId);
+    res.json(serializeToyoshimaDeviceCommandV1(command));
   });
 
   homeRouter.get(`${prefix}/dashboard`, (req, res) => {
@@ -1526,6 +1528,12 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         minute: "2-digit",
         second: "2-digit",
       });
+      /* heartbeat 応答に手動命令を同梱する
+       * ポーリング待ちを待たず実機へ届ける */
+      const piggyback = consumeToyoshimaDeviceCommandV1(
+        String(req.body?.deviceId ?? building)
+      );
+      const commandJson = serializeToyoshimaDeviceCommandV1(piggyback);
       res.json({
         ok: true,
         status: "ONLINE",
@@ -1538,6 +1546,12 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         has_ota_update: ota.has_ota_update,
         firmware_latest: ota.version,
         ota,
+        command: commandJson.command,
+        bypassSchedule: commandJson.bypassSchedule,
+        forceRelayTest: commandJson.forceRelayTest,
+        durationMs: commandJson.durationMs,
+        queuedAt: commandJson.queuedAt,
+        pipeline: commandJson.pipeline,
       });
     } catch (err) {
       res.status(400).json({

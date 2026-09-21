@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2551-toyoshima-light-kick-ui` |
+| SW | `tisly-pwa-v2552-toyoshima-instant-relay` |
 
 ---
 
@@ -1911,6 +1911,19 @@ p2350-relay-v1.ts �E firmware main.py |
 | 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
 | 既存保護 | 豊島・板橋・ナレッジ配列は削除せず |
 | SW | `tisly-pwa-v2551-toyoshima-light-kick-ui` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 顧客安心カード＆即時リレーパイプライン（完成済み）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | `/customer` 先頭に社内と同様のシステム安心カードを置き、PWA 手動点灯を実機へ即時到達させる |
+| 顧客UI | 稼働ステータス / ネットワーク遅延 / 盤内温度 / 最終確認時刻 / 「🔄 最新状態に更新」 |
+| 即時経路 | `GET /api/home/v1/toyoshima/command?waitMs=` 長待ち + heartbeat 同梱 `command` + PWA WebSocket `toyoshima/relay` |
+| 実機 | `main_toyoshima.py` が waitMs=2000 で受信。昼夜を無視して CH1〜CH3 を HIGH（DO青LED） |
+| 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
+| 既存保護 | 2.2 / 2.2.1 / 2.2.2・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2552-toyoshima-instant-relay` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
 

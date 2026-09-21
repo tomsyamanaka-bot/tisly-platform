@@ -17,6 +17,7 @@ import {
   updateToyoshimaNotifyModeV1,
 } from "../src/home/home-toyoshima-security-v1.js";
 import {
+  consumeOrWaitToyoshimaDeviceCommandV1,
   consumeToyoshimaDeviceCommandV1,
   resetToyoshimaDeviceCommandQueueForTestV1,
 } from "../src/home/home-toyoshima-command-queue-v1.js";
@@ -525,5 +526,21 @@ describe("toyoshima-security-v1", () => {
       HOME_JP_TOYOSHIMA_SITE_ID_V1
     );
     assert.equal(fw.force_relay_test, true);
+  });
+
+  it("long-poll waiter wakes when command is queued", async () => {
+    const pending = consumeOrWaitToyoshimaDeviceCommandV1("main", 800);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    applyToyoshimaManualControlV1({
+      building: "main",
+      action: "do2_on",
+    });
+    const row = await pending;
+    assert.equal(row?.command, "do2_on");
+    assert.equal(row?.bypassSchedule, true);
+    assert.equal(
+      consumeToyoshimaDeviceCommandV1("main"),
+      null
+    );
   });
 });

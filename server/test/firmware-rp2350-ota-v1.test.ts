@@ -249,9 +249,66 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(res.body.ok, true);
     assert.equal(res.body.command, "do1_on");
     assert.equal(res.body.bypassSchedule, true);
+    assert.equal(res.body.pipeline, "immediate");
     const empty = await request(app).get(
       "/api/home/v1/toyoshima/command?deviceId=rp2350-toyoshima-main-01"
     );
     assert.equal(empty.body.command, null);
+  });
+
+  it("GET toyoshima command waitMs returns queued live-kick", async () => {
+    const {
+      queueToyoshimaDeviceCommandV1,
+      resetToyoshimaDeviceCommandQueueForTestV1,
+    } = await import("../src/home/home-toyoshima-command-queue-v1.js");
+    resetToyoshimaDeviceCommandQueueForTestV1();
+    queueToyoshimaDeviceCommandV1({
+      deviceId: "rp2350-toyoshima-main-01",
+      command: "do2_on",
+    });
+    const res = await request(app).get(
+      "/api/home/v1/toyoshima/command?deviceId=rp2350-toyoshima-main-01&waitMs=200"
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.command, "do2_on");
+    assert.equal(res.body.pipeline, "immediate");
+    assert.equal(res.body.forceRelayTest, true);
+  });
+
+  it("heartbeat piggybacks pending live-kick command", async () => {
+    const {
+      queueToyoshimaDeviceCommandV1,
+      resetToyoshimaDeviceCommandQueueForTestV1,
+    } = await import("../src/home/home-toyoshima-command-queue-v1.js");
+    resetToyoshimaDeviceCommandQueueForTestV1();
+    queueToyoshimaDeviceCommandV1({
+      deviceId: "rp2350-toyoshima-main-01",
+      command: "bulk_on",
+    });
+    const hb = await request(app)
+      .post("/api/home/v1/toyoshima/heartbeat")
+      .send({
+        building: "main",
+        deviceId: "rp2350-toyoshima-main-01",
+        firmware_version: "1.0.0",
+        siteId: "HOME-JP-TOYOSHIMA",
+      });
+    assert.equal(hb.status, 200);
+    assert.equal(hb.body.command, "bulk_on");
+    assert.equal(hb.body.bypassSchedule, true);
+    assert.equal(hb.body.pipeline, "immediate");
+  });
+
+  it("toyoshima firmware long-polls waitMs and HB piggyback", () => {
+    const fw = fs.readFileSync(
+      path.resolve(process.cwd(), "../rp2350/firmware/main_toyoshima.py"),
+      "utf8"
+    );
+    assert.match(fw, /waitMs=/);
+    assert.match(fw, /COMMAND_WAIT_MS/);
+    assert.match(fw, /_stash_hb_command/);
+    assert.match(fw, /LOOP_IDLE_MS/);
+    assert.match(fw, /execute_manual_command/);
+    assert.match(fw, /bypass schedule|bypass=1/);
   });
 });

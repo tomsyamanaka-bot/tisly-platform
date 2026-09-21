@@ -8,6 +8,7 @@ Waveshare RP2350-POE-ETH-8DI-8RO / MicroPython
 - DI 100ms デバウンス + 遠近2段階ライト / フラッシュ
 - クラウド同期 security_mode / light_schedule
 - 5 分 heartbeat（board_temp / 過熱フラグ）
+- 命令 long-poll waitMs + HB 同梱で即時リレー
 - 物理 WDT 8 秒
 - VPS /api/home/v1/toyoshima へイベント送信
 """
@@ -115,6 +116,9 @@ _rgb_blink_on = False
 _boot_ms = time.ticks_ms()
 _last_hb_ok = False
 _kit = None
+_pending_hb_cmd = None
+COMMAND_WAIT_MS = 2000
+LOOP_IDLE_MS = 300
 
 
 def log(msg):
@@ -517,6 +521,7 @@ def send_heartbeat():
         else:
             set_rgb_status("ok")
         log("heartbeat sent ({}) ONLINE".format(building))
+        _stash_hb_command(body)
         if mark_boot_ok:
             try:
                 mark_boot_ok(config)
@@ -591,12 +596,15 @@ def poll_security_rules():
 
 
 def poll_command():
-    """豊島専用キューをポーリングする。
+    """豊島専用キューを長待ち取得する。
     板橋 remote-test とは分離する。
     """
     device_id = _device_id()
     path = (
-        "/api/home/v1/toyoshima/command?deviceId=" + device_id
+        "/api/home/v1/toyoshima/command?deviceId="
+        + device_id
+        + "&waitMs="
+        + str(COMMAND_WAIT_MS)
     )
     body, status = http_get(path)
     if status == 403:
@@ -608,9 +616,64 @@ def poll_command():
         data = json.loads(body)
         if not isinstance(data, dict):
             return None
-        return data
+        return _extract_command_payload(data)
     except Exception:
         return None
+
+
+def _extract_command_payload(data):
+    """応答 JSON から手動命令だけ取り出す。"""
+    if not isinstance(data, dict):
+        return None
+    cmd = str(data.get("command") or data.get("cmd") or "").strip()
+    if not cmd:
+        return None
+    return data
+
+
+def _stash_hb_command(body):
+    """heartbeat 同梱の命令を次ループで実行する。"""
+    global _pending_hb_cmd
+    try:
+        data = json.loads(body) if body else None
+        payload = _extract_command_payload(data)
+        if payload:
+            _pending_hb_cmd = payload
+            log("HB piggyback cmd={}".format(payload.get("command")))
+    except Exception:
+        pass
+
+
+def _take_pending_hb_command():
+    global _pending_hb_cmd
+    payload = _pending_hb_cmd
+    _pending_hb_cmd = None
+    return payload
+
+
+async def apply_manual_payload(payload):
+    """昼夜を無視して対象 DO を即時 ON する。"""
+    if not payload:
+        return
+    cmd = str(payload.get("command") or payload.get("cmd") or "").strip()
+    if not cmd:
+        return
+    try:
+        duration_ms = int(payload.get("durationMs") or 0)
+    except Exception:
+        duration_ms = 0
+    log("immediate relay cmd={} bypass=1".format(cmd))
+    handled = False
+    if _security:
+        try:
+            handled = await _security.execute_manual_command(
+                cmd, duration_ms
+            )
+        except Exception as cmd_exc:
+            log_error("manual: {}".format(cmd_exc))
+            handled = False
+    if not handled:
+        await exec_manual_do(cmd, duration_ms)
 
 
 async def exec_manual_do(cmd, duration_ms=0):
@@ -806,26 +869,10 @@ async def async_main():
             poll_security_rules()
 
         payload = poll_command()
+        if not payload:
+            payload = _take_pending_hb_command()
         if payload:
-            cmd = str(
-                payload.get("command") or payload.get("cmd") or ""
-            ).strip()
-            try:
-                duration_ms = int(payload.get("durationMs") or 0)
-            except Exception:
-                duration_ms = 0
-            if cmd:
-                handled = False
-                if _security:
-                    try:
-                        handled = await _security.execute_manual_command(
-                            cmd, duration_ms
-                        )
-                    except Exception as cmd_exc:
-                        log_error("manual: {}".format(cmd_exc))
-                        handled = False
-                if not handled:
-                    await exec_manual_do(cmd, duration_ms)
+            await apply_manual_payload(payload)
 
         changed, edges = poll_inputs()
         if edges:
@@ -857,7 +904,7 @@ async def async_main():
         elif _last_hb_ok:
             set_rgb_status("ok")
 
-        await asyncio.sleep(poll_interval_sec)
+        await asyncio.sleep_ms(LOOP_IDLE_MS)
 
 
 def run():

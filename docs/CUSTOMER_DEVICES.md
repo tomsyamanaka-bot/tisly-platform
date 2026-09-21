@@ -109,6 +109,18 @@
 | `force_relay_test` | 既定 True。センサー連動も昼間にリレー可 |
 | OTA | `main.py`←`main_toyoshima.py` · `config.py` は skipFiles |
 
+### 2.2.3 即時リレーパイプライン（2026-09-21 追記）
+
+既存 2.2 / 2.2.1 / 2.2.2 は残す。手動点灯は 2 秒以内に実機へ届ける。
+
+| 項目 | 値 |
+|------|-----|
+| 長待ち GET | `GET /api/home/v1/toyoshima/command?deviceId=&waitMs=2000` |
+| HB 同梱 | `POST /api/home/v1/toyoshima/heartbeat` 応答の `command` |
+| PWA 通知 | WebSocket `type:event` · `topic:toyoshima/relay` |
+| 実機ループ | waitMs=2000 + idle 300ms。WDT 8s 以内 |
+| 手動バイパス | 昼夜・スケジュール無視。CH HIGH=コイルON（DO青LED） |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |

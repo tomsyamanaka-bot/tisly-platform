@@ -785,6 +785,12 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /ts-hb-watch/);
     assert.match(toyoshimaJs, /sim_heartbeat|擬似ハートビート送信/);
     assert.match(toyoshimaJs, /refresh_status|最新状態に更新/);
+    assert.match(toyoshimaJs, /id="ts-customer-health-card"/);
+    assert.match(
+      toyoshimaJs,
+      /ts-customer-status-stack[\s\S]{0,80}renderCustomerAssureHealthCard[\s\S]{0,350}ts-status-banner/
+    );
+    assert.match(toyoshimaJs, /🔄 最新状態に更新/);
     assert.match(toyoshimaJs, /use-toyoshima-status-v1|fetchToyoshimaStatus/);
     assert.match(toyoshimaJs, /forceHealthSync|_fresh|forceSync/);
     assert.match(toyoshimaJs, /HB_FRESH_MS|isHeartbeatOnlineNow/);
