@@ -1,6 +1,6 @@
 # プロジェクト標準仕様（完成状態）
 
-**最終更新:** 2026-09-21  
+**最終更新:** 2026-09-22  
 **対象:** TiSLY Practical PWA（現調 v1 / 見積 v1 / 日程 v1 / 持ち物 v1 / 発注 v1 / 到着・作業完了 v1 / 書類閲覧 UX v1 / Knowledge Acquisition v1）
 
 Cursor が長時間自走する際の **「壊してはいけない完成仕様」** の単一ソースです。新しい実装を始める前に必ず読んでください。
@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2553-toyoshima-do-force` |
+| SW | `tisly-pwa-v2554-toyoshima-maint-std` |
 
 ---
 
@@ -1952,6 +1952,22 @@ p2350-relay-v1.ts �E firmware main.py |
 | 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2553-toyoshima-do-force` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 DI/DO 完全バインド＆OTA 1.2.2（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 母屋 DI1/DI2 が実機リレーを欠落しないよう GPIO を同期キックし、PWA 手動点灯と OTA 1.2.2 を保証する |
+| DI1 | 遠・外周 → CH1 (DO1/GPIO17) を lightingDurationSec HIGH |
+| DI2 | 近・至近 → CH1+CH2 HIGH + CH3 フラッシュ 15 秒点滅 |
+| テストモード | `force_relay_test` 既定 True。昼間でもリレー駆動 |
+| 実機ループ | `poll_inputs()` 先行 · `COMMAND_WAIT_MS=0` · `LOOP_IDLE_MS=50` |
+| 手動 | `/customer` `/app` のライト1/ライト2/一括ON/OFF → `do1_on`/`do2_on`/`bulk_on`/`bulk_off`(CH1-3) |
+| VPS | 擬似発報も `sensor_far`/`sensor_near` を実機キューへ積む |
+| OTA | `FIRMWARE_LOGIC_VERSION=1.2.2` をクラウド最新として広告しステージング |
+| 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2554-toyoshima-maint-std` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
 

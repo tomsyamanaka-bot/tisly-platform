@@ -133,6 +133,22 @@
 | PWA | `/customer` `/app` とも `data-ts-light-kick` document capture |
 | OTA | `force:true` · `main.py`←`main_toyoshima.py` · `toyoshima_security.py` |
 
+### 2.2.5 DI/DO 完全バインド（2026-09-22 追記）
+
+既存 2.2 / 2.2.1 / 2.2.2 / 2.2.3 / 2.2.4 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|-----|
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.2` · `OTA_VERSION=1.2.2` |
+| DI サンプリング | メインループで `poll_inputs()` を HTTP より先に実行 |
+| 命令待ち | `COMMAND_WAIT_MS=0` · `LOOP_IDLE_MS=50`（2秒長待ち廃止） |
+| DI1 遠 | 立上りで **同期** CH1(DO1/GPIO17) HIGH · lightingDurationSec |
+| DI2 近 | 立上りで **同期** CH1+CH2 HIGH + CH3 15秒点滅 |
+| テストモード | `force_relay_test` 既定 True。昼間でもリレー駆動 |
+| 手動 | `do1_on`/`do2_on`/`bulk_on`/`bulk_off`(CH1-3) · `sensor_far`/`sensor_near` |
+| VPS バックアップ | `handleMainBeamDetect` が実機キューへ `sensor_far`/`sensor_near` を積む |
+| OTA | クラウド最新はバンドル 1.2.2 を広告。ステージングにライブファイルをスナップショット |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |
@@ -346,6 +362,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-22 | 豊島邸 DI/DO 完全バインド。GPIO 同期キック · DI 優先ループ · ファーム 1.2.2 を OTA ステージング。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | 豊島邸 手動点灯を GPIO 明示キックに強化。ライト1=CH1 / ライト2=CH2 / 一括ON=CH1+CH2+CH3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |
 | 2026-09-21 | 板橋 Security の物件セレクタ空値とオフライン誤判定を修復。初期選択を SEC-JP-ITABASHI-LIVE / HOME-JP-ITABASHI-LIVE に固定し、5分以内HBでオンライン描画。DI/DO配列は変更なし |

@@ -7,6 +7,7 @@ VPS イベント送信を行う。
 
 24 時間常時通知。ライト点灯は 18:00〜06:00 のみ。
 日中は通知のみ（ライト・フラッシュ省略）。
+force_relay_test（既定 True）時は昼夜を無視してリレー駆動。
 
 付帯: チップ内蔵温度（CORE_TEMP / ADC4） /
 5分 heartbeat / 物理 WDT 8 秒
@@ -49,6 +50,8 @@ HEARTBEAT_RETRY_WAIT_SEC = 10
 WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
+# ロジック版（OTA カード / heartbeat が参照）
+FIRMWARE_LOGIC_VERSION = "1.2.2"
 
 
 def _parse_hm(value, fallback):
@@ -228,16 +231,15 @@ class ToyoshimaBaseController:
         return self._is_in_light_schedule()
 
     def on_di_edge(self, di, prev_state, new_state):
-        """立上りで confirm_ms 待機後に確定。"""
+        """ハードデバウンス後の立上りで即時リレー。
+        追加の async 確認は HTTP ブロック中に欠落するため使わない。
+        """
         if new_state == "on" and prev_state != "on":
             gen = self._confirm_gen.get(di, 0) + 1
             self._confirm_gen[di] = gen
-            self._di_confirmed[di] = False
-            try:
-                asyncio.create_task(self._confirm_rising(di, gen))
-            except Exception as exc:
-                self.log("confirm err: {}".format(exc))
-                self._fire_di(di)
+            self._di_confirmed[di] = True
+            self.log("DI{} rising fire".format(di))
+            self._fire_di(di)
         elif new_state != "on":
             self._confirm_gen[di] = self._confirm_gen.get(di, 0) + 1
             self._di_confirmed[di] = False
@@ -438,6 +440,19 @@ class ToyoshimaBaseController:
             )
             return True
 
+        if cmd in ("sensor_far", "di1_alarm", "sensor_near", "di2_alarm"):
+            di = 2 if cmd in ("sensor_near", "di2_alarm") else 1
+            if hasattr(self, "plan_main_response"):
+                plan = self.plan_main_response(di)
+                self._kick_relays_now(plan)
+                try:
+                    asyncio.create_task(self._main_beam_response(di))
+                except Exception as exc:
+                    self.log("sensor cmd err: {}".format(exc))
+                return True
+            self._fire_di(di)
+            return True
+
         self.log("unknown manual cmd: {}".format(cmd))
         return False
 
@@ -516,11 +531,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         if plan["mode"] == "SILENT":
             self.log("SILENT — ライト/フラッシュ省略")
             return
+        self._kick_relays_now(plan)
         try:
             asyncio.create_task(self._main_beam_response(di))
         except Exception as exc:
             self.log("main response err: {}".format(exc))
-            self._kick_relays_now(plan)
 
     def _kick_relays_now(self, plan):
         """create_task 失敗時も即時 HIGH。"""
@@ -597,6 +612,9 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         else:
             msg = "はなれ 通路側検知"
         self._notify_vps("detached", di, msg)
+        if self._can_run_lights():
+            self._set_ch(self.DO_LIGHT, True)
+        self._set_ch(self.DO_PATLITE, True)
         try:
             asyncio.create_task(self._detached_response(di))
         except Exception as exc:

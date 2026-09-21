@@ -284,6 +284,81 @@ function bumpPatchVersion(current: string): string {
   return `${major}.${minor}.${patch}`;
 }
 
+function compareSemverV1(a: string, b: string): number {
+  const pa = String(a || "")
+    .split(".")
+    .map((x) => Number.parseInt(x, 10) || 0);
+  const pb = String(b || "")
+    .split(".")
+    .map((x) => Number.parseInt(x, 10) || 0);
+  for (let i = 0; i < 3; i += 1) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da > db) return 1;
+    if (da < db) return -1;
+  }
+  return 0;
+}
+
+function parseBundleSemverV1(text: string): string | null {
+  const patterns = [
+    /FIRMWARE_LOGIC_VERSION\s*=\s*["'](\d+\.\d+\.\d+)/,
+    /OTA_VERSION\s*=\s*["'](\d+\.\d+\.\d+)/,
+    /FIRMWARE_VERSION\s*=\s*["'](\d+\.\d+\.\d+)/,
+  ];
+  for (const re of patterns) {
+    const m = re.exec(text);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function liveBundleSemverV1(
+  siteKey: TislyOtaSiteKeyV1,
+  files: Record<string, string>
+): string | null {
+  const names =
+    siteKey === "toyoshima"
+      ? ["toyoshima_security.py", "config.py", "main.py"]
+      : ["security_light.py", "config.py", "main.py"];
+  let best: string | null = null;
+  for (const name of names) {
+    const text = files[name];
+    if (!text) continue;
+    const ver = parseBundleSemverV1(text);
+    if (!ver) continue;
+    if (!best || compareSemverV1(ver, best) > 0) best = ver;
+  }
+  return best;
+}
+
+/** リポジトリ上の実機スクリプト版を OTA ストアへ反映する（既存データは上書きせず版だけ上げる） */
+function syncLiveBundleVersionV1(
+  store: TislyOtaStoreV1,
+  site: TislyOtaSiteStateV1,
+  siteKey: TislyOtaSiteKeyV1,
+  live: { files: Record<string, string>; checksums: Record<string, string> }
+): void {
+  if (siteKey !== "toyoshima") return;
+  const bundle = liveBundleSemverV1(siteKey, live.files);
+  if (!bundle) return;
+  let changed = false;
+  if (compareSemverV1(bundle, site.version) > 0) {
+    site.version = bundle;
+    changed = true;
+  }
+  if (compareSemverV1(bundle, site.stagingVersion) > 0) {
+    site.stagingVersion = bundle;
+    site.stagingFiles = { ...live.files };
+    site.pendingStaging = true;
+    site.lastStagingDeployAt = nowIso();
+    changed = true;
+  }
+  if (!changed) return;
+  store.sites[siteKey] = site;
+  saveStore(store);
+}
+
 function ensureTableV1(): void {
   if (tableReady) return;
   getDatabase().exec(`
@@ -572,6 +647,7 @@ export function getTislyOtaVersionV1(input: {
   const store = loadStore();
   const site = getOrCreateSite(store, input.siteKey);
   const live = readMappedFiles(profile);
+  syncLiveBundleVersionV1(store, site, input.siteKey, live);
   const pending =
     channel === "staging" ? site.pendingStaging : site.pending;
   const snapFiles =
@@ -662,6 +738,7 @@ export function deployTislyOtaFirmwareV1(input: {
     const profile = getTislyOtaSiteProfileV1(key);
     const live = readMappedFiles(profile);
     const site = getOrCreateSite(store, key);
+    syncLiveBundleVersionV1(store, site, key, live);
     const checksum = combinedChecksum(live.checksums);
     if (channel === "staging") {
       site.stagingFiles = { ...live.files };

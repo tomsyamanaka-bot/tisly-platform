@@ -284,6 +284,67 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
+def test_firmware_logic_version_is_1_2_2():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.2"
+
+
+def test_on_di_edge_di1_kicks_ch1_immediately():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(1, "off", "on")
+    assert outputs.get(1) is True
+    assert outputs.get(2) is not True
+    assert outputs.get(3) is not True
+
+
+def test_on_di_edge_di2_kicks_lights_and_flash():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({
+        "force_relay_test": True,
+        "security_mode": "2STEP",
+        "flash_enabled": True,
+        "flash_duration_sec": 15,
+    })
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(2, "off", "on")
+    assert outputs.get(1) is True
+    assert outputs.get(2) is True
+    assert outputs.get(3) is True
+
+
+def test_manual_sensor_near_kicks_all_channels():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ok = asyncio.run(ctrl.execute_manual_command("sensor_near"))
+    assert ok is True
+    assert outputs.get(1) is True
+    assert outputs.get(2) is True
+    assert outputs.get(3) is True
+
+
 if __name__ == "__main__":
     test_identifiers()
     test_build_heartbeat_payload_shape()
@@ -303,4 +364,11 @@ if __name__ == "__main__":
     test_send_heartbeat_with_retry_retries_three_times()
     test_send_heartbeat_with_retry_stops_on_success()
     test_send_toyoshima_heartbeat_http_exception_returns_false()
+    test_force_relay_test_allows_daytime_relays()
+    test_manual_do_bypasses_daytime_schedule()
+    test_force_relay_kicks_gpio_on_daytime_di1()
+    test_firmware_logic_version_is_1_2_2()
+    test_on_di_edge_di1_kicks_ch1_immediately()
+    test_on_di_edge_di2_kicks_lights_and_flash()
+    test_manual_sensor_near_kicks_all_channels()
     print("ok")

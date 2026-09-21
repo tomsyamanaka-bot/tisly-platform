@@ -253,11 +253,34 @@ function syncHeaderTitle(site) {
   setText("sf-remote-target", remoteLabel);
 }
 
+function applyOptionalModuleVisibility(isToyoshima) {
+  const hide = !!isToyoshima;
+  const intercom = $("sf-intercom-link");
+  if (intercom) {
+    intercom.hidden = hide;
+    intercom.setAttribute("aria-hidden", hide ? "true" : "false");
+  }
+  const shelly = $("sf-pro-shelly-failsafe");
+  if (shelly) {
+    shelly.hidden = hide;
+    shelly.setAttribute("aria-hidden", hide ? "true" : "false");
+  }
+  ["sf-pro-shelly-cold", "sf-pro-shelly-manual", "sf-pro-shelly-script"].forEach(
+    (id) => {
+      const el = $(id);
+      if (!el) return;
+      el.hidden = hide;
+      el.setAttribute("aria-hidden", hide ? "true" : "false");
+    }
+  );
+}
+
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
   window.__TISLY_SF_SITE_ID = state.siteId;
   setSecurityHistorySiteIdV1(state.siteId);
+  applyOptionalModuleVisibility(isToyoshima);
   // 豊島邸では旧 KPI（別系統心拍）を完全除外
   const kpi = $("sf-kpi");
   if (kpi) {

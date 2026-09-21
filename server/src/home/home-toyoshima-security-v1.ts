@@ -973,9 +973,13 @@ async function handleMainBeamDetect(
   const silent = securityMode === "SILENT";
   const full =
     !silent && (securityMode === "DIRECT" || !isFar);
+  const forceRelay = rules.forceRelayTest !== false;
+  const driveRelays =
+    Boolean(beamActive) && !silent && (forceRelay || lightsActive);
   const d1 = findDo(runtime.main, 1);
   const d2 = findDo(runtime.main, 2);
-  if (beamActive && lightsActive && !silent) {
+  const durationMs = (rules.lightingDurationSec ?? 45) * 1000;
+  if (driveRelays) {
     if (d1) d1.on = true;
     if (full && d2) d2.on = true;
     appendTimeline({
@@ -987,21 +991,19 @@ async function handleMainBeamDetect(
         : "防犯ライト1 点灯（外周）",
       detail: `母屋 2STEP · ${securityMode}`,
     });
-    const durationMs = rules.lightingDurationSec * 1000;
+    queueToyoshimaDeviceCommandV1({
+      building: "main",
+      command: full ? "sensor_near" : "sensor_far",
+      channels: full ? [1, 2, 3] : [1],
+      durationMs,
+    });
     setTimeout(() => {
       if (d1) d1.on = false;
       if (d2) d2.on = false;
     }, durationMs);
   }
 
-  if (
-    beamActive &&
-    armed &&
-    lightsActive &&
-    !silent &&
-    full &&
-    flashEnabled
-  ) {
+  if (driveRelays && full && flashEnabled) {
     startPatliteBlink(
       "main",
       3,

@@ -708,7 +708,8 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /await import\("\.\/security-floor-iso3d-v1\.js"\)/);
     assert.doesNotMatch(opJs, /import \{ updateSecurityIso3d \} from/);
     assert.match(fbJs, /ITABASHI_SITE_ALIASES_V1|mapItabashiSiteAliasV1/);
-    assert.match(opHtml, /toyoshima-security-dashboard-v1\.js/);
+    assert.match(opJs, /applyOptionalModuleVisibility/);
+    assert.match(proJs, /applyToyoshimaOptionalModuleVisibility/);
     assert.match(opHtml, /ts-dashboard-root/);
     assert.match(opHtml, /sf-pro-tools/);
     assert.match(opHtml, /security-floor-pro-tools-v1\.js/);
@@ -817,6 +818,13 @@ describe("security-floor-v1", () => {
     );
     assert.match(toyoshimaJs, /ota_deploy|最新ファームウェアを現場実機へ配信/);
     assert.match(toyoshimaJs, /ts-ota-card|TiSLY OTAファームウェア一元管理/);
+    assert.match(toyoshimaJs, /ts-di-card|DI現場保守/);
+    assert.match(toyoshimaJs, /data-ts-di-trigger/);
+    assert.match(toyoshimaJs, /ts-do-card|接点強制テスト/);
+    assert.match(toyoshimaJs, /data-ts-do-pulse/);
+    assert.match(toyoshimaJs, /1秒テストON/);
+    assert.match(toyoshimaJs, /hardware\/test-di-trigger/);
+    assert.match(toyoshimaJs, /hardware\/test-pulse/);
     assert.match(toyoshimaJs, /ts-kitting-card|出荷前キッティング/);
     assert.doesNotMatch(
       toyoshimaJs,
@@ -825,6 +833,14 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(
       toyoshimaJs,
       /ts-customer-dash[\s\S]{0,2000}ts-kitting-card/
+    );
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /ts-customer-dash[\s\S]{0,2000}ts-di-card/
+    );
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /ts-customer-dash[\s\S]{0,2000}ts-do-card/
     );
 
     assert.match(lightJs, /二重バインド|sf-soc/);
@@ -848,6 +864,10 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaCss, /background:\s*#1e3a8a/);
     assert.match(toyoshimaCss, /ts-notify-badge\.is-alert/);
     assert.match(toyoshimaCss, /ts-hist-card/);
+    assert.match(toyoshimaCss, /is-toyoshima #sf-intercom-link/);
+    assert.match(toyoshimaCss, /is-toyoshima #sf-pro-shelly-failsafe/);
+    assert.match(toyoshimaCss, /ts-di-row/);
+    assert.match(toyoshimaCss, /ts-do-pulse-btn/);
 
     const customerJs = fs.readFileSync(
       path.join(

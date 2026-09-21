@@ -1115,6 +1115,91 @@ function renderOtaCard(dash) {
   </section>`;
 }
 
+/** 全現場標準 · DI 導通チェック＋擬似発報（社内のみ） */
+function collectDiChannels(dash) {
+  const rows = [];
+  for (const d of dash?.main?.di || []) {
+    const rest = String(d.label || "").replace(/DI\d\s*/i, "").trim();
+    rows.push({
+      id: `main-di${d.ch}`,
+      label: rest ? `主装置 DI${d.ch} ${rest}` : `主装置 DI${d.ch}`,
+      building: "main",
+      state: d.state,
+    });
+  }
+  for (const d of dash?.detached?.di || []) {
+    const rest = String(d.label || "")
+      .replace(/\(DI\d\)/i, "")
+      .replace(/DI\d\s*/i, "")
+      .trim();
+    rows.push({
+      id: `det-di${d.ch}`,
+      label: rest ? `子機 DI${d.ch} ${rest}` : `子機 DI${d.ch}`,
+      building: "detached",
+      state: d.state,
+    });
+  }
+  return rows;
+}
+
+function renderDiRow(channel) {
+  const detecting = channel.state === "detecting";
+  return `<div class="ts-di-row ${detecting ? "is-on" : ""}" data-ts-di-row="${escapeHtml(
+    channel.id
+  )}">
+    <div class="ts-di-state">
+      <span class="ts-di-emoji" aria-hidden="true">${detecting ? "🔴" : "⚪"}</span>
+      <div>
+        <strong class="ts-di-label">${escapeHtml(channel.label)}</strong>
+        <span class="ts-di-sub">${detecting ? "ON 検知中" : "OFF（導通なし）"}</span>
+      </div>
+    </div>
+    <button type="button" class="ts-btn ts-di-trigger" data-ts-di-trigger="${escapeHtml(
+      channel.id
+    )}" data-ts-di-building="${escapeHtml(channel.building || "")}">
+      ⚡ 擬似発報
+    </button>
+  </div>`;
+}
+
+function renderDiMaintenanceCard(dash) {
+  const channels = collectDiChannels(dash);
+  return `<section class="ts-card ts-di-card" id="ts-di-card">
+    <h3 class="ts-card-head">🔌 DI現場保守（導通チェック＆擬似発報）</h3>
+    <p class="ts-hint">DI1 / DI2 などの入力状態をリアルタイム表示し、擬似発報でライト・通知・ログを1人で検証できます。</p>
+    <div class="ts-di-list" id="ts-di-list">${
+      channels.length
+        ? channels.map(renderDiRow).join("")
+        : '<p class="ts-empty">DI端子情報がありません</p>'
+    }</div>
+  </section>`;
+}
+
+/** 全現場標準 · DO 1秒ワンショット（豊島邸 母屋DO1〜DO3 / はなれ） */
+const TOYOSHIMA_FORCE_TEST_OUTPUTS = [
+  { id: "main-do1", label: "母屋 DO1 防犯ライト1", building: "main" },
+  { id: "main-do2", label: "母屋 DO2 防犯ライト2", building: "main" },
+  { id: "main-do3", label: "母屋 DO3 100Vフラッシュ", building: "main" },
+  { id: "det-do1", label: "はなれ DO1 防犯ライト", building: "detached" },
+  { id: "det-do2", label: "はなれ DO2 パトライト", building: "detached" },
+  { id: "det-do3", label: "はなれ DO3 予備ライト", building: "detached" },
+];
+
+function renderDoForceTestCard() {
+  return `<section class="ts-card ts-do-card" id="ts-do-card">
+    <h3 class="ts-card-head">⚡ 接点強制テスト（1秒ワンショット）</h3>
+    <p class="ts-hint">盤・照明から離れた位置でも配線導通を安全に確認できます。押して約1秒だけONします。</p>
+    <div class="ts-do-grid" id="ts-do-grid">${TOYOSHIMA_FORCE_TEST_OUTPUTS.map(
+      (o) => `<button type="button" class="ts-do-pulse-btn" data-ts-do-pulse="${escapeHtml(
+        o.id
+      )}" data-ts-do-building="${escapeHtml(o.building)}">
+        <span class="ts-do-pulse-label">${escapeHtml(o.label)}</span>
+        <span class="ts-do-pulse-sub">1秒テストON</span>
+      </button>`
+    ).join("")}</div>
+  </section>`;
+}
+
 function renderSettingsCard(dash) {
   const lightSec = dash.lightingDurationSec ?? 45;
   const periSec = dash.perimeterTimeoutSec ?? 120;
@@ -1741,6 +1826,14 @@ function patchToyoshimaDashboard(dash) {
   if (heartbeatEl) heartbeatEl.textContent = view.heartbeatLabel;
   const otaRoot = $("ts-ota-root");
   if (otaRoot) otaRoot.innerHTML = renderOtaCard(dash);
+  const diRoot = $("ts-di-root");
+  if (diRoot && !diRoot.querySelector(":active, :focus")) {
+    diRoot.innerHTML = renderDiMaintenanceCard(dash);
+  }
+  const doRoot = $("ts-do-root");
+  if (doRoot && !doRoot.querySelector(":active, :focus")) {
+    doRoot.innerHTML = renderDoForceTestCard();
+  }
   const kitRoot = $("ts-kitting-root");
   if (kitRoot) kitRoot.innerHTML = renderKittingCard(dash);
   const boardTempEl = $("ts-board-temp-val");
@@ -2096,6 +2189,8 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         </button>
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
         <div id="ts-ota-root">${renderOtaCard(dash)}</div>
+        <div id="ts-di-root">${renderDiMaintenanceCard(dash)}</div>
+        <div id="ts-do-root">${renderDoForceTestCard()}</div>
         <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
         ${renderCloudStreamCard()}
         ${renderCustomerCameraCard()}
@@ -2454,6 +2549,55 @@ function bindToyoshimaControls() {
         await setNotifyMode(sensorId, mode);
       } catch (err) {
         showToast(err.message || "通知設定に失敗");
+      }
+      return;
+    }
+
+    const diBtn = e.target.closest("[data-ts-di-trigger]");
+    if (diBtn) {
+      e.preventDefault();
+      diBtn.disabled = true;
+      try {
+        const data = await postJson("/hardware/test-di-trigger", {
+          siteId: TOYOSHIMA_HOME_ID,
+          diId: diBtn.getAttribute("data-ts-di-trigger"),
+          building: diBtn.getAttribute("data-ts-di-building") || undefined,
+          actor: "operator-pro",
+        });
+        showToast(data.message || "DI擬似発報を実行しました");
+        await refreshToyoshimaDashboard({
+          soft: false,
+          forceHealthSync: true,
+        });
+      } catch (err) {
+        showToast(err.message || "DI擬似発報に失敗しました");
+      } finally {
+        diBtn.disabled = false;
+      }
+      return;
+    }
+
+    const doBtn = e.target.closest("[data-ts-do-pulse]");
+    if (doBtn) {
+      e.preventDefault();
+      doBtn.disabled = true;
+      try {
+        const data = await postJson("/hardware/test-pulse", {
+          siteId: TOYOSHIMA_HOME_ID,
+          outputId: doBtn.getAttribute("data-ts-do-pulse"),
+          building: doBtn.getAttribute("data-ts-do-building") || undefined,
+          durationMs: 1000,
+          actor: "operator-pro",
+        });
+        showToast(data.message || "接点強制テストを送信しました");
+        await refreshToyoshimaDashboard({
+          soft: false,
+          forceHealthSync: true,
+        });
+      } catch (err) {
+        showToast(err.message || "接点強制テストに失敗しました");
+      } finally {
+        doBtn.disabled = false;
       }
       return;
     }

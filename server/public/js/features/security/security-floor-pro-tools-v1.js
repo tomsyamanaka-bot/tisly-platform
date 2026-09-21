@@ -46,8 +46,31 @@ function setHomeSite(securitySiteId, opts = {}) {
     };
     label.textContent = names[currentHomeSiteId] || "選択中の物件";
   }
+  applyToyoshimaOptionalModuleVisibility();
   if (opts.silent) return;
   refreshProToolsPanels().catch(() => {});
+}
+
+function applyToyoshimaOptionalModuleVisibility() {
+  const hide = isToyoshimaHomeSite(currentHomeSiteId);
+  const shelly = $("sf-pro-shelly-failsafe");
+  if (shelly) {
+    shelly.hidden = hide;
+    shelly.setAttribute("aria-hidden", hide ? "true" : "false");
+  }
+  ["sf-pro-shelly-cold", "sf-pro-shelly-manual", "sf-pro-shelly-script"].forEach(
+    (id) => {
+      const el = $(id);
+      if (!el) return;
+      el.hidden = hide;
+      el.setAttribute("aria-hidden", hide ? "true" : "false");
+    }
+  );
+  const intercom = $("sf-intercom-link");
+  if (intercom) {
+    intercom.hidden = hide;
+    intercom.setAttribute("aria-hidden", hide ? "true" : "false");
+  }
 }
 
 async function fetchJson(url, opts) {
@@ -199,11 +222,13 @@ function renderFieldPhotos(photos) {
 }
 
 async function refreshProToolsPanels() {
+  applyToyoshimaOptionalModuleVisibility();
+  const hideShelly = isToyoshimaHomeSite(currentHomeSiteId);
   await Promise.all([
     loadTestOutputs(),
     loadFieldPhotos(),
     loadDiStatus(),
-    loadShellyFailsafe().catch(() => {}),
+    hideShelly ? Promise.resolve() : loadShellyFailsafe().catch(() => {}),
     loadHeartbeatWatch().catch(() => {}),
     loadOtaPanel().catch(() => {}),
     loadKittingPanel().catch(() => {}),

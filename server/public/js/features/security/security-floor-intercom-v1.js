@@ -32,6 +32,26 @@ function homeSiteId() {
   return resolveHomeSiteId((sel && sel.value) || "SEC-JP-MORIYA-001");
 }
 
+function isToyoshimaSecuritySelected() {
+  const sel = $("sf-site-select");
+  const id = String(
+    (sel && sel.value) || window.__TISLY_SF_SITE_ID || ""
+  );
+  return (
+    document.body.classList.contains("is-toyoshima") ||
+    id.includes("TOYOSHIMA") ||
+    id.includes("TOSHIMA")
+  );
+}
+
+function applyToyoshimaIntercomVisibility() {
+  const root = $("sf-intercom-link");
+  if (!root) return;
+  const hide = isToyoshimaSecuritySelected();
+  root.hidden = hide;
+  root.setAttribute("aria-hidden", hide ? "true" : "false");
+}
+
 function showToast(message) {
   showSecurityRemoteToastV1(message);
 }
@@ -204,6 +224,11 @@ function syncUnlockArmed() {
 export function mountSecurityIntercomPanelV1() {
   const root = $("sf-intercom-link");
   if (!root) return;
+  applyToyoshimaIntercomVisibility();
+  $("sf-site-select")?.addEventListener(
+    "change",
+    applyToyoshimaIntercomVisibility
+  );
   bindIntercomUi();
 }
 

@@ -27,6 +27,7 @@ import config
 from toyoshima_security import (
     BOARD_TEMP_OVERHEAT_C,
     DI_DEBOUNCE_MS,
+    FIRMWARE_LOGIC_VERSION,
     HEARTBEAT_INTERVAL_SEC,
     SITE_ID,
     TENANT_ID,
@@ -117,8 +118,10 @@ _boot_ms = time.ticks_ms()
 _last_hb_ok = False
 _kit = None
 _pending_hb_cmd = None
-COMMAND_WAIT_MS = 2000
-LOOP_IDLE_MS = 300
+# DI サンプリングを HTTP 長待ちで潰さない。
+# 命令は 0ms GET + 50ms idle で即時取得する。
+COMMAND_WAIT_MS = 0
+LOOP_IDLE_MS = 50
 
 
 def log(msg):
@@ -468,18 +471,10 @@ def send_heartbeat():
         building = _building()
         extra = {
             "firmware": getattr(
-                config, "FIRMWARE_VERSION", "toyoshima"
+                config, "FIRMWARE_VERSION", FIRMWARE_LOGIC_VERSION
             ),
-            "firmware_version": (
-                ota_local_version(config)
-                if ota_local_version
-                else getattr(config, "OTA_VERSION", "1.0.0")
-            ),
-            "otaVersion": (
-                ota_local_version(config)
-                if ota_local_version
-                else getattr(config, "OTA_VERSION", "1.0.0")
-            ),
+            "firmware_version": FIRMWARE_LOGIC_VERSION,
+            "otaVersion": FIRMWARE_LOGIC_VERSION,
             "chStates": dict(ch_states),
             "inputStates": dict(input_states),
             "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
@@ -740,7 +735,19 @@ async def exec_manual_do(cmd, duration_ms=0):
     if cmd in ("bulk_off", "light_all_off"):
         set_ch_output(1, False)
         set_ch_output(2, False)
-        log("EXEC bulk_off")
+        if _building() != "detached":
+            set_ch_output(3, False)
+        log("EXEC bulk_off CH1+CH2+CH3")
+        return True
+    if cmd in ("sensor_far", "di1_alarm"):
+        set_ch_output(1, True)
+        log("EXEC {} CH1".format(cmd))
+        return True
+    if cmd in ("sensor_near", "di2_alarm"):
+        set_ch_output(1, True)
+        set_ch_output(2, True)
+        set_ch_output(3, True)
+        log("EXEC {} CH1+CH2+CH3".format(cmd))
         return True
     if cmd in ("flash_test", "patlite_test"):
         ch = 2 if _building() == "detached" else 3
@@ -771,9 +778,11 @@ async def async_main():
         )
     )
     log(
-        "fw={} debounce={}ms".format(
+        "fw={} logic={} debounce={}ms waitMs={}".format(
             getattr(config, "FIRMWARE_VERSION", "?"),
+            FIRMWARE_LOGIC_VERSION,
             getattr(config, "DI_DEBOUNCE_MS", DI_DEBOUNCE_MS),
+            COMMAND_WAIT_MS,
         )
     )
 
@@ -879,6 +888,11 @@ async def async_main():
     while True:
         kick_watchdog(_wdt)
 
+        # DI を HTTP より先に読む。GPIO キックは同期。
+        changed, edges = poll_inputs()
+        if edges:
+            handle_security_di_edges(edges)
+
         net_retry_counter += 1
         if net_retry_counter >= net_retry_every:
             net_retry_counter = 0
@@ -895,10 +909,6 @@ async def async_main():
             payload = _take_pending_hb_command()
         if payload:
             await apply_manual_payload(payload)
-
-        changed, edges = poll_inputs()
-        if edges:
-            handle_security_di_edges(edges)
 
         now = time.ticks_ms()
         if time.ticks_diff(now, next_heartbeat_ms) >= 0:

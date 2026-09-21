@@ -524,6 +524,31 @@ describe("toyoshima-security-v1", () => {
     assert.equal(row?.durationMs, 15_000);
   });
 
+  it("main DI1 queues sensor_far live-kick", async () => {
+    await processToyoshimaSecurityEventV1({
+      siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      building: "main",
+      di: 1,
+    });
+    const row = consumeToyoshimaDeviceCommandV1(
+      "rp2350-toyoshima-main-01"
+    );
+    assert.equal(row?.command, "sensor_far");
+    assert.deepEqual(row?.channels, [1]);
+    assert.equal(row?.bypassSchedule, true);
+    assert.equal(row?.forceRelayTest, true);
+  });
+
+  it("main DI2 queues sensor_near with CH1-3", async () => {
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const row = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(row?.command, "sensor_near");
+    assert.deepEqual(row?.channels, [1, 2, 3]);
+  });
+
   it("firmware JSON exposes force_relay_test", () => {
     const fw = buildHomeSecurityFirmwareRulesV1(
       HOME_JP_TOYOSHIMA_SITE_ID_V1
