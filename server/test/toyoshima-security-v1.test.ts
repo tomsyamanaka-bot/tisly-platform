@@ -500,6 +500,7 @@ describe("toyoshima-security-v1", () => {
     assert.equal(row?.command, "do1_on");
     assert.equal(row?.bypassSchedule, true);
     assert.equal(row?.forceRelayTest, true);
+    assert.deepEqual(row?.channels, [1]);
   });
 
   it("bulk lights queues one bulk command per building", () => {
@@ -508,6 +509,8 @@ describe("toyoshima-security-v1", () => {
     const detached = consumeToyoshimaDeviceCommandV1("detached");
     assert.equal(main?.command, "bulk_on");
     assert.equal(detached?.command, "bulk_on");
+    assert.deepEqual(main?.channels, [1, 2, 3]);
+    assert.deepEqual(detached?.channels, [1]);
     assert.equal(main?.durationMs, 30_000);
   });
 

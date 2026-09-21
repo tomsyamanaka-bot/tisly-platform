@@ -512,6 +512,7 @@ describe("Phase 461-480 multi PWA app hub", () => {
     const sw = await request(app).get("/service-worker.js");
     // Eco-Water 印刷修正以降は v2441（旧タグも許容）
     assert.ok(
+      sw.text.includes("tisly-pwa-v2553-toyoshima-do-force") ||
       sw.text.includes("tisly-pwa-v2552-toyoshima-instant-relay") ||
       sw.text.includes("tisly-pwa-v2551-toyoshima-light-kick-ui") ||
       sw.text.includes("tisly-pwa-v2550-toyoshima-relay-kick") ||

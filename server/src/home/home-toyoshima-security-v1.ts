@@ -1198,6 +1198,7 @@ export function applyToyoshimaManualControlV1(input: {
       queueToyoshimaDeviceCommandV1({
         building: input.building,
         command: input.building === "main" ? "flash_test" : "patlite_test",
+        channels: [ch],
         durationMs: 15_000,
       });
     }
@@ -1244,6 +1245,7 @@ export function applyToyoshimaManualControlV1(input: {
     queueToyoshimaDeviceCommandV1({
       building: input.building,
       command: input.action,
+      channels: [spec.ch],
     });
   }
 
@@ -1300,6 +1302,7 @@ export function pulseToyoshimaDoV1(input: {
   queueToyoshimaDeviceCommandV1({
     building: input.building,
     command: `ch${input.channel}_pulse_${durationMs}`,
+    channels: [input.channel],
     durationMs,
   });
 
@@ -1667,10 +1670,11 @@ export function applyToyoshimaBulkLightsV1(input: {
         queueDevice: false,
       });
     }
-    /* 一括ON/OFFは個別CHに加え bulk も送る */
+    /* 一括ONは母屋 CH1〜CH3 を強制 HIGH */
     queueToyoshimaDeviceCommandV1({
       building,
       command: on ? "bulk_on" : "bulk_off",
+      channels: building === "main" ? [1, 2, 3] : [1],
       durationMs:
         on && input.durationSec != null
           ? Math.max(5, Math.min(180, Math.round(Number(input.durationSec) || 180))) *

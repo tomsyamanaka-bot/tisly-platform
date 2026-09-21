@@ -464,8 +464,8 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     DI_BEAM_2 = 2
 
     def _bulk_do_channels(self):
-        """母屋一括はライト1+2。"""
-        return (self.DO_LIGHT_1, self.DO_LIGHT_2)
+        """母屋一括はライト1+2とフラッシュ。"""
+        return (self.DO_LIGHT_1, self.DO_LIGHT_2, self.DO_FLASH)
 
     def _flash_do_channel(self):
         return self.DO_FLASH

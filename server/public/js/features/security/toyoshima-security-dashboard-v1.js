@@ -273,6 +273,8 @@ const LIGHT_KICK_TOAST = {
   do2_on: "ライト2を点灯しました",
   do3_on: "フラッシュを点灯しました",
   patlite_test: "フラッシュ威嚇テストを開始しました",
+  bulk_lights_on: "照明を一括ONにしました",
+  bulk_lights_off: "照明を一括OFFにしました",
 };
 
 function renderManualLightKickRow() {
@@ -289,12 +291,25 @@ function renderManualLightKickRow() {
 }
 
 async function kickToyoshimaManualLight(action, building) {
-  const data = await postJson("/toyoshima/control", {
-    siteId: TOYOSHIMA_HOME_ID,
-    building: building || "main",
-    action,
-    actor: isCustomerPortal() ? "customer-portal" : "app",
-  });
+  const actor = isCustomerPortal() ? "customer-portal" : "app";
+  let data;
+  if (action === "bulk_lights_on" || action === "bulk_lights_off") {
+    data = await postJson("/toyoshima/bulk-lights", {
+      siteId: TOYOSHIMA_HOME_ID,
+      action: action === "bulk_lights_on" ? "on" : "off",
+      actor,
+    });
+  } else {
+    data = await postJson("/toyoshima/control", {
+      siteId: TOYOSHIMA_HOME_ID,
+      building: building || "main",
+      action,
+      actor,
+    });
+  }
+  if (data.queued === false) {
+    throw new Error("実機キューへ送れませんでした");
+  }
   if (data.dashboard) {
     renderToyoshimaDashboard(data.dashboard, { soft: true });
   }
@@ -612,10 +627,14 @@ function renderCustomerDailySettings(dash) {
         <h4 class="ts-daily-h">④ 外構ライト手動操作</h4>
         <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
         <div class="ts-btn-row">
-          <button type="button" class="ts-btn ts-btn-primary" data-ts-action="bulk_lights_on">
+          <button type="button" class="ts-btn ts-btn-primary"
+            data-ts-light-kick="bulk_lights_on"
+            data-ts-action="bulk_lights_on">
             💡 照明を一括ON
           </button>
-          <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="bulk_lights_off">
+          <button type="button" class="ts-btn ts-btn-ghost"
+            data-ts-light-kick="bulk_lights_off"
+            data-ts-action="bulk_lights_off">
             💡 照明を一括OFF
           </button>
         </div>
@@ -1148,8 +1167,12 @@ function renderOpsCard() {
     <h3 class="ts-card-head">💡 照明一括操作</h3>
     <p class="ts-hint">手動操作は昼夜スケジュールを無視して即時点灯します</p>
     <div class="ts-btn-row">
-      <button type="button" class="ts-btn" data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
-      <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
+      <button type="button" class="ts-btn"
+        data-ts-light-kick="bulk_lights_on"
+        data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
+      <button type="button" class="ts-btn ts-btn-ghost"
+        data-ts-light-kick="bulk_lights_off"
+        data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
     </div>
     ${renderManualLightKickRow()}
     <h3 class="ts-card-head ts-section-gap">🔔 プッシュ通知管理</h3>
@@ -1515,6 +1538,7 @@ async function saveScheduleFromDialog() {
 async function postJson(path, body) {
   const res = await fetch(`${HOME_API}${path}`, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body ?? {}),
   });

@@ -121,6 +121,18 @@
 | 実機ループ | waitMs=2000 + idle 300ms。WDT 8s 以内 |
 | 手動バイパス | 昼夜・スケジュール無視。CH HIGH=コイルON（DO青LED） |
 
+### 2.2.4 手動点灯 GPIO 明示キック（2026-09-21 追記）
+
+既存 2.2 / 2.2.1 / 2.2.2 / 2.2.3 は残す。
+
+| 項目 | 値 |
+|------|-----|
+| ライト1 | `do1_on` · channels `[1]` · GPIO17 HIGH |
+| ライト2 | `do2_on` · channels `[2]` · GPIO18 HIGH |
+| 一括ON | `bulk_on` · channels `[1,2,3]` · GPIO17/18/19 HIGH |
+| PWA | `/customer` `/app` とも `data-ts-light-kick` document capture |
+| OTA | `force:true` · `main.py`←`main_toyoshima.py` · `toyoshima_security.py` |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |
@@ -334,7 +346,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
-| 2026-09-21 | 豊島邸 主装置の遠近2段階を確定追記。DI1遠外周 / DI2近アプローチ、DO1主照明 / DO2増設投光器 / DO3 100Vフラッシュ（CRサージ保護）。PWA から 2STEP/DIRECT/SILENT を遠隔設定。既存 2.2 行・はなれ端子・板橋自宅は非破壊 |
+| 2026-09-21 | 豊島邸 手動点灯を GPIO 明示キックに強化。ライト1=CH1 / ライト2=CH2 / 一括ON=CH1+CH2+CH3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |
 | 2026-09-21 | 板橋 Security の物件セレクタ空値とオフライン誤判定を修復。初期選択を SEC-JP-ITABASHI-LIVE / HOME-JP-ITABASHI-LIVE に固定し、5分以内HBでオンライン描画。DI/DO配列は変更なし |
 | 2026-09-21 | Security画面から3D間取りUIを撤去。板橋のライト遠隔（DO2/DO3）と遠隔ルールをステータス直下へ再配置。RP2350端子・設定配列は変更なし |

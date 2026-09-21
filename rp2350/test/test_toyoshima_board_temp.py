@@ -137,6 +137,7 @@ def test_manual_do_bypasses_daytime_schedule():
     assert ok2 is True
     assert outputs[1] is True
     assert outputs[2] is True
+    assert outputs[3] is True
 
 
 def test_force_relay_kicks_gpio_on_daytime_di1():

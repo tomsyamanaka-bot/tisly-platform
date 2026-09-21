@@ -295,6 +295,7 @@ describe("firmware-rp2350-ota-v1", () => {
       });
     assert.equal(hb.status, 200);
     assert.equal(hb.body.command, "bulk_on");
+    assert.deepEqual(hb.body.channels, []);
     assert.equal(hb.body.bypassSchedule, true);
     assert.equal(hb.body.pipeline, "immediate");
   });
@@ -310,5 +311,7 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.match(fw, /LOOP_IDLE_MS/);
     assert.match(fw, /execute_manual_command/);
     assert.match(fw, /bypass schedule|bypass=1/);
+    assert.match(fw, /payload\.get\("channels"\)/);
+    assert.match(fw, /CH1\+CH2\+CH3/);
   });
 });

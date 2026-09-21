@@ -1476,6 +1476,9 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
     }
     res.json({
       ok: true,
+      queued: true,
+      command: action,
+      pipeline: "immediate",
       building: result.state,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),
     });
@@ -1547,6 +1550,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         firmware_latest: ota.version,
         ota,
         command: commandJson.command,
+        channels: commandJson.channels,
         bypassSchedule: commandJson.bypassSchedule,
         forceRelayTest: commandJson.forceRelayTest,
         durationMs: commandJson.durationMs,
@@ -1694,6 +1698,10 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
     });
     res.json({
       ok: true,
+      queued: true,
+      command: action === "on" ? "bulk_on" : "bulk_off",
+      channels: [1, 2, 3],
+      pipeline: "immediate",
       action,
       durationSec: result.durationSec,
       dashboard: buildToyoshimaSecurityDashboardV1(siteId),

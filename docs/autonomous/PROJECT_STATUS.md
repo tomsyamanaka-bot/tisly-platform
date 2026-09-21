@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2552-toyoshima-instant-relay` |
+| SW | `tisly-pwa-v2553-toyoshima-do-force` |
 
 ---
 
@@ -1938,6 +1938,20 @@ p2350-relay-v1.ts �E firmware main.py |
 | 人間 | QNAP で WebDAV 有効化＋QTS ログイン確認。入口 URL は変更なし |
 | 既存保護 | ナレッジ配列・現場設定・API ルートは削除せず追記 |
 | SW | `tisly-pwa-v2552-toyoshima-instant-relay` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 DO1/DO2 手動点灯の確実連動（2026-09-21）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 一括ON / ライト1 / ライト2 が実機 GPIO HIGH まで届く |
+| PWA | `data-ts-light-kick` を document capture。API は `queued:true` 必須 |
+| 命令 | ライト1=`do1_on` CH1 / ライト2=`do2_on` CH2 / 一括=`bulk_on` CH1+CH2+CH3 |
+| 実機 | `channels` 配列で GPIO 直叩き。昼夜無視。HIGH=コイルON（DO青LED） |
+| OTA | 社内「最新ファームウェアを現場実機へ遠隔配信」`force:true` |
+| 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
+| 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2553-toyoshima-do-force` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
 

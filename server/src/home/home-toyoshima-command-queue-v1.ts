@@ -14,6 +14,8 @@ export const TOYOSHIMA_DETACHED_DEVICE_ID_V1 =
 
 export interface ToyoshimaDeviceCommandV1 {
   command: string;
+  /** 実機が名前未対応でも GPIO を叩く */
+  channels: number[];
   bypassSchedule: true;
   forceRelayTest: true;
   durationMs?: number;
@@ -23,6 +25,7 @@ export interface ToyoshimaDeviceCommandV1 {
 export interface ToyoshimaDeviceCommandJsonV1 {
   ok: true;
   command: string | null;
+  channels: number[];
   bypassSchedule: true;
   forceRelayTest: true;
   durationMs?: number;
@@ -68,6 +71,7 @@ export function serializeToyoshimaDeviceCommandV1(
   return {
     ok: true,
     command: row?.command ?? null,
+    channels: row?.channels ?? [],
     bypassSchedule: true,
     forceRelayTest: true,
     durationMs: row?.durationMs,
@@ -87,6 +91,7 @@ function notifyRelayPipelineV1(
       payload: {
         deviceId,
         command: row.command,
+        channels: row.channels,
         bypassSchedule: true,
         forceRelayTest: true,
         durationMs: row.durationMs ?? null,
@@ -114,10 +119,22 @@ function flushToyoshimaCommandWaitersV1(deviceId: string): void {
 }
 
 /** 実機へ届ける手動命令を積む（スケジュール無視） */
+function normalizeChannelsV1(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  const out: number[] = [];
+  for (const item of raw) {
+    const n = Number(item);
+    if (!Number.isInteger(n) || n < 1 || n > 8) continue;
+    if (!out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
 export function queueToyoshimaDeviceCommandV1(input: {
   deviceId?: string | null;
   building?: "main" | "detached";
   command: string;
+  channels?: number[];
   durationMs?: number;
 }): ToyoshimaDeviceCommandV1 {
   const deviceId =
@@ -135,6 +152,7 @@ export function queueToyoshimaDeviceCommandV1(input: {
       : undefined;
   const row: ToyoshimaDeviceCommandV1 = {
     command,
+    channels: normalizeChannelsV1(input.channels),
     bypassSchedule: true,
     forceRelayTest: true,
     durationMs,

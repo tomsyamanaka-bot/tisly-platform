@@ -662,7 +662,24 @@ async def apply_manual_payload(payload):
         duration_ms = int(payload.get("durationMs") or 0)
     except Exception:
         duration_ms = 0
-    log("immediate relay cmd={} bypass=1".format(cmd))
+    off = cmd in ("bulk_off", "light_all_off") or str(cmd).endswith("_off")
+    raw_ch = payload.get("channels") or []
+    forced = []
+    if isinstance(raw_ch, list):
+        for item in raw_ch:
+            try:
+                ch = int(item)
+            except Exception:
+                continue
+            if ch < 1 or ch > 8:
+                continue
+            set_ch_output(ch, not off)
+            forced.append(ch)
+    log(
+        "immediate relay cmd={} ch={} bypass=1".format(
+            cmd, forced or "-"
+        )
+    )
     handled = False
     if _security:
         try:
@@ -705,15 +722,20 @@ async def exec_manual_do(cmd, duration_ms=0):
             set_ch_output(ch, False)
         return True
     if cmd in ("bulk_on", "light_all_on"):
-        set_ch_output(1, True)
-        if _building() != "detached":
+        if _building() == "detached":
+            set_ch_output(1, True)
+            log("EXEC bulk_on detached CH1")
+        else:
+            set_ch_output(1, True)
             set_ch_output(2, True)
-        log("EXEC bulk_on")
+            set_ch_output(3, True)
+            log("EXEC bulk_on CH1+CH2+CH3")
         if duration_ms > 0:
             await asyncio.sleep_ms(int(duration_ms))
             set_ch_output(1, False)
             if _building() != "detached":
                 set_ch_output(2, False)
+                set_ch_output(3, False)
         return True
     if cmd in ("bulk_off", "light_all_off"):
         set_ch_output(1, False)
