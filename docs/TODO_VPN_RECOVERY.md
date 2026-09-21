@@ -1,7 +1,23 @@
 # VPN / Tailscale 復旧 — 明日の朝一チェックリスト（事務所）
 
 **作成日:** 2026-06-29  
+**最終実測:** 2026-09-21（Phase 10）  
 **対象:** ConoHa VPS（tisly.jp）⇔ QNAP TiSLYNAS（Tailscale 経由 WebDAV）
+
+---
+
+## Phase 10 実測（2026-09-21）
+
+| 項目 | 結果 |
+|------|------|
+| `tailscale status` | VPS `100.82.225.90` online · `tislynas` `100.99.31.120` idle |
+| `ping -c 4 100.99.31.120` | **4/4 · 0% loss**（VPN は復旧済み） |
+| WebDAV :5005 / :5006 | LAN・Tailscale とも **Connection refused** |
+| :8080 / :443 | OPEN · PROPFIND **HTTP 501**（QTS UI） |
+| File Station | `authPassed=0` · `errorValue=-1` |
+| アプリ | WebDAV タイムアウト既定 **12000ms** · SID の CDATA 解析 · SSH ポート 5522 除外 |
+
+**残作業（QNAP 画面）:** WebDAV サービス起動と QTS ログインパスワードの一致。
 
 ---
 

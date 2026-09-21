@@ -2,9 +2,11 @@ import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
 
-/** 各接続試行の上限（VPS Gateway Timeout 504 回避） */
+/** 各接続試行の上限。
+ * VPN 再接続と暗号化の遅延を吸収する。
+ */
 export const DEFAULT_WEBDAV_TIMEOUT_MS = Number(
-  process.env.QNAP_WEBDAV_TIMEOUT_MS || "3000"
+  process.env.QNAP_WEBDAV_TIMEOUT_MS || "12000"
 );
 
 function formatFetchError(e: unknown): string {
@@ -418,7 +420,8 @@ async function nodeFetchWithOptionalAgent(
 
 /**
  * QNAP WebDAV / File Station 向け fetch。
- * 各試行は AbortController により最大 DEFAULT_WEBDAV_TIMEOUT_MS（既定 3000ms）。
+ * 各試行は AbortController により
+ * 最大 DEFAULT_WEBDAV_TIMEOUT_MS（既定 12000ms）。
  */
 export async function qnapWebDavFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const nextInit: RequestInit = {

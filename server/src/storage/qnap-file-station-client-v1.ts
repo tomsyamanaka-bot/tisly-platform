@@ -21,14 +21,55 @@ export type FileStationUploadResultV1 = {
   destPath?: string;
 };
 
-function extractAuthSid(body: string): string | null {
-  const xml = body.match(/<authSid>([^<]+)<\/authSid>/i);
-  if (xml?.[1]) return xml[1].trim();
-  const jsonSid = body.match(/"sid"\s*:\s*"([^"]+)"/i);
+function unwrapXmlCdataV1(raw: string): string {
+  const t = String(raw || "").trim();
+  const m = t.match(/^<!\[CDATA\[([\s\S]*?)\]\]>$/i);
+  return m ? String(m[1] || "").trim() : t;
+}
+
+function extractXmlTagV1(body: string, tag: string): string {
+  const xml = String(body || "").match(
+    new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "i")
+  );
+  if (!xml?.[1]) return "";
+  return unwrapXmlCdataV1(xml[1]);
+}
+
+/** QNAP XML の SID を取り出す。
+ * CDATA 付き応答にも対応する。
+ */
+export function extractQnapAuthSidV1(body: string): string | null {
+  const sid = extractXmlTagV1(body, "authSid");
+  if (sid) return sid;
+  const jsonSid = String(body || "").match(/"sid"\s*:\s*"([^"]+)"/i);
   if (jsonSid?.[1]) return jsonSid[1].trim();
-  const plain = body.match(/authSid[=:]\s*([A-Za-z0-9_-]+)/i);
+  const plain = String(body || "").match(/authSid[=:]\s*([A-Za-z0-9_-]+)/i);
   if (plain?.[1]) return plain[1].trim();
   return null;
+}
+
+export type QnapAuthLoginHintV1 = {
+  authPassed: string;
+  errorValue: string;
+  need2sv: string;
+  sid: string | null;
+};
+
+/** File Station ログイン XML の要点。
+ * パスワード誤りは errorValue=-1 が多い。
+ */
+export function parseQnapAuthLoginHintV1(body: string): QnapAuthLoginHintV1 {
+  return {
+    authPassed: extractXmlTagV1(body, "authPassed"),
+    errorValue: extractXmlTagV1(body, "errorValue"),
+    need2sv:
+      extractXmlTagV1(body, "need_2sv") || extractXmlTagV1(body, "need2SV"),
+    sid: extractQnapAuthSidV1(body),
+  };
+}
+
+function extractAuthSid(body: string): string | null {
+  return extractQnapAuthSidV1(body);
 }
 
 function encodeQnapPwdHex(password: string): string {
@@ -117,9 +158,14 @@ async function loginFileStation(
           headers: { Accept: "*/*" },
         });
         const text = await res.text();
-        const sid = extractAuthSid(text);
-        if (sid) {
-          return { ok: true, sid };
+        const hint = parseQnapAuthLoginHintV1(text);
+        if (hint.sid) {
+          return { ok: true, sid: hint.sid };
+        }
+        if (hint.authPassed === "0") {
+          lastError =
+            `File Station 認証失敗 ` +
+            `(${attempt.label} errorValue=${hint.errorValue || "?"})`;
         }
         // utilRequest login 形式
         if (/utilRequest\.cgi/i.test(loginUrl)) {
@@ -136,7 +182,7 @@ async function loginFileStation(
           const sid2 = extractAuthSid(text2);
           if (sid2) return { ok: true, sid: sid2 };
           lastError = `login(${attempt.label}) HTTP ${res2.status}`;
-        } else {
+        } else if (hint.authPassed !== "0") {
           lastError = `authLogin(${attempt.label}) HTTP ${res.status}`;
         }
       } catch (e) {

@@ -138,3 +138,24 @@ QNAP_WEBDAV_PASSWORD=********
 1. `https://tisly.jp/api/health` の `commitShort` が最新コミットと一致
 2. 管理者で `/storage-settings-v1` → **Ping診断**
 3. 見積一覧の QNAP 保存（事務所 Wi-Fi でフォールバック動作を確認）
+
+---
+
+## 7. Phase 10（2026-09-21）— Tailscale 復旧後の実測
+
+| 項目 | 状態 |
+|------|------|
+| VPS Tailscale | `100.82.225.90` online |
+| QNAP TiSLYNAS | `100.99.31.120` (`tislynas`) idle / ping 0% loss |
+| WebDAV 5005/5006 | **LAN・Tailscale とも Connection refused**（サービス停止） |
+| 8080 / 443 | OPEN だが PROPFIND は HTTP 501（QTS UI） |
+| File Station ログイン | HTTP 200 · `authPassed=0` · `errorValue=-1`（QTS パスワード不一致） |
+| アプリ側タイムアウト | 既定 **12000ms**（`QNAP_WEBDAV_TIMEOUT_MS`） |
+| SSH 誤設定ガード | `QNAP_LOCAL_PORT=5522` は WebDAV 候補から除外 |
+
+**人間作業（QNAP コントロールパネル）**
+
+1. アプリケーション → WebDAV を有効化（HTTP 5005 / HTTPS 5006）
+2. 共有 `TiSLY`（または `Invoices_Estimates`）にアプリユーザーの読み書きを付与
+3. File Station で同じユーザーがログインできることを確認し、VPS `.env` の `QNAP_USERNAME` / `QNAP_PASSWORD` を合わせる
+4. 有効化後、リポジトリ `scripts/qnap-tailscale-probe-v1.py` を VPS で実行し PUT 200 を再確認

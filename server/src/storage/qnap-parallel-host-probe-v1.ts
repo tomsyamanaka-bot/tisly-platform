@@ -278,7 +278,8 @@ export function formatQnapProbeResultSummaryV1(
 
 /**
  * 指定ターゲットを並行プローブし、最速到達ルートを返す。
- * 各試行は DEFAULT_WEBDAV_TIMEOUT_MS（既定 3s）で打ち切る。
+ * 各試行は DEFAULT_WEBDAV_TIMEOUT_MS（既定 12s）
+ * で打ち切る。
  */
 export async function probeQnapHostsInParallelV1(options?: {
   tailscaleHost?: string | null;

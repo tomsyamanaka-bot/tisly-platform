@@ -113,6 +113,7 @@ export function listDocumentNasPortCandidates(
   for (const p of order) {
     const n = Number(p);
     if (!Number.isFinite(n) || n <= 0 || seen.has(n)) continue;
+    if (isLikelyNonWebDavPort(n)) continue;
     seen.add(n);
     out.push(n);
   }
@@ -133,16 +134,42 @@ export function resolveDocumentNasLocalHost(
   return DOCUMENT_NAS_HOST;
 }
 
+/**
+ * SSH / VPS 管理ポートは WebDAV ではない。
+ * QNAP_LOCAL_PORT=5522 のような誤設定を無視する。
+ */
+export const DOCUMENT_NAS_NON_WEBDAV_PORTS: ReadonlySet<number> = new Set([
+  22, 2222, 5522, 55222,
+]);
+
+export function isLikelyNonWebDavPort(port: number): boolean {
+  const n = Number(port);
+  if (!Number.isFinite(n) || n <= 0) return true;
+  return DOCUMENT_NAS_NON_WEBDAV_PORTS.has(n);
+}
+
 export function resolveDocumentNasLocalPort(
   explicitPort?: number | null
 ): number {
   const n = Number(explicitPort);
-  if (Number.isFinite(n) && n > 0) return n;
+  if (Number.isFinite(n) && n > 0 && !isLikelyNonWebDavPort(n)) return n;
   const fromLocal = Number(process.env.QNAP_LOCAL_PORT || "");
-  if (Number.isFinite(fromLocal) && fromLocal > 0) return fromLocal;
+  if (
+    Number.isFinite(fromLocal) &&
+    fromLocal > 0 &&
+    !isLikelyNonWebDavPort(fromLocal)
+  ) {
+    return fromLocal;
+  }
   // 互換: QNAP_PORT（ユーザー指定・デプロイ用エイリアス）
   const fromPort = Number(process.env.QNAP_PORT || "");
-  if (Number.isFinite(fromPort) && fromPort > 0) return fromPort;
+  if (
+    Number.isFinite(fromPort) &&
+    fromPort > 0 &&
+    !isLikelyNonWebDavPort(fromPort)
+  ) {
+    return fromPort;
+  }
   return DOCUMENT_NAS_DEFAULT_PORT;
 }
 

@@ -88,9 +88,28 @@ export const config = {
     },
     get port() {
       const local = Number(env("QNAP_LOCAL_PORT", ""));
-      if (Number.isFinite(local) && local > 0) return local;
+      // 5522 等の SSH 誤設定は WebDAV ポートとして使わない。
+      if (
+        Number.isFinite(local) &&
+        local > 0 &&
+        local !== 22 &&
+        local !== 2222 &&
+        local !== 5522 &&
+        local !== 55222
+      ) {
+        return local;
+      }
       const alias = Number(env("QNAP_PORT", "5005"));
-      if (Number.isFinite(alias) && alias > 0) return alias;
+      if (
+        Number.isFinite(alias) &&
+        alias > 0 &&
+        alias !== 22 &&
+        alias !== 2222 &&
+        alias !== 5522 &&
+        alias !== 55222
+      ) {
+        return alias;
+      }
       return 5005;
     },
   },

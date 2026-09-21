@@ -78,12 +78,12 @@ describe("Operational Phase29 — QNAP WebDAV path encoding", () => {
     assert.ok(ts.includes("[QNAP WebDAV PUT]"));
   });
 
-  it("webdav fetch default timeout is 3s (504 avoidance)", () => {
+  it("webdav fetch default timeout is 12s (VPN jitter)", () => {
     const ts = fs.readFileSync(
       path.join(process.cwd(), "src/business/services/qnap-webdav-fetch-v1.ts"),
       "utf-8"
     );
-    assert.match(ts, /QNAP_WEBDAV_TIMEOUT_MS \|\| "3000"/);
+    assert.match(ts, /QNAP_WEBDAV_TIMEOUT_MS \|\| "12000"/);
     assert.match(ts, /AbortController/);
   });
 

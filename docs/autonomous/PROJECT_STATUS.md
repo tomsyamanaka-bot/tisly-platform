@@ -1926,6 +1926,20 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2552-toyoshima-instant-relay` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### Phase 10 Tailscale VPN 復旧＆QNAP 保存（2026-09-21）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | VPS↔QNAP の Tailscale 疎通を確認し、WebDAV 保存の揺らぎ耐性を上げる |
+| VPN | VPS `100.82.225.90` · QNAP `tislynas` `100.99.31.120` · ping 0% loss |
+| アプリ | `QNAP_WEBDAV_TIMEOUT_MS` 既定 **12000ms** · File Station SID の CDATA 対応 |
+| ガード | `QNAP_LOCAL_PORT=5522`（VPS SSH）を WebDAV 候補から除外 |
+| 実NAS | WebDAV 5005/5006 は停止。File Station は `errorValue=-1`（パスワード不一致） |
+| 人間 | QNAP で WebDAV 有効化＋QTS ログイン確認。入口 URL は変更なし |
+| 既存保護 | ナレッジ配列・現場設定・API ルートは削除せず追記 |
+| SW | `tisly-pwa-v2552-toyoshima-instant-relay` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
 
 
 

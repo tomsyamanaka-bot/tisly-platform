@@ -157,9 +157,11 @@ export function listDocumentNasPortCandidates(configuredPort) {
   ];
   const seen = new Set();
   const out = [];
+  const nonWebDav = new Set([22, 2222, 5522, 55222]);
   for (const p of order) {
     const n = Number(p);
     if (!Number.isFinite(n) || n <= 0 || seen.has(n)) continue;
+    if (nonWebDav.has(n)) continue;
     seen.add(n);
     out.push(n);
   }

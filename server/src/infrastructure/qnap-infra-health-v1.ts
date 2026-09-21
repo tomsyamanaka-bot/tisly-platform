@@ -16,6 +16,7 @@ import {
 import {
   DOCUMENT_NAS_FALLBACK_PORTS,
   documentNasConnectSuccessMessage,
+  isLikelyNonWebDavPort,
   webDavProtocolForPort,
 } from "../storage/qnap-nas-hosts-v1.js";
 import {
@@ -561,7 +562,12 @@ export function resolveQnapSaveCredentialsV1(options?: {
   ).trim();
   const envShare = String(process.env.QNAP_SHARE || "").trim();
   const envPortRaw = Number(process.env.QNAP_PORT || process.env.QNAP_LOCAL_PORT || 0);
-  const envPort = Number.isFinite(envPortRaw) && envPortRaw > 0 ? envPortRaw : null;
+  const envPort =
+    Number.isFinite(envPortRaw) &&
+    envPortRaw > 0 &&
+    !isLikelyNonWebDavPort(envPortRaw)
+      ? envPortRaw
+      : null;
 
   const settingsPass = String(options?.settingsPassword ?? "").trim();
   const settingsUser = String(options?.settingsUsername ?? "").trim();
