@@ -640,6 +640,8 @@ function updateTargetLabel(homeSiteId) {
   setText("sf-remote-target", `実機: ${label} · 感応度/通知条件`);
   state.homeSiteId = homeSiteId;
   applyDebounceLabelsV1();
+  /* 取得前でも物件別の通知行を即描画 */
+  renderNotifyPolicy(null);
 }
 
 /** 物件切替時に呼ぶ */
