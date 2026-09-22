@@ -778,6 +778,12 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /防犯カメラを見る/);
     assert.match(toyoshimaJs, /data-gv-launch/);
     assert.match(toyoshimaJs, /renderGuardViewerStoreHelpHtmlV1/);
+    /* 豊島 Security はカメラカードを DOM に出さない */
+    assert.match(toyoshimaJs, /画面からは完全非表示/);
+    assert.equal((toyoshimaJs.match(/\$\{renderCustomerCameraCard\(\)\}/g) || []).length, 0);
+    /* 一括ON/OFF はキック行の1組だけ */
+    assert.equal((toyoshimaJs.match(/💡 照明を一括ON/g) || []).length, 1);
+    assert.equal((toyoshimaJs.match(/💡 照明を一括OFF/g) || []).length, 1);
     assert.match(toyoshimaJs, /heartbeatWatchEnabled/);
     assert.match(opJs, /豊島邸では旧 KPI|ts-health-card|isToyoshimaSecuritySite\(state\.siteId\)/);
     assert.match(opJs, /kpi\.hidden = true|sf-kpi/);

@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2557-security-ui-visual` |
+| SW | `tisly-pwa-v2558-toyoshima-ui-cleanup` |
 
 ---
 
@@ -1984,6 +1984,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 Security UI クリーンアップ（一括操作重複・カメラ非表示 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | 豊島邸 `TOYOSHIMA001` · `/customer/security` · `/app` Security |
+| 1. 一括操作 | 「照明を一括ON/OFF」の外側複製行を削除。`renderManualLightKickRow()` の 1 組だけ残す |
+| 2. カメラ | `renderCustomerCameraCard()` は空文字を返し、ダッシュボードへ差し込まない。関数とマークアップは再表示用に残す |
+| 既存保護 | 一括 API・DO 制御・Guard Viewer 起動関数は変更なし。板橋の静的カメラ CTA は触らない |
+| SW | `tisly-pwa-v2558-toyoshima-ui-cleanup` |
+| 確認 | `/customer/security` · `/app` · https://tisly.jp/api/health |
 
 ### Security 設定 UI の視覚化強化（SVG・昼夜カード・スライダー / 2026-09-22）
 

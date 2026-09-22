@@ -796,18 +796,8 @@ function renderCustomerDailySettings(dash) {
       <section class="ts-daily-block">
         <h4 class="ts-daily-h">④ 外構ライト手動操作</h4>
         <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
-        <div class="ts-btn-row">
-          <button type="button" class="ts-btn ts-btn-primary"
-            data-ts-light-kick="bulk_lights_on"
-            data-ts-action="bulk_lights_on">
-            💡 照明を一括ON
-          </button>
-          <button type="button" class="ts-btn ts-btn-ghost"
-            data-ts-light-kick="bulk_lights_off"
-            data-ts-action="bulk_lights_off">
-            💡 照明を一括OFF
-          </button>
-        </div>
+        <!-- 一括ON/OFFはキック行の1組だけにする
+             外側に重ねるとボタンが二重になる -->
         ${renderManualLightKickRow()}
         <div class="ts-btn-row">
           <button type="button" class="ts-btn ts-btn-primary" data-ts-action="manual_lights_3min">
@@ -824,8 +814,14 @@ function renderCustomerDailySettings(dash) {
   </section>`;
 }
 
-/** 顧客向け · Guard Viewer スキーム直結 */
+/** 顧客向け · Guard Viewer スキーム直結
+ * 豊島 Security ではカードを出さない
+ * 関数とマークアップは再表示用に残す */
 function renderCustomerCameraCard() {
+  /* 画面からは完全非表示（DOM に出さない）
+   * 下のマークアップは再表示用に残す */
+  return "";
+  /*
   return `<section class="ts-card ts-camera-card">
     <h3 class="ts-card-head">📷 防犯カメラ</h3>
     <p class="ts-hint">専用アプリで高画質のライブ映像を確認できます</p>
@@ -840,6 +836,7 @@ function renderCustomerCameraCard() {
     </a>
     ${renderGuardViewerStoreHelpHtmlV1()}
   </section>`;
+  */
 }
 
 function loadNotifyReadIds() {
@@ -1427,14 +1424,8 @@ function renderOpsCard() {
   return `<section class="ts-card ts-ops-card">
     <h3 class="ts-card-head">💡 照明一括操作</h3>
     <p class="ts-hint">手動操作は昼夜スケジュールを無視して即時点灯します</p>
-    <div class="ts-btn-row">
-      <button type="button" class="ts-btn"
-        data-ts-light-kick="bulk_lights_on"
-        data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
-      <button type="button" class="ts-btn ts-btn-ghost"
-        data-ts-light-kick="bulk_lights_off"
-        data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
-    </div>
+    <!-- 一括ON/OFFはキック行の1組だけにする
+         外側の複製行は描画しない -->
     ${renderManualLightKickRow()}
     <h3 class="ts-card-head ts-section-gap">🔔 プッシュ通知管理</h3>
     <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
@@ -2342,7 +2333,6 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         ${renderAreaSwitchCard(window.__TISLY_SF_FLOOR || "1f")}
         ${renderCustomerModeCards(dash)}
         ${renderCustomerDailySettings(dash)}
-        ${renderCustomerCameraCard()}
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">
         <div id="ts-alarm-root">${renderAlarmCard(dash, { customer: true })}</div>
@@ -2370,7 +2360,6 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         <div id="ts-do-root">${renderDoForceTestCard()}</div>
         <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
         ${renderCloudStreamCard()}
-        ${renderCustomerCameraCard()}
         ${renderBuildingCard(dash.main)}
         ${renderBuildingCard(dash.detached)}
         <section class="ts-card" id="ts-map-manual-lights">
