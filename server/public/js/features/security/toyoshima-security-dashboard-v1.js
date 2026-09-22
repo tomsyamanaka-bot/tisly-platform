@@ -355,6 +355,116 @@ function normalizeTimeHm(value, fallback) {
   return `${m[1].padStart(2, "0")}:${m[2]}`;
 }
 
+/** JST 現在時刻を 0〜1439 分で返す */
+function jstNowMinutesV1(at = new Date()) {
+  const shifted = new Date(
+    at.getTime() + (at.getTimezoneOffset() + 540) * 60000
+  );
+  return shifted.getHours() * 60 + shifted.getMinutes();
+}
+
+function hmToMinutesV1(hm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hm || ""));
+  if (!m) return 0;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** 点灯スケジュール内か（日跨ぎ・終日対応） */
+export function isWithinLightScheduleV1(
+  startHm,
+  endHm,
+  nowMin = jstNowMinutesV1()
+) {
+  const start = hmToMinutesV1(startHm);
+  const end = hmToMinutesV1(endHm);
+  /* 開始＝終了は終日点灯（おでかけ警戒） */
+  if (start === end) return true;
+  if (start < end) return nowMin >= start && nowMin < end;
+  return nowMin >= start || nowMin < end;
+}
+
+/**
+ * 昼夜の動作差を 2 枚のタイルで見せる。
+ * いまどちら側で動いているかを反転表示する。
+ */
+export function renderDayNightRuleCard(dash) {
+  const mode = dash.customerMode || "home";
+  const start = normalizeTimeHm(dash.scheduleStart, "18:00");
+  const end = normalizeTimeHm(dash.scheduleEnd, "06:00");
+  const disarmed = mode === "disarmed";
+  const forceRelay = dash.forceRelayTest !== false;
+  const nightNow = !disarmed && isWithinLightScheduleV1(start, end);
+  const dayNow = !disarmed && !nightNow;
+  const allDay = hmToMinutesV1(start) === hmToMinutesV1(end);
+
+  const dayDesc = forceRelay
+    ? "通知＋テスト点灯（昼間連動ON）"
+    : "通知のみ・ライトは消灯のまま";
+  const nightDesc = "防犯ライト点灯＋通知";
+  const nowBadge = `<span class="ts-dn-now">いま</span>`;
+
+  const note = disarmed
+    ? "警戒解除中はライトも通知も停止します"
+    : allDay
+      ? `終日ライト連動（${start}〜${end} 指定で 24 時間）／通知は 24 時間`
+      : `夜間ライト ${start}〜${end}／通知は 24 時間`;
+
+  return `<div class="ts-daynight" id="ts-daynight"
+    data-ts-daynight="${disarmed ? "disarmed" : nightNow ? "night" : "day"}">
+    <div class="ts-dn-tile ts-dn-day${dayNow ? " is-now" : ""}${
+      disarmed ? " is-muted" : ""
+    }">
+      <span class="ts-dn-ico" aria-hidden="true">☀️</span>
+      <span class="ts-dn-head">日中</span>
+      <span class="ts-dn-desc">${dayDesc}</span>
+      ${dayNow ? nowBadge : ""}
+    </div>
+    <div class="ts-dn-tile ts-dn-night${nightNow ? " is-now" : ""}${
+      disarmed ? " is-muted" : ""
+    }">
+      <span class="ts-dn-ico" aria-hidden="true">🌙</span>
+      <span class="ts-dn-head">夜間</span>
+      <span class="ts-dn-desc">${nightDesc}</span>
+      ${nightNow ? nowBadge : ""}
+    </div>
+  </div>
+  <p class="ts-dn-note">${escapeHtml(note)}</p>`;
+}
+
+/**
+ * 秒数スライダー（大きな数値＋目盛り）。
+ * 値表示の id は既存ロジックと同じまま。
+ */
+export function renderSecondsSliderField(opt) {
+  const min = Number(opt.min);
+  const max = Number(opt.max);
+  const step = Number(opt.step || 1);
+  const value = Number(opt.value);
+  const labelId = opt.labelId ? ` id="${opt.labelId}"` : "";
+  /* 目盛りは最小・1/3・2/3・最大の 4 点 */
+  const stops = [min, min + (max - min) / 3, min + ((max - min) * 2) / 3, max]
+    .map((v) => Math.round(v))
+    .map((v) => `<span>${v}秒</span>`)
+    .join("");
+  return `<label class="ts-slider-field ts-slider-rich" for="${opt.id}">
+    <span class="ts-slider-head">
+      <span class="ts-label"${labelId}>${opt.label}</span>
+      <span class="ts-slider-val" id="${opt.id}-val">${value}秒</span>
+    </span>
+    <div class="ts-slider-row">
+      <span class="ts-slider-cap" aria-hidden="true">⏱️<small>${
+        opt.minCaption || "短め"
+      }</small></span>
+      <input type="range" id="${opt.id}" min="${min}" max="${max}"
+        step="${step}" value="${value}" />
+      <span class="ts-slider-cap" aria-hidden="true">💡<small>${
+        opt.maxCaption || "長め"
+      }</small></span>
+    </div>
+    <span class="ts-slider-scale" aria-hidden="true">${stops}</span>
+  </label>`;
+}
+
 function syncScheduleState(dash) {
   if (!dash) return;
   scheduleState = {
@@ -522,13 +632,16 @@ function renderTwoStepRemoteBlock(dash) {
             <span class="ts-switch-text" id="ts-force-relay-test-label">${forceRelay ? "ON" : "OFF"}</span>
           </span>
         </label>
-        <label class="ts-slider-field" for="ts-flash-duration">
-          <span class="ts-label">フラッシュ点灯時間</span>
-          <div class="ts-slider-row">
-            <input type="range" id="ts-flash-duration" min="5" max="60" step="1" value="${flashSec}" />
-            <span class="ts-slider-val" id="ts-flash-duration-val">${flashSec}秒</span>
-          </div>
-        </label>
+        ${renderSecondsSliderField({
+          id: "ts-flash-duration",
+          label: "⚡ フラッシュ点灯時間",
+          value: flashSec,
+          min: 5,
+          max: 60,
+          step: 1,
+          minCaption: "短め",
+          maxCaption: "長め",
+        })}
       </section>`;
 }
 
@@ -596,21 +709,26 @@ function renderCustomerDailySettings(dash) {
               ? "在宅見守り：外周センサー有効時の動作です"
               : "警戒解除中は詳細動作を一時停止します"
         }</p>
-        <label class="ts-slider-field" for="ts-lighting-duration">
-          <span class="ts-label" id="ts-lighting-label">${lightLabel}</span>
-          <div class="ts-slider-row">
-            <input type="range" id="ts-lighting-duration" min="5" max="180" step="1" value="${lightSec}" />
-            <span class="ts-slider-val" id="ts-lighting-duration-val">${lightSec}秒</span>
-          </div>
-        </label>
+        ${renderSecondsSliderField({
+          id: "ts-lighting-duration",
+          labelId: "ts-lighting-label",
+          label: `💡 ${lightLabel}`,
+          value: lightSec,
+          min: 5,
+          max: 180,
+          step: 1,
+          minCaption: "短め",
+          maxCaption: "長め",
+        })}
         ${patliteBlock}
       </section>
 
       ${renderTwoStepRemoteBlock(dash)}
 
       <section class="ts-daily-block">
-        <h4 class="ts-daily-h">② 自動点灯スケジュール設定</h4>
+        <h4 class="ts-daily-h">② 昼夜のスマート点灯制御</h4>
         <p class="ts-hint">夜間のライト自動点灯時間帯（日跨ぎ可）</p>
+        ${renderDayNightRuleCard(dash)}
         <div class="ts-schedule-inline">
           <label class="ts-schedule-field" for="ts-daily-schedule-start">
             <span>開始時刻</span>
@@ -626,6 +744,10 @@ function renderCustomerDailySettings(dash) {
       <section class="ts-daily-block">
         <h4 class="ts-daily-h">③ エリア別 通知条件設定</h4>
         <p class="ts-hint">センサーごとに通知の受け取りを切り替え</p>
+        <p class="ts-dn-inline">
+          <span class="ts-dn-chip ts-dn-chip-day">☀️ 日中 通知のみ</span>
+          <span class="ts-dn-chip ts-dn-chip-night">🌙 夜間 点灯＋通知</span>
+        </p>
         <div id="ts-customer-notify">${notifyRows}</div>
       </section>
 
@@ -1212,20 +1334,26 @@ function renderSettingsCard(dash) {
   return `<section class="ts-card ts-settings-card" id="ts-settings-card">
     <h3 class="ts-card-head">⚙️ 詳細設定</h3>
     ${renderTwoStepRemoteBlock(dash)}
-    <label class="ts-slider-field" for="ts-lighting-duration">
-      <span class="ts-label">DOライト点灯維持時間</span>
-      <div class="ts-slider-row">
-        <input type="range" id="ts-lighting-duration" min="5" max="180" step="1" value="${lightSec}" />
-        <span class="ts-slider-val" id="ts-lighting-duration-val">${lightSec}秒</span>
-      </div>
-    </label>
-    <label class="ts-slider-field" for="ts-perimeter-timeout">
-      <span class="ts-label">段階接近判定 制限時間</span>
-      <div class="ts-slider-row">
-        <input type="range" id="ts-perimeter-timeout" min="30" max="300" step="5" value="${periSec}" />
-        <span class="ts-slider-val" id="ts-perimeter-timeout-val">${periSec}秒</span>
-      </div>
-    </label>
+    ${renderSecondsSliderField({
+      id: "ts-lighting-duration",
+      label: "💡 DOライト点灯維持時間",
+      value: lightSec,
+      min: 5,
+      max: 180,
+      step: 1,
+      minCaption: "短め",
+      maxCaption: "長め",
+    })}
+    ${renderSecondsSliderField({
+      id: "ts-perimeter-timeout",
+      label: "🚶 段階接近判定 制限時間",
+      value: periSec,
+      min: 30,
+      max: 300,
+      step: 5,
+      minCaption: "短め",
+      maxCaption: "長め",
+    })}
     <p class="ts-hint">スライダー変更は自動保存され、実機へ即時反映されます</p>
   </section>`;
 }

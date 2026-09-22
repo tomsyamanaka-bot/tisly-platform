@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2555-toyoshima-do-bind` |
+| SW | `tisly-pwa-v2556-security-ui-icons` |
 
 ---
 
@@ -1984,6 +1984,24 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### Security 設定 UI の視覚化（アイコン・昼夜タイル・秒数スライダー / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `/customer/security`（豊島邸ダッシュボード）と Security フロア切替タブ |
+| 1. フロア切替 | `renderFloorTabs` / `renderSocLayerButtons` に `socFloorIconSvg()` のインライン SVG を追加（1F=家・2F=建物・外周=樹木＋地面・全体=レイヤー）。`currentColor` なので紺⇔白の反転に追従 |
+| 2. 昼夜カード | `renderDayNightRuleCard()` を新設。`☀️ 日中` と `🌙 夜間` の 2 タイルで、日中は「通知のみ」／夜間は「ライト点灯＋通知」を明示。`isWithinLightScheduleV1()` で JST 現在時刻を判定し、稼働中の側だけ「いま」札＋反転配色（日中=淡黄／夜間=紺グラデ） |
+| 昼間連動 ON 時 | 日中タイルの説明を「通知＋テスト点灯（昼間連動ON）」に切替（`forceRelayTest` の実挙動と一致） |
+| 警戒解除中 | 両タイルを減光し「ライトも通知も停止します」と注記 |
+| 3. 秒数スライダー | `renderSecondsSliderField()` に統一。現在値を紺のピル（1.32rem）で強調し、左右に `⏱️ 短め` / `長め 💡`、下に 4 点目盛り（最小・1/3・2/3・最大）。ライト維持・フラッシュ・段階接近・DO ライトの 4 か所に適用 |
+| 既存ロジック保護 | 値表示の id（`ts-*-val`）と `input` イベントの束縛・保存処理は変更なし。装飾とレイアウトのみ追加 |
+| 静的 HTML | `security-customer-v1.html` の `sf-customer-lighting-duration` も同じ装飾に（`sf-slider-rich`） |
+| CSS | `security-floor-v1.css`（`.sf-tab--iconed` / `.sf-slider-rich`）· `toyoshima-security-v1.css`（`.ts-dn-*` / `.ts-slider-rich`）を追記。白ベース × 紺 `#1e3a8a` |
+| SW / キャッシュ | `tisly-pwa-v2556-security-ui-icons` · `security-v1.html` と `security-customer-v1.html` の `?v=` を 2556 へ |
+| テスト | `security-floor-v1.test.ts` に UI 固定アサート 14 件追加。同 9 件 PASS · 豊島・通知系 65 件 PASS · home/navy/clone 68 件 PASS |
+| 既存の既知失敗 | `pwa-route-repair-v4.test.ts` の SW `v2418` 参照は HEAD 時点から失敗（本改修と無関係の古い札照合） |
+| 確認 | `/customer/security` · https://tisly.jp/api/health |
 
 ### 豊島邸 センサー検知 → Push 通知の独立ディスパッチ（2026-09-22）
 

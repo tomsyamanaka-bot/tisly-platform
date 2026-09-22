@@ -50,6 +50,40 @@ export function renderFloorMapSvg(rooms, sensors, floorId) {
     </svg>`;
 }
 
+/* フロア切替アイコン。currentColor 指定で
+ * 紺⇔白の反転にそのまま追従する。 */
+const SOC_FLOOR_ICON_SVG = {
+  "1f": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 10.5 12 4l8 6.5" /><path d="M6 10v9h12v-9" />
+    <path d="M10 19v-5h4v5" /></svg>`,
+  "2f": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20V8l8-4 8 4v12" /><path d="M4 13h16" />
+    <path d="M10 20v-4h4v4" /></svg>`,
+  outdoor: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3 7 11h10L12 3Z" /><path d="M12 11v9" />
+    <path d="M3 20h18" /><path d="M18 14v6" /><path d="M6 14v6" /></svg>`,
+  all: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 4 8 4-8 4-8-4 8-4Z" /><path d="m4 12 8 4 8-4" />
+    <path d="m4 16 8 4 8-4" /></svg>`,
+};
+
+/** フロア ID に対応するインライン SVG */
+export function socFloorIconSvg(id) {
+  const key = String(id || "").toLowerCase();
+  return SOC_FLOOR_ICON_SVG[key] || SOC_FLOOR_ICON_SVG.all;
+}
+
+/** アイコン＋文字のボタン中身（装飾のみ） */
+function floorTabInnerHtml(id, label) {
+  return `<span class="sf-tab-ico" aria-hidden="true">${socFloorIconSvg(
+    id
+  )}</span><span class="sf-tab-txt">${escapeHtml(label)}</span>`;
+}
+
 export function renderFloorTabs(floors, activeId) {
   return (floors || [])
     .map((f) => {
@@ -58,10 +92,10 @@ export function renderFloorTabs(floors, activeId) {
       return `
         <button
           type="button"
-          class="sf-tab${on}"
+          class="sf-tab sf-tab--iconed${on}"
           data-floor="${escapeHtml(f.id)}"
           ${disabled}
-        >${escapeHtml(f.label)}</button>`;
+        >${floorTabInnerHtml(f.id, f.label)}</button>`;
     })
     .join("");
 }
@@ -292,8 +326,11 @@ export function renderSocLayerButtons(floors, activeId, site = null) {
   return items
     .map((it) => {
       const on = it.id === focus ? " is-on" : "";
-      return `<button type="button" class="sf-tab${on}"
-        data-floor="${escapeHtml(it.id)}">${escapeHtml(it.label)}</button>`;
+      return `<button type="button" class="sf-tab sf-tab--iconed${on}"
+        data-floor="${escapeHtml(it.id)}">${floorTabInnerHtml(
+          it.id,
+          it.label
+        )}</button>`;
     })
     .join("");
 }

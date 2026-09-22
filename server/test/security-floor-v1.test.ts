@@ -783,6 +783,24 @@ describe("security-floor-v1", () => {
     assert.match(opJs, /ib-health-card|itabashi-commHealth/);
     assert.match(opJs, /盤内温度（主装置・チップ実測）/);
     assert.match(opJs, /最新の接続状態を取得しました/);
+    /* フロア切替アイコン・昼夜タイル・秒数スライダー */
+    const floorMapJs = fs.readFileSync(
+      path.join(publicDir, "js/features/security/security-floor-map-v1.js"),
+      "utf8"
+    );
+    assert.match(floorMapJs, /socFloorIconSvg/);
+    assert.match(floorMapJs, /sf-tab sf-tab--iconed/);
+    assert.match(floorMapJs, /sf-tab-ico/);
+    assert.match(toyoshimaJs, /renderDayNightRuleCard/);
+    assert.match(toyoshimaJs, /☀️/);
+    assert.match(toyoshimaJs, /🌙/);
+    assert.match(toyoshimaJs, /ts-dn-tile ts-dn-day/);
+    assert.match(toyoshimaJs, /ts-dn-tile ts-dn-night/);
+    assert.match(toyoshimaJs, /isWithinLightScheduleV1/);
+    assert.match(toyoshimaJs, /renderSecondsSliderField/);
+    assert.match(toyoshimaJs, /ts-slider-rich/);
+    assert.match(toyoshimaJs, /ts-slider-scale/);
+    assert.match(toyoshimaJs, /⏱️/);
     assert.match(toyoshimaJs, /\/toyoshima\/config/);
     assert.match(toyoshimaJs, /data-ts-daily-mounted/);
     assert.match(toyoshimaJs, /ensureCustomerDailySettingsMounted|syncFirmwareConfigAfterSave/);
@@ -870,6 +888,15 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaCss, /is-toyoshima #sf-pro-shelly-failsafe/);
     assert.match(toyoshimaCss, /ts-di-row/);
     assert.match(toyoshimaCss, /ts-do-pulse-btn/);
+
+    /* 昼夜カード・秒数スライダーの装飾 */
+    assert.match(toyoshimaCss, /\.ts-dn-day\.is-now/);
+    assert.match(toyoshimaCss, /\.ts-dn-night\.is-now/);
+    assert.match(toyoshimaCss, /\.ts-slider-rich \.ts-slider-val/);
+    assert.match(toyoshimaCss, /\.ts-slider-scale/);
+    assert.match(floorCss, /\.sf-tab--iconed/);
+    assert.match(floorCss, /\.sf-tab-ico svg/);
+    assert.match(floorCss, /\.sf-slider-rich/);
 
     const customerJs = fs.readFileSync(
       path.join(

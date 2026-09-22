@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2555" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2555" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2556" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2556" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -150,9 +150,13 @@
       <div class="sf-daily-body">
         <section class="sf-daily-block" id="sf-customer-light-card">
           <p class="sf-card-label">① ライト点灯時間</p>
-          <label class="sf-slider-field" for="sf-customer-lighting-duration">
-            <span class="sf-slider-label">センサー検知後の点灯時間</span>
+          <label class="sf-slider-field sf-slider-rich" for="sf-customer-lighting-duration">
+            <span class="sf-slider-head">
+              <span class="sf-slider-label">💡 センサー検知後の点灯時間</span>
+              <strong id="sf-customer-lighting-duration-val">45秒</strong>
+            </span>
             <div class="sf-slider-row">
+              <span class="sf-slider-cap" aria-hidden="true">⏱️<small>短め</small></span>
               <input
                 type="range"
                 id="sf-customer-lighting-duration"
@@ -162,8 +166,11 @@
                 value="45"
                 aria-label="防犯ライト点灯時間"
               />
-              <strong id="sf-customer-lighting-duration-val">45秒</strong>
+              <span class="sf-slider-cap" aria-hidden="true">💡<small>長め</small></span>
             </div>
+            <span class="sf-slider-scale" aria-hidden="true">
+              <span>5秒</span><span>63秒</span><span>122秒</span><span>180秒</span>
+            </span>
           </label>
         </section>
         <section class="sf-daily-block">
@@ -273,11 +280,11 @@
     </div>
   </dialog>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2555"></script>
-  <script src="/js/features/security/security-time-range-v1.js?v=2555"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2555"></script>
-  <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2555"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2555"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2555"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2556"></script>
+  <script src="/js/features/security/security-time-range-v1.js?v=2556"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2556"></script>
+  <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2556"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2556"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2556"></script>
 </body>
 </html>
