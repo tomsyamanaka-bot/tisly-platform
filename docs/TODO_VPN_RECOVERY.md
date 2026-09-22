@@ -24,16 +24,105 @@
 LAN 直結でも 5005/5006 が閉じているため、
 ネットワーク経路ではなく NAS のサービス状態が原因。
 
-**残作業（QNAP 画面・人間）:**
+**残作業（QNAP 画面・人間）:** 下の手順書を参照。
 
-1. QTS → コントロールパネル → ネットワーク
-   サービス → **WebDAV を有効化**（5005/5006）
-2. `QNAP_WEBDAV_USER` / `QNAP_WEBDAV_PASSWORD` を
-   QTS の実パスワードへ更新（File Station が
-   `errorValue=-1` を返す＝パスワード不一致）
-3. 復旧後の再検証コマンド:
-   `python scripts/qnap-e2e-estimate-save-v1.py --env /opt/tisly/server/.env`
-   → `E2E_SAVE_FLAG QNAP_SAVED_GREEN` を確認
+---
+
+## QNAP 画面 復旧手順書（2026-09-22 版・人間作業）
+
+所要時間の目安は 10 分です。
+VPN は復旧済みなので Tailscale の操作は不要です。
+
+### 手順 1. QTS にログイン
+
+1. 事務所 PC のブラウザで
+   http://192.168.1.10:8080 を開く
+   （社外からは http://100.99.31.120:8080）
+2. 管理者アカウントでログインする
+3. ログインできないときは、まず
+   **パスワードの再設定** をここで済ませる
+   （手順 3 でそのパスワードを使う）
+
+### 手順 2. WebDAV を有効化する
+
+1. **コントロールパネル** を開く
+2. **ネットワークとファイルサービス** →
+   **WebDAV** を選ぶ
+3. **「WebDAV を有効にする」にチェック**
+4. ポートが下記になっていることを確認する
+
+   | 項目 | 値 |
+   |------|-----|
+   | HTTP ポート | **5005** |
+   | HTTPS ポート | **5006** |
+   | アクセス権限 | 共有フォルダの権限に従う |
+
+5. **適用** を押す
+6. **共有フォルダ** → `TiSLY` を開き、
+   使用するアカウントに **読み取り／書き込み**
+   権限が付いていることを確認する
+
+確認コマンド（事務所 PC・Cursor から）:
+
+```
+Test-NetConnection 192.168.1.10 -Port 5005
+Test-NetConnection 100.99.31.120 -Port 5006
+```
+
+`TcpTestSucceeded : True` になれば成功です。
+`False` のままなら QTS のファイアウォール
+（**セキュリティ → 許可／拒否リスト**）を確認します。
+
+### 手順 3. VPS のパスワードを合わせる
+
+File Station が `authPassed=0 errorValue=-1` を
+返しているため、VPS に保存された値が
+QTS の現在のパスワードと一致していません。
+
+1. VPS へ接続する: `ssh tisly-vps`
+2. `sudo nano /opt/tisly/server/.env`
+3. 次の 3 行を QTS の実値へ更新する
+   （キーが無い場合は追記する）
+
+   ```
+   QNAP_WEBDAV_URL=https://100.99.31.120:5006/TiSLY
+   QNAP_WEBDAV_USER=<QTS のユーザー名>
+   QNAP_WEBDAV_PASSWORD=<QTS のパスワード>
+   ```
+
+4. 保存して再起動する:
+   `sudo systemctl restart tisly-server`
+
+⚠️ パスワードはチャットや Git に貼らないこと。
+⚠️ 既存の行は消さず、値だけ書き換えること。
+
+### 手順 4. E2E で 🟢 を確認する
+
+```
+python scripts/qnap-e2e-estimate-save-v1.py --env /opt/tisly/server/.env
+```
+
+期待する出力:
+
+```
+ROUTE webdav-ts-5006: OK HTTP 201
+E2E_SAVE_FLAG QNAP_SAVED_GREEN
+```
+
+`QNAP_SAVED_GREEN` が出れば、UI の
+【🟢 保存済】と同じ成功条件を満たしています。
+併せて https://tisly.jp/api/health の
+`qnapLastError` が消えることを確認します。
+
+### つまずいたときの読み替え
+
+| 出力 | 意味 | 次の一手 |
+|------|------|----------|
+| `port closed` | WebDAV が未起動 | 手順 2 をやり直す |
+| `HTTP 401` | ユーザー／パスワード不一致 | 手順 3 をやり直す |
+| `HTTP 404` | 共有名が違う | `QNAP_WEBDAV_URL` の `/TiSLY` を確認 |
+| `HTTP 501` | WebDAV ではなく QTS UI に接続 | ポート 5005/5006 を使う |
+| `errorValue=-1` | File Station 認証失敗 | 手順 3 をやり直す |
 
 ## Phase 10 実測（2026-09-21）
 

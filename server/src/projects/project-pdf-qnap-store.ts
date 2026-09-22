@@ -179,6 +179,23 @@ export function listProjectPdfMeta(projectId: string): ProjectPdfMetaRow[] {
   return rows.map(rowFromDb);
 }
 
+/** soft-delete 済みも含めた行の存在確認。
+ * (project_id, kind) に UNIQUE があるため、
+ * 削除済み行を見落とすと INSERT で衝突する。
+ */
+function findProjectPdfMetaIdIncludingDeleted(
+  projectId: string,
+  kind: ProjectPdfKind
+): string | null {
+  const row = getDatabase()
+    .prepare(
+      `SELECT id FROM project_pdf_meta
+       WHERE project_id = ? AND kind = ?`
+    )
+    .get(projectId, kind) as { id?: string } | undefined;
+  return row?.id ?? null;
+}
+
 export function recordProjectPdfSavedV1(
   projectId: string,
   kind: ProjectPdfKind,
@@ -190,10 +207,10 @@ export function recordProjectPdfSavedV1(
   );
   const fileName = path.basename(pdfPath);
   const now = new Date().toISOString();
-  const existing = getProjectPdfMeta(projectId, kind);
+  const existingId = findProjectPdfMetaIdIncludingDeleted(projectId, kind);
   const db = getDatabase();
 
-  if (existing) {
+  if (existingId) {
     db.prepare(
       `UPDATE project_pdf_meta SET
         local_path = ?,
@@ -214,7 +231,7 @@ export function recordProjectPdfSavedV1(
       enabled ? 1 : 0,
       enabled ? "pending" : null,
       now,
-      existing.id
+      existingId
     );
     const row = getProjectPdfMeta(projectId, kind)!;
     mirrorPdfToProjectStorageV1(projectId, kind, pdfPath);

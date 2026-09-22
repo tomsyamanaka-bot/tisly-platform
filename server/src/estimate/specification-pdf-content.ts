@@ -1,3 +1,4 @@
+import { filterInternalNotesFromCustomerPdf } from "../business/customer-price-rules.js";
 import type { SpecificationContext } from "./specification-template.js";
 
 const UNWANTED_NOTE_PATTERNS = [
@@ -8,10 +9,14 @@ const UNWANTED_NOTE_PATTERNS = [
   /確認結果/g,
 ];
 
-/** 仕様書PDFに載せない文言を除去 */
+/** 仕様書PDFに載せない文言を除去。
+ * 社内メモ（現調PWA 連携・SVY番号・
+ * 部材件数・写真枚数）は顧客向けから外す。
+ */
 export function sanitizeSpecificationNotes(notes: string | null | undefined): string {
   if (!notes?.trim()) return "";
-  let text = notes.trim();
+  let text = filterInternalNotesFromCustomerPdf(notes);
+  if (!text) return "";
   for (const pattern of UNWANTED_NOTE_PATTERNS) {
     text = text.replace(pattern, "");
   }

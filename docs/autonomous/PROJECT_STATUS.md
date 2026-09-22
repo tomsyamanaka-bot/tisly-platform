@@ -1985,6 +1985,20 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 顧客向け PDF の社内メモ排除＆PDF メタ復活（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 症状 | 仕様書 PDF の表紙に「メモ」節が出て、`現調PWA v1 連携 (SVY-…) / 部材N件 / 写真N枚` と現調メモが顧客に見えていた |
+| 影響2 | メモ節で表紙セクションが 3 つになり `resolveCoverPhotoCapacity` が 3 枚に縮小。写真 6 枚でも 2 ページ目が発生していた |
+| 対策1 | `specification-template.ts` は表紙に現調メモを載せない（2026-06 の顧客向け PDF 方針へ回帰）。節は 工事内容・設備一覧 の 2 つ固定 |
+| 対策2 | `sanitizeSpecificationNotes` が `filterInternalNotesFromCustomerPdf` を経由。SVY 番号・部材件数・写真枚数を二重に排除 |
+| 症状3 | `project_pdf_meta` の UNIQUE 制約違反で PDF 再生成が skip（`recordProjectPdfSavedV1`） |
+| 対策3 | 存在確認を soft-delete 行も含めて行い、削除済み行は `deleted_at = NULL` で復活させる（再 INSERT しない） |
+| 開発環境 | ローカル `server/.env` の日本語値が `?` に壊れて会社情報が入らなかったため既定値へ修復（本番 `.env` に TOMS_* は無くコード既定値で正常） |
+| 回帰 | `estimate-v1` 31 件 · `customer-pdf-content` 5 件 PASS。PDF・保存系 8 ファイル直列で 98 件 PASS |
+| 既存保護 | 写真の使い分け（現調→仕様書 / 完了→完了報告書）は変更なし |
+
 ### Phase 10 Tailscale 再実測＆QNAP 保存 E2E（2026-09-22）
 
 | 領域 | 内容 |
@@ -1999,6 +2013,7 @@ p2350-relay-v1.ts �E firmware main.py |
 | テスト環境 | `.env` の `override: true` がテスト指定を潰していた問題を `envBeforeDotenv()` で解消（テスト DB・mock provider を維持） |
 | 回帰 | `qnap-*` 系 93 件 PASS（`qnap-storage-v1` の 4 件失敗を解消）· SW 札は単調増加チェックへ |
 | 残作業（人間） | QTS で WebDAV 有効化＋`QNAP_WEBDAV_USER/PASSWORD` を実パスワードへ更新 → E2E 再実行で 🟢 |
+| 手順書 | `docs/TODO_VPN_RECOVERY.md`「QNAP 画面 復旧手順書（2026-09-22 版）」— QTS 画面 4 手順＋つまずき表 |
 | 既存保護 | 既存ナレッジ・現場設定・API ルートは削除せず追記のみ |
 | 確認 | https://tisly.jp/api/health · `docs/TODO_VPN_RECOVERY.md` |
 

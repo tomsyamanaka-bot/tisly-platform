@@ -2,7 +2,6 @@ import { renderPracticalPdfHtml, type PracticalPdfPhoto } from "./practical-pdf-
 import {
   buildSpecificationEquipmentBody,
   buildSpecificationWorkContent,
-  sanitizeSpecificationNotes,
 } from "./specification-pdf-content.js";
 
 export type SpecificationPhoto = PracticalPdfPhoto;
@@ -45,8 +44,8 @@ export function renderSpecificationHtml(ctx: SpecificationContext): string {
     { title: "工事内容", body: buildSpecificationWorkContent(ctx) },
     { title: "設備一覧", body: buildSpecificationEquipmentBody(ctx) },
   ];
-  const memo = sanitizeSpecificationNotes(ctx.notes);
-  if (memo) coverSections.push({ title: "メモ", body: memo });
+  // 現調メモ（ctx.notes）は社内用のため
+  // お客様向け仕様書には載せない。
 
   return renderPracticalPdfHtml({
     prefix: "sp",
