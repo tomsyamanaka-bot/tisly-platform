@@ -99,6 +99,61 @@ export function isVapidConfigured(): boolean {
   return !!(config.vapid.publicKey && config.vapid.privateKey);
 }
 
+function loadActiveWebPushRows(
+  db: ReturnType<typeof getDatabase>,
+  userId?: string
+): Array<{ id: string; endpoint: string; keys_json: string }> {
+  const tokens = (
+    userId
+      ? db
+          .prepare(
+            `SELECT id, endpoint, keys_json FROM notification_tokens
+             WHERE channel = 'web_push' AND active = 1 AND user_id = ?`
+          )
+          .all(userId)
+      : db
+          .prepare(
+            `SELECT id, endpoint, keys_json FROM notification_tokens
+             WHERE channel = 'web_push' AND active = 1`
+          )
+          .all()
+  ) as Array<{ id: string; endpoint: string; keys_json: string }>;
+
+  let extras: Array<{ id: string; endpoint: string; keys_json: string }> = [];
+  try {
+    extras = (
+      userId
+        ? db
+            .prepare(
+              `SELECT id, endpoint, keys_json FROM pwa_subscriptions
+               WHERE active = 1 AND user_id = ?`
+            )
+            .all(userId)
+        : db
+            .prepare(
+              `SELECT id, endpoint, keys_json FROM pwa_subscriptions
+               WHERE active = 1`
+            )
+            .all()
+    ) as Array<{ id: string; endpoint: string; keys_json: string }>;
+  } catch (err) {
+    console.warn(
+      "[web-push] pwa_subscriptions read skipped:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+
+  const byEndpoint = new Map<
+    string,
+    { id: string; endpoint: string; keys_json: string }
+  >();
+  for (const row of [...tokens, ...extras]) {
+    if (!row?.endpoint || byEndpoint.has(row.endpoint)) continue;
+    byEndpoint.set(row.endpoint, row);
+  }
+  return [...byEndpoint.values()];
+}
+
 /**
  * Web Push 送信。
  * userId 省略時は全アクティブ端末へ配信（セキュリティ/通知テスト用）。
@@ -138,19 +193,13 @@ export async function sendWebPush(
       attempts: [],
     };
   }
-  const tokens = userId
-    ? db
-        .prepare(
-          `SELECT * FROM notification_tokens WHERE channel = 'web_push' AND active = 1 AND user_id = ?`
-        )
-        .all(userId)
-    : db
-        .prepare(
-          `SELECT * FROM notification_tokens WHERE channel = 'web_push' AND active = 1`
-        )
-        .all();
+  const tokens = loadActiveWebPushRows(db, userId);
 
   if (!tokens.length) {
+    console.error(
+      "Push Send Error: Subscription invalid" +
+        (userId ? ` for user_id=${userId}` : " (no active subscriptions)")
+    );
     console.warn(
       `[web-push] No active subscriptions found` +
         (userId ? ` for user_id=${userId}` : " (all users)")
@@ -158,7 +207,7 @@ export async function sendWebPush(
     return {
       channel: "web_push",
       success: false,
-      error: "No active subscriptions found",
+      error: "Subscription invalid",
       sent: 0,
       attempted: 0,
       attempts: [],

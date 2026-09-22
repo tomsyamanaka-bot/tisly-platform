@@ -7,7 +7,12 @@
  */
 
 import { v4 as uuid } from "uuid";
-import { sendWebPush } from "../notification/channels/web-push.js";
+import {
+  isVapidConfigured,
+  sendWebPush,
+} from "../notification/channels/web-push.js";
+import { getDatabase } from "../db/database.js";
+import type { DeliveryResult } from "../notification/types.js";
 import {
   TISLY_HEARTBEAT_INTERVAL_SEC_V1,
   TISLY_HEARTBEAT_OFFLINE_MS_V1,
@@ -893,10 +898,20 @@ async function sendToyoshimaPush(input: {
   eventType: string;
   severity?: "critical" | "silent";
   snapshotUrl?: string | null;
-}): Promise<boolean> {
+}): Promise<DeliveryResult> {
+  const fail = (error: string): DeliveryResult => ({
+    channel: "web_push",
+    success: false,
+    error,
+    sent: 0,
+    attempted: 0,
+    attempts: [],
+  });
   try {
     console.log(
-      `[toyoshima] push try title=${input.title} eventType=${input.eventType}`
+      `[toyoshima] push try title=${input.title}` +
+        ` eventType=${input.eventType}` +
+        ` vapid=${isVapidConfigured()}`
     );
     const result = await sendWebPush({
       title: input.title,
@@ -912,15 +927,70 @@ async function sendToyoshimaPush(input: {
         snapshotUrl: input.snapshotUrl || undefined,
       },
     });
-    console.log(
-      `[toyoshima] push result success=${result.success}` +
-        ` sent=${result.sent ?? "?"}/${result.attempted ?? "?"}` +
-        (result.error ? ` error=${result.error}` : "")
-    );
-    return result.success;
+    if (!result.success) {
+      const reason = result.error || "unknown";
+      console.error(`Push Send Error: ${reason}`, {
+        title: input.title,
+        eventType: input.eventType,
+        sent: result.sent ?? 0,
+        attempted: result.attempted ?? 0,
+        vapid: isVapidConfigured(),
+      });
+    } else {
+      console.log(
+        `[toyoshima] push result success=${result.success}` +
+          ` sent=${result.sent ?? "?"}/${result.attempted ?? "?"}`
+      );
+    }
+    persistToyoshimaPushLogV1(input, result);
+    return result;
   } catch (err) {
-    console.error("[toyoshima] push exception:", err);
-    return false;
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error(`Push Send Error: ${reason}`, err);
+    const result = fail(reason);
+    persistToyoshimaPushLogV1(input, result);
+    return result;
+  }
+}
+
+function persistToyoshimaPushLogV1(
+  input: {
+    title: string;
+    body: string;
+    eventType: string;
+  },
+  result: DeliveryResult
+): void {
+  try {
+    const db = getDatabase();
+    db.prepare(
+      `INSERT INTO notification_logs (
+        id, user_id, device_id, event_type, channel,
+        title, body, payload_json, status, sent_at, error_message
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      uuid(),
+      "home-security",
+      HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      input.eventType,
+      "web_push",
+      input.title,
+      input.body,
+      JSON.stringify({
+        siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        sent: result.sent ?? 0,
+        attempted: result.attempted ?? 0,
+        vapid: isVapidConfigured(),
+      }),
+      result.success ? "sent" : "failed",
+      result.success ? new Date().toISOString() : null,
+      result.error ?? null
+    );
+  } catch (err) {
+    console.error(
+      "Push Send Error: notification_logs write failed",
+      err instanceof Error ? err.message : String(err)
+    );
   }
 }
 
@@ -1209,6 +1279,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
         notifyMode: input.notifyMode,
         pushAllowed,
         skipReason,
+        forcePush: true,
       },
       actor: "rp2350",
     });
@@ -1216,43 +1287,26 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     console.error("[toyoshima] sensor history failed:", err);
   }
 
-  if (!pushAllowed) {
-    console.warn(
-      `[toyoshima] push skipped sensorId=${sensorId} reason=${skipReason}`
-    );
-    try {
-      recordSystemLogV1({
-        siteId: input.homeSiteId,
-        category: "push_notify",
-        message: `Push見送り ${sensorLabel}`,
-        detail: {
-          sensorId,
-          sensorLabel,
-          sensorName: sensorLabel,
-          detectedAt,
-          detectedAtJst,
-          skipReason,
-          notifyMode: input.notifyMode,
-        },
-        actor: "rp2350",
-      });
-    } catch (err) {
-      console.error("[toyoshima] push skip log failed:", err);
-    }
-    return false;
-  }
-
+  /* アラームを書いたら Push は無条件で1回呼ぶ */
   let pushSent = false;
+  let pushError: string | null = null;
+  let attempted = 0;
+  let sent = 0;
   try {
-    pushSent = await sendToyoshimaPush({
+    const result = await sendToyoshimaPush({
       title: input.title,
       body: `${sensorLabel}が反応しました（豊島邸）`,
       eventType: input.eventType,
-      severity: input.notifyMode === "silent" ? "silent" : "critical",
+      severity: "critical",
       snapshotUrl: input.snapshotUrl,
     });
+    pushSent = result.success;
+    pushError = result.error ?? null;
+    attempted = result.attempted ?? 0;
+    sent = result.sent ?? 0;
   } catch (err) {
-    console.error("[toyoshima] sensor push failed:", err);
+    pushError = err instanceof Error ? err.message : String(err);
+    console.error(`Push Send Error: ${pushError}`, err);
     pushSent = false;
   }
 
@@ -1263,7 +1317,17 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
       message: pushSent
         ? `Push送信 ${sensorLabel}`
         : `Push送信失敗 ${sensorLabel}`,
-      detail: { sensorId, eventType: input.eventType, pushSent },
+      detail: {
+        sensorId,
+        eventType: input.eventType,
+        pushSent,
+        error: pushError,
+        attempted,
+        sent,
+        vapid: isVapidConfigured(),
+        skipReason,
+        forcePush: true,
+      },
       actor: "rp2350",
     });
   } catch (err) {
@@ -1511,28 +1575,31 @@ export async function processToyoshimaSecurityEventV1(input: {
   }
   markToyoshimaNotifyFiredV1(building, di);
 
-  /* ライトより先に Push を起動する */
-  const notifyPromise = trackToyoshimaNotifyV1(
-    dispatchToyoshimaSensorNotifyV1({
-      homeSiteId: siteId,
-      building,
-      di,
-      title,
-      eventType,
-      notifyMode: gate.effectiveMode,
-      notifyAllowed: gate.notifyAllowed,
-      skipReason: gate.skipReason,
-      detail: {
-        customerMode: gate.customerMode,
-        armed: gate.armed,
-        source: input.source || "event",
-        deviceId: input.deviceId || null,
-      },
-    }).catch((err) => {
-      console.error("[toyoshima] notify rejected:", err);
-      return false;
-    })
-  );
+  /* Push を先に完走させてからリレーする */
+  let pushSent = false;
+  try {
+    pushSent = await trackToyoshimaNotifyV1(
+      dispatchToyoshimaSensorNotifyV1({
+        homeSiteId: siteId,
+        building,
+        di,
+        title,
+        eventType,
+        notifyMode: gate.effectiveMode,
+        notifyAllowed: gate.notifyAllowed,
+        skipReason: gate.skipReason,
+        detail: {
+          customerMode: gate.customerMode,
+          armed: gate.armed,
+          source: input.source || "event",
+          deviceId: input.deviceId || null,
+        },
+      })
+    );
+  } catch (err) {
+    console.error(`Push Send Error: notify rejected`, err);
+    pushSent = false;
+  }
 
   try {
     if (building === "main") {
@@ -1546,8 +1613,6 @@ export async function processToyoshimaSecurityEventV1(input: {
       err
     );
   }
-
-  const pushSent = await notifyPromise;
   console.log(
     `[toyoshima] event done building=${building} di=${di}` +
       ` pushSent=${pushSent} mode=${gate.customerMode}`
@@ -2194,11 +2259,13 @@ export async function sendToyoshimaTestNotifyV1(
   const homeId = resolveHomeSiteId(
     String(siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
   );
-  const pushSent = await sendToyoshimaPush({
-    title: "🔔 豊島邸 通知テスト",
-    body: "Push通知が正常に届きました（豊島邸 Security）",
-    eventType: "toyoshima_test_notify",
-  });
+  const pushSent = (
+    await sendToyoshimaPush({
+      title: "🔔 豊島邸 通知テスト",
+      body: "Push通知が正常に届きました（豊島邸 Security）",
+      eventType: "toyoshima_test_notify",
+    })
+  ).success;
   recordSystemLogV1({
     siteId: homeId,
     category: "manual_control",

@@ -288,7 +288,11 @@ securityFloorRouter.post("/test-notify", async (req, res) => {
   if (!webPush.success) {
     if (!vapidConfigured) {
       hint = "VAPID 未設定 — server で npm run vapid:setup を実行して再起動";
-    } else if (subscriptionCount === 0 || webPush.error === "No active subscriptions found") {
+    } else if (
+      subscriptionCount === 0 ||
+      webPush.error === "No active subscriptions found" ||
+      webPush.error === "Subscription invalid"
+    ) {
       hint =
         "No active subscriptions found — PWA で「Push通知を再登録・購読」を実行してください";
     } else {

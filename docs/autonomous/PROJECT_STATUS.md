@@ -1985,6 +1985,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 Web Push 強制発火（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · `dispatchToyoshimaSensorNotifyV1` |
+| 原因 | アラーム履歴は残るが Push がゲート／購読漏れで沈黙する |
+| サーバ | `sensor_alert` 記録後は `sendWebPush` を無条件で await。失敗は `Push Send Error:` |
+| 購読 | `notification_tokens` + `pwa_subscriptions` |
+| 既存保護 | 2.2 系・はなれ・板橋・顧客データは削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
+
 ### 豊島邸 即時 /event の確実発火（OTA 1.2.11 / 2026-09-22）
 
 | 領域 | 内容 |

@@ -114,6 +114,20 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.equal(row?.actor, "rp2350");
   });
 
+  it("alarm log always records a concrete Push Send Error", async () => {
+    armAway();
+    await processToyoshimaSecurityEventV1({ building: "main", di: 1 });
+    const row = latestLogs("push_notify").find((r) =>
+      r.message.includes("外周ビーム（母屋・遠）")
+    );
+    assert.ok(row, "push_notify に送信結果が残る");
+    assert.equal(row?.detail?.forcePush, true);
+    assert.ok(
+      row?.detail?.error,
+      "失敗理由を Push Send Error として残す"
+    );
+  });
+
   it("push dispatch is logged even when delivery fails", async () => {
     armAway();
     await processToyoshimaSecurityEventV1({ building: "main", di: 2 });
@@ -141,7 +155,7 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.deepEqual(cmd?.channels, [1, 2, 3]);
   });
 
-  it("disarmed detection still records history and logs the skip reason", async () => {
+  it("disarmed detection still records history and still calls Web Push", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "disarmed",
       guardMode: "off",
@@ -157,11 +171,15 @@ describe("toyoshima-sensor-push-v1", () => {
       alerts.some((r) => r.message.includes("外周ビーム（母屋・遠）")),
       "解除中でも検知履歴は残す"
     );
-    const skip = latestLogs("push_notify").find((r) =>
-      r.message.startsWith("Push見送り")
+    const row = latestLogs("push_notify").find((r) =>
+      r.message.includes("外周ビーム（母屋・遠）")
     );
-    assert.ok(skip, "見送り理由を残す");
-    assert.equal(skip?.detail?.skipReason, "警戒解除中");
+    assert.ok(row, "アラーム記録後は Push 関数を必ず呼ぶ");
+    assert.equal(row?.detail?.forcePush, true);
+    assert.match(
+      String(row?.detail?.error || ""),
+      /VAPID|Subscription invalid|not configured/
+    );
   });
 
   it("away mode still pushes when leftover sensor mode is off", async () => {

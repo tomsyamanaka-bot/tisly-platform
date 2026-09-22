@@ -239,6 +239,18 @@
 | 履歴 | `sensor_alert` に `detectedAt` / `detectedAtJst` / `sensorName` |
 | バックアップ | heartbeat `inputStates` の DI 立上りも同じ経路（20秒重複抑制） |
 
+### 2.2.17 Web Push 強制発火（2026-09-22 追記）
+
+既存 2.2 / 2.2.1〜2.2.16 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · `/event` · `dispatchToyoshimaSensorNotifyV1` |
+| 条件 | `sensor_alert` を書いた検知は Push を無条件で 1 回呼ぶ |
+| 失敗 | コンソールへ `Push Send Error: …`（VAPID / Subscription invalid 等） |
+| 購読 | `notification_tokens` と `pwa_subscriptions` を合算 |
+| 既存保護 | 2.2 系・はなれ・板橋は非破壊 |
+
 ### 2.2.16 即時 /event の確実発火（OTA 1.2.11 / 2026-09-22 追記）
 
 既存 2.2 / 2.2.1〜2.2.15 は残す。上書きしない。
@@ -515,6 +527,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-22 | 豊島邸 アラーム記録後は Web Push を無条件発火。失敗は `Push Send Error:` を残す。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 即時 /event のサイレントエラーを修正。同期1回POST＋2秒バースト。OTA 1.2.11。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 センサー通知の HB 再送ループを停止。成功後フラグクリア、物理OFFまで再送しない。OTA 1.2.10。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 センサー検知を /event 即時POSTに分離。HB 5分待ちを解消。OTA 1.2.9。既存 2.2 系・はなれ・板橋は非破壊 |
