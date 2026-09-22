@@ -342,25 +342,37 @@ function syncLiveBundleVersionV1(
   if (siteKey !== "toyoshima") return;
   const bundle = liveBundleSemverV1(siteKey, live.files);
   if (!bundle) return;
+  const liveChecksum = combinedChecksum(live.checksums);
   let changed = false;
   if (compareSemverV1(bundle, site.version) > 0) {
     site.version = bundle;
     changed = true;
   }
-  if (compareSemverV1(bundle, site.version) >= 0) {
-    const liveChecksum = combinedChecksum(live.checksums);
-    if (
-      site.checksum !== liveChecksum ||
-      Object.keys(site.files).length === 0
-    ) {
-      site.files = { ...live.files };
-      site.checksums = { ...live.checksums };
-      site.checksum = liveChecksum;
-      changed = true;
-    }
+  /* ストア版がバンドルより先にバンプされてもライブ本体を配る */
+  if (
+    site.checksum !== liveChecksum ||
+    Object.keys(site.files).length === 0
+  ) {
+    site.files = { ...live.files };
+    site.checksums = { ...live.checksums };
+    site.checksum = liveChecksum;
+    changed = true;
   }
-  if (compareSemverV1(bundle, site.stagingVersion) > 0) {
-    site.stagingVersion = bundle;
+  const stagingChecksum = combinedChecksum(
+    Object.fromEntries(
+      Object.entries(site.stagingFiles).map(([name, text]) => [
+        name,
+        sha256Text(text),
+      ])
+    )
+  );
+  if (
+    compareSemverV1(bundle, site.stagingVersion) > 0 ||
+    stagingChecksum !== liveChecksum
+  ) {
+    if (compareSemverV1(bundle, site.stagingVersion) > 0) {
+      site.stagingVersion = bundle;
+    }
     site.stagingFiles = { ...live.files };
     site.pendingStaging = true;
     site.lastStagingDeployAt = nowIso();

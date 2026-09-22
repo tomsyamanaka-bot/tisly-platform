@@ -71,6 +71,8 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.match(main.text, /toyoshima\/command/);
     assert.match(main.text, /_relay_gpio_level/);
     assert.match(main.text, /COMMAND_WAIT_MS = 0/);
+    assert.match(main.text, /_channels_for_manual_cmd/);
+    assert.match(main.text, /HIGH=コイルON を強制/);
     assert.match(main.text, /sensor_near/);
     assert.match(main.headers["content-type"] || "", /text\/plain/);
 
@@ -79,7 +81,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(logic.status, 200);
     assert.match(logic.text, /ToyoshimaMainHouseController|heartbeat/);
-    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.3"/);
+    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.4"/);
     assert.match(logic.text, /rising fire/);
   });
 
@@ -329,7 +331,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
   });
 
-  it("GET toyoshima version advertises live 1.2.3 and stages it", async () => {
+  it("GET toyoshima version advertises live 1.2.4 and stages it", async () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);

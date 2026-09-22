@@ -284,8 +284,8 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_3():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.3"
+def test_firmware_logic_version_is_1_2_4():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.4"
 
 
 def test_on_di_edge_di1_kicks_ch1_immediately():
@@ -367,7 +367,7 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_3()
+    test_firmware_logic_version_is_1_2_4()
     test_on_di_edge_di1_kicks_ch1_immediately()
     test_on_di_edge_di2_kicks_lights_and_flash()
     test_manual_sensor_near_kicks_all_channels()

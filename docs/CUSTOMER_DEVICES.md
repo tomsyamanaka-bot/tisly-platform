@@ -155,14 +155,14 @@
 
 | 項目 | 値 |
 |------|-----|
-| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.3` |
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.4` |
 | GPIO 極性 | HIGH=コイルON をファーム強制。`RO_ACTIVE_LOW` は無視 |
 | ライト1 | `do1_on` → CH1/GPIO17 HIGH |
 | ライト2 | `do2_on` → CH2/GPIO18 HIGH |
 | 一括ON | `bulk_on` → CH1+CH2+CH3 / GPIO17+18+19 HIGH |
 | 命令補完 | channels 欠落時もコマンド名から CH を推論 |
 | PWA | `/customer` `/app` の外構ライト手動操作に一括ON/OFFを含む。session header 付き POST |
-| OTA | クラウド最新 1.2.3 をステージング |
+| OTA | クラウド最新 1.2.4 をステージング |
 
 ### 2.3 子機（はなれ RP2350 6ch）
 
