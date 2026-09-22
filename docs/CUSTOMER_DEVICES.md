@@ -170,7 +170,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.5` · `OTA_VERSION=1.2.5` |
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.6` · `OTA_VERSION=1.2.6` |
 | 公式配列 | Waveshare RP2350-POE-ETH-8DI-8RO **RO1〜RO8 = GPIO17〜24** / **DI1〜DI8 = GPIO9〜16** |
 | CH1 | GPIO17（DO1 防犯ライト1） |
 | CH2 | GPIO18（DO2 防犯ライト2） |
@@ -396,7 +396,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
-| 2026-09-22 | 豊島邸 リレー GPIO を公式配列（RO1〜RO8=GPIO17〜24）で固定し、config.py 依存の CH1/CH2 未生成を自己修復。ファーム 1.2.5。既存 2.2 系・はなれ・板橋は非破壊 |
+| 2026-09-22 | 豊島邸 リレー GPIO を公式配列（RO1〜RO8=GPIO17〜24）で固定し、config.py 依存の CH1/CH2 未生成を自己修復。ファーム 1.2.6。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 手動 DO1/DO2/DO3 完全連動。GPIO HIGH 強制 · channels 推論 · ファーム 1.2.3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | 豊島邸 手動点灯を GPIO 明示キックに強化。ライト1=CH1 / ライト2=CH2 / 一括ON=CH1+CH2+CH3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |

@@ -1985,7 +1985,7 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
-### 豊島邸 リレー GPIO 確定＆CH1/CH2 不点灯の解消（OTA 1.2.5 / 2026-09-22）
+### 豊島邸 リレー GPIO 確定＆CH1/CH2 不点灯の解消（OTA 1.2.6 / 2026-09-22）
 
 | 領域 | 内容 |
 |------|------|
