@@ -66,6 +66,15 @@ import {
   getToyoshimaOpsConfigV1,
   isToyoshimaHeartbeatWatchEnabledV1,
 } from "./home-toyoshima-ops-config-v1.js";
+import {
+  BOARD_TEMP_TOMS_ALERT_C_V1,
+  BOARD_TEMP_TOMS_CLEAR_C_V1,
+  buildBoardTempEmergencyPushV1,
+  buildBoardTempTomsPushV1,
+  customerBoardTempLevelV1,
+  formatCustomerBoardTempLabelV1,
+  nextBoardTempAlertLatchesV1,
+} from "./home-board-temp-alert-v1.js";
 
 /** 豊島邸 HOME / propertyId */
 export const HOME_JP_TOYOSHIMA_SITE_ID_V1 = "HOME-JP-TOYOSHIMA";
@@ -107,6 +116,9 @@ export const TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1 = 45;
 
 /** 盤内温度 — 過熱警告（℃） */
 export const TOYOSHIMA_BOARD_TEMP_WARN_C_V1 = 60;
+
+/** 盤内温度 — TOMS先回り（℃） */
+export const TOYOSHIMA_BOARD_TEMP_TOMS_C_V1 = BOARD_TEMP_TOMS_ALERT_C_V1;
 
 export type ToyoshimaBuildingIdV1 = "main" | "detached";
 
@@ -153,9 +165,12 @@ export interface ToyoshimaTimelineEventV1 {
     | "comm_recovered"
     | "shelly_auto_reboot"
     | "board_overheat"
+    | "board_temp_toms"
     | "mode_change";
   title: string;
   detail?: string;
+  /** toms は社内履歴のみ */
+  audience?: "all" | "toms";
   /** 警報時カメラ静止画 */
   snapshot?: SecurityAlarmSnapshotV1 | null;
 }
@@ -184,6 +199,8 @@ export interface ToyoshimaDeviceHealthV1 {
   boardTempC: number | null;
   boardTempLabel: string;
   boardTempLevel: "normal" | "caution" | "warning";
+  customerBoardTempLabel: string;
+  customerBoardTempLevel: "normal" | "caution" | "warning";
 }
 
 export interface ToyoshimaAlarmStateV1 {
@@ -201,6 +218,8 @@ export interface ToyoshimaCommHealthV1 {
   boardTempLabel: string;
   boardTempLevel: "normal" | "caution" | "warning";
   boardTempC: number | null;
+  customerBoardTempLabel: string;
+  customerBoardTempLevel: "normal" | "caution" | "warning";
   devices: ToyoshimaDeviceHealthV1[];
   /**
    * UI SSOT · 直近 5 分以内の HB のみ true
@@ -234,6 +253,8 @@ export interface ToyoshimaStatusSsotV1 {
   boardTempC: number | null;
   boardTempLabel: string;
   boardTempLevel: "normal" | "caution" | "warning";
+  customerBoardTempLabel: string;
+  customerBoardTempLevel: "normal" | "caution" | "warning";
   devices: ToyoshimaDeviceHealthV1[];
   firmwareVersion: string | null;
   firmwareServerVersion: string;
@@ -385,6 +406,8 @@ interface ToyoshimaDeviceCommRuntimeV1 {
   boardTempC: number | null;
   /** 過熱 Push を送ったか（温度低下で解除） */
   overheatNotified: boolean;
+  /** 50℃ TOMS 先回りを送ったか */
+  tomsTempAlertNotified: boolean;
 }
 
 /** ランタイム状態（VPS メモリ） */
@@ -466,6 +489,7 @@ function defaultDeviceComm(): ToyoshimaDeviceCommRuntimeV1 {
     shellyKickCount: 0,
     boardTempC: null,
     overheatNotified: false,
+    tomsTempAlertNotified: false,
   };
 }
 
@@ -653,7 +677,7 @@ export async function recordToyoshimaHeartbeatV1(input: {
   persistToyoshimaHeartbeatV1();
 }
 
-/** 盤内温度 — 過熱判定と Push・履歴 */
+/** 盤内温度 — 2段階 Push と履歴 */
 async function processToyoshimaBoardTempV1(
   building: ToyoshimaBuildingIdV1,
   boardTempC: number
@@ -662,42 +686,71 @@ async function processToyoshimaBoardTempV1(
   comm.boardTempC = boardTempC;
   const label = building === "main" ? "主装置" : "子機";
   const level = boardTempLevelV1(boardTempC);
+  const next = nextBoardTempAlertLatchesV1(boardTempC, {
+    tomsNotified: comm.tomsTempAlertNotified,
+    emergencyNotified: comm.overheatNotified,
+  });
+  comm.tomsTempAlertNotified = next.tomsNotified;
+  comm.overheatNotified = next.emergencyNotified;
 
-  if (boardTempC >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1) {
-    if (!comm.overheatNotified) {
-      comm.overheatNotified = true;
-      const now = boardTempC.toFixed(1);
-      const title = `⚠️ 豊島邸：${label}の盤内温度が${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃を超えました`;
-      const body = `⚠️ 豊島邸：${label}の盤内温度が${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃を超えました（現在${now}℃）。換気または直射日光を確認してください`;
-      appendTimeline({
-        at: nowIso(),
-        building,
-        kind: "board_overheat",
-        title: "盤内過熱警告",
-        detail: `${label} 盤内温度 ${now}℃（しきい値 ${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃）`,
-      });
-      recordSystemLogV1({
-        siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
-        category: "sensor_alert",
-        message: title,
-        detail: { building, boardTempC, level },
-        actor: "rp2350",
-      });
-      await sendToyoshimaPush({
-        title,
-        body,
-        eventType: "toyoshima_board_overheat",
-      });
-      runtime.alarmLatch = true;
-    }
+  if (next.fireEmergency) {
+    const now = boardTempC.toFixed(1);
+    const msg = buildBoardTempEmergencyPushV1("豊島邸");
+    appendTimeline({
+      at: nowIso(),
+      building,
+      kind: "board_overheat",
+      title: "盤内過熱警告",
+      detail: `${label} 盤内温度 ${now}℃（しきい値 ${TOYOSHIMA_BOARD_TEMP_WARN_C_V1}℃）`,
+    });
+    recordSystemLogV1({
+      siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      category: "sensor_alert",
+      message: msg.title,
+      detail: { building, boardTempC, level },
+      actor: "rp2350",
+    });
+    await sendToyoshimaPush({
+      title: msg.title,
+      body: msg.body,
+      eventType: "toyoshima_board_overheat",
+    });
+    runtime.alarmLatch = true;
+    persistToyoshimaHeartbeatV1();
     return;
   }
 
-  comm.overheatNotified = false;
-  persistToyoshimaHeartbeatV1();
-  if (level === "normal" && boardTempC < TOYOSHIMA_BOARD_TEMP_CAUTION_C_V1) {
-    /* 正常復帰 — ラッチは手動解除または別警報で維持 */
+  if (next.fireToms) {
+    const now = boardTempC.toFixed(1);
+    const msg = buildBoardTempTomsPushV1("豊島邸");
+    appendTimeline({
+      at: nowIso(),
+      building,
+      kind: "board_temp_toms",
+      title: "盤内温度 先回り点検",
+      detail: `${label} 盤内温度 ${now}℃（TOMS限定）`,
+      audience: "toms",
+    });
+    recordSystemLogV1({
+      siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      category: "sensor_alert",
+      message: msg.title,
+      detail: { building, boardTempC, level, audience: "toms" },
+      actor: "rp2350",
+    });
+    await sendToyoshimaPush({
+      title: msg.title,
+      body: msg.body,
+      eventType: msg.eventType,
+      audience: "toms",
+      url: "/app/security",
+    });
+    persistToyoshimaHeartbeatV1();
+    return;
   }
+
+  persistToyoshimaHeartbeatV1();
+  void BOARD_TEMP_TOMS_CLEAR_C_V1;
 }
 
 /** 5分 heartbeat 監視 — 途絶 Push / 10分で Shelly 自動キック */
@@ -903,6 +956,8 @@ async function sendToyoshimaPush(input: {
   eventType: string;
   severity?: "critical" | "silent";
   snapshotUrl?: string | null;
+  audience?: "toms" | "customer" | "all";
+  url?: string;
 }): Promise<DeliveryResult> {
   const fail = (error: string): DeliveryResult => ({
     channel: "web_push",
@@ -923,13 +978,15 @@ async function sendToyoshimaPush(input: {
       body: input.body,
       eventType: input.eventType,
       deviceId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
-      url: "/customer/security",
+      url: input.url || "/customer/security",
+      audience: input.audience,
       icon: "/icons/icon-192.png?v=2003",
       badge: "/icons/icon-192.png?v=2003",
       data: {
         siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
         severity: input.severity || "critical",
         snapshotUrl: input.snapshotUrl || undefined,
+        audience: input.audience || "all",
       },
     });
     if (!result.success) {
@@ -2017,6 +2074,11 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
       boardTempLabel: formatBoardTempLabelV1(boardTempC),
       boardTempLevel:
         boardTempC != null ? boardTempLevelV1(boardTempC) : "normal",
+      customerBoardTempLabel: formatCustomerBoardTempLabelV1(
+        boardTempC,
+        "正常監視中"
+      ),
+      customerBoardTempLevel: customerBoardTempLevelV1(boardTempC),
     };
   });
   const latestHb = devices
@@ -2081,6 +2143,11 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
     boardTempC: mainTemp,
     boardTempLabel: formatBoardTempLabelV1(mainTemp),
     boardTempLevel: mainLevel,
+    customerBoardTempLabel: formatCustomerBoardTempLabelV1(
+      mainTemp,
+      "正常監視中"
+    ),
+    customerBoardTempLevel: customerBoardTempLevelV1(mainTemp),
     devices,
     uiOnline,
     isHardwareOnline: uiOnline,
@@ -2114,6 +2181,8 @@ export function buildToyoshimaStatusSsotV1(
     boardTempC: health.boardTempC,
     boardTempLabel: health.boardTempLabel,
     boardTempLevel: health.boardTempLevel,
+    customerBoardTempLabel: health.customerBoardTempLabel,
+    customerBoardTempLevel: health.customerBoardTempLevel,
     devices: health.devices,
     firmwareVersion: health.firmwareVersion,
     firmwareServerVersion: health.firmwareServerVersion,

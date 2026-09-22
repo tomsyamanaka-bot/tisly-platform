@@ -217,15 +217,22 @@ function buildCommHealthView(dash) {
       latencyMs <= 120 ? "良好" : latencyMs <= 300 ? "普通" : "遅延あり";
     latencyLabel = `${latencyMs} ms（${quality}）`;
   }
-  const tempLevel = health.boardTempLevel || "normal";
+  const customerView = isCustomerPortal();
+  const tempLevel = customerView
+    ? health.customerBoardTempLevel ||
+      (health.boardTempC >= 60 ? "warning" : "normal")
+    : health.boardTempLevel || "normal";
   const tempEmoji =
     tempLevel === "warning" ? "🔴" : tempLevel === "caution" ? "🟡" : "🟢";
   const tempC = health.boardTempC;
   const hasTemp =
     typeof tempC === "number" && Number.isFinite(tempC);
-  const tempLabel = hasTemp
-    ? health.boardTempLabel || `${tempC.toFixed(1)}℃`
-    : health.boardTempLabel || "正常監視中";
+  const tempLabel = customerView
+    ? health.customerBoardTempLabel ||
+      (hasTemp ? `${tempC.toFixed(1)}℃（適温・正常）` : "正常監視中")
+    : hasTemp
+      ? health.boardTempLabel || `${tempC.toFixed(1)}℃`
+      : health.boardTempLabel || "正常監視中";
   const operatorOnline = online
     ? health.operatorOnline ||
       health.onlineSummary ||
@@ -1508,7 +1515,9 @@ function renderCloudStreamCard() {
 }
 
 function renderActivityLog(timeline, limit = 10) {
-  const rows = (timeline || []).slice(0, limit);
+  const rows = (timeline || [])
+    .filter((ev) => !(isCustomerPortal() && ev.audience === "toms"))
+    .slice(0, limit);
   if (!rows.length) {
     return '<p class="ts-empty">まだできごとはありません</p>';
   }

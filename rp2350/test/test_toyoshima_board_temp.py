@@ -284,8 +284,36 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_12():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.12"
+def test_firmware_logic_version_is_1_2_13():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.13"
+    assert ts.BOARD_TEMP_FAN_ON_C == 45.0
+    assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
+    assert ts.FAN_CH == 8
+
+
+def test_fan_hysteresis_on_45_off_40():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ts._FAN_ON = False
+    assert ts.apply_board_fan_control(44.9, set_ch=set_ch, fan_ch=8) is False
+    assert 8 not in outputs
+    assert ts.apply_board_fan_control(45.0, set_ch=set_ch, fan_ch=8) is True
+    assert outputs[8] is True
+    assert ts.apply_board_fan_control(42.0, set_ch=set_ch, fan_ch=8) is True
+    assert ts.apply_board_fan_control(40.0, set_ch=set_ch, fan_ch=8) is False
+    assert outputs[8] is False
+
+
+def test_heartbeat_includes_fan_flag():
+    ts._FAN_ON = False
+    with patch.object(ts, "read_board_temperature_c", return_value=46.0):
+        payload = ts.build_heartbeat_payload("main")
+    assert payload["fan_on"] is True
+    assert payload["cooling_fan"] is True
+    assert payload["board_temp"] == 46.0
 
 
 def test_board_ch_gpio_matches_waveshare_ro1_ro8():
@@ -557,7 +585,9 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_12()
+    test_firmware_logic_version_is_1_2_13()
+    test_fan_hysteresis_on_45_off_40()
+    test_heartbeat_includes_fan_flag()
     test_send_toyoshima_event_posts_event_not_heartbeat()
     test_send_toyoshima_event_survives_socket_and_memory()
     test_di_edge_kicks_relay_before_event()

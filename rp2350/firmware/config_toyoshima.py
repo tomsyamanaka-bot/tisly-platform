@@ -95,9 +95,9 @@ DI_ACTIVE_LOW = True
 DI_DEBOUNCE_MS = 100
 
 # ファームウェア版
-FIRMWARE_VERSION = "1.2.12-toyoshima-event-socket"
+FIRMWARE_VERSION = "1.2.13-board-temp-fan"
 
 # 全現場共通 OTA（config.py 自体は遠隔上書きしない）
 OTA_SITE = "toyoshima"
-OTA_VERSION = "1.2.12"
+OTA_VERSION = "1.2.13"
 OTA_CHANNEL = "production"

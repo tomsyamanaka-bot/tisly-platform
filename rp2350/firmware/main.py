@@ -667,6 +667,17 @@ def _send_heartbeat_once():
     if temp is not None:
         payload["board_temp"] = temp
         payload["boardTemp"] = temp
+        # 45℃で RO8 ファンON、40℃でOFF
+        fan_on = False
+        try:
+            from toyoshima_security import apply_board_fan_control
+            fan_on = apply_board_fan_control(
+                temp, set_ch=set_ch_output, fan_ch=8
+            )
+        except Exception:
+            fan_on = False
+        payload["fan_on"] = fan_on
+        payload["cooling_fan"] = fan_on
 
     log("heartbeat payload={}".format(json.dumps(payload)))
 
@@ -1183,6 +1194,13 @@ async def async_main():
     while True:
         if _kit:
             _kit.tick()
+        try:
+            from toyoshima_security import tick_board_fan_control
+            tick_board_fan_control(
+                set_ch_output, available_chs=list(CH_PINS.keys())
+            )
+        except Exception:
+            pass
 
         poll_counter += 1
         if poll_counter >= rules_sync_every:

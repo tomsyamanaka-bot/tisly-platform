@@ -91,7 +91,9 @@ try:
         build_heartbeat_payload,
         init_watchdog,
         kick_watchdog,
+        bind_fan_output,
         read_board_temperature_c,
+        tick_board_fan_control,
         send_heartbeat_with_retry,
         send_toyoshima_event,
         send_toyoshima_heartbeat,
@@ -145,6 +147,12 @@ except Exception as _logic_exc:
 
     def read_board_temperature_c():
         return None
+
+    def bind_fan_output(_set_ch):
+        return None
+
+    def tick_board_fan_control(_set_ch=None, available_chs=None):
+        return False
 
     def send_heartbeat_with_retry(send_fn, kick_wdt=None):
         try:
@@ -1481,6 +1489,10 @@ async def async_main():
             )
             log("母屋 遠近ビームセンサー制御を有効化")
         _security.set_di_reader(read_di_state)
+        try:
+            bind_fan_output(set_ch_output)
+        except Exception as fan_bind_exc:
+            log_error("fan bind: {}".format(fan_bind_exc))
     except Exception as ctrl_exc:
         _security = None
         log_error("センサー制御初期化: {}".format(ctrl_exc))
@@ -1539,6 +1551,13 @@ async def async_main():
         kick_watchdog(_wdt)
 
         # DI を HTTP より先に読む。GPIO キックは同期。
+        try:
+            tick_board_fan_control(
+                set_ch_output, available_chs=list(CH_PINS.keys())
+            )
+        except Exception as fan_exc:
+            log_error("fan tick: {}".format(fan_exc))
+
         try:
             changed, edges = poll_inputs()
             if edges:

@@ -87,6 +87,9 @@ describe("home-itabashi-comm-v1", () => {
     const warn = recordItabashiHeartbeatV1({ boardTemp: 62.5 });
     assert.equal(warn.boardTempLevel, "warning");
     assert.match(warn.boardTempLabel, /警告/);
+    const toms = recordItabashiHeartbeatV1({ boardTemp: 52.0 });
+    assert.equal(toms.customerBoardTempLevel, "normal");
+    assert.match(toms.customerBoardTempLabel, /軽微な注意/);
   });
 
   it("stale heartbeat over 5 minutes is offline", () => {

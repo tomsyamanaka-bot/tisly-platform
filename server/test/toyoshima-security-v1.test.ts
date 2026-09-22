@@ -283,6 +283,21 @@ describe("toyoshima-security-v1", () => {
     assert.match(dashWarn.commHealth.onlineSummary, /盤内高温警告/);
     assert.ok(dashWarn.timeline.some((t) => t.kind === "board_overheat"));
     assert.ok(dashWarn.alarm.active);
+    assert.match(dashWarn.commHealth.customerBoardTempLabel, /警告/);
+  });
+
+  it("50C is TOMS-only and customer stays calm", async () => {
+    resetToyoshimaSecurityStateForTestV1();
+    await recordToyoshimaHeartbeatV1({ building: "main", boardTemp: 52.0 });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.commHealth.boardTempLevel, "caution");
+    assert.equal(dash.commHealth.customerBoardTempLevel, "normal");
+    assert.match(dash.commHealth.customerBoardTempLabel, /軽微な注意/);
+    assert.equal(dash.alarm.active, false);
+    assert.ok(dash.timeline.some((t) => t.kind === "board_temp_toms"));
+    assert.ok(
+      dash.timeline.some((t) => t.kind === "board_temp_toms" && t.audience === "toms")
+    );
   });
 
   it("status SSOT uses lastHeartbeatAt only and 5min UI window", async () => {

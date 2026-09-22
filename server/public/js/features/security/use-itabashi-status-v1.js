@@ -123,7 +123,7 @@ export function applyItabashiHardwareStatus(status) {
   const hasTemp =
     typeof status.boardTempC === "number" &&
     Number.isFinite(status.boardTempC);
-  const tempText = hasTemp
+  const opTempText = hasTemp
     ? `${
         status.boardTempLevel === "warning"
           ? "🔴"
@@ -132,9 +132,15 @@ export function applyItabashiHardwareStatus(status) {
             : "🟢"
       } ${status.boardTempLabel}`
     : status.boardTempLabel || "―（取得中）";
-  setTxt("ib-board-temp-val", tempText);
-  setTxt("ib-assure-temp", tempText);
-  setTxt("cv-board-temp-val", status.boardTempLabel || "―（取得中）");
+  const custLabel =
+    status.customerBoardTempLabel || status.boardTempLabel || "―（取得中）";
+  const custLevel = status.customerBoardTempLevel || "normal";
+  const custTempText = hasTemp
+    ? `${custLevel === "warning" ? "🔴" : "🟢"} ${custLabel}`
+    : custLabel;
+  setTxt("ib-board-temp-val", opTempText);
+  setTxt("ib-assure-temp", custTempText);
+  setTxt("cv-board-temp-val", custLabel);
   setTxt("ib-assure-fw", status.firmwareLabel || "―");
   const badge = document.getElementById("ib-assure-fw-badge");
   if (badge) {

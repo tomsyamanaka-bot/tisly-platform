@@ -4,6 +4,12 @@ import { config } from "../../config.js";
 import { getDatabase } from "../../db/database.js";
 import type { NotificationPayload } from "../types.js";
 import type { DeliveryResult, WebPushAttemptResult } from "../types.js";
+import {
+  CUSTOMER_PUSH_USER_ID_V1,
+  TOMS_OPS_PUSH_USER_ID_V1,
+  isCustomerPushUserV1,
+  isTomsOpsPushUserV1,
+} from "../../home/home-board-temp-alert-v1.js";
 
 let vapidConfiguredLogged = false;
 
@@ -99,43 +105,70 @@ export function isVapidConfigured(): boolean {
   return !!(config.vapid.publicKey && config.vapid.privateKey);
 }
 
+function rowMatchesAudienceV1(
+  userId: string | undefined,
+  audience?: NotificationPayload["audience"]
+): boolean {
+  if (!audience || audience === "all") return true;
+  const id = String(userId || "");
+  if (audience === "toms") return isTomsOpsPushUserV1(id);
+  if (audience === "customer") return isCustomerPushUserV1(id);
+  return true;
+}
+
 function loadActiveWebPushRows(
   db: ReturnType<typeof getDatabase>,
-  userId?: string
+  userId?: string,
+  audience?: NotificationPayload["audience"]
 ): Array<{ id: string; endpoint: string; keys_json: string }> {
   const tokens = (
     userId
       ? db
           .prepare(
-            `SELECT id, endpoint, keys_json FROM notification_tokens
+            `SELECT id, endpoint, keys_json, user_id FROM notification_tokens
              WHERE channel = 'web_push' AND active = 1 AND user_id = ?`
           )
           .all(userId)
       : db
           .prepare(
-            `SELECT id, endpoint, keys_json FROM notification_tokens
+            `SELECT id, endpoint, keys_json, user_id FROM notification_tokens
              WHERE channel = 'web_push' AND active = 1`
           )
           .all()
-  ) as Array<{ id: string; endpoint: string; keys_json: string }>;
+  ) as Array<{
+    id: string;
+    endpoint: string;
+    keys_json: string;
+    user_id?: string;
+  }>;
 
-  let extras: Array<{ id: string; endpoint: string; keys_json: string }> = [];
+  let extras: Array<{
+    id: string;
+    endpoint: string;
+    keys_json: string;
+    user_id?: string;
+  }> = [];
   try {
     extras = (
       userId
         ? db
             .prepare(
-              `SELECT id, endpoint, keys_json FROM pwa_subscriptions
+              `SELECT id, endpoint, keys_json, user_id FROM pwa_subscriptions
                WHERE active = 1 AND user_id = ?`
             )
             .all(userId)
         : db
             .prepare(
-              `SELECT id, endpoint, keys_json FROM pwa_subscriptions
+              `SELECT id, endpoint, keys_json, user_id FROM pwa_subscriptions
                WHERE active = 1`
             )
             .all()
-    ) as Array<{ id: string; endpoint: string; keys_json: string }>;
+    ) as Array<{
+      id: string;
+      endpoint: string;
+      keys_json: string;
+      user_id?: string;
+    }>;
   } catch (err) {
     console.warn(
       "[web-push] pwa_subscriptions read skipped:",
@@ -149,6 +182,7 @@ function loadActiveWebPushRows(
   >();
   for (const row of [...tokens, ...extras]) {
     if (!row?.endpoint || byEndpoint.has(row.endpoint)) continue;
+    if (!rowMatchesAudienceV1(row.user_id, audience)) continue;
     byEndpoint.set(row.endpoint, row);
   }
   return [...byEndpoint.values()];
@@ -193,7 +227,7 @@ export async function sendWebPush(
       attempts: [],
     };
   }
-  const tokens = loadActiveWebPushRows(db, userId);
+  const tokens = loadActiveWebPushRows(db, userId, payload.audience);
 
   if (!tokens.length) {
     console.error(
@@ -367,6 +401,28 @@ function ensurePushUserExists(userId: string): void {
     db.prepare(
       `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
     ).run("admin-default", "admin@tisly.jp", "TiSLY Admin", "admin");
+    return;
+  }
+  if (userId === TOMS_OPS_PUSH_USER_ID_V1) {
+    db.prepare(
+      `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+    ).run(
+      TOMS_OPS_PUSH_USER_ID_V1,
+      "toms-ops@tisly.jp",
+      "TiSLY TOMS Ops",
+      "admin"
+    );
+    return;
+  }
+  if (userId === CUSTOMER_PUSH_USER_ID_V1) {
+    db.prepare(
+      `INSERT INTO users (id, email, display_name, role) VALUES (?, ?, ?, ?)`
+    ).run(
+      CUSTOMER_PUSH_USER_ID_V1,
+      "customer-security@tisly.jp",
+      "TiSLY Customer Security",
+      "viewer"
+    );
   }
 }
 

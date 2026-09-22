@@ -20,11 +20,78 @@ import {
 } from "./home-toyoshima-heartbeat-store-v1.js";
 import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
 import { getTislyOtaVersionV1 } from "../firmware/tisly-rp2350-ota-v1.js";
+import { sendWebPush } from "../notification/channels/web-push.js";
+import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import {
+  buildBoardTempEmergencyPushV1,
+  buildBoardTempTomsPushV1,
+  customerBoardTempLevelV1,
+  formatCustomerBoardTempLabelV1,
+  nextBoardTempAlertLatchesV1,
+} from "./home-board-temp-alert-v1.js";
 
 export const ITABASHI_COMM_SSOT_ID_V1 = "itabashi-commHealth";
 export const ITABASHI_BOARD_TEMP_CAUTION_C_V1 = 45;
 export const ITABASHI_BOARD_TEMP_WARN_C_V1 = 60;
 export const ITABASHI_RP2350_MAIN_ID_V1 = "rp2350-itabashi-main-01";
+
+const itabashiTempLatches = {
+  tomsNotified: false,
+  emergencyNotified: false,
+};
+
+async function processItabashiBoardTempAlertV1(
+  boardTempC: number | null
+): Promise<void> {
+  if (boardTempC == null) return;
+  const next = nextBoardTempAlertLatchesV1(boardTempC, itabashiTempLatches);
+  itabashiTempLatches.tomsNotified = next.tomsNotified;
+  itabashiTempLatches.emergencyNotified = next.emergencyNotified;
+  if (next.fireEmergency) {
+    const msg = buildBoardTempEmergencyPushV1("板橋自宅");
+    recordSystemLogV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      category: "sensor_alert",
+      message: msg.title,
+      detail: { boardTempC, audience: "all" },
+      actor: "rp2350",
+    });
+    try {
+      await sendWebPush({
+        title: msg.title,
+        body: msg.body,
+        eventType: msg.eventType,
+        deviceId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        url: "/customer/security",
+      });
+    } catch (err) {
+      console.error("Push Send Error:", err);
+    }
+    return;
+  }
+  if (next.fireToms) {
+    const msg = buildBoardTempTomsPushV1("板橋自宅");
+    recordSystemLogV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      category: "sensor_alert",
+      message: msg.title,
+      detail: { boardTempC, audience: "toms" },
+      actor: "rp2350",
+    });
+    try {
+      await sendWebPush({
+        title: msg.title,
+        body: msg.body,
+        eventType: msg.eventType,
+        deviceId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        url: "/app/security",
+        audience: "toms",
+      });
+    } catch (err) {
+      console.error("Push Send Error:", err);
+    }
+  }
+}
 
 export interface ItabashiStatusSsotV1 {
   ok: true;
@@ -41,6 +108,8 @@ export interface ItabashiStatusSsotV1 {
   boardTempC: number | null;
   boardTempLabel: string;
   boardTempLevel: "normal" | "caution" | "warning";
+  customerBoardTempLabel: string;
+  customerBoardTempLevel: "normal" | "caution" | "warning";
   firmwareVersion: string | null;
   firmwareServerVersion: string;
   firmwareLatest: boolean;
@@ -237,6 +306,11 @@ export function buildItabashiStatusSsotV1(
     boardTempLabel: formatBoardTempLabelV1(boardTempC),
     boardTempLevel:
       boardTempC != null ? boardTempLevelV1(boardTempC) : "normal",
+    customerBoardTempLabel: formatCustomerBoardTempLabelV1(
+      boardTempC,
+      "―（取得中）"
+    ),
+    customerBoardTempLevel: customerBoardTempLevelV1(boardTempC),
     firmwareVersion: fw.firmwareVersion,
     firmwareServerVersion: fw.firmwareServerVersion,
     firmwareLatest: fw.firmwareLatest,
@@ -264,6 +338,7 @@ export function recordItabashiHeartbeatV1(input?: {
     updatedAt: at,
   };
   saveToyoshimaHeartbeatStoreV1(next);
+  void processItabashiBoardTempAlertV1(temp);
   return buildItabashiStatusSsotV1();
 }
 
@@ -284,6 +359,8 @@ export function parseItabashiBoardTempC(raw: unknown): number | null {
 /** テスト用: 板橋行だけ空に戻す
  * 豊島邸の heartbeat 行は消さない */
 export function resetItabashiCommForTestV1(): void {
+  itabashiTempLatches.tomsNotified = false;
+  itabashiTempLatches.emergencyNotified = false;
   saveToyoshimaHeartbeatStoreV1(emptyStore());
   updateToyoshimaOpsConfigV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
     heartbeatWatchEnabled: true,

@@ -26,6 +26,8 @@ export interface NotificationPayload {
   icon?: string;
   badge?: string;
   data?: Record<string, unknown>;
+  /** toms=社内のみ / customer=施主のみ / 省略は全員 */
+  audience?: "toms" | "customer" | "all";
 }
 
 /** Web Push 1 購読あたりの送信試行結果（デバッグ / test-notify 用） */

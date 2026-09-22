@@ -76,7 +76,7 @@ function overlayToyoshimaLiveStatusV1(
       : "未受信",
     firmwareLabel: ssot.firmwareLabel || "―",
     firmwareLatest: ssot.firmwareLatest === true,
-    boardTempLabel: ssot.boardTempLabel,
+    boardTempLabel: ssot.customerBoardTempLabel || ssot.boardTempLabel,
     boardTempC: ssot.boardTempC,
   };
 }
@@ -104,7 +104,7 @@ function overlayItabashiLiveStatusV1(
       : "未受信",
     firmwareLabel: ssot.firmwareLabel || "―",
     firmwareLatest: ssot.firmwareLatest === true,
-    boardTempLabel: ssot.boardTempLabel,
+    boardTempLabel: ssot.customerBoardTempLabel || ssot.boardTempLabel,
     boardTempC: ssot.boardTempC,
   };
 }

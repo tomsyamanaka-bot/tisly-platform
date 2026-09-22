@@ -141,6 +141,11 @@ export async function registerTislyWebPushV1(opts = {}) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       userId,
+      audience:
+        String(location.pathname || "").includes("/customer") ||
+        document.body?.classList?.contains("sf-customer")
+          ? "customer"
+          : "toms",
       subscription: { endpoint: json.endpoint, keys: json.keys },
     }),
   });

@@ -51,8 +51,15 @@ HEARTBEAT_RETRY_WAIT_SEC = 10
 WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
+# 冷却ファン ON（℃）— 空き RO8
+BOARD_TEMP_FAN_ON_C = 45.0
+# 冷却ファン OFF（℃）— ヒステリシス
+BOARD_TEMP_FAN_OFF_C = 40.0
+# 冷却ファン出力（RO8 / GPIO24）
+# 照明 DO1〜DO3・解錠 CH1 は使わない
+FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.12"
+FIRMWARE_LOGIC_VERSION = "1.2.13"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -752,6 +759,74 @@ def _open_chip_temp_adc():
     raise RuntimeError("chip temp ADC unavailable")
 
 
+_FAN_SET_CH = None
+_FAN_ON = False
+_FAN_LAST_TICK_MS = 0
+FAN_TICK_MS = 10000
+
+
+def bind_fan_output(set_ch):
+    """冷却ファン用 set_ch を登録する。"""
+    global _FAN_SET_CH
+    _FAN_SET_CH = set_ch
+
+
+def resolve_fan_channel(available_chs=None):
+    """空きリレーを選ぶ。CH1〜3は照明/解錠。"""
+    if available_chs:
+        if FAN_CH in available_chs:
+            return FAN_CH
+        for ch in (8, 7, 6, 5, 4):
+            if ch in available_chs:
+                return ch
+        return None
+    return FAN_CH
+
+
+def apply_board_fan_control(temp, set_ch=None, fan_ch=None):
+    """
+    45℃以上でファンON、40℃以下でOFF。
+    照明リレーとは独立して動かす。
+    """
+    global _FAN_ON
+    fn = set_ch if set_ch is not None else _FAN_SET_CH
+    ch = FAN_CH if fan_ch is None else fan_ch
+    if temp is None or ch is None:
+        return _FAN_ON
+    try:
+        t = float(temp)
+    except Exception:
+        return _FAN_ON
+    want = _FAN_ON
+    if t >= BOARD_TEMP_FAN_ON_C:
+        want = True
+    elif t <= BOARD_TEMP_FAN_OFF_C:
+        want = False
+    if want != _FAN_ON and fn:
+        try:
+            fn(ch, want)
+        except Exception as exc:
+            print("[豊島邸 security] fan relay err:", exc)
+            return _FAN_ON
+    _FAN_ON = want
+    return _FAN_ON
+
+
+def tick_board_fan_control(set_ch=None, available_chs=None):
+    """10秒周期で盤内温度を見てファンを動かす。"""
+    global _FAN_LAST_TICK_MS
+    try:
+        now = time.ticks_ms()
+        if _FAN_LAST_TICK_MS and time.ticks_diff(now, _FAN_LAST_TICK_MS) < FAN_TICK_MS:
+            return _FAN_ON
+        _FAN_LAST_TICK_MS = now
+    except Exception:
+        pass
+    ch = resolve_fan_channel(available_chs)
+    temp = read_board_temperature_c()
+    return apply_board_fan_control(temp, set_ch=set_ch, fan_ch=ch)
+
+
 def read_board_temperature_c():
     """
     RP2350 内蔵温度センサー読み取り標準。
@@ -799,6 +874,9 @@ def build_heartbeat_payload(building, site_id=None, device_id=None, extra=None):
         if temp >= BOARD_TEMP_OVERHEAT_C:
             payload["overheat"] = True
             payload["overheat_flag"] = True
+        fan_on = apply_board_fan_control(temp)
+        payload["fan_on"] = fan_on
+        payload["cooling_fan"] = fan_on
     return payload
 
 

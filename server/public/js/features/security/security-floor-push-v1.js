@@ -133,6 +133,11 @@ async function registerSecurityWebPushV1(opts = {}) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       userId: "home-security",
+      audience:
+        String(location.pathname || "").includes("/customer") ||
+        document.body?.classList?.contains("sf-customer")
+          ? "customer"
+          : "toms",
       subscription: { endpoint: json.endpoint, keys: json.keys },
     }),
   });

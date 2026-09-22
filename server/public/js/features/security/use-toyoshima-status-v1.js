@@ -110,16 +110,21 @@ function paintFirmwareEls(status) {
   }
 }
 
-function paintTempEl(el, status) {
+function paintTempEl(el, status, customerView) {
   if (!el) return;
-  const level = status.boardTempLevel || "normal";
+  const level = customerView
+    ? status.customerBoardTempLevel || "normal"
+    : status.boardTempLevel || "normal";
   const emoji =
     level === "warning" ? "🔴" : level === "caution" ? "🟡" : "🟢";
   const c = status.boardTempC;
   const hasTemp = typeof c === "number" && Number.isFinite(c);
-  const label = hasTemp
-    ? status.boardTempLabel || `${Number(c).toFixed(1)}℃`
-    : status.boardTempLabel || "正常監視中";
+  const label = customerView
+    ? status.customerBoardTempLabel ||
+      (hasTemp ? `${Number(c).toFixed(1)}℃（適温・正常）` : "正常監視中")
+    : hasTemp
+      ? status.boardTempLabel || `${Number(c).toFixed(1)}℃`
+      : status.boardTempLabel || "正常監視中";
   el.textContent = `${emoji} ${label}`;
   el.classList.remove("is-normal", "is-caution", "is-warning");
   el.classList.add(`is-${level}`);
@@ -174,8 +179,8 @@ export function applyToyoshimaHardwareStatus(status) {
     confirmEl.textContent = status.confirmLabelJst || "—";
   }
 
-  paintTempEl(document.getElementById("ts-board-temp-val"), status);
-  paintTempEl(document.getElementById("ts-assure-temp"), status);
+  paintTempEl(document.getElementById("ts-board-temp-val"), status, false);
+  paintTempEl(document.getElementById("ts-assure-temp"), status, true);
   paintFirmwareEls(status);
 
   const big = document.getElementById("cv-status-big");

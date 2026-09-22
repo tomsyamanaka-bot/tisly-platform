@@ -30,6 +30,10 @@ export async function registerWebPush(userId = "admin-default") {
   const json = sub.toJSON();
   return apiPost("/api/notifications/subscribe", {
     userId,
+    audience:
+      String(location.pathname || "").includes("/customer")
+        ? "customer"
+        : "toms",
     subscription: { endpoint: json.endpoint, keys: json.keys },
   });
 }

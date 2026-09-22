@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2562-alarm-no-snap` |
+| SW | `tisly-pwa-v2563-board-temp-toms` |
 
 ---
 
@@ -1983,6 +1983,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | OTA | `FIRMWARE_LOGIC_VERSION=1.2.3` をクラウド最新としてステージング |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 盤内温度 2段階アラートと TOMS 限定通知（OTA 1.2.13 / 2026-09-23）
+
+| 領域 | 内容 |
+|------|------|
+| 実機 | 45℃で RO8 ファンON、40℃でOFF。HB に `board_temp` |
+| 50℃ | TOMS `/app` のみ Push。施主画面は正常または軽微な注意 |
+| 60℃ | TOMS と施主の両方へ緊急 Push |
+| 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2563-board-temp-toms` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
 ### アラーム発報カードからカメラ画像を削除（2026-09-22）
