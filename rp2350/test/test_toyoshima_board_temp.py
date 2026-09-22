@@ -284,8 +284,8 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_10():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.10"
+def test_firmware_logic_version_is_1_2_11():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.11"
 
 
 def test_board_ch_gpio_matches_waveshare_ro1_ro8():
@@ -382,6 +382,19 @@ def test_di_edge_notifies_vps_even_in_silent_mode():
     assert outputs.get(3) is not True
 
 
+def test_di_edge_notifies_when_disarmed_without_force():
+    """警戒OFFでも /event は1回走らせる。"""
+    events = []
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: None,
+        lambda building, di, message: events.append((building, di, message)),
+    )
+    ctrl.apply_rules({"guardMode": "off", "force_relay_test": False})
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(1, "off", "on")
+    assert len(events) == 1
+
+
 def test_di_edge_notifies_when_disarmed_with_force_relay_test():
     """警戒解除中でも実機は通知を投げ、判断は VPS 側に委ねる。"""
     events = []
@@ -413,6 +426,39 @@ def test_send_toyoshima_event_posts_event_not_heartbeat():
     assert "/heartbeat" not in posts[0][0]
     assert posts[0][1]["source"] == "di_edge"
     assert posts[0][1]["di"] == 1
+
+
+def test_notify_sends_even_when_create_task_is_used():
+    """ループ稼働中でも同期1回は必ず走る。"""
+    events = []
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: None,
+        lambda building, di, message: events.append((building, di, message)),
+    )
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    fake_loop = MagicMock()
+    fake_loop.is_running.return_value = True
+    with patch.object(ts.asyncio, "get_event_loop", return_value=fake_loop):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(1, "off", "on")
+    assert len(events) == 1
+
+
+def test_send_toyoshima_event_survives_encode_error():
+    """1回目のPOSTが落ちても ASCII 再送で成功する。"""
+    posts = []
+
+    def http_post(path, payload):
+        posts.append(payload)
+        if len(posts) == 1:
+            raise UnicodeError("encode")
+        return "{}", 200
+
+    ok = ts.send_toyoshima_event(
+        http_post, "main", 1, "⚠️ 外周で接近検知"
+    )
+    assert ok is True
+    assert posts[1]["message"] == "DI1 detect"
 
 
 def test_event_not_resent_until_physical_off():
@@ -494,16 +540,19 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_10()
+    test_firmware_logic_version_is_1_2_11()
     test_send_toyoshima_event_posts_event_not_heartbeat()
     test_di_edge_kicks_relay_before_event()
     test_event_not_resent_until_physical_off()
+    test_notify_sends_even_when_create_task_is_used()
+    test_send_toyoshima_event_survives_encode_error()
     test_board_ch_gpio_matches_waveshare_ro1_ro8()
     test_main_firmware_pins_relays_independently_of_config()
     test_on_di_edge_di1_kicks_ch1_immediately()
     test_on_di_edge_di2_kicks_lights_and_flash()
     test_manual_sensor_near_kicks_all_channels()
     test_di_edge_notifies_vps_even_in_silent_mode()
+    test_di_edge_notifies_when_disarmed_without_force()
     test_di_edge_notifies_when_disarmed_with_force_relay_test()
     test_event_send_failure_does_not_raise()
     print("ok")

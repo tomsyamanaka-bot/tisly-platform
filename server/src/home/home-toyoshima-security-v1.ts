@@ -1079,6 +1079,8 @@ function toyoshimaEventTypeV1(
 
 /** 同一センサーの再通知クールダウン（45秒で必ず解除） */
 export const TOYOSHIMA_NOTIFY_COOLDOWN_MS_V1 = 45_000;
+/** /event の二重POSTだけ止める短い窓 */
+export const TOYOSHIMA_EVENT_BURST_MS_V1 = 2_000;
 const lastToyoshimaNotifyAtV1 = new Map<string, number>();
 const lastToyoshimaDiStateV1: Record<
   ToyoshimaBuildingIdV1,
@@ -1132,13 +1134,14 @@ function markToyoshimaNotifyFiredV1(
 
 function isToyoshimaNotifyDuplicateV1(
   building: ToyoshimaBuildingIdV1,
-  di: ToyoshimaDiChannelV1
+  di: ToyoshimaDiChannelV1,
+  windowMs: number = TOYOSHIMA_NOTIFY_COOLDOWN_MS_V1
 ): boolean {
   const last = lastToyoshimaNotifyAtV1.get(
     toyoshimaNotifyDedupKeyV1(building, di)
   );
   if (last == null) return false;
-  return Date.now() - last < TOYOSHIMA_NOTIFY_COOLDOWN_MS_V1;
+  return Date.now() - last < windowMs;
 }
 
 /** テスト用 · ストッパーを即時解除する */
@@ -1483,8 +1486,17 @@ export async function processToyoshimaSecurityEventV1(input: {
 
   const rules = getHomeSecurityRulesV1(siteId);
   const gate = resolveToyoshimaNotifyGateV1({ rules });
-  /* 同一センサーの短時間重複は処理済みとして Push しない */
-  if (isToyoshimaNotifyDuplicateV1(building, di)) {
+  const fromHeartbeat = input.source === "heartbeat";
+  /* /event の初回は止めない。二重POSTだけ 2秒で弾く。
+   * heartbeat は同一ONの再送だけ止める。 */
+  const skipPush = fromHeartbeat
+    ? isToyoshimaNotifyDuplicateV1(building, di)
+    : isToyoshimaNotifyDuplicateV1(
+        building,
+        di,
+        TOYOSHIMA_EVENT_BURST_MS_V1
+      );
+  if (skipPush) {
     console.log(
       `[toyoshima] event skipped (dedup) ${building} DI${di}` +
         ` source=${input.source || "event"}`

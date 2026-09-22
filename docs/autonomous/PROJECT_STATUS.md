@@ -1985,6 +1985,18 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 即時 /event の確実発火（OTA 1.2.11 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · 母屋・はなれ RP2350 · `/event` |
+| 原因 | `create_task` 内の通信／エンコード例外が沈黙し、即時 POST が走らない |
+| 実機 | GPIO 後に同期 1 回 `/event`。失敗時だけ非同期再送。例外は握る |
+| サーバ | `/event` は 2 秒バーストのみ抑制。初回検知は Push を止めない。HB は sticky ON＋45秒 |
+| OTA | **1.2.11** |
+| 既存保護 | 2.2 系・はなれ・板橋・顧客データは削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
+
 ### 豊島邸 センサー通知の重複ループ防止（OTA 1.2.10 / 2026-09-22）
 
 | 領域 | 内容 |

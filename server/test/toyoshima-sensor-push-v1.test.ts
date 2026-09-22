@@ -248,6 +248,33 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.ok(row?.detail?.detectedAtJst);
   });
 
+  it("stale ON state does not block a new /event", async () => {
+    armAway();
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+      source: "event",
+    });
+    const firstAlerts = latestLogs("sensor_alert").filter((r) =>
+      r.message.includes("外周ビーム（母屋・遠）")
+    );
+    releaseToyoshimaNotifyStopperForTestV1("main", 1);
+    const next = await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+      source: "event",
+    });
+    assert.equal(next.ok, true);
+    const alerts = latestLogs("sensor_alert").filter((r) =>
+      r.message.includes("外周ビーム（母屋・遠）")
+    );
+    assert.ok(firstAlerts.length >= 1);
+    assert.ok(
+      alerts.length >= firstAlerts.length + 1,
+      "初回相当の /event はストッパーで止めない"
+    );
+  });
+
   it("duplicate /event within cooldown skips Push", async () => {
     armAway();
     const first = await processToyoshimaSecurityEventV1({

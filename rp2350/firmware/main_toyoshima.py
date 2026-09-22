@@ -612,13 +612,34 @@ def http_get(path):
         return None, 0
 
 
+def _json_dumps_safe(payload):
+    """絵文字などで dumps が落ちても ASCII に落とす。"""
+    try:
+        return json.dumps(payload)
+    except Exception:
+        pass
+    safe = {}
+    try:
+        items = payload.items() if isinstance(payload, dict) else []
+        for key, val in items:
+            try:
+                json.dumps({key: val})
+                safe[key] = val
+            except Exception:
+                safe[key] = "DI detect"
+        return json.dumps(safe)
+    except Exception as exc:
+        log_error("JSON encode: {}".format(exc))
+        return "{}"
+
+
 def http_post(path, payload):
     if urequests is None:
         log_error("urequests 未インストール")
         return None, 0
     url = config.API_BASE.rstrip("/") + path
     try:
-        body = json.dumps(payload)
+        body = _json_dumps_safe(payload)
         res = urequests.post(
             url,
             headers=_http_headers("application/json"),
@@ -723,26 +744,33 @@ def _forward_event(building, di, message):
     送信成功後は物理OFFまで同じ DI を再送しない。
     """
     global _pending_events
-    if _security is not None and getattr(_security, "_event_acked", {}).get(di):
-        log("event skip acked DI{}".format(di))
-        return True
-    for ev in _pending_events:
-        if ev.get("building") == building and ev.get("di") == di:
-            log("event already queued DI{}".format(di))
-            _flush_pending_events()
-            return False
-    _pending_events.append(
-        {
-            "building": building,
-            "di": di,
-            "message": message,
-        }
-    )
-    log("event queued: {}".format(message))
-    _flush_pending_events()
-    if _security is not None and getattr(_security, "_event_acked", {}).get(di):
-        return True
-    return False
+    try:
+        if _security is not None and getattr(_security, "_event_acked", {}).get(di):
+            log("event skip acked DI{}".format(di))
+            return True
+        for ev in _pending_events:
+            if ev.get("building") == building and ev.get("di") == di:
+                log("event already queued DI{}".format(di))
+                _flush_pending_events()
+                return False
+        _pending_events.append(
+            {
+                "building": building,
+                "di": di,
+                "message": message,
+            }
+        )
+        log("event queued: {}".format(message))
+        _flush_pending_events()
+        if _security is not None and getattr(_security, "_event_acked", {}).get(di):
+            return True
+        return False
+    except Exception as exc:
+        try:
+            log_error("event forward: {}".format(exc))
+        except Exception:
+            pass
+        return False
 
 
 def _flush_pending_events():
@@ -781,7 +809,13 @@ def _flush_pending_events():
 
 async def _flush_pending_events_async():
     """create_task 用。HB 周期とは独立して再送する。"""
-    _flush_pending_events()
+    try:
+        _flush_pending_events()
+    except Exception as exc:
+        try:
+            log_error("event flush async: {}".format(exc))
+        except Exception:
+            pass
 
 
 async def event_retry_loop():
