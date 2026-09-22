@@ -1,8 +1,25 @@
 import dotenv from "dotenv";
 import path from "path";
 
+/** dotenv より前に立っていた値の控え。
+ * .env は override: true で勝つため、
+ * テストが明示指定した NODE_ENV や
+ * STORAGE_PROVIDER を後から参照する。
+ */
+const ENV_BEFORE_DOTENV: Record<string, string> = { ...process.env } as Record<
+  string,
+  string
+>;
+
 dotenv.config({ path: path.join(process.cwd(), ".env"), override: true });
 dotenv.config({ path: path.join(process.cwd(), "..", ".env"), override: true });
+
+/** プロセス起動時に渡された値を返す。
+ * .env で上書きされる前の状態。
+ */
+export function envBeforeDotenv(key: string): string {
+  return String(ENV_BEFORE_DOTENV[key] ?? "").trim();
+}
 
 function env(key: string, fallback = ""): string {
   return (process.env[key] ?? fallback).trim();
@@ -18,6 +35,12 @@ export const config = {
   get dbPath() {
     const url = env("DATABASE_URL");
     if (url.startsWith("sqlite://")) return url.replace("sqlite://", "");
+    // テストが指定した専用 DB は .env で
+    // 上書きさせない（並列実行の衝突防止）。
+    const preTestDb = envBeforeDotenv("TISLY_DB_PATH");
+    if (preTestDb && /test[-_]/i.test(preTestDb.replace(/\\/g, "/"))) {
+      return preTestDb;
+    }
     return env("TISLY_DB_PATH", "./data/tisly_notifications.db");
   },
   defaultTenantId: env("DEFAULT_TENANT_ID", "default"),

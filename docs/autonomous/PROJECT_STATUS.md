@@ -1985,6 +1985,23 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### Phase 10 Tailscale 再実測＆QNAP 保存 E2E（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| VPN | `tailscale status` で VPS `100.82.225.90` · QNAP `100.99.31.120` · 事務所 PC `100.66.24.94` すべて online |
+| ping | 事務所 PC → QNAP **0% loss**（0〜3ms）· VPS → QNAP **0% loss**（avg 43ms）。`tailscale up` は不要 |
+| WebDAV | :5005 / :5006 は **Tailscale も LAN も Connection refused** → NAS 側でサービス停止 |
+| QTS | :8080 / :443 は OPEN だが PROPFIND **HTTP 501**。File Station は `authPassed=0` `errorValue=-1` |
+| タイムアウト | 疎通は 12000ms 維持。**PUT / POST は 15000ms**（`QNAP_WEBDAV_UPLOAD_TIMEOUT_MS`）。File Station のタイムアウト文言も同値へ |
+| E2E | `scripts/qnap-e2e-estimate-save-v1.py` — WebDAV 5 経路 → File Station 2 経路を順に試し `QNAP_SAVED_GREEN` / `QNAP_SAVED_FAIL` を出力。秘密情報は出力しない |
+| E2E 実測 | VPS 実行で全経路 NG（`QNAP_SAVED_FAIL`）。原因は NAS 設定のみで VPN ではない |
+| テスト環境 | `.env` の `override: true` がテスト指定を潰していた問題を `envBeforeDotenv()` で解消（テスト DB・mock provider を維持） |
+| 回帰 | `qnap-*` 系 93 件 PASS（`qnap-storage-v1` の 4 件失敗を解消）· SW 札は単調増加チェックへ |
+| 残作業（人間） | QTS で WebDAV 有効化＋`QNAP_WEBDAV_USER/PASSWORD` を実パスワードへ更新 → E2E 再実行で 🟢 |
+| 既存保護 | 既存ナレッジ・現場設定・API ルートは削除せず追記のみ |
+| 確認 | https://tisly.jp/api/health · `docs/TODO_VPN_RECOVERY.md` |
+
 ### 豊島邸 起動クラッシュ復旧＆セーフモード（OTA 1.2.7 / 2026-09-22）
 
 | 領域 | 内容 |

@@ -61,7 +61,9 @@ describe("Phase 541-560 business QNAP API", () => {
         .set("Authorization", `Bearer ${token}`)
     ).body.project;
     const root = generateQnapBusinessRoot(proj);
-    assert.match(root, /^\/TOMS\/案件\/\d{4}\/PRJ-/);
+    // 案件コードは旧 PRJ- と現行 MO-YY-MMDD-nnn の
+    // どちらも許容する（保存先ルートは年フォルダ固定）。
+    assert.match(root, /^\/TOMS\/案件\/\d{4}\/(PRJ-|MO-\d{2}-\d{4}-)/);
   });
 
   it("POST qnap/save mock persists files", async () => {

@@ -9,6 +9,14 @@ export const DEFAULT_WEBDAV_TIMEOUT_MS = Number(
   process.env.QNAP_WEBDAV_TIMEOUT_MS || "12000"
 );
 
+/** PUT / POST（PDF 本体の転送）の上限。
+ * 疎通確認より長めに取り、VPN 復帰直後の
+ * 揺らぎで保存失敗にならないようにする。
+ */
+export const DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS = Number(
+  process.env.QNAP_WEBDAV_UPLOAD_TIMEOUT_MS || "15000"
+);
+
 function formatFetchError(e: unknown): string {
   if (!(e instanceof Error)) return String(e);
   const parts = [e.message];
@@ -299,7 +307,14 @@ function writeRequestBody(
   throw new Error("Unsupported WebDAV request body type");
 }
 
-function resolveRequestTimeoutMs(): number {
+/** メソッド別のタイムアウトを決める。
+ * 本体転送（PUT / POST）だけ長めにする。
+ */
+export function resolveRequestTimeoutMs(method?: string | null): number {
+  const m = String(method || "GET").toUpperCase();
+  if (m === "PUT" || m === "POST") {
+    return DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS;
+  }
   return DEFAULT_WEBDAV_TIMEOUT_MS;
 }
 
@@ -314,7 +329,7 @@ async function nodeFetchWithOptionalAgent(
   const headers = withQnapWebDavHeaders(
     init.headers as Record<string, string> | undefined
   );
-  const timeoutMs = resolveRequestTimeoutMs();
+  const timeoutMs = resolveRequestTimeoutMs(init.method);
   const externalSignal = init.signal ?? null;
 
   return new Promise((resolve, reject) => {
@@ -420,8 +435,8 @@ async function nodeFetchWithOptionalAgent(
 
 /**
  * QNAP WebDAV / File Station 向け fetch。
- * 各試行は AbortController により
- * 最大 DEFAULT_WEBDAV_TIMEOUT_MS（既定 12000ms）。
+ * 各試行は AbortController により打ち切る。
+ * 疎通系は 12000ms・PUT/POST は 15000ms。
  */
 export async function qnapWebDavFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const nextInit: RequestInit = {

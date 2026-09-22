@@ -5,12 +5,15 @@
 import fs from "fs";
 import path from "path";
 import {
-  DEFAULT_WEBDAV_TIMEOUT_MS,
+  DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS,
   formatFetchError,
   qnapWebDavFetch,
 } from "../business/services/qnap-webdav-fetch-v1.js";
 
-const DEFAULT_TIMEOUT_HINT_MS = DEFAULT_WEBDAV_TIMEOUT_MS;
+/** アップロードは PUT / POST 用の
+ * 長めのタイムアウトで打ち切られる。
+ */
+const DEFAULT_TIMEOUT_HINT_MS = DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS;
 
 export type FileStationUploadResultV1 = {
   ok: boolean;

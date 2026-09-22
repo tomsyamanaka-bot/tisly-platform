@@ -6,6 +6,35 @@
 
 ---
 
+## Phase 10 再実測（2026-09-22）
+
+| 項目 | 結果 |
+|------|------|
+| `tailscale status` | VPS `100.82.225.90` · QNAP `tislynas` `100.99.31.120` · 事務所 PC `100.66.24.94` すべて online |
+| 事務所 PC → QNAP ping | **4/4 · 0% loss**（0〜3ms） |
+| VPS → QNAP ping | **4/4 · 0% loss**（avg 43ms） |
+| 再ログイン | **不要**（auth key は有効。`tailscale up` は実行せず） |
+| WebDAV :5005 / :5006 | **Tailscale も事務所 LAN も Connection refused** → NAS 側サービス停止 |
+| :8080 / :443 | OPEN · PROPFIND **HTTP 501**（QTS UI・WebDAV 非対応） |
+| File Station ログイン | `authPassed=0` · `errorValue=-1`（plain / hex / +service すべて不可） |
+| E2E 保存 | `E2E_SAVE_FLAG QNAP_SAVED_FAIL` — 経路 5 本すべて NG |
+| アプリ側 | 疎通 12000ms · **PUT/POST 15000ms**（`QNAP_WEBDAV_UPLOAD_TIMEOUT_MS`） |
+
+**結論:** VPN は正常。残るのは **QNAP 本体の設定のみ**。
+LAN 直結でも 5005/5006 が閉じているため、
+ネットワーク経路ではなく NAS のサービス状態が原因。
+
+**残作業（QNAP 画面・人間）:**
+
+1. QTS → コントロールパネル → ネットワーク
+   サービス → **WebDAV を有効化**（5005/5006）
+2. `QNAP_WEBDAV_USER` / `QNAP_WEBDAV_PASSWORD` を
+   QTS の実パスワードへ更新（File Station が
+   `errorValue=-1` を返す＝パスワード不一致）
+3. 復旧後の再検証コマンド:
+   `python scripts/qnap-e2e-estimate-save-v1.py --env /opt/tisly/server/.env`
+   → `E2E_SAVE_FLAG QNAP_SAVED_GREEN` を確認
+
 ## Phase 10 実測（2026-09-21）
 
 | 項目 | 結果 |

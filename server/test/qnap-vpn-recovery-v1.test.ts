@@ -14,7 +14,12 @@ import {
   isLikelyNonWebDavPort,
   resolveDocumentNasLocalPort,
 } from "../src/storage/qnap-nas-hosts-v1.js";
-import { qnapWebDavFetch } from "../src/business/services/qnap-webdav-fetch-v1.js";
+import {
+  DEFAULT_WEBDAV_TIMEOUT_MS,
+  DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS,
+  qnapWebDavFetch,
+  resolveRequestTimeoutMs,
+} from "../src/business/services/qnap-webdav-fetch-v1.js";
 
 describe("qnap-vpn-recovery-v1", () => {
   it("WebDAV default timeout is 12000ms", () => {
@@ -117,5 +122,51 @@ describe("qnap-vpn-recovery-v1", () => {
     assert.doesNotMatch(script, /tskey-auth-/);
     assert.doesNotMatch(script, /QNAP_WEBDAV_PASSWORD\s*=\s*"/);
     assert.match(script, /E2E_SAVE_FLAG/);
+  });
+
+  it("upload timeout default is 15000ms", () => {
+    const src = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "src/business/services/qnap-webdav-fetch-v1.ts"
+      ),
+      "utf8"
+    );
+    assert.match(src, /QNAP_WEBDAV_UPLOAD_TIMEOUT_MS \|\| "15000"/);
+    assert.equal(DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS >= 10000, true);
+    assert.equal(DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS <= 15000, true);
+  });
+
+  it("PUT / POST use the longer upload timeout", () => {
+    assert.equal(
+      resolveRequestTimeoutMs("PUT"),
+      DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS
+    );
+    assert.equal(
+      resolveRequestTimeoutMs("post"),
+      DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS
+    );
+    assert.equal(
+      resolveRequestTimeoutMs("PROPFIND"),
+      DEFAULT_WEBDAV_TIMEOUT_MS
+    );
+    assert.equal(resolveRequestTimeoutMs(), DEFAULT_WEBDAV_TIMEOUT_MS);
+    assert.ok(DEFAULT_WEBDAV_UPLOAD_TIMEOUT_MS > DEFAULT_WEBDAV_TIMEOUT_MS);
+  });
+
+  it("estimate E2E script tries WebDAV then File Station", () => {
+    const script = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "../scripts/qnap-e2e-estimate-save-v1.py"
+      ),
+      "utf8"
+    );
+    assert.doesNotMatch(script, /tskey-auth-/);
+    assert.doesNotMatch(script, /QNAP_WEBDAV_PASSWORD\s*=\s*"/);
+    assert.match(script, /webdav-ts-5005/);
+    assert.match(script, /filestation-ts/);
+    assert.match(script, /QNAP_SAVED_GREEN/);
+    assert.match(script, /UPLOAD_TIMEOUT_SEC = 15/);
   });
 });

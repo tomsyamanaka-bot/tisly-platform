@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { config, envBeforeDotenv } from "../config.js";
 import type { StorageProviderConfig, StorageProviderKind } from "./storage-provider.js";
 import { getStorageSettingsV1 } from "./storage-settings-store.js";
 import { QNAP_DEFAULT_BASIC_USER } from "./qnap-basic-auth-v1.js";
@@ -112,7 +112,27 @@ export function isQnapWebDavConfigured(): boolean {
   return getQnapWebDavEnvConfig().configured;
 }
 
+/** dotenv override で NODE_ENV や
+ * STORAGE_PROVIDER が開発 .env に
+ * 戻されてもテストはモックを維持する。
+ * 実機検証したい時だけ
+ * QNAP_STORAGE_FORCE_REAL=true で解除。
+ */
+function isQnapTestRuntime(): boolean {
+  if (process.env.QNAP_STORAGE_FORCE_REAL === "true") return false;
+  if (envBeforeDotenv("QNAP_STORAGE_FORCE_REAL") === "true") return false;
+  if (process.env.NODE_ENV === "test") return true;
+  if (envBeforeDotenv("NODE_ENV") === "test") return true;
+  const dbPath = (
+    envBeforeDotenv("TISLY_DB_PATH") ||
+    process.env.TISLY_DB_PATH ||
+    ""
+  ).replace(/\\/g, "/");
+  return /\/test[-_]|test[-_].*\.db$/i.test(dbPath);
+}
+
 export function resolveQnapStorageProviderKind(): StorageProviderKind {
+  if (isQnapTestRuntime()) return "mock";
   const forced = (process.env.STORAGE_PROVIDER ?? "").trim().toLowerCase();
   if (forced === "mock" || forced === "local" || forced === "webdav" || forced === "qnap") {
     return forced;

@@ -418,7 +418,14 @@ describe("白ベース×紺色 UI + 見積一覧 QNAP実機保存 v1", () => {
 
   it("service worker bumps qnap job poll toast cache", () => {
     const sw = read("service-worker.js");
-    assert.match(sw, /tisly-pwa-v2553-toyoshima-do-force/);
+    // キャッシュ札は前進のみ。
+    // v2553（QNAP ジョブ通知）以降であること。
+    const m = sw.match(/const SW_VERSION = "tisly-pwa-v(\d+)-/);
+    assert.ok(m, "SW_VERSION が見つからない");
+    assert.ok(
+      Number(m[1]) >= 2553,
+      `SW_VERSION が後退している: ${m[0]}`
+    );
   });
 
   it("storage settings exposes save debug logs UI and API", () => {
