@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2559-guard-onoff-notify-reset` |
+| SW | `tisly-pwa-v2560-toms-site-notify-camera` |
 
 ---
 
@@ -1984,6 +1984,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 社内物件切替・通知条件・顧客カメラCTA（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 社内 `/app` | 物件セレクタで感応度スライダーと Web Push 条件がテナント連動。変更は即時保存 |
+| 通知 | 緊急 / サイレント / OFF をセンサー別に反映 |
+| 顧客 `/customer` | 映像・スナップ非表示。Guard Viewer「カメラを見る」のみ |
+| SW | `tisly-pwa-v2560-toms-site-notify-camera` |
+| 既存保護 | 2.2 系・はなれ・板橋・顧客データは削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
 
 ### 豊島邸 Web Push 強制発火（2026-09-22）
 

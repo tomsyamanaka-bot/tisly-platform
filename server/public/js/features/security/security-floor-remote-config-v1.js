@@ -37,6 +37,39 @@ const NOTIFY_ID_TO_FIELD = {
   di1_alone: "notifyDi1Mode",
   staged_intrusion: "notifyStagedMode",
   di2_alone: "notifyDi2Mode",
+  main_beam_far: "notifyMainFarMode",
+  main_beam_near: "notifyMainNearMode",
+  detached_road: "notifyDi1Mode",
+  detached_path: "notifyDi2Mode",
+};
+
+const NOTIFY_PROFILES_V1 = {
+  itabashi: [
+    { id: "di1_alone", field: "notifyDi1Mode", title: "駐車場センサー (DI1)" },
+    { id: "staged_intrusion", field: "notifyStagedMode", title: "段階侵入 (DI1→DI2)" },
+    { id: "di2_alone", field: "notifyDi2Mode", title: "ガレージセンサー (DI2)" },
+  ],
+  toyoshima: [
+    { id: "main_beam_far", field: "notifyMainFarMode", title: "外周ビーム（母屋・遠）" },
+    { id: "main_beam_near", field: "notifyMainNearMode", title: "建物至近ビーム（母屋・近）" },
+    { id: "detached_road", field: "notifyDi1Mode", title: "道路側センサー（はなれ）" },
+    { id: "detached_path", field: "notifyDi2Mode", title: "通路側センサー（はなれ）" },
+  ],
+};
+
+const DEBOUNCE_LABELS_V1 = {
+  itabashi: {
+    confirm: "共通デバウンス",
+    di1: "駐車場センサー (DI1)",
+    di2: "ガレージセンサー (DI2)",
+    beam: "外周ビーム（共用）",
+  },
+  toyoshima: {
+    confirm: "共通デバウンス",
+    di1: "外周ビーム（母屋・遠）",
+    di2: "建物至近ビーム（母屋・近）",
+    beam: "はなれセンサー",
+  },
 };
 
 const state = {
@@ -49,8 +82,18 @@ const state = {
     notifyDi1Mode: "silent",
     notifyStagedMode: "critical",
     notifyDi2Mode: "critical",
+    notifyMainFarMode: "critical",
+    notifyMainNearMode: "critical",
   },
 };
+
+function isToyoshimaHomeSite(homeSiteId) {
+  return resolveHomeSiteId(homeSiteId) === "HOME-JP-TOYOSHIMA";
+}
+
+function currentTuningProfile() {
+  return isToyoshimaHomeSite(state.homeSiteId) ? "toyoshima" : "itabashi";
+}
 
 function $(id) {
   return document.getElementById(id);
@@ -168,21 +211,23 @@ function nextNotifyMode(mode) {
   return NOTIFY_MODE_CYCLE[(idx + 1) % NOTIFY_MODE_CYCLE.length];
 }
 
+function notifyTitleFor(id) {
+  const row = (NOTIFY_PROFILES_V1[currentTuningProfile()] || []).find(
+    (r) => r.id === id
+  );
+  if (row?.title) return row.title;
+  if (id === "di1_alone") return "駐車場センサー (DI1)";
+  if (id === "staged_intrusion") return "段階侵入 (DI1→DI2)";
+  if (id === "di2_alone") return "ガレージセンサー (DI2)";
+  return id;
+}
+
 function notifyLabelFor(id, mode) {
   const m = normalizeNotifyMode(mode);
-  if (id === "di1_alone") {
-    if (m === "critical") return "DI1単独：緊急通知ON";
-    if (m === "silent") return "DI1単独：サイレント";
-    return "DI1単独：OFF";
-  }
-  if (id === "staged_intrusion") {
-    if (m === "critical") return "DI1➔DI2段階侵入：緊急通知ON";
-    if (m === "silent") return "DI1➔DI2段階侵入：サイレント";
-    return "DI1➔DI2段階侵入：OFF";
-  }
-  if (m === "critical") return "DI2単独：即時Web Push";
-  if (m === "silent") return "DI2単独：サイレント";
-  return "DI2単独：OFF";
+  const title = notifyTitleFor(id);
+  if (m === "critical") return `${title}：緊急通知ON`;
+  if (m === "silent") return `${title}：サイレント`;
+  return `${title}：OFF`;
 }
 
 function applyNotifyRowUi(li, mode) {
@@ -217,6 +262,22 @@ function applyNotifyRowUi(li, mode) {
   if (text) text.textContent = notifyLabelFor(id, m);
 }
 
+function applyDebounceLabelsV1() {
+  const labels = DEBOUNCE_LABELS_V1[currentTuningProfile()];
+  const pairs = [
+    ["sf-di-confirm-ms", labels.confirm],
+    ["sf-debounce-di1-ms", labels.di1],
+    ["sf-debounce-di2-ms", labels.di2],
+    ["sf-debounce-beam-ms", labels.beam],
+  ];
+  for (const [id, prefix] of pairs) {
+    const label = document.querySelector(`label[for="${id}"]`);
+    const strong = $(`${id}-val`);
+    if (!label || !strong) continue;
+    label.innerHTML = `${prefix} <strong id="${id}-val">${strong.textContent || "100"}</strong>ms`;
+  }
+}
+
 function syncNotifyModesFromRules(rules, notifyPolicy) {
   if (rules?.notifyDi1Mode) {
     state.notifyModes.notifyDi1Mode = normalizeNotifyMode(rules.notifyDi1Mode);
@@ -237,6 +298,16 @@ function syncNotifyModesFromRules(rules, notifyPolicy) {
       ? "critical"
       : "off";
   }
+  if (rules?.notifyMainFarMode) {
+    state.notifyModes.notifyMainFarMode = normalizeNotifyMode(
+      rules.notifyMainFarMode
+    );
+  }
+  if (rules?.notifyMainNearMode) {
+    state.notifyModes.notifyMainNearMode = normalizeNotifyMode(
+      rules.notifyMainNearMode
+    );
+  }
 
   /* policy.rows[].mode があれば優先 */
   for (const row of notifyPolicy?.rows || []) {
@@ -248,29 +319,44 @@ function syncNotifyModesFromRules(rules, notifyPolicy) {
 }
 
 function renderNotifyPolicy(notifyPolicy) {
-  if (notifyPolicy?.perimeterTimeoutSec != null) {
-    const hint = $("sf-notify-policy-hint");
-    if (hint) {
-      hint.textContent = `駐車場センサー検知後 ${notifyPolicy.perimeterTimeoutSec} 秒以内のガレージセンサーで段階侵入（タップで緊急/サイレント/OFF切替）`;
-    }
+  const hint = $("sf-notify-policy-hint");
+  const profile = currentTuningProfile();
+  if (hint) {
+    hint.textContent =
+      profile === "toyoshima"
+        ? "豊島邸：センサーごとに緊急 / サイレント / OFF（タップで切替・即時保存）"
+        : notifyPolicy?.perimeterTimeoutSec != null
+          ? `駐車場センサー検知後 ${notifyPolicy.perimeterTimeoutSec} 秒以内のガレージセンサーで段階侵入（タップで緊急/サイレント/OFF切替）`
+          : "タップで 緊急 → サイレント → OFF（即時保存）";
   }
   const list = $("sf-notify-policy");
   if (!list) return;
-  for (const [id, field] of Object.entries(NOTIFY_ID_TO_FIELD)) {
-    const li = list.querySelector(`[data-notify-id="${id}"]`);
-    if (!li) continue;
-    applyNotifyRowUi(li, state.notifyModes[field]);
-  }
-  if (notifyPolicy?.rows?.length) {
-    for (const row of notifyPolicy.rows) {
-      const li = list.querySelector(`[data-notify-id="${row.id}"]`);
-      if (!li) continue;
-      const mode = row.mode || state.notifyModes[NOTIFY_ID_TO_FIELD[row.id]];
-      applyNotifyRowUi(li, mode);
-      const text = li.querySelector(".sf-notify-text");
-      if (text && row.label) text.textContent = row.label;
-    }
-  }
+  const rows = NOTIFY_PROFILES_V1[profile] || NOTIFY_PROFILES_V1.itabashi;
+  list.innerHTML = rows
+    .map((row) => {
+      const mode = normalizeNotifyMode(state.notifyModes[row.field] || "critical");
+      const badge =
+        mode === "critical" ? "緊急" : mode === "silent" ? "サイレント" : "OFF";
+      const cls =
+        mode === "critical"
+          ? "is-critical"
+          : mode === "silent"
+            ? "is-silent"
+            : "is-off";
+      return `<li
+        class="sf-notify-policy-item ${cls}"
+        data-notify-id="${row.id}"
+        data-notify-mode="${mode}"
+        role="button"
+        tabindex="0"
+        aria-pressed="${mode === "critical" ? "true" : "false"}"
+        title="タップで 緊急 → サイレント → OFF"
+      >
+        <span class="sf-notify-badge ${cls}">${badge}</span>
+        <span class="sf-notify-text">${notifyLabelFor(row.id, mode)}</span>
+      </li>`;
+    })
+    .join("");
 }
 
 function cycleNotifyRow(li) {
@@ -280,6 +366,7 @@ function cycleNotifyRow(li) {
   const next = nextNotifyMode(state.notifyModes[field] || li.dataset.notifyMode);
   state.notifyModes[field] = next;
   applyNotifyRowUi(li, next);
+  scheduleNotifySync();
 }
 
 function syncLightingDurationSliders(sec) {
@@ -427,6 +514,7 @@ function renderRules(rules, notifyPolicy) {
   }
 
   syncNotifyModesFromRules(rules, notifyPolicy);
+  applyDebounceLabelsV1();
   renderNotifyPolicy(notifyPolicy);
 }
 
@@ -466,6 +554,10 @@ function collectPayload(homeSiteId) {
     notifyDi1Mode,
     notifyStagedMode,
     notifyDi2Mode,
+    notifyMainFarMode: normalizeNotifyMode(state.notifyModes.notifyMainFarMode),
+    notifyMainNearMode: normalizeNotifyMode(
+      state.notifyModes.notifyMainNearMode
+    ),
     notifyDi1SilentLogOnly: notifyDi1Mode !== "critical",
     notifyDi2InstantPush: notifyDi2Mode === "critical",
     scheduleStart: times.scheduleStart,
@@ -545,8 +637,9 @@ async function applyScheduleTimesImmediate() {
 
 function updateTargetLabel(homeSiteId) {
   const label = SF_HOME_SITE_LABEL[homeSiteId] || "選択中の物件";
-  setText("sf-remote-target", `実機: ${label}`);
+  setText("sf-remote-target", `実機: ${label} · 感応度/通知条件`);
   state.homeSiteId = homeSiteId;
+  applyDebounceLabelsV1();
 }
 
 /** 物件切替時に呼ぶ */
@@ -598,6 +691,20 @@ function scheduleLightingDurationSync() {
 }
 
 let debounceSaveTimer = null;
+let notifySaveTimer = null;
+
+function scheduleNotifySync() {
+  clearTimeout(notifySaveTimer);
+  notifySaveTimer = setTimeout(() => {
+    applyToDevice(state.homeSiteId)
+      .then((data) => {
+        showToast(data.message || "通知条件を実機へ反映しました");
+      })
+      .catch((err) => {
+        showToast(err.message || "通知条件の反映に失敗しました");
+      });
+  }, 250);
+}
 
 function scheduleDebounceSync() {
   clearTimeout(debounceSaveTimer);

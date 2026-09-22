@@ -109,7 +109,7 @@ describe("home-pro-tools-v1", () => {
       actor: "operator-pro",
     });
     assert.equal(result.ok, true);
-    assert.match(result.message, /道路側|擬似発報|センサー/);
+    assert.match(result.message, /道路側|擬似発報|センサー|駐車場/);
   });
 
   it("triggers DI pseudo alarm for Itabashi DI1", async () => {

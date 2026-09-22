@@ -61,6 +61,8 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.detached.label, "はなれ");
     assert.equal(dash.main.do.length, 3);
     assert.equal(dash.detached.di.length, 2);
+    assert.ok(dash.debounceDi1Ms >= 20);
+    assert.ok(Array.isArray(dash.notifySensors));
   });
 
   it("main beam event lights DO1/DO2 when schedule active", async () => {

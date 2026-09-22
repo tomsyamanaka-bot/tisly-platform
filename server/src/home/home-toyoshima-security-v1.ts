@@ -338,6 +338,11 @@ export interface ToyoshimaSecurityDashboardV1 {
   flashDurationSec: number;
   /** 昼間でもセンサー連動リレー */
   forceRelayTest: boolean;
+  /** センサー感応度（ms） */
+  diConfirmMs: number;
+  debounceDi1Ms: number;
+  debounceDi2Ms: number;
+  debounceBeamMs: number;
   /**
    * ハートビート死活監視
    * false 時は Push・Shelly自動再投入を抑止
@@ -1047,8 +1052,8 @@ export interface ToyoshimaNotifyGateV1 {
 }
 
 /**
- * Push はライトと独立し 24h 無条件。
- * 見送りは警戒解除（DISARMED）と一時停止のみ。
+ * Push はライトと独立。
+ * 見送りは警戒解除・一時停止・通知OFF。
  */
 export function resolveToyoshimaNotifyGateV1(input: {
   rules: ReturnType<typeof getHomeSecurityRulesV1>;
@@ -1079,12 +1084,21 @@ export function resolveToyoshimaNotifyGateV1(input: {
       skipReason: "一時停止中",
     };
   }
+  if (sensorMode === "off") {
+    return {
+      customerMode,
+      armed: true,
+      notifyAllowed: false,
+      effectiveMode: "off",
+      skipReason: "通知OFF",
+    };
+  }
 
   return {
     customerMode,
     armed: true,
     notifyAllowed: true,
-    effectiveMode: "critical",
+    effectiveMode: sensorMode,
     skipReason: null,
   };
 }
@@ -1279,7 +1293,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
         notifyMode: input.notifyMode,
         pushAllowed,
         skipReason,
-        forcePush: true,
+        forcePush: pushAllowed,
       },
       actor: "rp2350",
     });
@@ -1287,7 +1301,33 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     console.error("[toyoshima] sensor history failed:", err);
   }
 
-  /* アラームを書いたら Push は無条件で1回呼ぶ */
+  if (!pushAllowed) {
+    console.warn(
+      `[toyoshima] push skipped sensorId=${sensorId} reason=${skipReason}`
+    );
+    try {
+      recordSystemLogV1({
+        siteId: input.homeSiteId,
+        category: "push_notify",
+        message: `Push見送り ${sensorLabel}`,
+        detail: {
+          sensorId,
+          sensorLabel,
+          sensorName: sensorLabel,
+          detectedAt,
+          detectedAtJst,
+          skipReason,
+          notifyMode: input.notifyMode,
+        },
+        actor: "rp2350",
+      });
+    } catch (err) {
+      console.error("[toyoshima] push skip log failed:", err);
+    }
+    return false;
+  }
+
+  /* 許可時は必ず sendWebPush を await する */
   let pushSent = false;
   let pushError: string | null = null;
   let attempted = 0;
@@ -1326,7 +1366,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
         sent,
         vapid: isVapidConfigured(),
         skipReason,
-        forcePush: true,
+        forcePush: pushAllowed,
       },
       actor: "rp2350",
     });
@@ -1549,7 +1589,15 @@ export async function processToyoshimaSecurityEventV1(input: {
   );
 
   const rules = getHomeSecurityRulesV1(siteId);
-  const gate = resolveToyoshimaNotifyGateV1({ rules });
+  const sensorMode =
+    sensorId === "main_beam_far"
+      ? rules.notifyMainFarMode || rules.notifyStagedMode || "critical"
+      : sensorId === "main_beam_near"
+        ? rules.notifyMainNearMode || rules.notifyStagedMode || "critical"
+        : sensorId === "detached_road"
+          ? rules.notifyDi1Mode || "critical"
+          : rules.notifyDi2Mode || "critical";
+  const gate = resolveToyoshimaNotifyGateV1({ rules, sensorMode });
   const fromHeartbeat = input.source === "heartbeat";
   /* /event の初回は止めない。二重POSTだけ 2秒で弾く。
    * heartbeat は同一ONの再送だけ止める。 */
@@ -2386,6 +2434,10 @@ export function buildToyoshimaSecurityDashboardV1(
     flashEnabled: rules.flashEnabled !== false,
     flashDurationSec: rules.flashDurationSec ?? 15,
     forceRelayTest: rules.forceRelayTest !== false,
+    diConfirmMs: rules.diConfirmMs ?? 100,
+    debounceDi1Ms: rules.debounceDi1Ms ?? rules.diConfirmMs ?? 100,
+    debounceDi2Ms: rules.debounceDi2Ms ?? rules.diConfirmMs ?? 100,
+    debounceBeamMs: rules.debounceBeamMs ?? rules.diConfirmMs ?? 100,
     heartbeatWatchEnabled: ops.heartbeatWatchEnabled !== false,
     monthlyDetectionCount,
     monthlyDetectionLabel: `${monthlyDetectionCount}件`,

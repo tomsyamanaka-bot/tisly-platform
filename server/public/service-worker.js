@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2559-guard-onoff-notify-reset";
+const SW_VERSION = "tisly-pwa-v2560-toms-site-notify-camera";
 /* 旧世代名は activate で破棄する
  * tisly-pwa-v2556-security-ui-icons
  * tisly-pwa-v2555-toyoshima-do-bind

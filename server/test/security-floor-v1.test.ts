@@ -749,7 +749,7 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /renderCustomerDailySettings/);
     assert.match(toyoshimaJs, /日常詳細設定|防犯・照明・通知の詳細設定/);
     assert.match(toyoshimaJs, /パトライト威嚇/);
-    assert.match(toyoshimaJs, /🔔 通知ON|通知を受け取る/);
+    assert.match(toyoshimaJs, /🔔 緊急|🔔 通知ON|通知を受け取る/);
     assert.match(toyoshimaJs, /manual_lights_3min/);
     assert.match(toyoshimaJs, /data-ts-light-kick/);
     assert.match(toyoshimaJs, /getTislySessionHeadersV1/);
@@ -775,12 +775,15 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /board_temp:\s*SIM_BOARD_TEMP_C|board_temp:\s*36\.2/);
     assert.match(toyoshimaJs, /正常稼働中（オンライン）/);
     assert.match(toyoshimaJs, /data-ssot=\"toyoshima-commHealth\"/);
-    assert.match(toyoshimaJs, /防犯カメラを見る/);
+    assert.match(toyoshimaJs, /カメラを見る/);
     assert.match(toyoshimaJs, /data-gv-launch/);
     assert.match(toyoshimaJs, /renderGuardViewerStoreHelpHtmlV1/);
-    /* 豊島 Security はカメラカードを DOM に出さない */
-    assert.match(toyoshimaJs, /画面からは完全非表示/);
-    assert.equal((toyoshimaJs.match(/\$\{renderCustomerCameraCard\(\)\}/g) || []).length, 0);
+    /* 顧客は Guard Viewer 起動だけ。映像・スナップは出さない */
+    assert.match(toyoshimaJs, /ts-camera-cta-only/);
+    assert.match(toyoshimaJs, /\$\{renderCustomerCameraCard\(\)\}/);
+    assert.match(toyoshimaJs, /カメラを見る/);
+    assert.match(toyoshimaJs, /renderMsSliderField/);
+    assert.match(toyoshimaJs, /ts-debounce-di1/);
     /* 一括ON/OFF はキック行の1組だけ */
     assert.equal((toyoshimaJs.match(/💡 照明を一括ON/g) || []).length, 1);
     assert.equal((toyoshimaJs.match(/💡 照明を一括OFF/g) || []).length, 1);
@@ -1052,6 +1055,11 @@ describe("security-floor-v1", () => {
     assert.match(remoteJs, /sf-light-schedule-panel/);
     assert.doesNotMatch(remoteJs, /時間指定警戒/);
     assert.doesNotMatch(remoteJs, /夜間のみ/);
+    assert.match(remoteJs, /NOTIFY_PROFILES_V1/);
+    assert.match(remoteJs, /scheduleNotifySync/);
+    assert.match(remoteJs, /applyDebounceLabelsV1/);
+    assert.match(remoteJs, /notifyMainFarMode/);
+    assert.match(remoteJs, /DEBOUNCE_LABELS_V1/);
 
     const itabashi = buildSecurityFloorOperatorSiteV1("SEC-JP-ITABASHI-LIVE");
     assert.ok(itabashi.soc);

@@ -56,6 +56,10 @@ function syncSettingsState(dash) {
     flashEnabled: dash.flashEnabled !== false,
     flashDurationSec: dash.flashDurationSec ?? 15,
     forceRelayTest: dash.forceRelayTest !== false,
+    diConfirmMs: dash.diConfirmMs ?? 100,
+    debounceDi1Ms: dash.debounceDi1Ms ?? dash.diConfirmMs ?? 100,
+    debounceDi2Ms: dash.debounceDi2Ms ?? dash.diConfirmMs ?? 100,
+    debounceBeamMs: dash.debounceBeamMs ?? dash.diConfirmMs ?? 100,
   };
 }
 
@@ -86,6 +90,10 @@ let settingsState = {
   flashEnabled: true,
   flashDurationSec: 15,
   forceRelayTest: true,
+  diConfirmMs: 100,
+  debounceDi1Ms: 100,
+  debounceDi2Ms: 100,
+  debounceBeamMs: 100,
 };
 
 const SECURITY_MODE_OPTIONS = [
@@ -510,6 +518,22 @@ export function renderSecondsSliderField(opt) {
   </label>`;
 }
 
+function renderMsSliderField(opt) {
+  const value = Number(opt.value) || 100;
+  return `<label class="ts-slider-field ts-slider-rich" for="${opt.id}">
+    <span class="ts-slider-head">
+      <span class="ts-label">${opt.label}</span>
+      <span class="ts-slider-val" id="${opt.id}-val">${value}ms</span>
+    </span>
+    <div class="ts-slider-row">
+      <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_TIMER}<span class="ts-visually-hidden">⏱️</span><small>速い</small></span>
+      <input type="range" id="${opt.id}" min="20" max="500" step="10" value="${value}" />
+      <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_TIMER}<span class="ts-visually-hidden">⏱️</span><small>遅い</small></span>
+    </div>
+    <span class="ts-slider-scale" aria-hidden="true"><span>20ms</span><span>180ms</span><span>340ms</span><span>500ms</span></span>
+  </label>`;
+}
+
 function syncScheduleState(dash) {
   if (!dash) return;
   scheduleState = {
@@ -722,17 +746,20 @@ function renderCustomerDailySettings(dash) {
 
   const notifyRows = sensors
     .map((s) => {
-      const receive = s.mode === "critical";
       return `<div class="ts-notify-row ts-customer-notify-row">
         <span class="ts-label">${escapeHtml(s.label)}</span>
         <div class="ts-notify-btns">
-          <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
+          <button type="button" class="ts-notify-btn ${s.mode === "critical" ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
-            🔔 通知ON
+            🔔 緊急
           </button>
-          <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
+          <button type="button" class="ts-notify-btn ${s.mode === "silent" ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
             🔕 サイレント
+          </button>
+          <button type="button" class="ts-notify-btn ${s.mode === "off" ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="off">
+            OFF
           </button>
         </div>
       </div>`;
@@ -817,29 +844,22 @@ function renderCustomerDailySettings(dash) {
   </section>`;
 }
 
-/** 顧客向け · Guard Viewer スキーム直結
- * 豊島 Security ではカードを出さない
- * 関数とマークアップは再表示用に残す */
+/** 顧客向け · 映像は出さず Guard Viewer 起動だけ */
 function renderCustomerCameraCard() {
-  /* 画面からは完全非表示（DOM に出さない）
-   * 下のマークアップは再表示用に残す */
-  return "";
-  /*
-  return `<section class="ts-card ts-camera-card">
-    <h3 class="ts-card-head">📷 防犯カメラ</h3>
-    <p class="ts-hint">専用アプリで高画質のライブ映像を確認できます</p>
+  return `<section class="ts-card ts-camera-card ts-camera-cta-only">
+    <h3 class="ts-card-head">📷 カメラ</h3>
+    <p class="ts-hint">ライブ映像は専用アプリで確認します</p>
     <a
       class="ts-btn ts-btn-primary ts-btn-camera-cta"
       id="ts-customer-camera"
       href="${GUARD_VIEWER_SCHEME_V1}"
       data-gv-launch="1"
     >
-      防犯カメラを見る
+      カメラを見る
       <span class="gv-cta-hint">${GUARD_VIEWER_HINT_V1}</span>
     </a>
     ${renderGuardViewerStoreHelpHtmlV1()}
   </section>`;
-  */
 }
 
 function loadNotifyReadIds() {
@@ -1093,9 +1113,6 @@ function renderCustomerActivitySection(dash) {
       dash.timeline,
       40
     )}</div>
-    <div class="ts-snap-row ts-snap-row-log" id="ts-log-snaps">${latestSnapshots(dash.timeline, 6)
-      .map(renderSnapshotThumb)
-      .join("")}</div>
     <button type="button" class="ts-btn ts-btn-ghost ts-btn-wide" data-ts-action="open_log">
       詳細を見る（もっと見る）
     </button>
@@ -1165,7 +1182,7 @@ function renderAlarmCard(dash, opts = {}) {
     <p class="ts-alarm-status ${alarm.active ? "is-alert" : ""}" id="ts-alarm-status">${escapeHtml(alarm.message)}</p>
     ${commAlert}
     ${
-      snaps.length
+      !customer && snaps.length
         ? `<div class="ts-snap-row" id="ts-alarm-snaps">${snaps
             .map(renderSnapshotThumb)
             .join("")}</div>`
@@ -1394,6 +1411,21 @@ function renderSettingsCard(dash) {
       step: 5,
       minCaption: "短め",
       maxCaption: "長め",
+    })}
+    ${renderMsSliderField({
+      id: "ts-debounce-di1",
+      label: "外周ビーム 感応度",
+      value: dash.debounceDi1Ms ?? dash.diConfirmMs ?? 100,
+    })}
+    ${renderMsSliderField({
+      id: "ts-debounce-di2",
+      label: "建物至近ビーム 感応度",
+      value: dash.debounceDi2Ms ?? dash.diConfirmMs ?? 100,
+    })}
+    ${renderMsSliderField({
+      id: "ts-debounce-beam",
+      label: "はなれセンサー 感応度",
+      value: dash.debounceBeamMs ?? dash.diConfirmMs ?? 100,
     })}
     <p class="ts-hint">スライダー変更は自動保存され、実機へ即時反映されます</p>
   </section>`;
@@ -2162,6 +2194,10 @@ async function saveSettingsDebounced() {
       };
       if (!isCustomerPortal()) {
         payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
+        payload.diConfirmMs = settingsState.diConfirmMs ?? 100;
+        payload.debounceDi1Ms = settingsState.debounceDi1Ms ?? 100;
+        payload.debounceDi2Ms = settingsState.debounceDi2Ms ?? 100;
+        payload.debounceBeamMs = settingsState.debounceBeamMs ?? 100;
       }
       const res = await fetch(`${HOME_API}/security-rules`, {
         method: "PUT",
@@ -2234,6 +2270,27 @@ function bindSettingsSliders() {
       settingsState.flashDurationSec = Number(flashDur.value) || 15;
       const fv = $("ts-flash-duration-val");
       if (fv) fv.textContent = `${settingsState.flashDurationSec}秒`;
+      saveSettingsDebounced();
+    }
+    const deb1 = e.target.closest("#ts-debounce-di1");
+    const deb2 = e.target.closest("#ts-debounce-di2");
+    const debB = e.target.closest("#ts-debounce-beam");
+    if (deb1) {
+      settingsState.debounceDi1Ms = Number(deb1.value) || 100;
+      const v = $("ts-debounce-di1-val");
+      if (v) v.textContent = `${settingsState.debounceDi1Ms}ms`;
+      saveSettingsDebounced();
+    }
+    if (deb2) {
+      settingsState.debounceDi2Ms = Number(deb2.value) || 100;
+      const v = $("ts-debounce-di2-val");
+      if (v) v.textContent = `${settingsState.debounceDi2Ms}ms`;
+      saveSettingsDebounced();
+    }
+    if (debB) {
+      settingsState.debounceBeamMs = Number(debB.value) || 100;
+      const v = $("ts-debounce-beam-val");
+      if (v) v.textContent = `${settingsState.debounceBeamMs}ms`;
       saveSettingsDebounced();
     }
     if (start) {
@@ -2333,6 +2390,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
       <div class="ts-tab-pane is-on" data-ts-pane="map">
         ${renderCustomerStatusBanner(dash)}
         ${renderCustomerModeCards(dash)}
+        ${renderCustomerCameraCard()}
         ${renderCustomerDailySettings(dash)}
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">

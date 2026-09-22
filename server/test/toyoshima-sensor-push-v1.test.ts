@@ -155,7 +155,7 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.deepEqual(cmd?.channels, [1, 2, 3]);
   });
 
-  it("disarmed detection still records history and still calls Web Push", async () => {
+  it("disarmed detection still records history and logs the skip reason", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "disarmed",
       guardMode: "off",
@@ -171,18 +171,14 @@ describe("toyoshima-sensor-push-v1", () => {
       alerts.some((r) => r.message.includes("外周ビーム（母屋・遠）")),
       "解除中でも検知履歴は残す"
     );
-    const row = latestLogs("push_notify").find((r) =>
-      r.message.includes("外周ビーム（母屋・遠）")
+    const skip = latestLogs("push_notify").find((r) =>
+      r.message.startsWith("Push見送り")
     );
-    assert.ok(row, "アラーム記録後は Push 関数を必ず呼ぶ");
-    assert.equal(row?.detail?.forcePush, true);
-    assert.match(
-      String(row?.detail?.error || ""),
-      /VAPID|Subscription invalid|not configured/
-    );
+    assert.ok(skip, "見送り理由を残す");
+    assert.equal(skip?.detail?.skipReason, "警戒解除中");
   });
 
-  it("away mode still pushes when leftover sensor mode is off", async () => {
+  it("away mode honors notify OFF from the remote UI", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",
       guardMode: "always",
@@ -193,16 +189,16 @@ describe("toyoshima-sensor-push-v1", () => {
       rules: getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
       sensorMode: "off",
     });
-    assert.equal(gate.notifyAllowed, true);
-    assert.equal(gate.effectiveMode, "critical");
-    assert.equal(gate.skipReason, null);
+    assert.equal(gate.notifyAllowed, false);
+    assert.equal(gate.effectiveMode, "off");
+    assert.equal(gate.skipReason, "通知OFF");
 
     await processToyoshimaSecurityEventV1({ building: "main", di: 1 });
-    const row = latestLogs("sensor_alert").find((r) =>
-      r.message.includes("外周ビーム（母屋・遠）")
+    const skip = latestLogs("push_notify").find((r) =>
+      r.message.startsWith("Push見送り")
     );
-    assert.equal(row?.detail?.pushAllowed, true);
-    assert.equal(row?.detail?.notifyMode, "critical");
+    assert.ok(skip, "通知OFFなら Push を見送る");
+    assert.equal(skip?.detail?.skipReason, "通知OFF");
   });
 
   it("away mode still pushes when guardMode drifted to off", async () => {
@@ -213,7 +209,7 @@ describe("toyoshima-sensor-push-v1", () => {
     });
     const gate = resolveToyoshimaNotifyGateV1({
       rules: getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
-      sensorMode: "off",
+      sensorMode: "critical",
     });
     assert.equal(gate.customerMode, "away");
     assert.equal(gate.notifyAllowed, true);
@@ -232,7 +228,7 @@ describe("toyoshima-sensor-push-v1", () => {
     );
   });
 
-  it("home mode still pushes 24h even when leftover sensor mode is off", async () => {
+  it("home mode honors notify OFF from the remote UI", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "home",
       guardMode: "scheduled",
@@ -243,8 +239,9 @@ describe("toyoshima-sensor-push-v1", () => {
       rules: getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
       sensorMode: "off",
     });
-    assert.equal(gate.notifyAllowed, true);
-    assert.equal(gate.effectiveMode, "critical");
+    assert.equal(gate.notifyAllowed, false);
+    assert.equal(gate.effectiveMode, "off");
+    assert.equal(gate.skipReason, "通知OFF");
   });
 
   it("heartbeat DI rising edge records parking/garage history", async () => {
