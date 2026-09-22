@@ -32,6 +32,7 @@ import {
   isHomeNotifyModeV1,
   isHomeNotifyPushEnabledV1,
   isHomeSecurityArmedV1,
+  isHomeSecurityPausedV1,
   type HomeGuardModeV1,
   type HomeNotifyModeV1,
   updateHomeSecurityRulesV1,
@@ -881,6 +882,9 @@ async function sendToyoshimaPush(input: {
   snapshotUrl?: string | null;
 }): Promise<boolean> {
   try {
+    console.log(
+      `[toyoshima] push try title=${input.title} eventType=${input.eventType}`
+    );
     const result = await sendWebPush({
       title: input.title,
       body: input.body,
@@ -895,8 +899,14 @@ async function sendToyoshimaPush(input: {
         snapshotUrl: input.snapshotUrl || undefined,
       },
     });
+    console.log(
+      `[toyoshima] push result success=${result.success}` +
+        ` sent=${result.sent ?? "?"}/${result.attempted ?? "?"}` +
+        (result.error ? ` error=${result.error}` : "")
+    );
     return result.success;
-  } catch {
+  } catch (err) {
+    console.error("[toyoshima] push exception:", err);
     return false;
   }
 }
@@ -934,6 +944,101 @@ export function toyoshimaSensorLabelV1(
   return TOYOSHIMA_SENSOR_LABELS_V1[resolveToyoshimaSensorIdV1(building, di)];
 }
 
+/** レスポンス後も Push を落とさないための inflight */
+const toyoshimaNotifyInflightV1 = new Set<Promise<unknown>>();
+
+function trackToyoshimaNotifyV1<T>(task: Promise<T>): Promise<T> {
+  toyoshimaNotifyInflightV1.add(task);
+  void task.finally(() => {
+    toyoshimaNotifyInflightV1.delete(task);
+  });
+  return task;
+}
+
+export interface ToyoshimaNotifyGateV1 {
+  customerMode: CustomerSecurityModeV1;
+  armed: boolean;
+  notifyAllowed: boolean;
+  effectiveMode: HomeNotifyModeV1;
+  skipReason: string | null;
+}
+
+/**
+ * おでかけ警戒は全センサー緊急Push。
+ * 個別 off や guardMode 不整合では見送らない。
+ */
+export function resolveToyoshimaNotifyGateV1(input: {
+  rules: ReturnType<typeof getHomeSecurityRulesV1>;
+  sensorMode?: HomeNotifyModeV1 | null;
+}): ToyoshimaNotifyGateV1 {
+  const rules = input.rules;
+  const customerMode = deriveCustomerSecurityModeV1(rules);
+  const paused = isHomeSecurityPausedV1(rules);
+  const armed = isHomeSecurityArmedV1(rules);
+  const sensorMode = isHomeNotifyModeV1(input.sensorMode)
+    ? input.sensorMode
+    : "critical";
+
+  if (paused) {
+    return {
+      customerMode,
+      armed: false,
+      notifyAllowed: false,
+      effectiveMode: sensorMode,
+      skipReason: "一時停止中",
+    };
+  }
+  if (customerMode === "disarmed") {
+    return {
+      customerMode,
+      armed: false,
+      notifyAllowed: false,
+      effectiveMode: "off",
+      skipReason: "警戒解除中",
+    };
+  }
+
+  /* おでかけ / 在宅は顧客ワンタップを正とする */
+  const modeArmed =
+    customerMode === "away" || customerMode === "home" || armed;
+  if (!modeArmed) {
+    return {
+      customerMode,
+      armed: false,
+      notifyAllowed: false,
+      effectiveMode: sensorMode,
+      skipReason: "警戒解除中",
+    };
+  }
+
+  if (customerMode === "away") {
+    return {
+      customerMode,
+      armed: true,
+      notifyAllowed: true,
+      effectiveMode: "critical",
+      skipReason: null,
+    };
+  }
+
+  if (!isHomeNotifyAnyPushV1(sensorMode)) {
+    return {
+      customerMode,
+      armed: true,
+      notifyAllowed: false,
+      effectiveMode: sensorMode,
+      skipReason: `通知設定 ${sensorMode}`,
+    };
+  }
+  return {
+    customerMode,
+    armed: true,
+    notifyAllowed: true,
+    effectiveMode: sensorMode,
+    skipReason: null,
+  };
+}
+
 /**
  * センサー検知の通知ディスパッチ。
  * DO 制御とは独立に走らせる前提で、
@@ -962,6 +1067,15 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     ? null
     : input.skipReason || `通知設定 ${input.notifyMode}`;
 
+  console.log(
+    `[toyoshima] notify gate sensorId=${sensorId}` +
+      ` title=${input.title}` +
+      ` mode=${input.notifyMode}` +
+      ` allowed=${input.notifyAllowed}` +
+      ` pushAllowed=${pushAllowed}` +
+      (skipReason ? ` skip=${skipReason}` : "")
+  );
+
   /* 発報履歴（センサー名つき）を先に確定させる */
   try {
     recordSystemLogV1({
@@ -985,6 +1099,9 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   }
 
   if (!pushAllowed) {
+    console.warn(
+      `[toyoshima] push skipped sensorId=${sensorId} reason=${skipReason}`
+    );
     try {
       recordSystemLogV1({
         siteId: input.homeSiteId,
@@ -1038,7 +1155,6 @@ async function handleMainBeamDetect(
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
-  const armed = isHomeSecurityArmedV1(rules);
   const lightsActive = isHomeGuardActiveV1(rules);
   const securityMode = String(rules.securityMode || "2STEP").toUpperCase();
   const flashEnabled = rules.flashEnabled !== false;
@@ -1070,33 +1186,43 @@ async function handleMainBeamDetect(
     snapshot,
   });
 
-  const notifyMode = isFar
+  const sensorMode = isFar
     ? rules.notifyMainFarMode || rules.notifyStagedMode
     : rules.notifyMainNearMode || rules.notifyStagedMode;
+  const gate = resolveToyoshimaNotifyGateV1({
+    rules,
+    sensorMode,
+  });
 
-  /* 通知は DO 制御を待たせない。
-   * ライト点灯より先に走らせ、結果だけ最後に拾う。
+  /* 通知は DO 制御より先に起動する。
+   * inflight に残し、最後に必ず await する。
    */
-  const notifyPromise = dispatchToyoshimaSensorNotifyV1({
-    homeSiteId: homeId,
-    building: "main",
-    di,
-    title,
-    eventType: isFar
-      ? "toyoshima_main_beam_far"
-      : "toyoshima_main_beam_near",
-    notifyMode,
-    notifyAllowed: armed && beamActive,
-    skipReason: !armed
-      ? "警戒解除中"
-      : !beamActive
-        ? `顧客モード ${customerMode}`
-        : null,
-    snapshotUrl: snapshot?.imageUrl,
-    detail: { customerMode, securityMode },
-  }).catch(() => false);
+  const notifyPromise = trackToyoshimaNotifyV1(
+    dispatchToyoshimaSensorNotifyV1({
+      homeSiteId: homeId,
+      building: "main",
+      di,
+      title,
+      eventType: isFar
+        ? "toyoshima_main_beam_far"
+        : "toyoshima_main_beam_near",
+      notifyMode: gate.effectiveMode,
+      notifyAllowed: gate.notifyAllowed,
+      skipReason: gate.skipReason,
+      snapshotUrl: snapshot?.imageUrl,
+      detail: {
+        customerMode: gate.customerMode,
+        securityMode,
+        sensorMode,
+        armed: gate.armed,
+      },
+    }).catch((err) => {
+      console.error("[toyoshima] main notify rejected:", err);
+      return false;
+    })
+  );
 
-  runtime.alarmLatch = beamActive && armed;
+  runtime.alarmLatch = beamActive && gate.armed;
   touchToyoshimaDeviceCommV1("main");
 
   const silent = securityMode === "SILENT";
@@ -1144,7 +1270,12 @@ async function handleMainBeamDetect(
     if (diState) diState.state = "normal";
   }, 5000);
 
-  return notifyPromise;
+  const pushSent = await notifyPromise;
+  console.log(
+    `[toyoshima] main beam done di=${di} pushSent=${pushSent}` +
+      ` mode=${gate.customerMode}`
+  );
+  return pushSent;
 }
 
 /** はなれ：DI1 道路側 / DI2 通路側 */
@@ -1155,7 +1286,6 @@ async function handleDetachedDi(
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
-  const armed = isHomeSecurityArmedV1(rules);
   const lightsActive = isHomeGuardActiveV1(rules);
   /* 一時解除以外は外周センサーを有効 */
   const perimeterActive =
@@ -1185,30 +1315,41 @@ async function handleDetachedDi(
     snapshot,
   });
 
-  const notifyMode =
+  const sensorMode =
     di === 1 ? rules.notifyDi1Mode : rules.notifyDi2Mode;
+  const gate = resolveToyoshimaNotifyGateV1({
+    rules,
+    sensorMode,
+  });
 
-  /* 通知はライト・パトライト制御と独立に走らせる */
-  const notifyPromise = dispatchToyoshimaSensorNotifyV1({
-    homeSiteId: homeId,
-    building: "detached",
-    di,
-    title,
-    eventType: isRoad
-      ? "toyoshima_detached_road"
-      : "toyoshima_detached_path",
-    notifyMode,
-    notifyAllowed: armed && perimeterActive,
-    skipReason: !armed
-      ? "警戒解除中"
-      : !perimeterActive
-        ? `顧客モード ${customerMode}`
-        : null,
-    snapshotUrl: snapshot?.imageUrl,
-    detail: { customerMode },
-  }).catch(() => false);
+  /* 通知はライト制御と独立に走らせる。
+   * 結果は return 前に必ず待つ。
+   */
+  const notifyPromise = trackToyoshimaNotifyV1(
+    dispatchToyoshimaSensorNotifyV1({
+      homeSiteId: homeId,
+      building: "detached",
+      di,
+      title,
+      eventType: isRoad
+        ? "toyoshima_detached_road"
+        : "toyoshima_detached_path",
+      notifyMode: gate.effectiveMode,
+      notifyAllowed: gate.notifyAllowed,
+      skipReason: gate.skipReason,
+      snapshotUrl: snapshot?.imageUrl,
+      detail: {
+        customerMode: gate.customerMode,
+        sensorMode,
+        armed: gate.armed,
+      },
+    }).catch((err) => {
+      console.error("[toyoshima] detached notify rejected:", err);
+      return false;
+    })
+  );
 
-  runtime.alarmLatch = perimeterActive && armed;
+  runtime.alarmLatch = perimeterActive && gate.armed;
   touchToyoshimaDeviceCommV1("detached");
 
   const light = findDo(runtime.detached, 1);
@@ -1231,7 +1372,7 @@ async function handleDetachedDi(
   /* おでかけ警戒 + パトライト威嚇ON のみ */
   if (
     customerMode === "away" &&
-    armed &&
+    gate.armed &&
     rules.patliteThreatEnabled !== false
   ) {
     startPatliteBlink("detached", 2, rules.di2AlertDurationSec * 1000);
@@ -1241,7 +1382,12 @@ async function handleDetachedDi(
     if (diState) diState.state = "normal";
   }, 5000);
 
-  return notifyPromise;
+  const pushSent = await notifyPromise;
+  console.log(
+    `[toyoshima] detached done di=${di} pushSent=${pushSent}` +
+      ` mode=${gate.customerMode}`
+  );
+  return pushSent;
 }
 
 /** 顧客警戒モード変更を履歴へ追記（既存行は消さない） */
@@ -1277,6 +1423,14 @@ export async function processToyoshimaSecurityEventV1(input: {
     throw new Error("di must be 1 or 2");
   }
 
+  const sensorLabel = toyoshimaSensorLabelV1(input.building, di);
+  console.log(
+    `[toyoshima] event recv building=${input.building} di=${di}` +
+      ` siteId=${siteId} sensorId=${resolveToyoshimaSensorIdV1(input.building, di)}` +
+      ` label=${sensorLabel}` +
+      (input.deviceId ? ` deviceId=${input.deviceId}` : "")
+  );
+
   if (input.building === "main") {
     const pushSent = await handleMainBeamDetect(siteId, di);
     return {
@@ -1286,7 +1440,7 @@ export async function processToyoshimaSecurityEventV1(input: {
         di === 1
           ? "⚠️ 外周で接近検知"
           : "🚨 建物至近で侵入検知！",
-      sensorLabel: toyoshimaSensorLabelV1("main", di),
+      sensorLabel,
     };
   }
 
@@ -1296,7 +1450,7 @@ export async function processToyoshimaSecurityEventV1(input: {
     pushSent,
     message:
       di === 1 ? "はなれ 道路側検知" : "はなれ 通路側検知",
-    sensorLabel: toyoshimaSensorLabelV1("detached", di),
+    sensorLabel,
   };
 }
 

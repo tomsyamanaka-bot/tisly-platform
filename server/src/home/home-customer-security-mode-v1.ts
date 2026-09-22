@@ -103,6 +103,10 @@ export function buildCustomerSecurityModePatchV1(
       notifyDi1Mode: "critical",
       notifyDi2Mode: "critical",
       notifyStagedMode: "critical",
+      /* おでかけは母屋遠近も緊急Pushにする
+       * 個別 off が残って見送りになるのを防ぐ */
+      notifyMainFarMode: "critical",
+      notifyMainNearMode: "critical",
       notifyDi1SilentLogOnly: false,
       notifyDi2InstantPush: true,
     };

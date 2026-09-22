@@ -16,9 +16,10 @@ const {
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
   processToyoshimaSecurityEventV1,
   resetToyoshimaSecurityStateForTestV1,
+  resolveToyoshimaNotifyGateV1,
   toyoshimaSensorLabelV1,
 } = await import("../src/home/home-toyoshima-security-v1.js");
-const { updateHomeSecurityRulesV1 } = await import(
+const { getHomeSecurityRulesV1, updateHomeSecurityRulesV1 } = await import(
   "../src/home/home-security-rules-v1.js"
 );
 const { listSystemLogsV1 } = await import("../src/home/home-system-log-v1.js");
@@ -156,6 +157,43 @@ describe("toyoshima-sensor-push-v1", () => {
     );
     assert.ok(skip, "見送り理由を残す");
     assert.equal(skip?.detail?.skipReason, "警戒解除中");
+  });
+
+  it("away mode still pushes when leftover sensor mode is off", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      notifyMainFarMode: "off",
+      notifyStagedMode: "off",
+    });
+    const gate = resolveToyoshimaNotifyGateV1({
+      rules: getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
+      sensorMode: "off",
+    });
+    assert.equal(gate.notifyAllowed, true);
+    assert.equal(gate.effectiveMode, "critical");
+    assert.equal(gate.skipReason, null);
+
+    await processToyoshimaSecurityEventV1({ building: "main", di: 1 });
+    const row = latestLogs("sensor_alert").find((r) =>
+      r.message.includes("外周ビーム（母屋・遠）")
+    );
+    assert.equal(row?.detail?.pushAllowed, true);
+    assert.equal(row?.detail?.notifyMode, "critical");
+  });
+
+  it("away mode still pushes when guardMode drifted to off", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "off",
+      notifyMainFarMode: "off",
+    });
+    const gate = resolveToyoshimaNotifyGateV1({
+      rules: getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
+      sensorMode: "off",
+    });
+    assert.equal(gate.customerMode, "away");
+    assert.equal(gate.notifyAllowed, true);
   });
 
   it("detached sensors carry their own label", async () => {

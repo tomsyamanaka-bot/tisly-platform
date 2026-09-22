@@ -1425,18 +1425,28 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       return;
     }
     try {
+      console.log(
+        `[toyoshima] POST /event building=${building} di=${di}` +
+          ` siteId=${siteId} deviceId=${String(req.body?.deviceId ?? "")}` +
+          ` message=${String(req.body?.message ?? "")}`
+      );
       const result = await processToyoshimaSecurityEventV1({
         siteId,
         building: building as "main" | "detached",
         di,
         deviceId: req.body?.deviceId as string | undefined,
       });
+      console.log(
+        `[toyoshima] POST /event done pushSent=${result.pushSent}` +
+          ` sensorLabel=${result.sensorLabel}`
+      );
       res.json({
         ...result,
         ok: true,
         dashboard: buildToyoshimaSecurityDashboardV1(siteId),
       });
     } catch (err) {
+      console.error("[toyoshima] POST /event failed:", err);
       res.status(400).json({
         ok: false,
         error: err instanceof Error ? err.message : String(err),

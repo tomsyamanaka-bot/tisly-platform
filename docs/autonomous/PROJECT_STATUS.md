@@ -1985,6 +1985,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 センサー検知 Push 最終開通（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · `POST /api/home/v1/toyoshima/event` |
+| 原因 | おでかけ警戒でもセンサー個別 `off` が残ると `pushAllowed=false`。送信結果ログも薄い |
+| 対策 | `resolveToyoshimaNotifyGateV1()` で `away` を全センサー `critical` に固定。`await` + inflight |
+| ログ | `[toyoshima] event recv / notify gate / push try / push result` をサーバー出力 |
+| 既存保護 | DO 制御・板橋 notify・設定配列は削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
+
 ### 豊島邸 Security UI クリーンアップ（一括操作重複・カメラ非表示 / 2026-09-22）
 
 | 領域 | 内容 |
