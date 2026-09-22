@@ -23,43 +23,160 @@ except ImportError:
 
 from machine import Pin
 
-import config
-from toyoshima_security import (
-    BOARD_TEMP_OVERHEAT_C,
-    DI_DEBOUNCE_MS,
-    FIRMWARE_LOGIC_VERSION,
-    HEARTBEAT_INTERVAL_SEC,
-    SITE_ID,
-    TENANT_ID,
-    ToyoshimaDetachedController,
-    ToyoshimaMainHouseController,
-    WDT_TIMEOUT_MS,
-    build_heartbeat_payload,
-    init_watchdog,
-    kick_watchdog,
-    read_board_temperature_c,
-    send_heartbeat_with_retry,
-    send_toyoshima_event,
-    send_toyoshima_heartbeat,
-)
+
+def _safe_print(*parts):
+    """print 例外（端末エンコード等）で起動を落とさない。"""
+    try:
+        print(*parts)
+    except Exception:
+        try:
+            text = " ".join([str(p) for p in parts])
+            print(text.encode("ascii", "replace").decode("ascii"))
+        except Exception:
+            pass
+
+
+# セーフモード（赤ランプ固定＝遠隔復旧不能を避ける）
+SAFE_MODE = False
+SAFE_MODE_REASON = ""
+
+
+class _FallbackConfig:
+    """config.py が壊れていても LAN と OTA だけは生かす最小設定。"""
+
+    API_BASE = "https://tisly.jp"
+    TENANT_ID = "TOYOSHIMA001"
+    SITE_ID = "SEC-JP-TOYOSHIMA-001"
+    HOME_SITE_ID = "HOME-JP-TOYOSHIMA"
+    BUILDING = "main"
+    REMOTE_TEST_TOKEN = "tisly2026test"
+    DEVICE_ID = "rp2350-toyoshima-main-01"
+    SECURITY_RULES_SITE_ID = "HOME-JP-TOYOSHIMA"
+    SECURITY_RULES_SYNC_EVERY = 10
+    POLL_INTERVAL_SEC = 3
+    HEARTBEAT_INTERVAL_SEC = 300
+    WDT_TIMEOUT_MS = 8000
+    DHCP_TIMEOUT_SEC = 12
+    RGB_LED_PIN = 2
+    RGB_LED_COUNT = 1
+    CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
+    DI_GPIO = {1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16}
+    DI_ACTIVE_LOW = True
+    DI_DEBOUNCE_MS = 100
+    FIRMWARE_VERSION = "safe-mode"
+    OTA_SITE = "toyoshima"
+    OTA_VERSION = "0.0.0"
+    OTA_CHANNEL = "production"
+
+
+try:
+    import config
+except Exception as _config_exc:
+    SAFE_MODE = True
+    SAFE_MODE_REASON = "config: {}".format(_config_exc)
+    _safe_print("[toyoshima] config.py load failed - fallback:", _config_exc)
+    config = _FallbackConfig()
+
+try:
+    from toyoshima_security import (
+        BOARD_TEMP_OVERHEAT_C,
+        DI_DEBOUNCE_MS,
+        FIRMWARE_LOGIC_VERSION,
+        HEARTBEAT_INTERVAL_SEC,
+        SITE_ID,
+        TENANT_ID,
+        ToyoshimaDetachedController,
+        ToyoshimaMainHouseController,
+        WDT_TIMEOUT_MS,
+        build_heartbeat_payload,
+        init_watchdog,
+        kick_watchdog,
+        read_board_temperature_c,
+        send_heartbeat_with_retry,
+        send_toyoshima_event,
+        send_toyoshima_heartbeat,
+    )
+except Exception as _logic_exc:
+    # 制御ロジックが壊れても OTA 待機だけは動かす。
+    SAFE_MODE = True
+    SAFE_MODE_REASON = "logic: {}".format(_logic_exc)
+    _safe_print("[toyoshima] logic load failed - safe mode:", _logic_exc)
+
+    BOARD_TEMP_OVERHEAT_C = 60.0
+    DI_DEBOUNCE_MS = 100
+    FIRMWARE_LOGIC_VERSION = "safe-mode"
+    HEARTBEAT_INTERVAL_SEC = 300
+    SITE_ID = "SEC-JP-TOYOSHIMA-001"
+    TENANT_ID = "TOYOSHIMA001"
+    WDT_TIMEOUT_MS = 8000
+    ToyoshimaDetachedController = None
+    ToyoshimaMainHouseController = None
+
+    def build_heartbeat_payload(
+        building, site_id=None, device_id=None, extra=None
+    ):
+        payload = {
+            "building": building,
+            "siteId": site_id or SITE_ID,
+            "deviceId": device_id,
+            "tenantId": TENANT_ID,
+            "safe_mode": True,
+        }
+        if extra:
+            payload.update(extra)
+        return payload
+
+    def init_watchdog(timeout_ms):
+        try:
+            from machine import WDT
+
+            return WDT(timeout=int(timeout_ms))
+        except Exception as exc:
+            _safe_print("[toyoshima] WDT unavailable:", exc)
+            return None
+
+    def kick_watchdog(wdt):
+        if wdt is None:
+            return
+        try:
+            wdt.feed()
+        except Exception:
+            pass
+
+    def read_board_temperature_c():
+        return None
+
+    def send_heartbeat_with_retry(send_fn, kick_wdt=None):
+        try:
+            return bool(send_fn())
+        except Exception:
+            return False
+
+    def send_toyoshima_event(*_args, **_kwargs):
+        return False
+
+    def send_toyoshima_heartbeat(*_args, **_kwargs):
+        return False
 
 try:
     import urequests
-except ImportError:
+except Exception:
     urequests = None
 
+# 付帯モジュールの破損で main 全体を落とさない（ImportError 以外も捕捉）
 try:
     from tisly_ota import has_ota_update_from_body
     from tisly_ota import local_version as ota_local_version
     from tisly_ota import mark_boot_ok
     from tisly_ota import maybe_update as ota_maybe_update
-except ImportError:
+except Exception:
     try:
         from lib.tisly_ota import has_ota_update_from_body
         from lib.tisly_ota import local_version as ota_local_version
         from lib.tisly_ota import mark_boot_ok
         from lib.tisly_ota import maybe_update as ota_maybe_update
-    except ImportError:
+    except Exception as _ota_exc:
+        _safe_print("[toyoshima] tisly_ota load failed:", _ota_exc)
         has_ota_update_from_body = None
         ota_local_version = None
         mark_boot_ok = None
@@ -67,7 +184,8 @@ except ImportError:
 
 try:
     from tisly_self_test import get_runner as get_kitting_runner
-except ImportError:
+except Exception as _kit_exc:
+    _safe_print("[toyoshima] tisly_self_test load failed:", _kit_exc)
     get_kitting_runner = None
 
 # --- W5500 SPI ピン（Waveshare 準拠） ---
@@ -99,8 +217,8 @@ def _resolve_pin_map(attr_name, board_map, label):
             except Exception:
                 continue
             if idx in board_map and gpio_no != board_map[idx]:
-                print(
-                    "[豊島邸] {}{} GPIO{} -> 公式 GPIO{} へ補正".format(
+                _safe_print(
+                    "[toyoshima] {}{} GPIO{} -> official GPIO{}".format(
                         label, idx, gpio_no, board_map[idx]
                     )
                 )
@@ -170,17 +288,59 @@ def _channels_for_manual_cmd(cmd):
 CH_GPIO_MAP = _resolve_pin_map("CH_GPIO", BOARD_CH_GPIO, "CH")
 DI_GPIO_MAP = _resolve_pin_map("DI_GPIO", BOARD_DI_GPIO, "DI")
 
-CH_PINS = {}
-for ch in sorted(CH_GPIO_MAP.keys()):
-    pin = Pin(CH_GPIO_MAP[ch], Pin.OUT)
-    pin.value(_relay_gpio_level(ch, False))
-    CH_PINS[ch] = pin
-
-DI_PINS = {}
 _di_active_low = bool(getattr(config, "DI_ACTIVE_LOW", True))
 _di_pull = Pin.PULL_UP if _di_active_low else Pin.PULL_DOWN
-for di in sorted(DI_GPIO_MAP.keys()):
-    DI_PINS[di] = Pin(DI_GPIO_MAP[di], Pin.IN, _di_pull)
+
+
+def _init_relay_pins():
+    """1本の GPIO 失敗で全停止しないよう CH 単位で保護する。"""
+    pins = {}
+    for ch in sorted(CH_GPIO_MAP.keys()):
+        gpio = CH_GPIO_MAP[ch]
+        try:
+            pin = Pin(gpio, Pin.OUT)
+            pin.value(_relay_gpio_level(ch, False))
+            pins[ch] = pin
+        except Exception as exc:
+            _safe_print(
+                "[toyoshima] CH{} GPIO{} init failed: {}".format(
+                    ch, gpio, exc
+                )
+            )
+    return pins
+
+
+def _init_di_pins():
+    """DI も 1 本ずつ保護して初期化する。"""
+    pins = {}
+    for di in sorted(DI_GPIO_MAP.keys()):
+        gpio = DI_GPIO_MAP[di]
+        try:
+            pins[di] = Pin(gpio, Pin.IN, _di_pull)
+        except Exception as exc:
+            _safe_print(
+                "[toyoshima] DI{} GPIO{} init failed: {}".format(
+                    di, gpio, exc
+                )
+            )
+    return pins
+
+
+try:
+    CH_PINS = _init_relay_pins()
+except Exception as _ch_exc:
+    SAFE_MODE = True
+    SAFE_MODE_REASON = "relay init: {}".format(_ch_exc)
+    _safe_print("[toyoshima] relay init failed - safe mode:", _ch_exc)
+    CH_PINS = {}
+
+try:
+    DI_PINS = _init_di_pins()
+except Exception as _di_exc:
+    SAFE_MODE = True
+    SAFE_MODE_REASON = "di init: {}".format(_di_exc)
+    _safe_print("[toyoshima] DI init failed - safe mode:", _di_exc)
+    DI_PINS = {}
 
 ch_states = {str(i): "off" for i in range(1, 9)}
 input_states = {str(i): "off" for i in range(1, 9)}
@@ -201,11 +361,11 @@ LOOP_IDLE_MS = 50
 
 
 def log(msg):
-    print("[豊島邸]", msg)
+    _safe_print("[豊島邸]", msg)
 
 
 def log_error(msg):
-    print("[豊島邸] error:", msg)
+    _safe_print("[豊島邸] error:", msg)
 
 
 def _building():
@@ -270,7 +430,7 @@ def set_rgb_status(kind):
     そちらを優先し、無いときだけ直制御。
     """
     global _rgb_blink_on
-    if _kit:
+    if _kit and kind != "safe":
         if kind == "error":
             _kit.note_heartbeat(False)
         elif kind == "ok":
@@ -284,6 +444,13 @@ def set_rgb_status(kind):
         _rgb_blink_on = not _rgb_blink_on
         if _rgb_blink_on:
             set_rgb(0, 48, 0)
+        else:
+            set_rgb(0, 0, 0)
+    elif kind == "safe":
+        # 橙点滅 = セーフモードで OTA 待機中（赤固定と区別する）
+        _rgb_blink_on = not _rgb_blink_on
+        if _rgb_blink_on:
+            set_rgb(48, 24, 0)
         else:
             set_rgb(0, 0, 0)
     elif kind == "error":
@@ -845,6 +1012,104 @@ async def exec_manual_do(cmd, duration_ms=0):
     return False
 
 
+def _ensure_rgb_direct():
+    """セーフモード用に neopixel を直接確保する。"""
+    global _rgb
+    if _rgb is not None:
+        return
+    try:
+        import neopixel
+
+        _rgb = neopixel.NeoPixel(
+            Pin(int(getattr(config, "RGB_LED_PIN", 2))),
+            int(getattr(config, "RGB_LED_COUNT", 1)),
+        )
+    except Exception:
+        _rgb = None
+
+
+def _safe_mode_heartbeat(reason):
+    """セーフモードを VPS へ知らせる（失敗は無視）。"""
+    try:
+        payload = build_heartbeat_payload(
+            _building(),
+            site_id=_site_id(),
+            device_id=_device_id(),
+            extra={
+                "firmware": getattr(config, "FIRMWARE_VERSION", "safe-mode"),
+                "firmware_version": FIRMWARE_LOGIC_VERSION,
+                "safe_mode": True,
+                "safe_mode_reason": str(reason)[:180],
+                "uptime_sec": _uptime_sec(),
+                "ip": get_ip(),
+            },
+        )
+        _body, status = http_post(
+            "/api/home/v1/toyoshima/heartbeat", payload
+        )
+        return status == 200, _body
+    except Exception as exc:
+        log_error("safe heartbeat: {}".format(exc))
+        return False, None
+
+
+def _safe_mode_loop(reason):
+    """
+    赤ランプで固まらせず OTA 待機へ退避する最終防衛線。
+    LAN と WDT を維持し、修正版ファームを遠隔で受け取る。
+    """
+    global SAFE_MODE, SAFE_MODE_REASON, _wdt
+    SAFE_MODE = True
+    SAFE_MODE_REASON = str(reason)
+    log_error("セーフモード移行: {}".format(SAFE_MODE_REASON))
+    log("LAN と OTA 待機のみ継続する（橙点滅）")
+
+    if _wdt is None:
+        try:
+            _wdt = init_watchdog(
+                int(getattr(config, "WDT_TIMEOUT_MS", WDT_TIMEOUT_MS))
+            )
+        except Exception as exc:
+            log_error("safe WDT: {}".format(exc))
+    _ensure_rgb_direct()
+
+    try:
+        for ch in list(CH_PINS.keys()):
+            try:
+                CH_PINS[ch].value(_relay_gpio_level(ch, False))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    cycle = 0
+    while True:
+        kick_watchdog(_wdt)
+        set_rgb_status("safe")
+        try:
+            if not get_ip():
+                init_ethernet()
+        except Exception as exc:
+            log_error("safe LAN: {}".format(exc))
+        if get_ip():
+            ok, body = _safe_mode_heartbeat(SAFE_MODE_REASON)
+            if ota_maybe_update:
+                try:
+                    ota_maybe_update(
+                        http_get,
+                        config=config,
+                        kick_wdt=lambda: kick_watchdog(_wdt),
+                        force=True,
+                    )
+                except Exception as exc:
+                    log_error("safe OTA: {}".format(exc))
+            log("safe cycle {} hb={}".format(cycle, "ok" if ok else "ng"))
+        cycle += 1
+        for _i in range(30):
+            kick_watchdog(_wdt)
+            time.sleep_ms(1000)
+
+
 async def async_main():
     global _security, _wdt
 
@@ -925,19 +1190,28 @@ async def async_main():
             set_rgb_status("error")
         log_error("Ethernet 未接続 — PoE/LAN・DHCP/固定IPを確認")
 
-    if building == "detached":
-        _security = ToyoshimaDetachedController(
-            set_ch_output, _forward_event
-        )
-        log("はなれ 道路側/通路側センサー制御を有効化")
-    else:
-        _security = ToyoshimaMainHouseController(
-            set_ch_output, _forward_event
-        )
-        log("母屋 遠近ビームセンサー制御を有効化")
+    try:
+        if building == "detached":
+            _security = ToyoshimaDetachedController(
+                set_ch_output, _forward_event
+            )
+            log("はなれ 道路側/通路側センサー制御を有効化")
+        else:
+            _security = ToyoshimaMainHouseController(
+                set_ch_output, _forward_event
+            )
+            log("母屋 遠近ビームセンサー制御を有効化")
+        _security.set_di_reader(read_di_state)
+    except Exception as ctrl_exc:
+        _security = None
+        log_error("センサー制御初期化: {}".format(ctrl_exc))
+        _safe_mode_loop("controller: {}".format(ctrl_exc))
+        return
 
-    _security.set_di_reader(read_di_state)
-    poll_security_rules()
+    try:
+        poll_security_rules()
+    except Exception as rules_exc:
+        log_error("初回 rules 同期: {}".format(rules_exc))
 
     poll_interval_sec = int(config.POLL_INTERVAL_SEC)
     heartbeat_interval_sec = int(
@@ -980,9 +1254,12 @@ async def async_main():
         kick_watchdog(_wdt)
 
         # DI を HTTP より先に読む。GPIO キックは同期。
-        changed, edges = poll_inputs()
-        if edges:
-            handle_security_di_edges(edges)
+        try:
+            changed, edges = poll_inputs()
+            if edges:
+                handle_security_di_edges(edges)
+        except Exception as di_exc:
+            log_error("DI 処理: {}".format(di_exc))
 
         net_retry_counter += 1
         if net_retry_counter >= net_retry_every:
@@ -993,13 +1270,19 @@ async def async_main():
         poll_counter += 1
         if poll_counter >= rules_sync_every:
             poll_counter = 0
-            poll_security_rules()
+            try:
+                poll_security_rules()
+            except Exception as rules_exc:
+                log_error("rules 同期: {}".format(rules_exc))
 
-        payload = poll_command()
-        if not payload:
-            payload = _take_pending_hb_command()
-        if payload:
-            await apply_manual_payload(payload)
+        try:
+            payload = poll_command()
+            if not payload:
+                payload = _take_pending_hb_command()
+            if payload:
+                await apply_manual_payload(payload)
+        except Exception as cmd_exc:
+            log_error("命令処理: {}".format(cmd_exc))
 
         now = time.ticks_ms()
         if time.ticks_diff(now, next_heartbeat_ms) >= 0:
@@ -1031,7 +1314,17 @@ async def async_main():
 
 
 def run():
-    asyncio.run(async_main())
+    """どんな例外でも赤固定にせずセーフモードへ退避する。"""
+    if SAFE_MODE or ToyoshimaMainHouseController is None:
+        _safe_mode_loop(SAFE_MODE_REASON or "起動時ガード")
+        return
+    try:
+        asyncio.run(async_main())
+    except Exception as exc:
+        log_error("main 異常終了: {}".format(exc))
+        _safe_mode_loop("main: {}".format(exc))
 
 
-run()
+# 実機は main.py として直接実行される（import 形態でも起動する）
+if __name__ in ("__main__", "main"):
+    run()

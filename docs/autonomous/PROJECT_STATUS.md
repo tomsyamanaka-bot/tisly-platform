@@ -1985,6 +1985,21 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 起動クラッシュ復旧＆セーフモード（OTA 1.2.7 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 症状 | 実機が起動直後にクラッシュし RGB 赤固定。遠隔から OTA も届かない |
+| 静的解析 | 全ファーム `compile()` 済み — 構文エラーなし。落ちる経路は **import 時の未保護例外** |
+| 特定した経路 | ① `config.py` / `toyoshima_security.py` の import が無保護 ② モジュール直下の GPIO 一括初期化 ③ 非 ASCII `print` の端末エンコード例外 ④ `tisly_ota` / `tisly_self_test` が `ImportError` のみ捕捉 |
+| 対策 | `_FallbackConfig`・ロジック stub・CH/DI 単位の try/except・`_safe_print`・`except Exception` へ拡大・ループ内の個別 try/except |
+| セーフモード | `_safe_mode_loop()` が LAN 維持 + `safe_mode` 付き HB + `maybe_update(force=True)` を 30 秒周期。WDT は 1 秒ごと feed |
+| RGB | セーフモードは橙点滅（`set_rgb_status("safe")`）で赤固定と区別 |
+| 起動ガード | `if __name__ in ("__main__", "main"): run()` — 実機は従来どおり自動起動、ホストは import 検証が可能 |
+| テスト | `rp2350/test/test_toyoshima_firmware_boot.py` — machine スタブで import・GPIO 17/18/19・遅延生成・セーフモード退避・全ファイル compile |
+| 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
 ### 豊島邸 リレー GPIO 確定＆CH1/CH2 不点灯の解消（OTA 1.2.6 / 2026-09-22）
 
 | 領域 | 内容 |

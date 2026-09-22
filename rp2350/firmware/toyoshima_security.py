@@ -51,7 +51,7 @@ WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.6"
+FIRMWARE_LOGIC_VERSION = "1.2.7"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -193,8 +193,11 @@ class ToyoshimaBaseController:
         line = "[豊島邸 security] {}".format(msg)
         try:
             print(line)
-        except UnicodeEncodeError:
-            print(line.encode("ascii", "replace").decode("ascii"))
+        except Exception:
+            try:
+                print(line.encode("ascii", "replace").decode("ascii"))
+            except Exception:
+                pass
 
     def _jst_minutes(self):
         utc_sec = int(time.time())
