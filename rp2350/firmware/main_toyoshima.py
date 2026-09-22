@@ -354,10 +354,12 @@ _boot_ms = time.ticks_ms()
 _last_hb_ok = False
 _kit = None
 _pending_hb_cmd = None
+_pending_events = []
 # DI サンプリングを HTTP 長待ちで潰さない。
 # 命令は 0ms GET + 50ms idle で即時取得する。
 COMMAND_WAIT_MS = 0
 LOOP_IDLE_MS = 50
+EVENT_RETRY_MS = 200
 
 
 def log(msg):
@@ -698,18 +700,60 @@ def handle_security_di_edges(edges):
 
 
 def _forward_event(building, di, message):
-    ok = send_toyoshima_event(
-        http_post,
-        building,
-        di,
-        message,
-        site_id=_site_id(),
-        device_id=_device_id(),
+    """DI 検知を即キューし、HB を待たず POST する。"""
+    global _pending_events
+    _pending_events.append(
+        {
+            "building": building,
+            "di": di,
+            "message": message,
+        }
     )
-    if ok:
-        log("event sent: {}".format(message))
-    else:
-        log_error("event send failed: {}".format(message))
+    log("event queued: {}".format(message))
+    _flush_pending_events()
+
+
+def _flush_pending_events():
+    """キュー済み /event を即時送信する。失敗は残して再送する。"""
+    global _pending_events
+    if not _pending_events:
+        return
+    remain = []
+    for ev in _pending_events:
+        try:
+            kick_watchdog(_wdt)
+            ok = send_toyoshima_event(
+                http_post,
+                ev.get("building"),
+                ev.get("di"),
+                ev.get("message"),
+                site_id=_site_id(),
+                device_id=_device_id(),
+            )
+            if ok:
+                log("event sent: {}".format(ev.get("message")))
+            else:
+                remain.append(ev)
+                log_error("event send failed: {}".format(ev.get("message")))
+        except Exception as exc:
+            remain.append(ev)
+            log_error("event send exception: {}".format(exc))
+    _pending_events = remain
+
+
+async def _flush_pending_events_async():
+    """create_task 用。HB 周期とは独立して再送する。"""
+    _flush_pending_events()
+
+
+async def event_retry_loop():
+    """失敗した /event を 200ms 周期で再送する。5分 HB は使わない。"""
+    while True:
+        try:
+            _flush_pending_events()
+        except Exception as exc:
+            log_error("event retry: {}".format(exc))
+        await asyncio.sleep_ms(EVENT_RETRY_MS)
 
 
 def send_heartbeat():
@@ -1250,6 +1294,12 @@ async def async_main():
     net_retry_every = 20
     net_retry_counter = 0
 
+    try:
+        asyncio.create_task(event_retry_loop())
+        log("event retry loop start ({} ms)".format(EVENT_RETRY_MS))
+    except Exception as ev_exc:
+        log_error("event retry start: {}".format(ev_exc))
+
     while True:
         kick_watchdog(_wdt)
 
@@ -1258,8 +1308,18 @@ async def async_main():
             changed, edges = poll_inputs()
             if edges:
                 handle_security_di_edges(edges)
+                # create_task した /event を HB より先に走らせる
+                await asyncio.sleep_ms(0)
         except Exception as di_exc:
             log_error("DI 処理: {}".format(di_exc))
+
+        try:
+            if _pending_events:
+                _flush_pending_events()
+                asyncio.create_task(_flush_pending_events_async())
+        except Exception as flush_exc:
+            log_error("event flush: {}".format(flush_exc))
+            _flush_pending_events()
 
         net_retry_counter += 1
         if net_retry_counter >= net_retry_every:
@@ -1291,6 +1351,7 @@ async def async_main():
             # 失敗時は 10 秒×最大 3 回。
             # 全滅しても次の 5 分周期まで待つ。
             try:
+                _flush_pending_events()
                 send_heartbeat_with_retry(
                     send_heartbeat,
                     kick_wdt=lambda: kick_watchdog(_wdt),

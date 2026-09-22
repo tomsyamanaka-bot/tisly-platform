@@ -1985,6 +1985,18 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 センサー検知の即時 /event 送信（OTA 1.2.9 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` 母屋・はなれ RP2350 |
+| 原因 | DI 検知 POST が 5 分 heartbeat の後ろに回り、Push が遅延する |
+| 実機 | GPIO を先に上げ、`/event` を独立キュー＋ `create_task` で即時送信。失敗は 200ms 再送。HB は待たない |
+| サーバ | `/event`（source=event）はクールダウンで止めない。heartbeat バックアップだけ重複抑制 |
+| OTA | `FIRMWARE_LOGIC_VERSION` / `OTA_VERSION` = **1.2.9** |
+| 既存保護 | DI/DO 配列・板橋ファーム・顧客データは削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
+
 ### 豊島邸 通知ストッパー解除・昼夜ライト分離・警戒ON/OFF（2026-09-22）
 
 | 領域 | 内容 |

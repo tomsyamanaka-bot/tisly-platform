@@ -86,7 +86,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(logic.status, 200);
     assert.match(logic.text, /ToyoshimaMainHouseController|heartbeat/);
-    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.8"/);
+    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.9"/);
     assert.match(logic.text, /rising fire/);
   });
 
@@ -334,13 +334,20 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.ok(
       loop.indexOf("poll_inputs()") < loop.indexOf("payload = poll_command()")
     );
+    assert.match(fw, /_flush_pending_events/);
+    assert.match(fw, /event_retry_loop/);
+    assert.match(fw, /event queued/);
+    assert.ok(
+      loop.indexOf("_flush_pending_events()") <
+        loop.indexOf("send_heartbeat_with_retry")
+    );
   });
 
-  it("GET toyoshima version advertises live 1.2.8 and stages it", async () => {
+  it("GET toyoshima version advertises live 1.2.9 and stages it", async () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);
-    assert.match(String(prod.body.version), /^1\.2\.8/);
+    assert.match(String(prod.body.version), /^1\.2\.9/);
     assert.equal(prod.body.pending, true);
     const staging = await request(app).get(
       "/api/firmware/toyoshima/version?channel=staging"

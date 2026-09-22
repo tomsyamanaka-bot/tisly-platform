@@ -52,7 +52,7 @@ WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.8"
+FIRMWARE_LOGIC_VERSION = "1.2.9"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -302,13 +302,43 @@ class ToyoshimaBaseController:
             await asyncio.sleep_ms(PATLITE_BLINK_MS)
         self._set_ch(channel, False)
 
+    def _invoke_send_event(self, building, di, message):
+        """VPS へ /event を投げる。例外は握る。"""
+        if not self._send_event:
+            return
+        try:
+            self._send_event(building, di, message)
+        except Exception as exc:
+            self.log("event err: {}".format(exc))
+
+    async def _notify_vps_async(self, building, di, message):
+        """HB を待たず独立タスクで即時送信する。"""
+        self._invoke_send_event(building, di, message)
+
     def _notify_vps(self, building, di, message):
+        """検知ログを残し、/event を HB と独立して即時発火する。
+        ループ稼働中は create_task。それ以外は同期送信。
+        """
         self.log(message)
-        if self._send_event:
-            try:
-                self._send_event(building, di, message)
-            except Exception as exc:
-                self.log("event err: {}".format(exc))
+        scheduled = False
+        try:
+            loop = asyncio.get_event_loop()
+            running = False
+            if loop:
+                try:
+                    running = bool(loop.is_running())
+                except Exception:
+                    running = False
+            if running:
+                asyncio.create_task(
+                    self._notify_vps_async(building, di, message)
+                )
+                scheduled = True
+        except Exception as exc:
+            self.log("event task err: {}".format(exc))
+            scheduled = False
+        if not scheduled:
+            self._invoke_send_event(building, di, message)
 
     def _bulk_do_channels(self):
         """一括点灯の対象 CH。"""
@@ -536,11 +566,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             self.log("disarmed - 母屋 ビーム検知を無視")
             return
         plan = self.plan_main_response(di)
+        if plan["mode"] != "SILENT":
+            self._kick_relays_now(plan)
+        # ライトと並行して /event を即時発火する
         self._notify_vps("main", di, plan["message"])
         if plan["mode"] == "SILENT":
             self.log("SILENT — ライト/フラッシュ省略")
             return
-        self._kick_relays_now(plan)
         try:
             asyncio.create_task(self._main_beam_response(di))
         except Exception as exc:
@@ -620,10 +652,11 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
             msg = "はなれ 道路側検知"
         else:
             msg = "はなれ 通路側検知"
-        self._notify_vps("detached", di, msg)
         if self._can_run_lights():
             self._set_ch(self.DO_LIGHT, True)
         self._set_ch(self.DO_PATLITE, True)
+        # ライトと並行して /event を即時発火する
+        self._notify_vps("detached", di, msg)
         try:
             asyncio.create_task(self._detached_response(di))
         except Exception as exc:
@@ -753,7 +786,7 @@ def send_toyoshima_heartbeat(http_post, building, site_id=None, device_id=None):
 def send_toyoshima_event(http_post, building, di, message, site_id=None, device_id=None):
     """
     POST /api/home/v1/toyoshima/event
-    母屋 / はなれ 検知イベントを即時送信。
+    母屋 / はなれ 検知を HB と独立して即時送信する。
     """
     path = API_TOYOSHIMA_BASE + "/event"
     payload = {
@@ -762,11 +795,16 @@ def send_toyoshima_event(http_post, building, di, message, site_id=None, device_
         "message": message,
         "tenantId": TENANT_ID,
         "siteId": site_id or SITE_ID,
+        "source": "di_edge",
     }
     if device_id:
         payload["deviceId"] = device_id
-    _body, status = http_post(path, payload)
-    return status == 200
+    try:
+        _body, status = http_post(path, payload)
+        return status == 200
+    except Exception as exc:
+        print("[豊島邸 security] event http err:", exc)
+        return False
 
 
 def _sleep_heartbeat_retry(kick_wdt=None):

@@ -1482,6 +1482,19 @@ export async function processToyoshimaSecurityEventV1(input: {
 
   const rules = getHomeSecurityRulesV1(siteId);
   const gate = resolveToyoshimaNotifyGateV1({ rules });
+  const fromHeartbeat = input.source === "heartbeat";
+  /* /event 即時POSTはクールダウンで止めない */
+  if (fromHeartbeat && isToyoshimaNotifyDuplicateV1(building, di)) {
+    console.log(
+      `[toyoshima] event skipped (hb dedup) ${building} DI${di}`
+    );
+    return {
+      ok: true,
+      pushSent: false,
+      message: title,
+      sensorLabel,
+    };
+  }
   markToyoshimaNotifyFiredV1(building, di);
 
   /* ライトより先に Push を起動する */

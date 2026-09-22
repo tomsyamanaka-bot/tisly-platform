@@ -284,8 +284,8 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_8():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.8"
+def test_firmware_logic_version_is_1_2_9():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.9"
 
 
 def test_board_ch_gpio_matches_waveshare_ro1_ro8():
@@ -397,6 +397,45 @@ def test_di_edge_notifies_when_disarmed_with_force_relay_test():
     assert events[0][0] == "main"
 
 
+def test_send_toyoshima_event_posts_event_not_heartbeat():
+    """検知は /event へ即時POSTし heartbeat に混ぜない。"""
+    posts = []
+
+    def http_post(path, payload):
+        posts.append((path, payload))
+        return "{}", 200
+
+    ok = ts.send_toyoshima_event(
+        http_post, "main", 1, "⚠️ 外周で接近検知"
+    )
+    assert ok is True
+    assert posts[0][0].endswith("/event")
+    assert "/heartbeat" not in posts[0][0]
+    assert posts[0][1]["source"] == "di_edge"
+    assert posts[0][1]["di"] == 1
+
+
+def test_di_edge_kicks_relay_before_event():
+    """GPIO を先に上げ、その後で /event を投げる。"""
+    order = []
+
+    def set_ch(ch, on):
+        if on:
+            order.append("gpio")
+
+    def send(_building, _di, _message):
+        order.append("event")
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch, send)
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(1, "off", "on")
+    assert order[0] == "gpio"
+    assert "event" in order
+
+
 def test_event_send_failure_does_not_raise():
     """通知失敗でリレー処理を止めない。"""
     outputs = {}
@@ -435,7 +474,9 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_8()
+    test_firmware_logic_version_is_1_2_9()
+    test_send_toyoshima_event_posts_event_not_heartbeat()
+    test_di_edge_kicks_relay_before_event()
     test_board_ch_gpio_matches_waveshare_ro1_ro8()
     test_main_firmware_pins_relays_independently_of_config()
     test_on_di_edge_di1_kicks_ch1_immediately()

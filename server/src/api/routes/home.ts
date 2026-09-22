@@ -1435,6 +1435,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         building: building as "main" | "detached",
         di,
         deviceId: req.body?.deviceId as string | undefined,
+        source: "event",
       });
       console.log(
         `[toyoshima] POST /event done pushSent=${result.pushSent}` +

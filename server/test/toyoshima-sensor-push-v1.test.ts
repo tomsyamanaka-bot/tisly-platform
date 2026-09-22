@@ -248,6 +248,28 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.ok(row?.detail?.detectedAtJst);
   });
 
+  it("direct /event is never blocked by notify cooldown", async () => {
+    armAway();
+    const first = await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+      source: "event",
+    });
+    const second = await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+      source: "event",
+    });
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    const alerts = latestLogs("sensor_alert").filter((r) =>
+      r.message.includes("外周ビーム（母屋・遠）")
+    );
+    assert.ok(alerts.length >= 2, "連続 /event でも履歴が残る");
+    assert.equal(alerts[0]?.detail?.pushAllowed, true);
+    assert.equal(alerts[1]?.detail?.pushAllowed, true);
+  });
+
   it("releases notify stopper so later detections can fire again", async () => {
     armAway();
     await ingestToyoshimaHeartbeatInputsV1({
