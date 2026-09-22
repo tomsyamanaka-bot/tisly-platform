@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2554-toyoshima-maint-std` |
+| SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 
 ---
 
@@ -1968,6 +1968,21 @@ p2350-relay-v1.ts �E firmware main.py |
 | OTA | `FIRMWARE_LOGIC_VERSION=1.2.2` をクラウド最新として広告しステージング |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2554-toyoshima-maint-std` |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 手動 DO1/DO2/DO3 完全連動＆OTA 1.2.3（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | PWA ライト1/ライト2/一括ON が実機 CH1〜CH3 を確実に HIGH 駆動する |
+| ライト1 | `do1_on` → CH1 / GPIO17 HIGH |
+| ライト2 | `do2_on` → CH2 / GPIO18 HIGH |
+| 一括ON | `bulk_on` → CH1+CH2+CH3 / GPIO17+18+19 HIGH |
+| GPIO | Waveshare 8RO は HIGH=コイルON をファーム強制。`RO_ACTIVE_LOW` 無視 |
+| PWA | `/customer` `/app` 外構ライト手動操作。session header 付き即時 POST |
+| OTA | `FIRMWARE_LOGIC_VERSION=1.2.3` をクラウド最新としてステージング |
+| 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
 

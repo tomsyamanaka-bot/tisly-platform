@@ -79,7 +79,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(logic.status, 200);
     assert.match(logic.text, /ToyoshimaMainHouseController|heartbeat/);
-    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.2"/);
+    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.3"/);
     assert.match(logic.text, /rising fire/);
   });
 
@@ -300,7 +300,7 @@ describe("firmware-rp2350-ota-v1", () => {
       });
     assert.equal(hb.status, 200);
     assert.equal(hb.body.command, "bulk_on");
-    assert.deepEqual(hb.body.channels, []);
+    assert.deepEqual(hb.body.channels, [1, 2, 3]);
     assert.equal(hb.body.bypassSchedule, true);
     assert.equal(hb.body.pipeline, "immediate");
   });
@@ -318,7 +318,8 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.match(fw, /bypass schedule|bypass=1/);
     assert.match(fw, /payload\.get\("channels"\)/);
     assert.match(fw, /CH1\+CH2\+CH3/);
-    assert.match(fw, /COMMAND_WAIT_MS = 0/);
+    assert.match(fw, /_channels_for_manual_cmd/);
+    assert.match(fw, /HIGH=コイルON を強制/);
     assert.match(fw, /LOOP_IDLE_MS = 50/);
     assert.match(fw, /sensor_near/);
     assert.match(fw, /set_ch_output\(3, False\)/);
@@ -328,7 +329,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
   });
 
-  it("GET toyoshima version advertises live 1.2.2 and stages it", async () => {
+  it("GET toyoshima version advertises live 1.2.3 and stages it", async () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);

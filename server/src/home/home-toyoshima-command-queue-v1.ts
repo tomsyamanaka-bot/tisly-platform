@@ -119,6 +119,52 @@ function flushToyoshimaCommandWaitersV1(deviceId: string): void {
 }
 
 /** 実機へ届ける手動命令を積む（スケジュール無視） */
+function defaultChannelsForCommandV1(
+  command: string,
+  building?: "main" | "detached" | null
+): number[] {
+  const cmd = String(command || "").trim().toLowerCase();
+  if (
+    cmd === "do1_on" ||
+    cmd === "do1_off" ||
+    cmd === "ch1_on" ||
+    cmd === "light1_on" ||
+    cmd === "sensor_far" ||
+    cmd === "di1_alarm"
+  ) {
+    return [1];
+  }
+  if (
+    cmd === "do2_on" ||
+    cmd === "do2_off" ||
+    cmd === "ch2_on" ||
+    cmd === "light2_on"
+  ) {
+    return [2];
+  }
+  if (
+    cmd === "do3_on" ||
+    cmd === "do3_off" ||
+    cmd === "ch3_on" ||
+    cmd === "flash_on" ||
+    cmd === "flash_test" ||
+    cmd === "patlite_test"
+  ) {
+    return building === "detached" ? [2] : [3];
+  }
+  if (
+    cmd === "bulk_on" ||
+    cmd === "bulk_off" ||
+    cmd === "light_all_on" ||
+    cmd === "light_all_off" ||
+    cmd === "sensor_near" ||
+    cmd === "di2_alarm"
+  ) {
+    return building === "detached" ? [1] : [1, 2, 3];
+  }
+  return [];
+}
+
 function normalizeChannelsV1(raw: unknown): number[] {
   if (!Array.isArray(raw)) return [];
   const out: number[] = [];
@@ -150,9 +196,13 @@ export function queueToyoshimaDeviceCommandV1(input: {
     input.durationMs != null && Number.isFinite(Number(input.durationMs))
       ? Math.max(0, Math.round(Number(input.durationMs)))
       : undefined;
+  const channels = normalizeChannelsV1(input.channels);
   const row: ToyoshimaDeviceCommandV1 = {
     command,
-    channels: normalizeChannelsV1(input.channels),
+    channels:
+      channels.length > 0
+        ? channels
+        : defaultChannelsForCommandV1(command, input.building),
     bypassSchedule: true,
     forceRelayTest: true,
     durationMs,

@@ -51,7 +51,7 @@ WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.2"
+FIRMWARE_LOGIC_VERSION = "1.2.3"
 
 
 def _parse_hm(value, fallback):

@@ -19,6 +19,7 @@ import {
 import {
   consumeOrWaitToyoshimaDeviceCommandV1,
   consumeToyoshimaDeviceCommandV1,
+  queueToyoshimaDeviceCommandV1,
   resetToyoshimaDeviceCommandQueueForTestV1,
 } from "../src/home/home-toyoshima-command-queue-v1.js";
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
@@ -501,6 +502,16 @@ describe("toyoshima-security-v1", () => {
     assert.equal(row?.bypassSchedule, true);
     assert.equal(row?.forceRelayTest, true);
     assert.deepEqual(row?.channels, [1]);
+  });
+
+  it("infers CH1-3 when bulk_on is queued without channels", () => {
+    queueToyoshimaDeviceCommandV1({
+      building: "main",
+      command: "bulk_on",
+    });
+    const row = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(row?.command, "bulk_on");
+    assert.deepEqual(row?.channels, [1, 2, 3]);
   });
 
   it("bulk lights queues one bulk command per building", () => {

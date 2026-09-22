@@ -27,6 +27,8 @@ import {
   setSecurityHistorySiteIdV1,
 } from "./security-history-modal-v1.js";
 
+import { getTislySessionHeadersV1 } from "../../customer-auth.js";
+
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
 const TOYOSHIMA_HOME_ID = "HOME-JP-TOYOSHIMA";
 const HOME_API = "/api/home/v1";
@@ -285,6 +287,10 @@ function renderManualLightKickRow() {
         data-ts-building="main" data-ts-action="do1_on">💡 ライト1点灯</button>
       <button type="button" class="ts-btn" data-ts-light-kick="do2_on"
         data-ts-building="main" data-ts-action="do2_on">💡 ライト2点灯</button>
+      <button type="button" class="ts-btn ts-btn-primary" data-ts-light-kick="bulk_lights_on"
+        data-ts-building="main" data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
+      <button type="button" class="ts-btn ts-btn-ghost" data-ts-light-kick="bulk_lights_off"
+        data-ts-building="main" data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
       <button type="button" class="ts-btn" data-ts-light-kick="patlite_test"
         data-ts-building="main" data-ts-action="patlite_test">⚡ フラッシュ威嚇テスト</button>
     </div>`;
@@ -1624,7 +1630,7 @@ async function postJson(path, body) {
   const res = await fetch(`${HOME_API}${path}`, {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
+    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
     body: JSON.stringify(body ?? {}),
   });
   const data = await res.json();

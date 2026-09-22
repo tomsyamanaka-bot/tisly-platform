@@ -81,17 +81,62 @@ W5500_RST = 25
 
 def _relay_gpio_level(channel, on):
     """論理ONをGPIOレベルへ変換する。
-    Waveshare 8RO は HIGH=コイルON。
+    豊島邸 Waveshare 8RO は HIGH=コイルON を強制する。
+    skipFiles の config.py が RO_ACTIVE_LOW=True でも反転しない。
     """
     invert = False
     invert_map = getattr(config, "CH_INVERT", None)
     if invert_map:
         invert = bool(invert_map.get(channel, False))
-    if bool(getattr(config, "RO_ACTIVE_LOW", False)):
-        invert = not invert
     if invert:
         return 0 if on else 1
     return 1 if on else 0
+
+
+def _channels_for_manual_cmd(cmd):
+    """PWA 命令名から駆動 CH を決める。"""
+    cmd = str(cmd or "").strip().lower()
+    if cmd in (
+        "do1_on",
+        "do1_off",
+        "ch1_on",
+        "ch1_off",
+        "light1_on",
+        "light1_off",
+        "sensor_far",
+        "di1_alarm",
+    ):
+        return [1]
+    if cmd in (
+        "do2_on",
+        "do2_off",
+        "ch2_on",
+        "ch2_off",
+        "light2_on",
+        "light2_off",
+    ):
+        return [2]
+    if cmd in (
+        "do3_on",
+        "do3_off",
+        "ch3_on",
+        "ch3_off",
+        "flash_on",
+        "flash_off",
+        "flash_test",
+        "patlite_test",
+    ):
+        return [2] if _building() == "detached" else [3]
+    if cmd in (
+        "bulk_on",
+        "bulk_off",
+        "light_all_on",
+        "light_all_off",
+        "sensor_near",
+        "di2_alarm",
+    ):
+        return [1] if _building() == "detached" else [1, 2, 3]
+    return []
 
 
 CH_PINS = {}
@@ -668,6 +713,10 @@ async def apply_manual_payload(payload):
                 continue
             if ch < 1 or ch > 8:
                 continue
+            set_ch_output(ch, not off)
+            forced.append(ch)
+    if not forced:
+        for ch in _channels_for_manual_cmd(cmd):
             set_ch_output(ch, not off)
             forced.append(ch)
     log(

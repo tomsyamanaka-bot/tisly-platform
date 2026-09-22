@@ -709,7 +709,6 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(opJs, /import \{ updateSecurityIso3d \} from/);
     assert.match(fbJs, /ITABASHI_SITE_ALIASES_V1|mapItabashiSiteAliasV1/);
     assert.match(opJs, /applyOptionalModuleVisibility/);
-    assert.match(proJs, /applyToyoshimaOptionalModuleVisibility/);
     assert.match(opHtml, /ts-dashboard-root/);
     assert.match(opHtml, /sf-pro-tools/);
     assert.match(opHtml, /security-floor-pro-tools-v1\.js/);
@@ -749,6 +748,9 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /🔔 通知ON|通知を受け取る/);
     assert.match(toyoshimaJs, /manual_lights_3min/);
     assert.match(toyoshimaJs, /data-ts-light-kick/);
+    assert.match(toyoshimaJs, /getTislySessionHeadersV1/);
+    assert.match(toyoshimaJs, /data-ts-light-kick="do1_on"/);
+    assert.match(toyoshimaJs, /data-ts-light-kick="do2_on"/);
     assert.match(toyoshimaJs, /data-ts-light-kick="bulk_lights_on"/);
     assert.match(toyoshimaJs, /ライト1を点灯しました/);
     assert.match(toyoshimaJs, /queued === false/);
@@ -949,6 +951,7 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.match(proJs, /applyToyoshimaOptionalModuleVisibility/);
     assert.match(proJs, /loadHeartbeatWatch|saveHeartbeatWatch/);
     assert.match(proJs, /\/toyoshima\/config/);
     assert.match(proJs, /readCurrentSiteId/);

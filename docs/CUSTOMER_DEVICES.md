@@ -149,6 +149,21 @@
 | VPS バックアップ | `handleMainBeamDetect` が実機キューへ `sensor_far`/`sensor_near` を積む |
 | OTA | クラウド最新はバンドル 1.2.2 を広告。ステージングにライブファイルをスナップショット |
 
+### 2.2.6 手動 DO1/DO2/DO3 完全連動（2026-09-22 追記）
+
+既存 2.2 / 2.2.1〜2.2.5 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|-----|
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.3` |
+| GPIO 極性 | HIGH=コイルON をファーム強制。`RO_ACTIVE_LOW` は無視 |
+| ライト1 | `do1_on` → CH1/GPIO17 HIGH |
+| ライト2 | `do2_on` → CH2/GPIO18 HIGH |
+| 一括ON | `bulk_on` → CH1+CH2+CH3 / GPIO17+18+19 HIGH |
+| 命令補完 | channels 欠落時もコマンド名から CH を推論 |
+| PWA | `/customer` `/app` の外構ライト手動操作に一括ON/OFFを含む。session header 付き POST |
+| OTA | クラウド最新 1.2.3 をステージング |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |
@@ -362,7 +377,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
-| 2026-09-22 | 豊島邸 DI/DO 完全バインド。GPIO 同期キック · DI 優先ループ · ファーム 1.2.2 を OTA ステージング。既存 2.2 系・はなれ・板橋は非破壊 |
+| 2026-09-22 | 豊島邸 手動 DO1/DO2/DO3 完全連動。GPIO HIGH 強制 · channels 推論 · ファーム 1.2.3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | 豊島邸 手動点灯を GPIO 明示キックに強化。ライト1=CH1 / ライト2=CH2 / 一括ON=CH1+CH2+CH3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |
 | 2026-09-21 | 板橋 Security の物件セレクタ空値とオフライン誤判定を修復。初期選択を SEC-JP-ITABASHI-LIVE / HOME-JP-ITABASHI-LIVE に固定し、5分以内HBでオンライン描画。DI/DO配列は変更なし |
