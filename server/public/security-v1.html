@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2559" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2559" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2561" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2561" />
 </head>
 <body class="sf-body sf-soc" data-hqs-skip="1">
   <header class="sf-soc-header">
@@ -135,10 +135,10 @@
           <p class="sf-hint" id="sf-schedule-window-hint">
             日またぎ（例 18:00〜06:00）対応
           </p>
-          <label class="sf-slider-field sf-slider-rich" for="sf-lighting-duration">
+          <label class="sf-slider-field sf-slider-rich sf-slider-sec" for="sf-lighting-duration">
             <span class="sf-slider-head">
               <span class="sf-slider-label">💡 点灯維持時間</span>
-              <strong class="sf-slider-val-pill"><span id="sf-lighting-duration-val">45</span>秒</strong>
+              <strong class="sf-slider-val-pill"><span id="sf-lighting-duration-val">45</span><span class="sf-unit">秒</span></strong>
             </span>
             <span class="sf-slider-row">
               <span class="sf-slider-cap" aria-hidden="true">
@@ -182,11 +182,11 @@
 
         <details class="sf-remote-details" open>
           <summary>駐車場センサー (DI1)</summary>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-sec">
             <label class="sf-remote-label" for="sf-di1-duration">
-              点灯時間 <strong id="sf-di1-duration-val">45</strong>秒
+              ⏱️ 点灯時間 <strong id="sf-di1-duration-val">45</strong><span class="sf-unit">秒</span>
             </label>
-            <input type="range" id="sf-di1-duration" class="sf-range" min="5" max="180" step="1" value="45" />
+            <input type="range" id="sf-di1-duration" class="sf-range sf-range-sec" min="5" max="180" step="1" value="45" />
           </div>
           <div class="sf-remote-block">
             <p class="sf-remote-label">外側100Vライト動作</p>
@@ -201,11 +201,11 @@
 
         <details class="sf-remote-details" open>
           <summary>段階侵入判定（DI1 ➔ DI2）</summary>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-sec">
             <label class="sf-remote-label" for="sf-perimeter-timeout">
-              接近判定制限時間 <strong id="sf-perimeter-timeout-val">120</strong>秒
+              ⏱️ 接近判定制限時間 <strong id="sf-perimeter-timeout-val">120</strong><span class="sf-unit">秒</span>
             </label>
-            <input type="range" id="sf-perimeter-timeout" class="sf-range" min="30" max="180" step="1" value="120" />
+            <input type="range" id="sf-perimeter-timeout" class="sf-range sf-range-sec" min="30" max="180" step="1" value="120" />
           </div>
           <div class="sf-remote-block">
             <p class="sf-remote-label">外側100Vライト動作</p>
@@ -223,21 +223,21 @@
               <button type="button" class="sf-seg-btn" data-value="off">OFF</button>
             </div>
           </div>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-sec">
             <label class="sf-remote-label" for="sf-di2-alert-duration">
-              威嚇発報時間 <strong id="sf-di2-alert-duration-val">45</strong>秒
+              ⏱️ 威嚇発報時間 <strong id="sf-di2-alert-duration-val">45</strong><span class="sf-unit">秒</span>
             </label>
-            <input type="range" id="sf-di2-alert-duration" class="sf-range" min="5" max="180" step="1" value="45" />
+            <input type="range" id="sf-di2-alert-duration" class="sf-range sf-range-sec" min="5" max="180" step="1" value="45" />
           </div>
         </details>
 
         <details class="sf-remote-details">
           <summary>ガレージセンサー (DI2: 単独)</summary>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-sec">
             <label class="sf-remote-label" for="sf-di2solo-duration">
-              点灯時間 <strong id="sf-di2solo-duration-val">45</strong>秒
+              ⏱️ 点灯時間 <strong id="sf-di2solo-duration-val">45</strong><span class="sf-unit">秒</span>
             </label>
-            <input type="range" id="sf-di2solo-duration" class="sf-range" min="5" max="180" step="1" value="45" />
+            <input type="range" id="sf-di2solo-duration" class="sf-range sf-range-sec" min="5" max="180" step="1" value="45" />
           </div>
           <div class="sf-remote-block">
             <p class="sf-remote-label">外側100Vライト動作</p>
@@ -259,29 +259,29 @@
 
         <details class="sf-remote-details" open>
           <summary>センサー感応度（デバウンス判定時間）</summary>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-ms">
             <label class="sf-remote-label" for="sf-di-confirm-ms">
-              共通デバウンス <strong id="sf-di-confirm-ms-val">100</strong>ms
+              ⚡ 共通デバウンス <strong id="sf-di-confirm-ms-val" class="sf-unit-ms">100</strong><span class="sf-unit-ms">ms</span>
             </label>
-            <input type="range" id="sf-di-confirm-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+            <input type="range" id="sf-di-confirm-ms" class="sf-range sf-range-ms" min="20" max="500" step="10" value="100" />
           </div>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-ms">
             <label class="sf-remote-label" for="sf-debounce-di1-ms">
-              外周・道路側 <strong id="sf-debounce-di1-ms-val">100</strong>ms
+              ⚡ 外周・道路側 <strong id="sf-debounce-di1-ms-val" class="sf-unit-ms">100</strong><span class="sf-unit-ms">ms</span>
             </label>
-            <input type="range" id="sf-debounce-di1-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+            <input type="range" id="sf-debounce-di1-ms" class="sf-range sf-range-ms" min="20" max="500" step="10" value="100" />
           </div>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-ms">
             <label class="sf-remote-label" for="sf-debounce-di2-ms">
-              通路・ガレージ側 <strong id="sf-debounce-di2-ms-val">100</strong>ms
+              ⚡ 通路・ガレージ側 <strong id="sf-debounce-di2-ms-val" class="sf-unit-ms">100</strong><span class="sf-unit-ms">ms</span>
             </label>
-            <input type="range" id="sf-debounce-di2-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+            <input type="range" id="sf-debounce-di2-ms" class="sf-range sf-range-ms" min="20" max="500" step="10" value="100" />
           </div>
-          <div class="sf-remote-block">
+          <div class="sf-remote-block sf-slider-ms">
             <label class="sf-remote-label" for="sf-debounce-beam-ms">
-              外周ビーム（母屋） <strong id="sf-debounce-beam-ms-val">100</strong>ms
+              ⚡ 外周ビーム（母屋） <strong id="sf-debounce-beam-ms-val" class="sf-unit-ms">100</strong><span class="sf-unit-ms">ms</span>
             </label>
-            <input type="range" id="sf-debounce-beam-ms" class="sf-range" min="20" max="500" step="10" value="100" />
+            <input type="range" id="sf-debounce-beam-ms" class="sf-range sf-range-ms" min="20" max="500" step="10" value="100" />
           </div>
           <p class="sf-remote-hint">20〜500ms（10ms刻み）· 変更は自動保存して実機へ同期</p>
         </details>
@@ -677,7 +677,7 @@
   <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2560"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2561"></script>
   <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2559"></script>
 </body>
 </html>

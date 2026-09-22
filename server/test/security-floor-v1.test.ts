@@ -920,6 +920,8 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaCss, /\.ts-dn-day\.is-now/);
     assert.match(toyoshimaCss, /\.ts-dn-night\.is-now/);
     assert.match(toyoshimaCss, /\.ts-slider-rich \.ts-slider-val/);
+    assert.match(toyoshimaCss, /\.ts-slider-sec/);
+    assert.match(toyoshimaCss, /\.ts-slider-ms/);
     assert.match(toyoshimaCss, /\.ts-slider-scale/);
     assert.match(toyoshimaCss, /\.ts-mode-segment-2/);
     assert.match(toyoshimaCss, /\.ts-mode-seg-off\.is-on/);
@@ -928,7 +930,11 @@ describe("security-floor-v1", () => {
     assert.match(floorCss, /\.sf-area-switch/);
     assert.match(floorCss, /\.sf-body\.sf-customer \.sf-area-switch/);
     assert.match(floorCss, /\.sf-slider-rich/);
+    assert.match(floorCss, /\.sf-slider-sec/);
+    assert.match(floorCss, /\.sf-slider-ms/);
     assert.match(html, /sf-slider-rich/);
+    assert.match(html, /sf-slider-sec/);
+    assert.match(html, /sf-slider-ms/);
     assert.match(html, /sf-op-daynight/);
     assert.match(html, /日中（通知のみ）/);
 

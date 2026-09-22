@@ -52,7 +52,7 @@ WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.11"
+FIRMWARE_LOGIC_VERSION = "1.2.12"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -818,10 +818,18 @@ def send_toyoshima_heartbeat(http_post, building, site_id=None, device_id=None):
         return False
 
 
+def _event_status_ok(status):
+    """200/202 を成功とみなす。"""
+    try:
+        return int(status) in (200, 202)
+    except Exception:
+        return False
+
+
 def send_toyoshima_event(http_post, building, di, message, site_id=None, device_id=None):
     """
     POST /api/home/v1/toyoshima/event
-    文字化けや通信例外でもメインを落とさない。
+    JSON・ソケット・メモリ例外でもメインを落とさない。
     """
     path = API_TOYOSHIMA_BASE + "/event"
     payload = {
@@ -831,19 +839,46 @@ def send_toyoshima_event(http_post, building, di, message, site_id=None, device_
         "tenantId": TENANT_ID,
         "siteId": site_id or SITE_ID,
         "source": "di_edge",
+        "immediate": True,
     }
     if device_id:
         payload["deviceId"] = device_id
-    try:
-        _body, status = http_post(path, payload)
-        if status == 200:
-            return True
-    except Exception as exc:
-        print("[豊島邸 security] event http err:", exc)
+
+    def _post_once(body):
+        try:
+            _resp, status = http_post(path, body)
+            return _event_status_ok(status)
+        except MemoryError as exc:
+            try:
+                import gc
+                gc.collect()
+            except Exception:
+                pass
+            print("[豊島邸 security] event mem err:", exc)
+            return False
+        except OSError as exc:
+            print("[豊島邸 security] event socket err:", exc)
+            return False
+        except Exception as exc:
+            print("[豊島邸 security] event http err:", exc)
+            return False
+
+    if _post_once(payload):
+        return True
     try:
         payload["message"] = "DI{} detect".format(di)
-        _body, status = http_post(path, payload)
-        return status == 200
+    except Exception:
+        payload["message"] = "DI detect"
+    if _post_once(payload):
+        return True
+    tiny = {
+        "building": building,
+        "di": di,
+        "source": "di_edge",
+        "tenantId": TENANT_ID,
+    }
+    try:
+        return _post_once(tiny)
     except Exception as exc:
         print("[豊島邸 security] event fallback err:", exc)
         return False

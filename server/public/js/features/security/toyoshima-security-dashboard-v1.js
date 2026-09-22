@@ -499,16 +499,16 @@ export function renderSecondsSliderField(opt) {
     .map((v) => Math.round(v))
     .map((v) => `<span>${v}秒</span>`)
     .join("");
-  return `<label class="ts-slider-field ts-slider-rich" for="${opt.id}">
+  return `<label class="ts-slider-field ts-slider-rich ts-slider-sec" for="${opt.id}">
     <span class="ts-slider-head">
-      <span class="ts-label"${labelId}>${opt.label}</span>
-      <span class="ts-slider-val" id="${opt.id}-val">${value}秒</span>
+      <span class="ts-label"${labelId}>⏱️ ${opt.label}</span>
+      <span class="ts-slider-val" id="${opt.id}-val">${value}<small class="ts-unit">秒</small></span>
     </span>
     <div class="ts-slider-row">
       <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_TIMER}<span class="ts-visually-hidden">⏱️</span><small>${
         opt.minCaption || "短め"
       }</small></span>
-      <input type="range" id="${opt.id}" min="${min}" max="${max}"
+      <input type="range" class="ts-range-sec" id="${opt.id}" min="${min}" max="${max}"
         step="${step}" value="${value}" />
       <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_BULB}<span class="ts-visually-hidden">💡</span><small>${
         opt.maxCaption || "長め"
@@ -520,18 +520,23 @@ export function renderSecondsSliderField(opt) {
 
 function renderMsSliderField(opt) {
   const value = Number(opt.value) || 100;
-  return `<label class="ts-slider-field ts-slider-rich" for="${opt.id}">
+  return `<label class="ts-slider-field ts-slider-rich ts-slider-ms" for="${opt.id}">
     <span class="ts-slider-head">
-      <span class="ts-label">${opt.label}</span>
-      <span class="ts-slider-val" id="${opt.id}-val">${value}ms</span>
+      <span class="ts-label">⚡ ${opt.label}</span>
+      <span class="ts-slider-val" id="${opt.id}-val">${value}<small class="ts-unit">ms</small></span>
     </span>
     <div class="ts-slider-row">
-      <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_TIMER}<span class="ts-visually-hidden">⏱️</span><small>速い</small></span>
-      <input type="range" id="${opt.id}" min="20" max="500" step="10" value="${value}" />
-      <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_TIMER}<span class="ts-visually-hidden">⏱️</span><small>遅い</small></span>
+      <span class="ts-slider-cap" aria-hidden="true">⚡<small>速い</small></span>
+      <input type="range" class="ts-range-ms" id="${opt.id}" min="20" max="500" step="10" value="${value}" />
+      <span class="ts-slider-cap" aria-hidden="true">🐢<small>遅い</small></span>
     </div>
     <span class="ts-slider-scale" aria-hidden="true"><span>20ms</span><span>180ms</span><span>340ms</span><span>500ms</span></span>
   </label>`;
+}
+
+function setSliderValHtml(id, value, unit) {
+  const el = $(id);
+  if (el) el.innerHTML = `${value}<small class="ts-unit">${unit}</small>`;
 }
 
 function syncScheduleState(dash) {
@@ -1958,14 +1963,12 @@ function patchToyoshimaDashboard(dash) {
       const lightSlider = $("ts-lighting-duration");
       if (lightSlider && !lightSlider.matches(":active")) {
         lightSlider.value = String(settingsState.lightingDurationSec);
-        const lv = $("ts-lighting-duration-val");
-        if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+        setSliderValHtml("ts-lighting-duration-val", settingsState.lightingDurationSec, "秒");
       }
       const flashSlider = $("ts-flash-duration");
       if (flashSlider && !flashSlider.matches(":active")) {
         flashSlider.value = String(settingsState.flashDurationSec ?? 15);
-        const fv = $("ts-flash-duration-val");
-        if (fv) fv.textContent = `${settingsState.flashDurationSec ?? 15}秒`;
+        setSliderValHtml("ts-flash-duration-val", settingsState.flashDurationSec ?? 15, "秒");
       }
       const notifyRoot = $("ts-customer-notify");
       if (notifyRoot && dash.notifySensors) {
@@ -2058,18 +2061,15 @@ function patchToyoshimaDashboard(dash) {
   const flashSlider = $("ts-flash-duration");
   if (lightSlider && !lightSlider.matches(":active")) {
     lightSlider.value = String(settingsState.lightingDurationSec);
-    const lv = $("ts-lighting-duration-val");
-    if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+    setSliderValHtml("ts-lighting-duration-val", settingsState.lightingDurationSec, "秒");
   }
   if (periSlider && !periSlider.matches(":active")) {
     periSlider.value = String(settingsState.perimeterTimeoutSec);
-    const pv = $("ts-perimeter-timeout-val");
-    if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+    setSliderValHtml("ts-perimeter-timeout-val", settingsState.perimeterTimeoutSec, "秒");
   }
   if (flashSlider && !flashSlider.matches(":active")) {
     flashSlider.value = String(settingsState.flashDurationSec ?? 15);
-    const fv = $("ts-flash-duration-val");
-    if (fv) fv.textContent = `${settingsState.flashDurationSec ?? 15}秒`;
+    setSliderValHtml("ts-flash-duration-val", settingsState.flashDurationSec ?? 15, "秒");
   }
 
   const modeCard = $("ts-mode-card");
@@ -2256,20 +2256,17 @@ function bindSettingsSliders() {
     const end = e.target.closest("#ts-daily-schedule-end");
     if (light) {
       settingsState.lightingDurationSec = Number(light.value) || 45;
-      const lv = $("ts-lighting-duration-val");
-      if (lv) lv.textContent = `${settingsState.lightingDurationSec}秒`;
+      setSliderValHtml("ts-lighting-duration-val", settingsState.lightingDurationSec, "秒");
       saveSettingsDebounced();
     }
     if (peri) {
       settingsState.perimeterTimeoutSec = Number(peri.value) || 120;
-      const pv = $("ts-perimeter-timeout-val");
-      if (pv) pv.textContent = `${settingsState.perimeterTimeoutSec}秒`;
+      setSliderValHtml("ts-perimeter-timeout-val", settingsState.perimeterTimeoutSec, "秒");
       saveSettingsDebounced();
     }
     if (flashDur) {
       settingsState.flashDurationSec = Number(flashDur.value) || 15;
-      const fv = $("ts-flash-duration-val");
-      if (fv) fv.textContent = `${settingsState.flashDurationSec}秒`;
+      setSliderValHtml("ts-flash-duration-val", settingsState.flashDurationSec, "秒");
       saveSettingsDebounced();
     }
     const deb1 = e.target.closest("#ts-debounce-di1");
@@ -2277,20 +2274,17 @@ function bindSettingsSliders() {
     const debB = e.target.closest("#ts-debounce-beam");
     if (deb1) {
       settingsState.debounceDi1Ms = Number(deb1.value) || 100;
-      const v = $("ts-debounce-di1-val");
-      if (v) v.textContent = `${settingsState.debounceDi1Ms}ms`;
+      setSliderValHtml("ts-debounce-di1-val", settingsState.debounceDi1Ms, "ms");
       saveSettingsDebounced();
     }
     if (deb2) {
       settingsState.debounceDi2Ms = Number(deb2.value) || 100;
-      const v = $("ts-debounce-di2-val");
-      if (v) v.textContent = `${settingsState.debounceDi2Ms}ms`;
+      setSliderValHtml("ts-debounce-di2-val", settingsState.debounceDi2Ms, "ms");
       saveSettingsDebounced();
     }
     if (debB) {
       settingsState.debounceBeamMs = Number(debB.value) || 100;
-      const v = $("ts-debounce-beam-val");
-      if (v) v.textContent = `${settingsState.debounceBeamMs}ms`;
+      setSliderValHtml("ts-debounce-beam-val", settingsState.debounceBeamMs, "ms");
       saveSettingsDebounced();
     }
     if (start) {

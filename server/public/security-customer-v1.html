@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2559" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2559" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2561" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2561" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -173,10 +173,10 @@
       <div class="sf-daily-body">
         <section class="sf-daily-block" id="sf-customer-light-card">
           <p class="sf-card-label">① ライト点灯時間</p>
-          <label class="sf-slider-field sf-slider-rich" for="sf-customer-lighting-duration">
+          <label class="sf-slider-field sf-slider-rich sf-slider-sec" for="sf-customer-lighting-duration">
             <span class="sf-slider-head">
-              <span class="sf-slider-label">💡 センサー検知後の点灯時間</span>
-              <strong id="sf-customer-lighting-duration-val">45秒</strong>
+              <span class="sf-slider-label">⏱️ センサー検知後の点灯時間</span>
+              <strong id="sf-customer-lighting-duration-val">45<span class="sf-unit">秒</span></strong>
             </span>
             <div class="sf-slider-row">
               <span class="sf-slider-cap" aria-hidden="true">
@@ -187,6 +187,7 @@
               <input
                 type="range"
                 id="sf-customer-lighting-duration"
+                class="sf-range-sec"
                 min="5"
                 max="180"
                 step="1"
@@ -334,7 +335,7 @@
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2560"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2559"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2561"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2561"></script>
 </body>
 </html>

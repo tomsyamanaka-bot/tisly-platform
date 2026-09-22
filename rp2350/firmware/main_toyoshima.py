@@ -596,20 +596,155 @@ def _http_headers(content_type=None):
     return headers
 
 
+# /event は WDT 8秒より短いタイムアウトで切る
+EVENT_HTTP_TIMEOUT_SEC = 2.5
+
+
+def _split_api_base(url):
+    """https://host[:port] を分解する。"""
+    raw = str(url or "").strip()
+    use_ssl = raw.startswith("https://")
+    rest = raw.split("://", 1)[-1] if "://" in raw else raw
+    hostport = rest.split("/", 1)[0]
+    if ":" in hostport:
+        host, port_s = hostport.rsplit(":", 1)
+        try:
+            port = int(port_s)
+        except Exception:
+            port = 443 if use_ssl else 80
+    else:
+        host = hostport
+        port = 443 if use_ssl else 80
+    return host, port, use_ssl
+
+
+def _read_http_status(header_bytes):
+    """HTTP/1.x 200 のステータスだけ読む。"""
+    try:
+        line = header_bytes.split(b"\r\n", 1)[0]
+        parts = line.split()
+        if len(parts) >= 2:
+            return int(parts[1])
+    except Exception:
+        return 0
+    return 0
+
+
+def http_post_timed(path, payload, timeout_sec=EVENT_HTTP_TIMEOUT_SEC):
+    """生ソケット POST。タイムアウトで必ず戻る。"""
+    try:
+        kick_watchdog(_wdt)
+    except Exception:
+        pass
+    try:
+        body = _json_dumps_safe(payload)
+    except MemoryError as exc:
+        log_error("event JSON mem: {}".format(exc))
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+        return None, 0
+    except Exception as exc:
+        log_error("event JSON: {}".format(exc))
+        return None, 0
+    if isinstance(body, str):
+        try:
+            body = body.encode()
+        except Exception as exc:
+            log_error("event encode: {}".format(exc))
+            return None, 0
+    try:
+        import socket
+    except Exception as exc:
+        log_error("event socket import: {}".format(exc))
+        return None, 0
+    host, port, use_ssl = _split_api_base(
+        getattr(config, "API_BASE", "https://tisly.jp")
+    )
+    token = getattr(config, "REMOTE_TEST_TOKEN", "")
+    sock = None
+    try:
+        infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+        addr = infos[0][-1]
+        sock = socket.socket()
+        sock.settimeout(timeout_sec)
+        sock.connect(addr)
+        if use_ssl:
+            try:
+                import ssl
+                try:
+                    sock = ssl.wrap_socket(sock, server_hostname=host)
+                except TypeError:
+                    sock = ssl.wrap_socket(sock)
+            except Exception as ssl_exc:
+                log_error("event ssl: {}".format(ssl_exc))
+                raise
+            try:
+                sock.settimeout(timeout_sec)
+            except Exception:
+                pass
+        header = (
+            "POST {} HTTP/1.0\r\n"
+            "Host: {}\r\n"
+            "Content-Type: application/json\r\n"
+            "Content-Length: {}\r\n"
+            "X-Remote-Test-Token: {}\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+        ).format(path, host, len(body), token)
+        sock.send(header.encode() + body)
+        raw = sock.recv(160)
+        status = _read_http_status(raw)
+        log("event HTTP {}".format(status))
+        return raw, status
+    except OSError as exc:
+        log_error("event socket: {}".format(exc))
+        return None, 0
+    except MemoryError as exc:
+        log_error("event mem: {}".format(exc))
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+        return None, 0
+    except Exception as exc:
+        log_error("event http: {}".format(exc))
+        return None, 0
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
+        try:
+            kick_watchdog(_wdt)
+        except Exception:
+            pass
+
+
 def http_get(path):
     if urequests is None:
         log_error("urequests 未インストール")
         return None, 0
     url = config.API_BASE.rstrip("/") + path
+    res = None
     try:
         res = urequests.get(url, headers=_http_headers())
         status = res.status_code
         body = res.text
-        res.close()
         return body, status
     except Exception as e:
         log_error("HTTP: {}".format(e))
         return None, 0
+    finally:
+        if res:
+            try:
+                res.close()
+            except Exception:
+                pass
 
 
 def _json_dumps_safe(payload):
@@ -634,24 +769,52 @@ def _json_dumps_safe(payload):
 
 
 def http_post(path, payload):
+    """/event は生ソケット。他は urequests。例外は握る。"""
+    if str(path).find("/event") >= 0:
+        return http_post_timed(path, payload)
     if urequests is None:
         log_error("urequests 未インストール")
         return None, 0
     url = config.API_BASE.rstrip("/") + path
+    res = None
     try:
         body = _json_dumps_safe(payload)
-        res = urequests.post(
-            url,
-            headers=_http_headers("application/json"),
-            data=body,
-        )
+        try:
+            res = urequests.post(
+                url,
+                headers=_http_headers("application/json"),
+                data=body,
+                timeout=4,
+            )
+        except TypeError:
+            res = urequests.post(
+                url,
+                headers=_http_headers("application/json"),
+                data=body,
+            )
         status = res.status_code
         text = res.text
-        res.close()
         return text, status
+    except MemoryError as e:
+        log_error("HTTP POST mem: {}".format(e))
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+        return None, 0
+    except OSError as e:
+        log_error("HTTP POST socket: {}".format(e))
+        return None, 0
     except Exception as e:
         log_error("HTTP POST: {}".format(e))
         return None, 0
+    finally:
+        if res:
+            try:
+                res.close()
+            except Exception:
+                pass
 
 
 def set_ch_output(channel, on):

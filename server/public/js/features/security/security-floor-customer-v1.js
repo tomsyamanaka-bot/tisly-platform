@@ -590,7 +590,8 @@ function bindCustomerLightSlider() {
   slider.dataset.bound = "1";
   slider.addEventListener("input", () => {
     const sec = Number(slider.value) || 45;
-    setText("sf-customer-lighting-duration-val", `${sec}秒`);
+    const val = $("sf-customer-lighting-duration-val");
+    if (val) val.innerHTML = `${sec}<span class="sf-unit">秒</span>`;
     clearTimeout(customerLightSaveTimer);
     customerLightSaveTimer = setTimeout(() => {
       saveCustomerLightDuration(sec).catch(() => {});
@@ -642,7 +643,8 @@ async function loadCustomerLightDuration() {
     const sec = data.rules?.lightingDurationSec ?? 45;
     const slider = $("sf-customer-lighting-duration");
     if (slider) slider.value = String(sec);
-    setText("sf-customer-lighting-duration-val", `${sec}秒`);
+    const lightVal = $("sf-customer-lighting-duration-val");
+    if (lightVal) lightVal.innerHTML = `${sec}<span class="sf-unit">秒</span>`;
     const start = $("sf-customer-schedule-start");
     const end = $("sf-customer-schedule-end");
     if (start && data.rules?.scheduleStart) {

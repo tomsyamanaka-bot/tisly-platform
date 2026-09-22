@@ -284,8 +284,8 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_11():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.11"
+def test_firmware_logic_version_is_1_2_12():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.12"
 
 
 def test_board_ch_gpio_matches_waveshare_ro1_ro8():
@@ -461,6 +461,23 @@ def test_send_toyoshima_event_survives_encode_error():
     assert posts[1]["message"] == "DI1 detect"
 
 
+def test_send_toyoshima_event_survives_socket_and_memory():
+    """ソケット・メモリ例外でもメインを落とさない。"""
+    posts = []
+
+    def http_post(path, payload):
+        posts.append(payload.get("source"))
+        if len(posts) == 1:
+            raise OSError("ETIMEDOUT")
+        if len(posts) == 2:
+            raise MemoryError("oom")
+        return "{}", 200
+
+    ok = ts.send_toyoshima_event(http_post, "main", 2, "🚨 建物至近で侵入検知！")
+    assert ok is True
+    assert len(posts) == 3
+
+
 def test_event_not_resent_until_physical_off():
     """送信成功後は物理OFFまで同じイベントを再送しない。"""
     events = []
@@ -540,8 +557,9 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_11()
+    test_firmware_logic_version_is_1_2_12()
     test_send_toyoshima_event_posts_event_not_heartbeat()
+    test_send_toyoshima_event_survives_socket_and_memory()
     test_di_edge_kicks_relay_before_event()
     test_event_not_resent_until_physical_off()
     test_notify_sends_even_when_create_task_is_used()

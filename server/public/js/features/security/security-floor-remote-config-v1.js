@@ -274,7 +274,7 @@ function applyDebounceLabelsV1() {
     const label = document.querySelector(`label[for="${id}"]`);
     const strong = $(`${id}-val`);
     if (!label || !strong) continue;
-    label.innerHTML = `${prefix} <strong id="${id}-val">${strong.textContent || "100"}</strong>ms`;
+    label.innerHTML = `⚡ ${prefix} <strong id="${id}-val" class="sf-unit-ms">${strong.textContent || "100"}</strong><span class="sf-unit-ms">ms</span>`;
   }
 }
 

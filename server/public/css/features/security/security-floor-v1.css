@@ -3168,6 +3168,66 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 秒＝暖色、ms感度＝寒色 */
+.sf-slider-sec,
+.sf-range-sec {
+  accent-color: #ea580c;
+}
+
+.sf-slider-sec {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.sf-slider-sec .sf-slider-val-pill,
+.sf-slider-sec .sf-slider-head strong,
+.sf-remote-block.sf-slider-sec strong {
+  background: #ffedd5;
+  border: 1px solid #fb923c;
+  color: #c2410c;
+  font-size: 1.32rem;
+  font-weight: 900;
+}
+
+.sf-slider-sec .sf-unit,
+.sf-remote-block.sf-slider-sec .sf-unit {
+  margin-left: 2px;
+  font-size: 0.72em;
+  font-weight: 900;
+  color: #ea580c;
+}
+
+.sf-slider-sec .sf-slider-cap,
+.sf-slider-sec .sf-slider-cap svg {
+  color: #ea580c;
+}
+
+.sf-slider-ms,
+.sf-range-ms {
+  accent-color: #0f766e;
+}
+
+.sf-remote-block.sf-slider-ms label strong,
+.sf-slider-ms .sf-unit-ms {
+  color: #0f766e;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.sf-remote-block.sf-slider-ms {
+  padding: 10px 12px;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  background: #f0fdfa;
+}
+
+.sf-remote-block.sf-slider-sec {
+  padding: 10px 12px;
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+
 .sf-btn-wide {
   width: 100%;
   border: 1px solid #1e3a8a;

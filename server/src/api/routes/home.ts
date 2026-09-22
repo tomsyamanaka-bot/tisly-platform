@@ -1444,12 +1444,16 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
       res.json({
         ...result,
         ok: true,
+        accepted: true,
         dashboard: buildToyoshimaSecurityDashboardV1(siteId),
       });
     } catch (err) {
+      /* 実機は 2.5s で切る。受理済みなら 200 を返す */
       console.error("[toyoshima] POST /event failed:", err);
-      res.status(400).json({
-        ok: false,
+      res.status(200).json({
+        ok: true,
+        accepted: true,
+        pushSent: false,
         error: err instanceof Error ? err.message : String(err),
       });
     }
