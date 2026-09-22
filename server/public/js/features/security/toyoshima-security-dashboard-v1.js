@@ -28,6 +28,10 @@ import {
 } from "./security-history-modal-v1.js";
 
 import { getTislySessionHeadersV1 } from "../../customer-auth.js";
+import {
+  socFloorIconSvg,
+  socFloorCaption,
+} from "./security-floor-map-v1.js";
 
 const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
 const TOYOSHIMA_HOME_ID = "HOME-JP-TOYOSHIMA";
@@ -383,6 +387,44 @@ export function isWithinLightScheduleV1(
   return nowMin >= start || nowMin < end;
 }
 
+/* 設定 UI 用の小さな SVG。色は currentColor */
+const TS_ICON_SUN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`;
+const TS_ICON_MOON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 13.5A7 7 0 0 1 10 5a6.5 6.5 0 1 0 6.5 8.5Z"/></svg>`;
+const TS_ICON_TIMER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 3h6"/></svg>`;
+const TS_ICON_BULB = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M8 14a6 6 0 1 1 8 0c-1 1.2-1.5 2-1.7 4H9.7C9.5 16 9 15.2 8 14Z"/></svg>`;
+
+/**
+ * 1F / 外周の見るエリア切替。
+ * 3D枠の外に出したボタンの装飾のみ。
+ */
+export function renderAreaSwitchCard(activeId) {
+  const focus = activeId === "outdoor" ? "outdoor" : "1f";
+  const items = [
+    { id: "1f", label: "1F" },
+    { id: "outdoor", label: "外周" },
+  ];
+  const buttons = items
+    .map((it) => {
+      const on = it.id === focus ? " is-on" : "";
+      const cap = socFloorCaption(it.id);
+      return `<button type="button" class="sf-tab sf-tab--iconed${on}"
+        data-floor="${it.id}" data-ts-area="${it.id}">
+        <span class="sf-tab-ico" aria-hidden="true">${socFloorIconSvg(
+          it.id
+        )}</span>
+        <span class="sf-tab-copy">
+          <span class="sf-tab-txt">${it.label}</span>
+          <span class="sf-tab-sub">${cap}</span>
+        </span>
+      </button>`;
+    })
+    .join("");
+  return `<section class="sf-area-switch ts-area-switch" id="ts-area-switch" aria-label="見るエリア">
+    <p class="sf-area-switch-label">見るエリア</p>
+    <div class="sf-tabs sf-area-tabs" id="ts-floor-tabs">${buttons}</div>
+  </section>`;
+}
+
 /**
  * 昼夜の動作差を 2 枚のタイルで見せる。
  * いまどちら側で動いているかを反転表示する。
@@ -414,16 +456,16 @@ export function renderDayNightRuleCard(dash) {
     <div class="ts-dn-tile ts-dn-day${dayNow ? " is-now" : ""}${
       disarmed ? " is-muted" : ""
     }">
-      <span class="ts-dn-ico" aria-hidden="true">☀️</span>
-      <span class="ts-dn-head">日中</span>
+      <span class="ts-dn-ico" aria-hidden="true">${TS_ICON_SUN}<span class="ts-dn-emoji">☀️</span></span>
+      <span class="ts-dn-head">日中（通知のみ）</span>
       <span class="ts-dn-desc">${dayDesc}</span>
       ${dayNow ? nowBadge : ""}
     </div>
     <div class="ts-dn-tile ts-dn-night${nightNow ? " is-now" : ""}${
       disarmed ? " is-muted" : ""
     }">
-      <span class="ts-dn-ico" aria-hidden="true">🌙</span>
-      <span class="ts-dn-head">夜間</span>
+      <span class="ts-dn-ico" aria-hidden="true">${TS_ICON_MOON}<span class="ts-dn-emoji">🌙</span></span>
+      <span class="ts-dn-head">夜間（ライト点灯＋通知）</span>
       <span class="ts-dn-desc">${nightDesc}</span>
       ${nightNow ? nowBadge : ""}
     </div>
@@ -452,12 +494,12 @@ export function renderSecondsSliderField(opt) {
       <span class="ts-slider-val" id="${opt.id}-val">${value}秒</span>
     </span>
     <div class="ts-slider-row">
-      <span class="ts-slider-cap" aria-hidden="true">⏱️<small>${
+      <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_TIMER}<span class="ts-visually-hidden">⏱️</span><small>${
         opt.minCaption || "短め"
       }</small></span>
       <input type="range" id="${opt.id}" min="${min}" max="${max}"
         step="${step}" value="${value}" />
-      <span class="ts-slider-cap" aria-hidden="true">💡<small>${
+      <span class="ts-slider-cap" aria-hidden="true">${TS_ICON_BULB}<span class="ts-visually-hidden">💡</span><small>${
         opt.maxCaption || "長め"
       }</small></span>
     </div>
@@ -2297,6 +2339,7 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     <div class="ts-tab-panes ts-customer-dash" id="ts-tab-panes" data-ts-active-pane="map">
       <div class="ts-tab-pane is-on" data-ts-pane="map">
         ${renderCustomerStatusBanner(dash)}
+        ${renderAreaSwitchCard(window.__TISLY_SF_FLOOR || "1f")}
         ${renderCustomerModeCards(dash)}
         ${renderCustomerDailySettings(dash)}
         ${renderCustomerCameraCard()}
@@ -2624,6 +2667,25 @@ function bindToyoshimaControls() {
   });
 
   root.addEventListener("click", async (e) => {
+    const areaBtn = e.target.closest("[data-ts-area]");
+    if (areaBtn) {
+      e.preventDefault();
+      const next = areaBtn.getAttribute("data-ts-area") || "1f";
+      window.__TISLY_SF_FLOOR = next;
+      root.querySelectorAll("[data-ts-area]").forEach((btn) => {
+        btn.classList.toggle(
+          "is-on",
+          btn.getAttribute("data-ts-area") === next
+        );
+      });
+      try {
+        window.TislySecurityIso3d?.setFloor?.(next);
+      } catch {
+        /* 3D が無い画面でもボタンは動かす */
+      }
+      return;
+    }
+
     const modeBtn = e.target.closest("[data-ts-customer-mode]");
     if (modeBtn) {
       e.preventDefault();

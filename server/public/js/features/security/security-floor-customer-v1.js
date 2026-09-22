@@ -610,8 +610,26 @@ function bindCustomerSchedule() {
       saveCustomerSchedule(start.value, end?.value).catch(() => {});
     }, 600);
   };
-  start.addEventListener("change", save);
-  end?.addEventListener("change", save);
+  const paint = () => {
+    try {
+      window.TislySecurityTimeRangeV1?.paintDayNightTiles?.(
+        "sf-customer-daynight",
+        "sf-customer-schedule-start",
+        "sf-customer-schedule-end"
+      );
+    } catch {
+      /* 装飾のみ */
+    }
+  };
+  start.addEventListener("change", () => {
+    paint();
+    save();
+  });
+  end?.addEventListener("change", () => {
+    paint();
+    save();
+  });
+  paint();
 }
 
 async function loadCustomerLightDuration() {
@@ -632,6 +650,15 @@ async function loadCustomerLightDuration() {
     }
     if (end && data.rules?.scheduleEnd) {
       end.value = String(data.rules.scheduleEnd).slice(0, 5);
+    }
+    try {
+      window.TislySecurityTimeRangeV1?.paintDayNightTiles?.(
+        "sf-customer-daynight",
+        "sf-customer-schedule-start",
+        "sf-customer-schedule-end"
+      );
+    } catch {
+      /* 装飾のみ */
     }
   } catch {
     /* 未取得でもスライダーは操作可能 */

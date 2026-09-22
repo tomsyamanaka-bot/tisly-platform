@@ -645,7 +645,11 @@ describe("security-floor-v1", () => {
       customerHtml.indexOf('id="sf-customer-daily-settings"') <
         customerHtml.indexOf('class="sf-soc-mid"')
     );
-    assert.match(customerHtml, /自動点灯スケジュール/);
+    assert.match(customerHtml, /昼夜のスマート点灯制御/);
+    assert.match(customerHtml, /日中（通知のみ）/);
+    assert.match(customerHtml, /夜間（ライト点灯＋通知）/);
+    assert.match(customerHtml, /id="sf-floor-tabs"/);
+    assert.match(customerHtml, /sf-tab--iconed/);
     assert.match(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=\d+/);
@@ -791,9 +795,14 @@ describe("security-floor-v1", () => {
     assert.match(floorMapJs, /socFloorIconSvg/);
     assert.match(floorMapJs, /sf-tab sf-tab--iconed/);
     assert.match(floorMapJs, /sf-tab-ico/);
+    assert.match(floorMapJs, /socFloorCaption/);
+    assert.match(floorMapJs, /sf-tab-sub/);
     assert.match(toyoshimaJs, /renderDayNightRuleCard/);
+    assert.match(toyoshimaJs, /renderAreaSwitchCard/);
     assert.match(toyoshimaJs, /☀️/);
     assert.match(toyoshimaJs, /🌙/);
+    assert.match(toyoshimaJs, /日中（通知のみ）/);
+    assert.match(toyoshimaJs, /夜間（ライト点灯＋通知）/);
     assert.match(toyoshimaJs, /ts-dn-tile ts-dn-day/);
     assert.match(toyoshimaJs, /ts-dn-tile ts-dn-night/);
     assert.match(toyoshimaJs, /isWithinLightScheduleV1/);
@@ -896,7 +905,11 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaCss, /\.ts-slider-scale/);
     assert.match(floorCss, /\.sf-tab--iconed/);
     assert.match(floorCss, /\.sf-tab-ico svg/);
+    assert.match(floorCss, /\.sf-area-switch/);
     assert.match(floorCss, /\.sf-slider-rich/);
+    assert.match(html, /sf-slider-rich/);
+    assert.match(html, /sf-op-daynight/);
+    assert.match(html, /日中（通知のみ）/);
 
     const customerJs = fs.readFileSync(
       path.join(

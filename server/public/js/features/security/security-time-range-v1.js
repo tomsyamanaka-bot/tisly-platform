@@ -60,8 +60,28 @@
     );
   }
 
+  /** 昼夜タイルの「いま」札を現在時刻で塗る */
+  function paintDayNightTiles(rootId, startId, endId) {
+    var root = document.getElementById(rootId);
+    if (!root) return;
+    var startEl = document.getElementById(startId);
+    var endEl = document.getElementById(endId);
+    var start = startEl && startEl.value ? startEl.value : "18:00";
+    var end = endEl && endEl.value ? endEl.value : "06:00";
+    var night = isWithinTimeRange(start, end);
+    var dayTile = root.querySelector(".ts-dn-day");
+    var nightTile = root.querySelector(".ts-dn-night");
+    if (dayTile) {
+      dayTile.classList.toggle("is-now", !night);
+    }
+    if (nightTile) {
+      nightTile.classList.toggle("is-now", night);
+    }
+  }
+
   global.TislySecurityTimeRangeV1 = {
     getJstMinutesOfDay: getJstMinutesOfDay,
     isWithinTimeRange: isWithinTimeRange,
+    paintDayNightTiles: paintDayNightTiles,
   };
 })(typeof window !== "undefined" ? window : globalThis);

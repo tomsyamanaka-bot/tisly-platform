@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2556-security-ui-icons` |
+| SW | `tisly-pwa-v2557-security-ui-visual` |
 
 ---
 
@@ -1984,6 +1984,18 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### Security 設定 UI の視覚化強化（SVG・昼夜カード・スライダー / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `/customer/security` · `/app` Security。既存ロジック・保存 ID は変更なし |
+| 1. フロア切替 | 3D枠の外に「見るエリア」カードを追加。`1F`（家 SVG・屋内）と `外周`（樹木 SVG・敷地・外構）。選択中は紺塗り＋白アイコン |
+| 2. 昼夜カード | `☀️ 日中（通知のみ）` / `🌙 夜間（ライト点灯＋通知）` を SVG＋見出しで対比。JST 現在時刻で「いま」札を塗る（`paintDayNightTiles`） |
+| 3. 点灯スライダー | 左右に ⏱️短め / 長め💡 の SVG、現在秒数を紺ピルで大きく表示、4点目盛り |
+| 既存保護 | `sf-lighting-duration` 等の input id・保存処理は据え置き。配列・ルールは削除せず追記のみ |
+| SW | `tisly-pwa-v2557-security-ui-visual` |
+| 確認 | `/customer/security` · `/app` · https://tisly.jp/api/health |
 
 ### Security 設定 UI の視覚化（アイコン・昼夜タイル・秒数スライダー / 2026-09-22）
 

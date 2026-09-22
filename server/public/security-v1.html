@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2556" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2556" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2557" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2557" />
 </head>
 <body class="sf-body sf-soc" data-hqs-skip="1">
   <header class="sf-soc-header">
@@ -92,6 +92,24 @@
 
         <div class="sf-remote-block sf-remote-block--highlight">
           <p class="sf-remote-label">💡 防犯ライト点灯時間帯</p>
+          <div class="ts-daynight" id="sf-op-daynight">
+            <div class="ts-dn-tile ts-dn-day">
+              <span class="ts-dn-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+                <span class="ts-dn-emoji">☀️</span>
+              </span>
+              <span class="ts-dn-head">日中（通知のみ）</span>
+              <span class="ts-dn-desc">通知のみ・ライトは消灯のまま</span>
+            </div>
+            <div class="ts-dn-tile ts-dn-night">
+              <span class="ts-dn-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 13.5A7 7 0 0 1 10 5a6.5 6.5 0 1 0 6.5 8.5Z"/></svg>
+                <span class="ts-dn-emoji">🌙</span>
+              </span>
+              <span class="ts-dn-head">夜間（ライト点灯＋通知）</span>
+              <span class="ts-dn-desc">防犯ライト点灯＋通知</span>
+            </div>
+          </div>
           <div class="sf-schedule-panel sf-light-schedule-panel" id="sf-light-schedule-panel">
             <label class="sf-schedule-field" for="sf-schedule-start">
               <span>開始時刻</span>
@@ -117,19 +135,35 @@
           <p class="sf-hint" id="sf-schedule-window-hint">
             日またぎ（例 18:00〜06:00）対応
           </p>
-          <label class="sf-remote-label" for="sf-lighting-duration">
-            点灯維持時間 <strong id="sf-lighting-duration-val">45</strong>秒
+          <label class="sf-slider-field sf-slider-rich" for="sf-lighting-duration">
+            <span class="sf-slider-head">
+              <span class="sf-slider-label">💡 点灯維持時間</span>
+              <strong class="sf-slider-val-pill"><span id="sf-lighting-duration-val">45</span>秒</strong>
+            </span>
+            <span class="sf-slider-row">
+              <span class="sf-slider-cap" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 3h6"/></svg>
+                <small>短め</small>
+              </span>
+              <input
+                type="range"
+                id="sf-lighting-duration"
+                class="sf-range"
+                min="5"
+                max="180"
+                step="1"
+                value="45"
+                aria-label="防犯ライト点灯維持時間"
+              />
+              <span class="sf-slider-cap" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M8 14a6 6 0 1 1 8 0c-1 1.2-1.5 2-1.7 4H9.7C9.5 16 9 15.2 8 14Z"/></svg>
+                <small>長め</small>
+              </span>
+            </span>
+            <span class="sf-slider-scale" aria-hidden="true">
+              <span>5秒</span><span>63秒</span><span>122秒</span><span>180秒</span>
+            </span>
           </label>
-          <input
-            type="range"
-            id="sf-lighting-duration"
-            class="sf-range"
-            min="5"
-            max="180"
-            step="1"
-            value="45"
-            aria-label="防犯ライト点灯維持時間"
-          />
           <p class="sf-remote-hint">
             通知は24時間常時 · ライトは上記時間帯のみ点灯 · 変更は自動保存
           </p>
@@ -635,15 +669,15 @@
 
   <div id="ts-dashboard-root" hidden aria-label="豊島邸 Security ダッシュボード"></div>
 
-  <script src="/js/features/security/security-floor-light-v1.js?v=2556"></script>
-  <script src="/js/features/security/security-time-range-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2556"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2556"></script>
+  <script src="/js/features/security/security-floor-light-v1.js?v=2557"></script>
+  <script src="/js/features/security/security-time-range-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2557"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2557"></script>
 </body>
 </html>

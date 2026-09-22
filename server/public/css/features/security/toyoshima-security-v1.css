@@ -731,12 +731,18 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   flex: 0 0 auto;
-  min-width: 34px;
+  min-width: 40px;
   color: #64748b;
   font-size: 1rem;
   line-height: 1;
+}
+
+.ts-slider-cap svg {
+  width: 20px;
+  height: 20px;
+  color: #1e3a8a;
 }
 
 .ts-slider-cap small {
@@ -777,8 +783,34 @@
 }
 
 .ts-dn-ico {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 1.5rem;
   line-height: 1;
+}
+
+.ts-dn-ico svg {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+
+.ts-dn-emoji,
+.ts-slider-cap .ts-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.ts-dn-ico,
+.ts-slider-cap {
+  position: relative;
 }
 
 .ts-dn-head {

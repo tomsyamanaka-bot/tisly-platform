@@ -340,6 +340,15 @@ function writeScheduleTimes(start, end) {
   if (startEl) startEl.value = s;
   if (endEl) endEl.value = e;
   syncScheduleWindowHint(s, e);
+  try {
+    window.TislySecurityTimeRangeV1?.paintDayNightTiles?.(
+      "sf-op-daynight",
+      "sf-schedule-start",
+      "sf-schedule-end"
+    );
+  } catch {
+    /* 装飾のみ */
+  }
 }
 
 /** 日またぎ判定の現在ステータスを表示 */

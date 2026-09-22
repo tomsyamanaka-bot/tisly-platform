@@ -77,11 +77,26 @@ export function socFloorIconSvg(id) {
   return SOC_FLOOR_ICON_SVG[key] || SOC_FLOOR_ICON_SVG.all;
 }
 
-/** アイコン＋文字のボタン中身（装飾のみ） */
+/** ボタン下段の短い補足（装飾のみ） */
+export function socFloorCaption(id) {
+  const key = String(id || "").toLowerCase();
+  if (key === "outdoor") return "敷地・外構";
+  if (key === "1f") return "屋内";
+  if (key === "2f") return "上層";
+  if (key === "all") return "全体";
+  return "";
+}
+
+/** アイコン＋見出し＋補足のボタン中身 */
 function floorTabInnerHtml(id, label) {
+  const cap = socFloorCaption(id);
   return `<span class="sf-tab-ico" aria-hidden="true">${socFloorIconSvg(
     id
-  )}</span><span class="sf-tab-txt">${escapeHtml(label)}</span>`;
+  )}</span><span class="sf-tab-copy"><span class="sf-tab-txt">${escapeHtml(
+    label
+  )}</span>${
+    cap ? `<span class="sf-tab-sub">${escapeHtml(cap)}</span>` : ""
+  }</span>`;
 }
 
 export function renderFloorTabs(floors, activeId) {
