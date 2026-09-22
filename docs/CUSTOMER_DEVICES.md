@@ -189,7 +189,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.7` · `OTA_VERSION=1.2.7` |
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.8` · `OTA_VERSION=1.2.8`（2.2.9 で 1.2.7 から更新） |
 | 症状 | 起動直後クラッシュ → RGB 赤固定（通信途絶）で遠隔復旧不能 |
 | 対策1 | `config.py` 読込失敗 → `_FallbackConfig` で LAN/OTA だけ継続 |
 | 対策2 | `toyoshima_security` 読込失敗 → セーフモード（HB と OTA のみ） |
@@ -201,6 +201,23 @@
 | RGB | セーフモードは **橙点滅**（赤固定と区別） |
 | WDT | セーフモード中も 1 秒ごとに feed |
 | 検証 | `rp2350/test/test_toyoshima_firmware_boot.py`（machine スタブで import 検証） |
+
+### 2.2.9 USB 直接書き込み（蘇生手順・2026-09-22 追記）
+
+既存 2.2 / 2.2.1〜2.2.8 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|-----|
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.8` · `OTA_VERSION=1.2.8` |
+| 症状 | 実機が旧版（`main.py` 18,844B / `fw=1.1.0`）のまま。`lib/tisly_ota.py`・`lib/tisly_rgb.py` が未配置で **OTA が届かない** |
+| 転送ツール | `mpremote`（`python -m mpremote`）· ポートは `COM6`（VID 2E8A / Waveshare RP2350-eth-8di-8ro） |
+| バックアップ | 書き込み前に実機全ファイルを `rp2350/backup/toyoshima-YYYYMMDD/` へ退避 |
+| 転送対象 | `main_toyoshima.py`→`main.py` · `toyoshima_security.py` · `config_toyoshima.py`→`config.py` · `boot.py` · `tisly_self_test.py` · `lib/tisly_ota.py` · `lib/tisly_rgb.py` |
+| config 差分 | 現場値（TENANT/SITE/DEVICE/TOKEN/STATIC_IP）は同一。追加は `RO_ACTIVE_LOW` `CH_INVERT` `OTA_*` のみ → USB では上書き可 |
+| 残置 | `toshima_security.py`（旧綴り）· `config.json` · `shippable.json` · `*_backup.py` は削除しない |
+| 版申告 | `ota_state.json` 未作成時は `config.OTA_VERSION` を申告（`load_ota_state` は空辞書を返す） |
+| 起動確認 | `python rp2350/tools/capture_boot_log.py COM6 120` — `relay pinmap` → `lan ok` → `heartbeat sent ONLINE` |
+| 実測（2026-09-22） | IP `192.168.1.85` · `board_temp=40.5C` · WDT 8000ms · セーフモード入らず |
 
 ### 2.3 子機（はなれ RP2350 6ch）
 
@@ -415,6 +432,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-22 | 豊島邸 実機を USB（mpremote · COM6）で直接書き込み蘇生。`lib/tisly_ota.py`・`lib/tisly_rgb.py` 欠落を解消し OTA 経路を開通。ファーム 1.2.8。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 起動クラッシュ対策。config/ロジック/GPIO/print を個別保護し、失敗時は橙点滅のセーフモードで OTA 待機。ファーム 1.2.7。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 リレー GPIO を公式配列（RO1〜RO8=GPIO17〜24）で固定し、config.py 依存の CH1/CH2 未生成を自己修復。ファーム 1.2.6。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 手動 DO1/DO2/DO3 完全連動。GPIO HIGH 強制 · channels 推論 · ファーム 1.2.3。既存 2.2 系・はなれ・板橋は非破壊 |

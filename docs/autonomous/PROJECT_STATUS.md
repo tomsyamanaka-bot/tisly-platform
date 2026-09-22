@@ -1985,6 +1985,22 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 実機 USB 直接書き込みで蘇生（OTA 1.2.8 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 症状 | 実機が旧版のまま赤ランプ。OTA も届かない |
+| 真因 | 実機の `lib/` に **`tisly_ota.py` と `tisly_rgb.py` が存在しなかった** → 自己更新も RGB 状態表示も不能。`main.py` は 18,844B（`fw=1.1.0-toyoshima-online`）のまま |
+| 手段 | `python -m mpremote`（1.28.0）· `COM6`（Waveshare RP2350-eth-8di-8ro を `sys.implementation._machine` で同定） |
+| 保全 | 書き込み前に実機全ファイルを `rp2350/backup/toyoshima-20260922/` へ退避。`toshima_security.py`・`config.json`・`shippable.json`・`*_backup.py` は残置 |
+| 転送 | `main.py`(39,111B) · `toyoshima_security.py`(30,554B) · `config.py`(2,325B) · `boot.py` · `tisly_self_test.py` · `lib/tisly_ota.py` · `lib/tisly_rgb.py` |
+| 版整合 | サーバ台帳 1.2.8 に対しバンドルが 1.2.7 で `pending` が残るため、バンドルを **1.2.8** へ揃えた |
+| OTA 申告 | `load_ota_state()` が状態ファイル未作成時に `{"version":"1.0.0"}` を返し USB 書き込み直後に 1.0.0 と誤申告していた → 空辞書を返し `config.OTA_VERSION` で申告 |
+| 起動実測 | `relay pinmap CH1=GPIO17 CH2=GPIO18 CH3=GPIO19` → `lan ok` → `IP 192.168.1.85` → `heartbeat sent (main) ONLINE` → `polling start`。セーフモード非突入・`board_temp=40.5C` |
+| ツール追加 | `rp2350/tools/capture_boot_log.py` — Ctrl-C ×2 → Ctrl-D でソフトリセットし起動ログを採取（cp932 端末でも落ちない） |
+| 既存保護 | はなれ・板橋・ナレッジ配列・現場設定は変更なし |
+| 確認 | https://tisly.jp/api/firmware/toyoshima/version · `/app` 豊島ダッシュボード |
+
 ### 顧客向け PDF の社内メモ排除＆PDF メタ復活（2026-09-22）
 
 | 領域 | 内容 |

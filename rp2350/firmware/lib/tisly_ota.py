@@ -114,16 +114,20 @@ def _reset():
 
 
 def load_ota_state():
+    """状態ファイルが無い場合は空で返す。
+    版を埋めると USB 書き込み直後に
+    1.0.0 と誤申告して不要な OTA を招く。
+    """
     raw = _read_text(OTA_STATE_FILE)
     if not raw:
-        return {"version": "1.0.0"}
+        return {}
     try:
         data = json.loads(raw)
         if isinstance(data, dict):
             return data
     except Exception:
         pass
-    return {"version": "1.0.0"}
+    return {}
 
 
 def save_ota_state(state):
