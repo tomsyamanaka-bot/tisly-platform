@@ -599,6 +599,7 @@ export async function recordToyoshimaHeartbeatV1(input: {
   deviceId?: string;
   siteId?: string;
   boardTemp?: unknown;
+  inputStates?: unknown;
 }): Promise<void> {
   const at = nowIso();
   const prev = runtime.deviceComm[input.building];
@@ -626,6 +627,17 @@ export async function recordToyoshimaHeartbeatV1(input: {
   const temp = parseBoardTempC(input.boardTemp);
   if (temp != null) {
     await processToyoshimaBoardTempV1(input.building, temp);
+  }
+  /* DI 立上りはライトと別に Push する */
+  try {
+    await ingestToyoshimaHeartbeatInputsV1({
+      siteId: input.siteId,
+      building: input.building,
+      deviceId: input.deviceId,
+      inputStates: input.inputStates,
+    });
+  } catch (err) {
+    console.error("[toyoshima] hb input ingest failed:", err);
   }
   persistToyoshimaHeartbeatV1();
 }
@@ -964,8 +976,8 @@ export interface ToyoshimaNotifyGateV1 {
 }
 
 /**
- * おでかけ警戒は全センサー緊急Push。
- * 個別 off や guardMode 不整合では見送らない。
+ * Push はライトと独立し 24h 無条件。
+ * 見送りは警戒解除（DISARMED）と一時停止のみ。
  */
 export function resolveToyoshimaNotifyGateV1(input: {
   rules: ReturnType<typeof getHomeSecurityRulesV1>;
@@ -974,20 +986,10 @@ export function resolveToyoshimaNotifyGateV1(input: {
   const rules = input.rules;
   const customerMode = deriveCustomerSecurityModeV1(rules);
   const paused = isHomeSecurityPausedV1(rules);
-  const armed = isHomeSecurityArmedV1(rules);
   const sensorMode = isHomeNotifyModeV1(input.sensorMode)
     ? input.sensorMode
     : "critical";
 
-  if (paused) {
-    return {
-      customerMode,
-      armed: false,
-      notifyAllowed: false,
-      effectiveMode: sensorMode,
-      skipReason: "一時停止中",
-    };
-  }
   if (customerMode === "disarmed") {
     return {
       customerMode,
@@ -997,46 +999,100 @@ export function resolveToyoshimaNotifyGateV1(input: {
       skipReason: "警戒解除中",
     };
   }
-
-  /* おでかけ / 在宅は顧客ワンタップを正とする */
-  const modeArmed =
-    customerMode === "away" || customerMode === "home" || armed;
-  if (!modeArmed) {
+  if (paused) {
     return {
       customerMode,
       armed: false,
       notifyAllowed: false,
       effectiveMode: sensorMode,
-      skipReason: "警戒解除中",
+      skipReason: "一時停止中",
     };
   }
 
-  if (customerMode === "away") {
-    return {
-      customerMode,
-      armed: true,
-      notifyAllowed: true,
-      effectiveMode: "critical",
-      skipReason: null,
-    };
-  }
-
-  if (!isHomeNotifyAnyPushV1(sensorMode)) {
-    return {
-      customerMode,
-      armed: true,
-      notifyAllowed: false,
-      effectiveMode: sensorMode,
-      skipReason: `通知設定 ${sensorMode}`,
-    };
-  }
   return {
     customerMode,
     armed: true,
     notifyAllowed: true,
-    effectiveMode: sensorMode,
+    effectiveMode: "critical",
     skipReason: null,
   };
+}
+
+function formatToyoshimaJstV1(iso: string): string {
+  return new Date(iso).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function toyoshimaEventTitleV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): string {
+  if (building === "main") {
+    return di === 1 ? "⚠️ 外周で接近検知" : "🚨 建物至近で侵入検知！";
+  }
+  return di === 1
+    ? "🚨 豊島邸 はなれ（駐車場）"
+    : "🚨 豊島邸 はなれ（ガレージ）";
+}
+
+function toyoshimaEventTypeV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): string {
+  if (building === "main") {
+    return di === 1
+      ? "toyoshima_main_beam_far"
+      : "toyoshima_main_beam_near";
+  }
+  return di === 1
+    ? "toyoshima_detached_road"
+    : "toyoshima_detached_path";
+}
+
+/** 同一センサーの二重発火を抑える（秒） */
+const TOYOSHIMA_NOTIFY_DEDUP_SEC_V1 = 20;
+const lastToyoshimaNotifyAtV1 = new Map<string, number>();
+const lastToyoshimaDiStateV1: Record<
+  ToyoshimaBuildingIdV1,
+  { "1": string; "2": string }
+> = {
+  main: { "1": "unknown", "2": "unknown" },
+  detached: { "1": "unknown", "2": "unknown" },
+};
+
+function toyoshimaNotifyDedupKeyV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): string {
+  return `${building}:${di}`;
+}
+
+function markToyoshimaNotifyFiredV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): void {
+  lastToyoshimaNotifyAtV1.set(
+    toyoshimaNotifyDedupKeyV1(building, di),
+    Date.now()
+  );
+}
+
+function isToyoshimaNotifyDuplicateV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): boolean {
+  const last = lastToyoshimaNotifyAtV1.get(
+    toyoshimaNotifyDedupKeyV1(building, di)
+  );
+  if (last == null) return false;
+  return Date.now() - last < TOYOSHIMA_NOTIFY_DEDUP_SEC_V1 * 1000;
 }
 
 /**
@@ -1061,6 +1117,8 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
 }): Promise<boolean> {
   const sensorId = resolveToyoshimaSensorIdV1(input.building, input.di);
   const sensorLabel = TOYOSHIMA_SENSOR_LABELS_V1[sensorId];
+  const detectedAt = nowIso();
+  const detectedAtJst = formatToyoshimaJstV1(detectedAt);
   const pushAllowed =
     input.notifyAllowed && isHomeNotifyAnyPushV1(input.notifyMode);
   const skipReason = pushAllowed
@@ -1081,13 +1139,16 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     recordSystemLogV1({
       siteId: input.homeSiteId,
       category: "sensor_alert",
-      message: `${input.title}｜${sensorLabel}`,
+      message: `${detectedAtJst}｜${sensorLabel}｜${input.title}`,
       detail: {
         ...(input.detail ?? {}),
         building: input.building,
         di: input.di,
         sensorId,
         sensorLabel,
+        sensorName: sensorLabel,
+        detectedAt,
+        detectedAtJst,
         notifyMode: input.notifyMode,
         pushAllowed,
         skipReason,
@@ -1107,7 +1168,15 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
         siteId: input.homeSiteId,
         category: "push_notify",
         message: `Push見送り ${sensorLabel}`,
-        detail: { sensorId, skipReason, notifyMode: input.notifyMode },
+        detail: {
+          sensorId,
+          sensorLabel,
+          sensorName: sensorLabel,
+          detectedAt,
+          detectedAtJst,
+          skipReason,
+          notifyMode: input.notifyMode,
+        },
         actor: "rp2350",
       });
     } catch (err) {
@@ -1147,11 +1216,12 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   return pushSent;
 }
 
-/** 母屋：遠近2段階検知 → ライト／フラッシュ連動 */
+/** 母屋：遠近2段階検知 → ライト／フラッシュ連動
+ * Push は processToyoshimaSecurityEventV1 側で独立発火 */
 async function handleMainBeamDetect(
   siteId: string,
   di: ToyoshimaDiChannelV1
-): Promise<boolean> {
+): Promise<void> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
@@ -1186,43 +1256,7 @@ async function handleMainBeamDetect(
     snapshot,
   });
 
-  const sensorMode = isFar
-    ? rules.notifyMainFarMode || rules.notifyStagedMode
-    : rules.notifyMainNearMode || rules.notifyStagedMode;
-  const gate = resolveToyoshimaNotifyGateV1({
-    rules,
-    sensorMode,
-  });
-
-  /* 通知は DO 制御より先に起動する。
-   * inflight に残し、最後に必ず await する。
-   */
-  const notifyPromise = trackToyoshimaNotifyV1(
-    dispatchToyoshimaSensorNotifyV1({
-      homeSiteId: homeId,
-      building: "main",
-      di,
-      title,
-      eventType: isFar
-        ? "toyoshima_main_beam_far"
-        : "toyoshima_main_beam_near",
-      notifyMode: gate.effectiveMode,
-      notifyAllowed: gate.notifyAllowed,
-      skipReason: gate.skipReason,
-      snapshotUrl: snapshot?.imageUrl,
-      detail: {
-        customerMode: gate.customerMode,
-        securityMode,
-        sensorMode,
-        armed: gate.armed,
-      },
-    }).catch((err) => {
-      console.error("[toyoshima] main notify rejected:", err);
-      return false;
-    })
-  );
-
-  runtime.alarmLatch = beamActive && gate.armed;
+  runtime.alarmLatch = beamActive;
   touchToyoshimaDeviceCommV1("main");
 
   const silent = securityMode === "SILENT";
@@ -1269,20 +1303,13 @@ async function handleMainBeamDetect(
   setTimeout(() => {
     if (diState) diState.state = "normal";
   }, 5000);
-
-  const pushSent = await notifyPromise;
-  console.log(
-    `[toyoshima] main beam done di=${di} pushSent=${pushSent}` +
-      ` mode=${gate.customerMode}`
-  );
-  return pushSent;
 }
 
-/** はなれ：DI1 道路側 / DI2 通路側 */
+/** はなれ：DI1 駐車場 / DI2 ガレージ */
 async function handleDetachedDi(
   siteId: string,
   di: ToyoshimaDiChannelV1
-): Promise<boolean> {
+): Promise<void> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
@@ -1315,41 +1342,7 @@ async function handleDetachedDi(
     snapshot,
   });
 
-  const sensorMode =
-    di === 1 ? rules.notifyDi1Mode : rules.notifyDi2Mode;
-  const gate = resolveToyoshimaNotifyGateV1({
-    rules,
-    sensorMode,
-  });
-
-  /* 通知はライト制御と独立に走らせる。
-   * 結果は return 前に必ず待つ。
-   */
-  const notifyPromise = trackToyoshimaNotifyV1(
-    dispatchToyoshimaSensorNotifyV1({
-      homeSiteId: homeId,
-      building: "detached",
-      di,
-      title,
-      eventType: isRoad
-        ? "toyoshima_detached_road"
-        : "toyoshima_detached_path",
-      notifyMode: gate.effectiveMode,
-      notifyAllowed: gate.notifyAllowed,
-      skipReason: gate.skipReason,
-      snapshotUrl: snapshot?.imageUrl,
-      detail: {
-        customerMode: gate.customerMode,
-        sensorMode,
-        armed: gate.armed,
-      },
-    }).catch((err) => {
-      console.error("[toyoshima] detached notify rejected:", err);
-      return false;
-    })
-  );
-
-  runtime.alarmLatch = perimeterActive && gate.armed;
+  runtime.alarmLatch = perimeterActive;
   touchToyoshimaDeviceCommV1("detached");
 
   const light = findDo(runtime.detached, 1);
@@ -1372,7 +1365,6 @@ async function handleDetachedDi(
   /* おでかけ警戒 + パトライト威嚇ON のみ */
   if (
     customerMode === "away" &&
-    gate.armed &&
     rules.patliteThreatEnabled !== false
   ) {
     startPatliteBlink("detached", 2, rules.di2AlertDurationSec * 1000);
@@ -1381,13 +1373,6 @@ async function handleDetachedDi(
   setTimeout(() => {
     if (diState) diState.state = "normal";
   }, 5000);
-
-  const pushSent = await notifyPromise;
-  console.log(
-    `[toyoshima] detached done di=${di} pushSent=${pushSent}` +
-      ` mode=${gate.customerMode}`
-  );
-  return pushSent;
 }
 
 /** 顧客警戒モード変更を履歴へ追記（既存行は消さない） */
@@ -1401,12 +1386,14 @@ export function recordToyoshimaModeChangeV1(modeLabel: string): void {
   });
 }
 
-/** DI 立上りイベント（API / 実機 POST 用） */
+/** DI 立上りイベント（API / 実機 POST 用）
+ * Push を先に起動し、ライト制御の例外では落とさない */
 export async function processToyoshimaSecurityEventV1(input: {
   siteId?: string;
   building: ToyoshimaBuildingIdV1;
   di: number;
   deviceId?: string;
+  source?: string;
 }): Promise<{
   ok: boolean;
   pushSent: boolean;
@@ -1423,35 +1410,132 @@ export async function processToyoshimaSecurityEventV1(input: {
     throw new Error("di must be 1 or 2");
   }
 
-  const sensorLabel = toyoshimaSensorLabelV1(input.building, di);
+  const building = input.building;
+  const sensorId = resolveToyoshimaSensorIdV1(building, di);
+  const sensorLabel = toyoshimaSensorLabelV1(building, di);
+  const title = toyoshimaEventTitleV1(building, di);
+  const eventType = toyoshimaEventTypeV1(building, di);
   console.log(
-    `[toyoshima] event recv building=${input.building} di=${di}` +
-      ` siteId=${siteId} sensorId=${resolveToyoshimaSensorIdV1(input.building, di)}` +
+    `[toyoshima] event recv building=${building} di=${di}` +
+      ` siteId=${siteId} sensorId=${sensorId}` +
       ` label=${sensorLabel}` +
-      (input.deviceId ? ` deviceId=${input.deviceId}` : "")
+      (input.deviceId ? ` deviceId=${input.deviceId}` : "") +
+      (input.source ? ` source=${input.source}` : "")
   );
 
-  if (input.building === "main") {
-    const pushSent = await handleMainBeamDetect(siteId, di);
-    return {
-      ok: true,
-      pushSent,
-      message:
-        di === 1
-          ? "⚠️ 外周で接近検知"
-          : "🚨 建物至近で侵入検知！",
-      sensorLabel,
-    };
+  const rules = getHomeSecurityRulesV1(siteId);
+  const gate = resolveToyoshimaNotifyGateV1({ rules });
+  markToyoshimaNotifyFiredV1(building, di);
+
+  /* ライトより先に Push を起動する */
+  const notifyPromise = trackToyoshimaNotifyV1(
+    dispatchToyoshimaSensorNotifyV1({
+      homeSiteId: siteId,
+      building,
+      di,
+      title,
+      eventType,
+      notifyMode: gate.effectiveMode,
+      notifyAllowed: gate.notifyAllowed,
+      skipReason: gate.skipReason,
+      detail: {
+        customerMode: gate.customerMode,
+        armed: gate.armed,
+        source: input.source || "event",
+        deviceId: input.deviceId || null,
+      },
+    }).catch((err) => {
+      console.error("[toyoshima] notify rejected:", err);
+      return false;
+    })
+  );
+
+  try {
+    if (building === "main") {
+      await handleMainBeamDetect(siteId, di);
+    } else {
+      await handleDetachedDi(siteId, di);
+    }
+  } catch (err) {
+    console.error(
+      "[toyoshima] relay path failed (notify continues):",
+      err
+    );
   }
 
-  const pushSent = await handleDetachedDi(siteId, di);
+  const pushSent = await notifyPromise;
+  console.log(
+    `[toyoshima] event done building=${building} di=${di}` +
+      ` pushSent=${pushSent} mode=${gate.customerMode}`
+  );
   return {
     ok: true,
     pushSent,
-    message:
-      di === 1 ? "はなれ 道路側検知" : "はなれ 通路側検知",
+    message: title,
     sensorLabel,
   };
+}
+
+function readHeartbeatDiStateV1(
+  inputStates: unknown,
+  di: ToyoshimaDiChannelV1
+): string | null {
+  if (!inputStates || typeof inputStates !== "object") return null;
+  const rec = inputStates as Record<string, unknown>;
+  const raw = rec[String(di)] ?? rec[`DI${di}`] ?? rec[`di${di}`];
+  if (raw == null) return null;
+  const text = String(raw).trim().toLowerCase();
+  if (text === "on" || text === "1" || text === "true" || text === "detecting") {
+    return "on";
+  }
+  if (text === "off" || text === "0" || text === "false" || text === "normal") {
+    return "off";
+  }
+  return null;
+}
+
+/**
+ * heartbeat の inputStates から DI 立上りを拾う。
+ * /event 欠落時のバックアップ。20秒以内の重複は捨てる。
+ */
+export async function ingestToyoshimaHeartbeatInputsV1(input: {
+  siteId?: string;
+  building: ToyoshimaBuildingIdV1;
+  deviceId?: string;
+  inputStates?: unknown;
+}): Promise<number> {
+  if (!input.inputStates) return 0;
+  let fired = 0;
+  for (const di of [1, 2] as ToyoshimaDiChannelV1[]) {
+    const next = readHeartbeatDiStateV1(input.inputStates, di);
+    if (!next) continue;
+    const prev = lastToyoshimaDiStateV1[input.building][String(di) as "1" | "2"];
+    lastToyoshimaDiStateV1[input.building][String(di) as "1" | "2"] = next;
+    /* unknown→on も発火（再起動直後の取りこぼし防止） */
+    if (!(next === "on" && prev !== "on")) continue;
+    if (isToyoshimaNotifyDuplicateV1(input.building, di)) {
+      console.log(
+        `[toyoshima] hb di rise skipped (dedup) ${input.building} DI${di}`
+      );
+      continue;
+    }
+    console.log(
+      `[toyoshima] hb di rise ${input.building} DI${di} ${prev}->${next}`
+    );
+    try {
+      await processToyoshimaSecurityEventV1({
+        siteId: input.siteId,
+        building: input.building,
+        di,
+        deviceId: input.deviceId,
+        source: "heartbeat",
+      });
+      fired += 1;
+    } catch (err) {
+      console.error("[toyoshima] hb di rise failed:", err);
+    }
+  }
+  return fired;
 }
 
 /** 手動 DO 操作（PWA トグル / テスト） */
@@ -2202,6 +2286,9 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
     detached: defaultDeviceComm(),
   };
   runtime.alarmLatch = false;
+  lastToyoshimaNotifyAtV1.clear();
+  lastToyoshimaDiStateV1.main = { "1": "unknown", "2": "unknown" };
+  lastToyoshimaDiStateV1.detached = { "1": "unknown", "2": "unknown" };
   for (const [, timer] of runtime.patliteTimers) {
     clearInterval(timer);
   }

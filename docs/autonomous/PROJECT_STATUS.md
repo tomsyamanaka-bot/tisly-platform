@@ -1985,6 +1985,17 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 センサー検知 Push 完全独立（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · `/event` と heartbeat `inputStates` |
+| Push | ライト制御より先に独立起動。例外でも通知は継続 |
+| 条件 | 警戒解除（DISARMED）と一時停止以外は 24h `critical` |
+| 履歴 | `detectedAt` / `detectedAtJst` / `sensorName` を `sensor_alert` に記録 |
+| 既存保護 | DO 配列・板橋 notify は削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
+
 ### 豊島邸 センサー検知 Push 最終開通（2026-09-22）
 
 | 領域 | 内容 |

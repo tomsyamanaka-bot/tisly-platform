@@ -14,6 +14,7 @@ const { closeDatabase } = await import("../src/db/database.js");
 const {
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
+  ingestToyoshimaHeartbeatInputsV1,
   processToyoshimaSecurityEventV1,
   resetToyoshimaSecurityStateForTestV1,
   resolveToyoshimaNotifyGateV1,
@@ -106,6 +107,9 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.ok(row, "sensor_alert に検知履歴が残る");
     assert.equal(row?.detail?.sensorId, "main_beam_far");
     assert.equal(row?.detail?.pushAllowed, true);
+    assert.equal(row?.detail?.sensorName, "外周ビーム（母屋・遠）");
+    assert.ok(row?.detail?.detectedAt);
+    assert.ok(row?.detail?.detectedAtJst);
     assert.equal(row?.actor, "rp2350");
   });
 
@@ -207,5 +211,39 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.ok(
       alerts.some((r) => r.message.includes("通路側センサー（はなれ）"))
     );
+  });
+
+  it("home mode still pushes 24h even when leftover sensor mode is off", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "home",
+      guardMode: "scheduled",
+      notifyMainFarMode: "off",
+      notifyDi1Mode: "off",
+    });
+    const gate = resolveToyoshimaNotifyGateV1({
+      rules: getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
+      sensorMode: "off",
+    });
+    assert.equal(gate.notifyAllowed, true);
+    assert.equal(gate.effectiveMode, "critical");
+  });
+
+  it("heartbeat DI rising edge records parking/garage history", async () => {
+    armAway();
+    await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "off", "2": "off" },
+    });
+    const fired = await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "on", "2": "off" },
+    });
+    assert.equal(fired, 1);
+    const row = latestLogs("sensor_alert").find((r) =>
+      r.message.includes("道路側センサー（はなれ）")
+    );
+    assert.ok(row, "heartbeat 立上りでも発報履歴を残す");
+    assert.equal(row?.detail?.sensorName, "道路側センサー（はなれ）");
+    assert.ok(row?.detail?.detectedAtJst);
   });
 });

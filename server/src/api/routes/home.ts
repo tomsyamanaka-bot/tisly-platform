@@ -1509,6 +1509,10 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         building: building as "main" | "detached",
         deviceId: req.body?.deviceId as string | undefined,
         boardTemp: req.body?.board_temp ?? req.body?.boardTemp,
+        inputStates:
+          req.body?.inputStates ??
+          req.body?.input_states ??
+          req.body?.inputs,
       });
       const firmwareVersion = String(
         req.body?.firmware_version ??
