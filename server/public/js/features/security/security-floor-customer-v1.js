@@ -453,7 +453,7 @@ function renderDash(dash, opts = {}) {
       open
         .map(
           (a) =>
-            `<li><b>🔴 【発報中】${a.kindLabel || "センサー検知"}</b><span>（${formatAlarmTime(a.at)}）</span></li>`
+            `<li class="sf-alarm-row"><time>${formatAlarmTime(a.at)}</time><span>${a.location ? `${a.location} / ` : ""}${a.kindLabel || "センサー検知"}</span></li>`
         )
         .join("") || "<li>異常はありません</li>"
     );

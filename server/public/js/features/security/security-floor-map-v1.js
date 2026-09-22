@@ -351,12 +351,15 @@ export function renderSocLayerButtons(floors, activeId, site = null) {
 }
 
 export function formatAlarmTime(iso) {
+  /* 発報カードは月日＋時刻
+   * 例: 9/22 23:15 */
   try {
     const d = new Date(iso);
-    return d.toLocaleTimeString("ja-JP", {
+    return d.toLocaleString("ja-JP", {
+      month: "numeric",
+      day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
     });
   } catch {
     return iso;

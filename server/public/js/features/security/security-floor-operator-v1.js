@@ -569,9 +569,9 @@ function renderAlarms(site) {
     open
       .slice(0, 8)
       .map(
-        (a) => `<li data-sensor="${a.sensorId || ""}">
-          <b>🔴 【発報中】${a.kindLabel || a.deviceLabel || "センサー検知"}</b>
-          <span>（${formatAlarmTime(a.at)}）</span>
+        (a) => `<li class="sf-alarm-row" data-sensor="${a.sensorId || ""}">
+          <time>${formatAlarmTime(a.at)}</time>
+          <span>【発報中】${a.location ? `${a.location} / ` : ""}${a.kindLabel || a.deviceLabel || "センサー検知"}</span>
         </li>`
       )
       .join("") || "<li>発報はありません</li>"

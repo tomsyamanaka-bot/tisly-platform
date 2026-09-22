@@ -1480,6 +1480,26 @@
   font-size: 0.82rem;
 }
 
+.sf-alarm-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.sf-alarm-row time {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-alarm-row span {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
 .sf-live-feed {
   position: relative;
   height: 140px;

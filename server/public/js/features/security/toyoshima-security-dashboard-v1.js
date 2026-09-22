@@ -1172,36 +1172,42 @@ function renderSnapshotThumb(ev) {
   </button>`;
 }
 
+function renderAlarmRows(dash) {
+  const alarm = dash.alarm || { active: false, items: [] };
+  const items = Array.isArray(alarm.items) ? alarm.items.filter(Boolean) : [];
+  const at = formatTime(dash.lastUpdatedAt);
+  if (!alarm.active && !items.length) {
+    return `<p class="ts-alarm-empty" id="ts-alarm-status">発報はありません</p>`;
+  }
+  const names = items.length ? items : [alarm.message || "警報発報中"];
+  return `<ul class="ts-alarm-list" id="ts-alarm-status">${names
+    .map(
+      (name) => `<li class="ts-alarm-row">
+        <time class="ts-alarm-time">${escapeHtml(at)}</time>
+        <span class="ts-alarm-sensor">${escapeHtml(name)}</span>
+      </li>`
+    )
+    .join("")}</ul>`;
+}
+
 function renderAlarmCard(dash, opts = {}) {
   const customer = !!opts.customer;
   const alarm = dash.alarm || { active: false, message: "発報はありません" };
   const view = buildCommHealthView(dash);
-  const snaps = latestSnapshots(dash.timeline, 3);
   const commAlert = view.offline
     ? `<p class="ts-alarm-status is-alert" id="ts-comm-alert">
         ⚠️ 通信障害：主装置との通信が途絶えています
       </p>`
     : "";
-  return `<section class="ts-card ts-alarm-card ${alarm.active || view.offline ? "is-live" : ""}" id="ts-alarm-card">
+  /* カメラ画像は出さず
+   * 時刻とセンサー名だけ並べる */
+  return `<section class="ts-card ts-alarm-card ts-alarm-compact ${alarm.active || view.offline ? "is-live" : ""}" id="ts-alarm-card">
     <h3 class="ts-card-head">🚨 ${customer ? "いまのお知らせ" : "アラーム発報"}</h3>
-    <p class="ts-alarm-status ${alarm.active ? "is-alert" : ""}" id="ts-alarm-status">${escapeHtml(alarm.message)}</p>
+    ${renderAlarmRows(dash)}
     ${commAlert}
-    ${
-      !customer && snaps.length
-        ? `<div class="ts-snap-row" id="ts-alarm-snaps">${snaps
-            .map(renderSnapshotThumb)
-            .join("")}</div>`
-        : ""
-    }
-    ${
-      customer
-        ? `<div class="ts-btn-row">
-      <button type="button" class="ts-btn" data-ts-action="test_notify">🔔 通知テスト</button>
-    </div>`
-        : `<button type="button" class="ts-btn ts-btn-ghost" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
+    <button type="button" class="ts-btn ts-btn-ghost ts-btn-wide" data-ts-action="alarm_clear" ${alarm.active ? "" : "disabled"}>
       アラーム対応完了
-    </button>`
-    }
+    </button>
   </section>`;
 }
 
@@ -1524,21 +1530,11 @@ function renderActivityLog(timeline, limit = 10) {
               : "💡";
       const alertClass =
         ev.kind === "comm_loss" ? " is-comm-alert" : "";
-      const snapHtml = ev.snapshot?.imageUrl
-        ? `<button type="button" class="ts-snap-mini" data-ts-snap-url="${escapeHtml(
-            ev.snapshot.imageUrl
-          )}" data-ts-snap-title="${escapeHtml(ev.title || "")}" data-ts-snap-time="${escapeHtml(
-            formatTime(ev.snapshot.at || ev.at)
-          )}">
-            <img src="${escapeHtml(ev.snapshot.thumbUrl || ev.snapshot.imageUrl)}" alt="スナップショット" loading="lazy" />
-          </button>`
-        : "";
       return `<article class="ts-log-row${alertClass}">
         <span class="ts-log-ico">${ico}</span>
         <div class="ts-log-body">
           <p class="ts-log-title">${escapeHtml(ev.title)}</p>
           <p class="ts-log-sub">${escapeHtml(ev.detail || "")}</p>
-          ${snapHtml}
         </div>
         <time class="ts-log-time">${formatTime(ev.at)}</time>
       </article>`;
@@ -1579,9 +1575,6 @@ function renderActivitySection(dash) {
   return `<section class="ts-card ts-activity-card">
     <h3 class="ts-card-head">📜 動作ログ（直近10件）</h3>
     <div class="ts-activity-log" id="ts-activity-log">${renderActivityLog(dash.timeline, 10)}</div>
-    <div class="ts-snap-row ts-snap-row-log" id="ts-log-snaps">${latestSnapshots(dash.timeline, 6)
-      .map(renderSnapshotThumb)
-      .join("")}</div>
     <button type="button" class="ts-btn ts-btn-ghost ts-btn-wide" data-ts-action="open_log">
       詳細を見る（もっと見る）
     </button>
@@ -2002,12 +1995,6 @@ function patchToyoshimaDashboard(dash) {
     if (activityLog) {
       activityLog.innerHTML = renderCustomerHistoryTimeline(dash.timeline, 40);
     }
-    const logSnaps = $("ts-log-snaps");
-    if (logSnaps) {
-      logSnaps.innerHTML = latestSnapshots(dash.timeline, 6)
-        .map(renderSnapshotThumb)
-        .join("");
-    }
     restoreActiveCustomerPane();
     return;
   }
@@ -2095,12 +2082,6 @@ function patchToyoshimaDashboard(dash) {
   const activityLog = $("ts-activity-log");
   if (activityLog) {
     activityLog.innerHTML = renderActivityLog(dash.timeline, 10);
-  }
-  const logSnaps = $("ts-log-snaps");
-  if (logSnaps) {
-    logSnaps.innerHTML = latestSnapshots(dash.timeline, 6)
-      .map(renderSnapshotThumb)
-      .join("");
   }
   restoreActiveCustomerPane();
 }
@@ -2437,7 +2418,6 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   renderScheduleDialog();
   bindSecurityHistoryModalV1();
   setSecurityHistorySiteIdV1(TOYOSHIMA_SEC_ID);
-  ensureSnapshotLightbox();
   bindScheduleDialog();
   bindSettingsSliders();
   if (!customer) {

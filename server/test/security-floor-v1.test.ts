@@ -779,6 +779,9 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /data-gv-launch/);
     assert.match(toyoshimaJs, /renderGuardViewerStoreHelpHtmlV1/);
     /* 顧客は Guard Viewer 起動だけ。映像・スナップは出さない */
+    assert.doesNotMatch(toyoshimaJs, /ts-alarm-snaps/);
+    assert.match(toyoshimaJs, /ts-alarm-compact/);
+    assert.match(toyoshimaJs, /ts-alarm-sensor/);
     assert.match(toyoshimaJs, /ts-camera-cta-only/);
     assert.match(toyoshimaJs, /\$\{renderCustomerCameraCard\(\)\}/);
     assert.match(toyoshimaJs, /カメラを見る/);

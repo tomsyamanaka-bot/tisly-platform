@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2561-event-slider-split` |
+| SW | `tisly-pwa-v2562-alarm-no-snap` |
 
 ---
 
@@ -1984,6 +1984,16 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### アラーム発報カードからカメラ画像を削除（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| `/app` `/customer` | 発報カード・履歴にスナップショットを出さない |
+| 表示 | 発生日時・検知センサー名・対応完了のみ |
+| SW | `tisly-pwa-v2562-alarm-no-snap` |
+| 既存保護 | 2.2 系・はなれ・板橋・顧客データは削除せず追記 |
+| 確認 | https://tisly.jp/api/health |
 
 ### 豊島邸 即時 /event ソケット化とスライダー色分け（OTA 1.2.12 / 2026-09-22）
 
