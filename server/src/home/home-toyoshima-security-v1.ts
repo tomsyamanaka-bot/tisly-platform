@@ -1102,13 +1102,14 @@ function releaseToyoshimaNotifyStopperV1(
 ): void {
   const key = toyoshimaNotifyDedupKeyV1(building, di);
   lastToyoshimaNotifyAtV1.delete(key);
-  lastToyoshimaDiStateV1[building][String(di) as "1" | "2"] = "off";
+  /* DI状態は物理OFFまで保持する。
+   * off に戻すと次の HB が再発報する */
   const timer = toyoshimaNotifyResetTimersV1.get(key);
   if (timer) {
     clearTimeout(timer);
     toyoshimaNotifyResetTimersV1.delete(key);
   }
-  console.log(`[toyoshima] notify stopper released ${key}`);
+  console.log(`[toyoshima] notify cooldown cleared ${key}`);
 }
 
 function markToyoshimaNotifyFiredV1(
@@ -1120,7 +1121,7 @@ function markToyoshimaNotifyFiredV1(
   lastToyoshimaDiStateV1[building][String(di) as "1" | "2"] = "on";
   const prev = toyoshimaNotifyResetTimersV1.get(key);
   if (prev) clearTimeout(prev);
-  /* 45秒後にフラグを必ず戻す */
+  /* 45秒後は時間ガードだけ外す。DIは戻さない */
   toyoshimaNotifyResetTimersV1.set(
     key,
     setTimeout(() => {
@@ -1482,12 +1483,13 @@ export async function processToyoshimaSecurityEventV1(input: {
 
   const rules = getHomeSecurityRulesV1(siteId);
   const gate = resolveToyoshimaNotifyGateV1({ rules });
-  const fromHeartbeat = input.source === "heartbeat";
-  /* /event 即時POSTはクールダウンで止めない */
-  if (fromHeartbeat && isToyoshimaNotifyDuplicateV1(building, di)) {
+  /* 同一センサーの短時間重複は処理済みとして Push しない */
+  if (isToyoshimaNotifyDuplicateV1(building, di)) {
     console.log(
-      `[toyoshima] event skipped (hb dedup) ${building} DI${di}`
+      `[toyoshima] event skipped (dedup) ${building} DI${di}` +
+        ` source=${input.source || "event"}`
     );
+    lastToyoshimaDiStateV1[building][String(di) as "1" | "2"] = "on";
     return {
       ok: true,
       pushSent: false,
@@ -1566,7 +1568,7 @@ function readHeartbeatDiStateV1(
 
 /**
  * heartbeat の inputStates から DI 立上りを拾う。
- * /event 欠落時のバックアップ。45秒以内の重複は捨てる。
+ * /event 欠落時のバックアップ。同一ONの再送は捨てる。
  */
 export async function ingestToyoshimaHeartbeatInputsV1(input: {
   siteId?: string;

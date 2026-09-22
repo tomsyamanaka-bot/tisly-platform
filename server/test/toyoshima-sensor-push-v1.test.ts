@@ -248,7 +248,7 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.ok(row?.detail?.detectedAtJst);
   });
 
-  it("direct /event is never blocked by notify cooldown", async () => {
+  it("duplicate /event within cooldown skips Push", async () => {
     armAway();
     const first = await processToyoshimaSecurityEventV1({
       building: "main",
@@ -262,15 +262,24 @@ describe("toyoshima-sensor-push-v1", () => {
     });
     assert.equal(first.ok, true);
     assert.equal(second.ok, true);
-    const alerts = latestLogs("sensor_alert").filter((r) =>
-      r.message.includes("外周ビーム（母屋・遠）")
-    );
-    assert.ok(alerts.length >= 2, "連続 /event でも履歴が残る");
-    assert.equal(alerts[0]?.detail?.pushAllowed, true);
-    assert.equal(alerts[1]?.detail?.pushAllowed, true);
+    assert.equal(second.pushSent, false, "重複 /event は Push しない");
   });
 
-  it("releases notify stopper so later detections can fire again", async () => {
+  it("heartbeat does not resend the same ON after /event", async () => {
+    armAway();
+    await processToyoshimaSecurityEventV1({
+      building: "detached",
+      di: 1,
+      source: "event",
+    });
+    const hb = await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "on", "2": "off" },
+    });
+    assert.equal(hb, 0, "同一ONの HB は再発報しない");
+  });
+
+  it("heartbeat still-on after cooldown does not loop", async () => {
     armAway();
     await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
@@ -281,16 +290,34 @@ describe("toyoshima-sensor-push-v1", () => {
       inputStates: { "1": "on", "2": "off" },
     });
     assert.equal(first, 1);
-    const stuck = await ingestToyoshimaHeartbeatInputsV1({
+    releaseToyoshimaNotifyStopperForTestV1("detached", 1);
+    const looped = await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
       inputStates: { "1": "on", "2": "off" },
     });
-    assert.equal(stuck, 0, "同一ONはクールダウン中に再発火しない");
+    assert.equal(looped, 0, "物理OFFなしでは HB 再送しない");
+  });
+
+  it("physical OFF then ON can notify again", async () => {
+    armAway();
+    await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "off", "2": "off" },
+    });
+    const first = await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "on", "2": "off" },
+    });
+    assert.equal(first, 1);
+    await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "off", "2": "off" },
+    });
     releaseToyoshimaNotifyStopperForTestV1("detached", 1);
     const again = await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
       inputStates: { "1": "on", "2": "off" },
     });
-    assert.equal(again, 1, "ストッパー解除後は再通知できる");
+    assert.equal(again, 1, "物理再検知なら再通知できる");
   });
 });

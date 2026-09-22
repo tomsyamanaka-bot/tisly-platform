@@ -1985,6 +1985,18 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 センサー通知の重複ループ防止（OTA 1.2.10 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · `/event` · heartbeat `inputStates` |
+| 原因 | 45秒後にサーバ DI を `off` へ戻していたため、次の 5 分 HB の `on` が新規検知扱いになる |
+| 実機 | 送信成功後 `_event_acked` を立て、物理 OFF まで同じ DI を再送しない。キュー成功分は破棄 |
+| サーバ | クールダウン解除でも DI は保持。同一センサー短時間重複は Push スキップ |
+| UI | 見るエリア非表示・警戒 ON/OFF・夜間ライト分離は維持 |
+| OTA | **1.2.10** |
+| 確認 | https://tisly.jp/api/health |
+
 ### 豊島邸 センサー検知の即時 /event 送信（OTA 1.2.9 / 2026-09-22）
 
 | 領域 | 内容 |

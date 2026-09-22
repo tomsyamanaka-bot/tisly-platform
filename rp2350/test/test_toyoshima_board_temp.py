@@ -284,8 +284,8 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_9():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.9"
+def test_firmware_logic_version_is_1_2_10():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.10"
 
 
 def test_board_ch_gpio_matches_waveshare_ro1_ro8():
@@ -415,6 +415,26 @@ def test_send_toyoshima_event_posts_event_not_heartbeat():
     assert posts[0][1]["di"] == 1
 
 
+def test_event_not_resent_until_physical_off():
+    """送信成功後は物理OFFまで同じイベントを再送しない。"""
+    events = []
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: None,
+        lambda building, di, message: events.append((building, di, message)),
+    )
+    ctrl.apply_rules({"force_relay_test": True, "security_mode": "2STEP"})
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(1, "off", "on")
+    assert len(events) == 1
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(1, "off", "on")
+    assert len(events) == 1
+    ctrl.on_di_edge(1, "on", "off")
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(1, "off", "on")
+    assert len(events) == 2
+
+
 def test_di_edge_kicks_relay_before_event():
     """GPIO を先に上げ、その後で /event を投げる。"""
     order = []
@@ -474,9 +494,10 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_9()
+    test_firmware_logic_version_is_1_2_10()
     test_send_toyoshima_event_posts_event_not_heartbeat()
     test_di_edge_kicks_relay_before_event()
+    test_event_not_resent_until_physical_off()
     test_board_ch_gpio_matches_waveshare_ro1_ro8()
     test_main_firmware_pins_relays_independently_of_config()
     test_on_di_edge_di1_kicks_ch1_immediately()

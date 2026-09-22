@@ -52,7 +52,7 @@ WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.9"
+FIRMWARE_LOGIC_VERSION = "1.2.10"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -92,6 +92,7 @@ class ToyoshimaBaseController:
         self._debounce_beam_ms = DI_DEBOUNCE_MS
         self._di_confirmed = {}
         self._confirm_gen = {}
+        self._event_acked = {}
         self._get_di = None
         self._light_start = DEFAULT_LIGHT_START
         self._light_end = DEFAULT_LIGHT_END
@@ -244,6 +245,9 @@ class ToyoshimaBaseController:
         追加の async 確認は HTTP ブロック中に欠落するため使わない。
         """
         if new_state == "on" and prev_state != "on":
+            if self._event_acked.get(di):
+                self.log("DI{} already notified this hold".format(di))
+                return
             gen = self._confirm_gen.get(di, 0) + 1
             self._confirm_gen[di] = gen
             self._di_confirmed[di] = True
@@ -252,6 +256,7 @@ class ToyoshimaBaseController:
         elif new_state != "on":
             self._confirm_gen[di] = self._confirm_gen.get(di, 0) + 1
             self._di_confirmed[di] = False
+            self._event_acked[di] = False
 
     def _debounce_ms_for_di(self, di):
         """DI 番号ごとのデバウンス ms。"""
@@ -302,12 +307,26 @@ class ToyoshimaBaseController:
             await asyncio.sleep_ms(PATLITE_BLINK_MS)
         self._set_ch(channel, False)
 
+    def mark_event_acked(self, di):
+        """送信成功後にフラグを立て、物理OFFまで再送しない。"""
+        self._event_acked[di] = True
+
+    def clear_event_ack(self, di):
+        """物理OFFで再検知を許可する。"""
+        self._event_acked[di] = False
+
     def _invoke_send_event(self, building, di, message):
-        """VPS へ /event を投げる。例外は握る。"""
+        """VPS へ /event を投げる。成功したらフラグを落とす。"""
         if not self._send_event:
             return
+        if self._event_acked.get(di):
+            self.log("event skip already acked DI{}".format(di))
+            return
         try:
-            self._send_event(building, di, message)
+            result = self._send_event(building, di, message)
+            if result is False:
+                return
+            self.mark_event_acked(di)
         except Exception as exc:
             self.log("event err: {}".format(exc))
 

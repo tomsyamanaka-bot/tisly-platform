@@ -691,17 +691,46 @@ def poll_inputs():
 
 def handle_security_di_edges(edges):
     """DI1/DI2 立上りを豊島邸コントローラへ渡す。"""
-    global _security
+    global _security, _pending_events
     if _security is None:
         return
+    building = _building()
     for di, prev, new in edges:
-        if di in (1, 2):
-            _security.on_di_edge(di, prev, new)
+        if di not in (1, 2):
+            continue
+        if new != "on":
+            if _security is not None:
+                try:
+                    _security.clear_event_ack(di)
+                except Exception:
+                    pass
+            _pending_events = [
+                ev
+                for ev in _pending_events
+                if not (
+                    ev.get("building") == building and ev.get("di") == di
+                )
+            ]
+        _security.on_di_edge(di, prev, new)
+
+
+def _event_key(building, di):
+    return "{}:{}".format(building, di)
 
 
 def _forward_event(building, di, message):
-    """DI 検知を即キューし、HB を待たず POST する。"""
+    """DI 検知を即キューし、HB を待たず POST する。
+    送信成功後は物理OFFまで同じ DI を再送しない。
+    """
     global _pending_events
+    if _security is not None and getattr(_security, "_event_acked", {}).get(di):
+        log("event skip acked DI{}".format(di))
+        return True
+    for ev in _pending_events:
+        if ev.get("building") == building and ev.get("di") == di:
+            log("event already queued DI{}".format(di))
+            _flush_pending_events()
+            return False
     _pending_events.append(
         {
             "building": building,
@@ -711,10 +740,13 @@ def _forward_event(building, di, message):
     )
     log("event queued: {}".format(message))
     _flush_pending_events()
+    if _security is not None and getattr(_security, "_event_acked", {}).get(di):
+        return True
+    return False
 
 
 def _flush_pending_events():
-    """キュー済み /event を即時送信する。失敗は残して再送する。"""
+    """キュー済み /event を即時送信する。成功分は必ず捨てる。"""
     global _pending_events
     if not _pending_events:
         return
@@ -732,6 +764,12 @@ def _flush_pending_events():
             )
             if ok:
                 log("event sent: {}".format(ev.get("message")))
+                di = ev.get("di")
+                if _security is not None and di is not None:
+                    try:
+                        _security.mark_event_acked(di)
+                    except Exception:
+                        pass
             else:
                 remain.append(ev)
                 log_error("event send failed: {}".format(ev.get("message")))
