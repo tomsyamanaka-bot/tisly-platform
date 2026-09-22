@@ -13,6 +13,8 @@ export type HomeSystemLogCategoryV1 =
   | "schedule_run"
   | "delay_run"
   | "sensor_alert"
+  /** Push 通知の送信結果（見送り理由を含む） */
+  | "push_notify"
   | "rp2350_comm"
   | "bath_state"
   | "scene_run"

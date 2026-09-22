@@ -179,6 +179,7 @@ export function buildHomeActivityTimelineV1(input: {
     schedule_run: "スケジュール",
     delay_run: "遅延実行",
     sensor_alert: "センサー検知",
+    push_notify: "Push通知",
     rp2350_comm: "RP2350通信",
     bath_state: "風呂状態",
     scene_run: "シーン実行",

@@ -365,6 +365,54 @@ def test_manual_sensor_near_kicks_all_channels():
     assert outputs.get(3) is True
 
 
+def test_di_edge_notifies_vps_even_in_silent_mode():
+    """SILENT はライトを省くだけで通知は出す。"""
+    events = []
+    outputs = {}
+
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on),
+        lambda building, di, message: events.append((building, di, message)),
+    )
+    ctrl.apply_rules({"security_mode": "SILENT", "force_relay_test": True})
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(2, "off", "on")
+    assert events == [("main", 2, "🚨 建物至近で侵入検知！")]
+    assert outputs.get(1) is not True
+    assert outputs.get(3) is not True
+
+
+def test_di_edge_notifies_when_disarmed_with_force_relay_test():
+    """警戒解除中でも実機は通知を投げ、判断は VPS 側に委ねる。"""
+    events = []
+
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: None,
+        lambda building, di, message: events.append((building, di, message)),
+    )
+    ctrl.apply_rules({"guardMode": "off", "force_relay_test": True})
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(1, "off", "on")
+    assert len(events) == 1
+    assert events[0][0] == "main"
+
+
+def test_event_send_failure_does_not_raise():
+    """通知失敗でリレー処理を止めない。"""
+    outputs = {}
+
+    def boom(building, di, message):
+        raise OSError("network down")
+
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on), boom
+    )
+    ctrl.apply_rules({"security_mode": "2STEP", "force_relay_test": True})
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(1, "off", "on")
+    assert outputs.get(1) is True
+
+
 if __name__ == "__main__":
     test_identifiers()
     test_build_heartbeat_payload_shape()
@@ -393,4 +441,7 @@ if __name__ == "__main__":
     test_on_di_edge_di1_kicks_ch1_immediately()
     test_on_di_edge_di2_kicks_lights_and_flash()
     test_manual_sensor_near_kicks_all_channels()
+    test_di_edge_notifies_vps_even_in_silent_mode()
+    test_di_edge_notifies_when_disarmed_with_force_relay_test()
+    test_event_send_failure_does_not_raise()
     print("ok")

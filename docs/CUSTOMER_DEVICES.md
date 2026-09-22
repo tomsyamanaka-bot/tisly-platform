@@ -202,6 +202,21 @@
 | WDT | セーフモード中も 1 秒ごとに feed |
 | 検証 | `rp2350/test/test_toyoshima_firmware_boot.py`（machine スタブで import 検証） |
 
+### 2.2.10 センサー検知 → Push 通知（2026-09-22 追記）
+
+既存 2.2 / 2.2.1〜2.2.9 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|-----|
+| 実機 → VPS | `POST /api/home/v1/toyoshima/event`（`building` / `di` / `message` / `siteId` / `deviceId`） |
+| 実機の送信条件 | `_is_armed_now()`（一時停止・guard off 以外）または `force_relay_test`。SILENT でも通知は送る |
+| Push 発火 | `dispatchToyoshimaSensorNotifyV1()` が DO 制御と独立に起動（await しない） |
+| 本文 | `<センサー名>が反応しました（豊島邸）`。名称は `TOYOSHIMA_SENSOR_LABELS_V1` |
+| センサー名 | DI1 母屋=外周ビーム（母屋・遠）· DI2 母屋=建物至近ビーム（母屋・近）· DI1 はなれ=道路側センサー（はなれ）· DI2 はなれ=通路側センサー（はなれ） |
+| 発報履歴 | `home_system_logs_v1` の `sensor_alert`（Push 可否によらず記録・`sensorId` / `skipReason` 付き） |
+| 送信結果 | 同テーブルの `push_notify`（`Push送信` / `Push送信失敗` / `Push見送り`） |
+| 見送り条件 | 警戒解除中（`guardMode=off` / 一時停止）· 顧客モード `disarmed` · 通知設定 `off` |
+
 ### 2.2.9 USB 直接書き込み（蘇生手順・2026-09-22 追記）
 
 既存 2.2 / 2.2.1〜2.2.8 は残す。上書きしない。
@@ -432,6 +447,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-22 | 豊島邸 センサー検知 Push を DO 制御から分離。センサー名入り本文・`sensor_alert` / `push_notify` 履歴を必ず記録。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 実機を USB（mpremote · COM6）で直接書き込み蘇生。`lib/tisly_ota.py`・`lib/tisly_rgb.py` 欠落を解消し OTA 経路を開通。ファーム 1.2.8。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 起動クラッシュ対策。config/ロジック/GPIO/print を個別保護し、失敗時は橙点滅のセーフモードで OTA 待機。ファーム 1.2.7。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 リレー GPIO を公式配列（RO1〜RO8=GPIO17〜24）で固定し、config.py 依存の CH1/CH2 未生成を自己修復。ファーム 1.2.6。既存 2.2 系・はなれ・板橋は非破壊 |

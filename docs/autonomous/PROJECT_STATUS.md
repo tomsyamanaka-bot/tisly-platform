@@ -1985,6 +1985,22 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 センサー検知 → Push 通知の独立ディスパッチ（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 症状 | 手動の通知テストは届くのに、センサー（DI）検知で Push が来ない |
+| 調査 | ダッシュボードのタイムラインに `main_beam` が 1 件も無く、VPS ログにも検知なし。**実機が旧ファーム（1.1.0・`lib/tisly_ota.py` 欠落）だったため `/event` を投げていなかった**のが一次原因（USB 書き込みで解消） |
+| 二次要因 | `POST /api/home/v1/toyoshima/event` の回帰テストが皆無。`processToyoshimaSecurityEventV1` は `pushSent: true` を**固定で返す**ため、送れていなくても成功に見えていた |
+| 対策1 | `dispatchToyoshimaSensorNotifyV1()` を新設。Push を DO 制御より先に起動し **await せずにリレーを駆動**。結果だけ最後に回収して応答へ返す |
+| 対策2 | 通知本文にセンサー名を入れる（例: `外周ビーム（母屋・遠）が反応しました（豊島邸）`）。名称は `TOYOSHIMA_SENSOR_LABELS_V1` の 1 か所定義でダッシュボードと共用 |
+| 対策3 | 発報履歴 `sensor_alert` を **Push 可否によらず必ず記録**（`sensorId` / `sensorLabel` / `notifyMode` / `skipReason` 付き）。送信結果は新カテゴリ `push_notify` に残す |
+| 対策4 | 通知・履歴の全経路を try/catch で保護。失敗しても DO 制御・応答は継続 |
+| 実機側 | `_fire_di` は SILENT でも通知を先に送る。`send_event` が例外でもリレーは点く（ホストテストで固定） |
+| テスト | `server/test/toyoshima-sensor-push-v1.test.ts` 6 件新規（実機と同じ payload で POST・履歴・見送り理由・リレー継続）。豊島系サーバ 64 件 · home 系 60 件 PASS |
+| 既存保護 | 板橋・はなれ・ナレッジ・既存ログ行は変更なし。カテゴリは追加のみ |
+| 確認 | `/customer/security` · https://tisly.jp/api/home/v1/toyoshima/dashboard |
+
 ### 豊島邸 実機 USB 直接書き込みで蘇生（OTA 1.2.8 / 2026-09-22）
 
 | 領域 | 内容 |

@@ -901,11 +901,140 @@ async function sendToyoshimaPush(input: {
   }
 }
 
+/** センサー種別（Push・履歴の見出しに使う） */
+export type ToyoshimaSensorIdV1 =
+  | "main_beam_far"
+  | "main_beam_near"
+  | "detached_road"
+  | "detached_path";
+
+const TOYOSHIMA_SENSOR_LABELS_V1: Record<ToyoshimaSensorIdV1, string> = {
+  detached_road: "道路側センサー（はなれ）",
+  detached_path: "通路側センサー（はなれ）",
+  main_beam_far: "外周ビーム（母屋・遠）",
+  main_beam_near: "建物至近ビーム（母屋・近）",
+};
+
+/** DI 番号からセンサー種別を決める */
+export function resolveToyoshimaSensorIdV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): ToyoshimaSensorIdV1 {
+  if (building === "main") {
+    return di === 1 ? "main_beam_far" : "main_beam_near";
+  }
+  return di === 1 ? "detached_road" : "detached_path";
+}
+
+/** センサー名（例: 外周ビーム（母屋・遠）） */
+export function toyoshimaSensorLabelV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): string {
+  return TOYOSHIMA_SENSOR_LABELS_V1[resolveToyoshimaSensorIdV1(building, di)];
+}
+
+/**
+ * センサー検知の通知ディスパッチ。
+ * DO 制御とは独立に走らせる前提で、
+ * 例外は内部で握りつぶして false を返す。
+ * 発報履歴は Push の可否によらず必ず残す。
+ */
+async function dispatchToyoshimaSensorNotifyV1(input: {
+  homeSiteId: string;
+  building: ToyoshimaBuildingIdV1;
+  di: ToyoshimaDiChannelV1;
+  title: string;
+  eventType: string;
+  notifyMode: HomeNotifyModeV1;
+  /** 警戒状態から見て通知してよいか */
+  notifyAllowed: boolean;
+  /** 通知しない理由（履歴に残す） */
+  skipReason?: string | null;
+  snapshotUrl?: string | null;
+  detail?: Record<string, unknown>;
+}): Promise<boolean> {
+  const sensorId = resolveToyoshimaSensorIdV1(input.building, input.di);
+  const sensorLabel = TOYOSHIMA_SENSOR_LABELS_V1[sensorId];
+  const pushAllowed =
+    input.notifyAllowed && isHomeNotifyAnyPushV1(input.notifyMode);
+  const skipReason = pushAllowed
+    ? null
+    : input.skipReason || `通知設定 ${input.notifyMode}`;
+
+  /* 発報履歴（センサー名つき）を先に確定させる */
+  try {
+    recordSystemLogV1({
+      siteId: input.homeSiteId,
+      category: "sensor_alert",
+      message: `${input.title}｜${sensorLabel}`,
+      detail: {
+        ...(input.detail ?? {}),
+        building: input.building,
+        di: input.di,
+        sensorId,
+        sensorLabel,
+        notifyMode: input.notifyMode,
+        pushAllowed,
+        skipReason,
+      },
+      actor: "rp2350",
+    });
+  } catch (err) {
+    console.error("[toyoshima] sensor history failed:", err);
+  }
+
+  if (!pushAllowed) {
+    try {
+      recordSystemLogV1({
+        siteId: input.homeSiteId,
+        category: "push_notify",
+        message: `Push見送り ${sensorLabel}`,
+        detail: { sensorId, skipReason, notifyMode: input.notifyMode },
+        actor: "rp2350",
+      });
+    } catch (err) {
+      console.error("[toyoshima] push skip log failed:", err);
+    }
+    return false;
+  }
+
+  let pushSent = false;
+  try {
+    pushSent = await sendToyoshimaPush({
+      title: input.title,
+      body: `${sensorLabel}が反応しました（豊島邸）`,
+      eventType: input.eventType,
+      severity: input.notifyMode === "silent" ? "silent" : "critical",
+      snapshotUrl: input.snapshotUrl,
+    });
+  } catch (err) {
+    console.error("[toyoshima] sensor push failed:", err);
+    pushSent = false;
+  }
+
+  try {
+    recordSystemLogV1({
+      siteId: input.homeSiteId,
+      category: "push_notify",
+      message: pushSent
+        ? `Push送信 ${sensorLabel}`
+        : `Push送信失敗 ${sensorLabel}`,
+      detail: { sensorId, eventType: input.eventType, pushSent },
+      actor: "rp2350",
+    });
+  } catch (err) {
+    console.error("[toyoshima] push result log failed:", err);
+  }
+
+  return pushSent;
+}
+
 /** 母屋：遠近2段階検知 → ライト／フラッシュ連動 */
 async function handleMainBeamDetect(
   siteId: string,
   di: ToyoshimaDiChannelV1
-): Promise<void> {
+): Promise<boolean> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
@@ -941,31 +1070,31 @@ async function handleMainBeamDetect(
     snapshot,
   });
 
-  recordSystemLogV1({
-    siteId: homeId,
-    category: "sensor_alert",
-    message: title,
-    detail: { building: "main", di, customerMode, securityMode },
-    actor: "rp2350",
-  });
-
   const notifyMode = isFar
     ? rules.notifyMainFarMode || rules.notifyStagedMode
     : rules.notifyMainNearMode || rules.notifyStagedMode;
 
-  if (armed && beamActive && isHomeNotifyAnyPushV1(notifyMode)) {
-    await sendToyoshimaPush({
-      title,
-      body: isFar
-        ? "豊島邸 外周で接近を検知しました"
-        : "豊島邸 建物至近で侵入を検知しました",
-      eventType: isFar
-        ? "toyoshima_main_beam_far"
-        : "toyoshima_main_beam_near",
-      severity: notifyMode === "silent" ? "silent" : "critical",
-      snapshotUrl: snapshot?.imageUrl,
-    });
-  }
+  /* 通知は DO 制御を待たせない。
+   * ライト点灯より先に走らせ、結果だけ最後に拾う。
+   */
+  const notifyPromise = dispatchToyoshimaSensorNotifyV1({
+    homeSiteId: homeId,
+    building: "main",
+    di,
+    title,
+    eventType: isFar
+      ? "toyoshima_main_beam_far"
+      : "toyoshima_main_beam_near",
+    notifyMode,
+    notifyAllowed: armed && beamActive,
+    skipReason: !armed
+      ? "警戒解除中"
+      : !beamActive
+        ? `顧客モード ${customerMode}`
+        : null,
+    snapshotUrl: snapshot?.imageUrl,
+    detail: { customerMode, securityMode },
+  }).catch(() => false);
 
   runtime.alarmLatch = beamActive && armed;
   touchToyoshimaDeviceCommV1("main");
@@ -1014,13 +1143,15 @@ async function handleMainBeamDetect(
   setTimeout(() => {
     if (diState) diState.state = "normal";
   }, 5000);
+
+  return notifyPromise;
 }
 
 /** はなれ：DI1 道路側 / DI2 通路側 */
 async function handleDetachedDi(
   siteId: string,
   di: ToyoshimaDiChannelV1
-): Promise<void> {
+): Promise<boolean> {
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
@@ -1054,32 +1185,28 @@ async function handleDetachedDi(
     snapshot,
   });
 
-  recordSystemLogV1({
-    siteId: homeId,
-    category: "sensor_alert",
-    message: title,
-    detail: { building: "detached", di, customerMode },
-    actor: "rp2350",
-  });
-
   const notifyMode =
     di === 1 ? rules.notifyDi1Mode : rules.notifyDi2Mode;
 
-  if (
-    armed &&
-    perimeterActive &&
-    isHomeNotifyAnyPushV1(notifyMode)
-  ) {
-    await sendToyoshimaPush({
-      title,
-      body: title,
-      eventType: isRoad
-        ? "toyoshima_detached_road"
-        : "toyoshima_detached_path",
-      severity: notifyMode === "silent" ? "silent" : "critical",
-      snapshotUrl: snapshot?.imageUrl,
-    });
-  }
+  /* 通知はライト・パトライト制御と独立に走らせる */
+  const notifyPromise = dispatchToyoshimaSensorNotifyV1({
+    homeSiteId: homeId,
+    building: "detached",
+    di,
+    title,
+    eventType: isRoad
+      ? "toyoshima_detached_road"
+      : "toyoshima_detached_path",
+    notifyMode,
+    notifyAllowed: armed && perimeterActive,
+    skipReason: !armed
+      ? "警戒解除中"
+      : !perimeterActive
+        ? `顧客モード ${customerMode}`
+        : null,
+    snapshotUrl: snapshot?.imageUrl,
+    detail: { customerMode },
+  }).catch(() => false);
 
   runtime.alarmLatch = perimeterActive && armed;
   touchToyoshimaDeviceCommV1("detached");
@@ -1113,6 +1240,8 @@ async function handleDetachedDi(
   setTimeout(() => {
     if (diState) diState.state = "normal";
   }, 5000);
+
+  return notifyPromise;
 }
 
 /** 顧客警戒モード変更を履歴へ追記（既存行は消さない） */
@@ -1136,6 +1265,7 @@ export async function processToyoshimaSecurityEventV1(input: {
   ok: boolean;
   pushSent: boolean;
   message: string;
+  sensorLabel: string;
 }> {
   const siteId = resolveHomeSiteId(
     String(input.siteId ?? HOME_JP_TOYOSHIMA_SITE_ID_V1)
@@ -1148,23 +1278,25 @@ export async function processToyoshimaSecurityEventV1(input: {
   }
 
   if (input.building === "main") {
-    await handleMainBeamDetect(siteId, di);
+    const pushSent = await handleMainBeamDetect(siteId, di);
     return {
       ok: true,
-      pushSent: true,
+      pushSent,
       message:
         di === 1
           ? "⚠️ 外周で接近検知"
           : "🚨 建物至近で侵入検知！",
+      sensorLabel: toyoshimaSensorLabelV1("main", di),
     };
   }
 
-  await handleDetachedDi(siteId, di);
+  const pushSent = await handleDetachedDi(siteId, di);
   return {
     ok: true,
-    pushSent: true,
+    pushSent,
     message:
       di === 1 ? "はなれ 道路側検知" : "はなれ 通路側検知",
+    sensorLabel: toyoshimaSensorLabelV1("detached", di),
   };
 }
 
@@ -1356,19 +1488,19 @@ function buildToyoshimaNotifySensorsV1(
   return [
     {
       id: "detached_road",
-      label: "道路側センサー（はなれ）",
+      label: TOYOSHIMA_SENSOR_LABELS_V1.detached_road,
       mode: rules.notifyDi1Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi1Mode),
     },
     {
       id: "detached_path",
-      label: "通路側センサー（はなれ）",
+      label: TOYOSHIMA_SENSOR_LABELS_V1.detached_path,
       mode: rules.notifyDi2Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi2Mode),
     },
     {
       id: "main_beam_far",
-      label: "外周ビーム（母屋・遠）",
+      label: TOYOSHIMA_SENSOR_LABELS_V1.main_beam_far,
       mode: rules.notifyMainFarMode || rules.notifyStagedMode,
       modeLabel: toyoshimaNotifyModeLabelV1(
         rules.notifyMainFarMode || rules.notifyStagedMode
@@ -1376,7 +1508,7 @@ function buildToyoshimaNotifySensorsV1(
     },
     {
       id: "main_beam_near",
-      label: "建物至近ビーム（母屋・近）",
+      label: TOYOSHIMA_SENSOR_LABELS_V1.main_beam_near,
       mode: rules.notifyMainNearMode || rules.notifyStagedMode,
       modeLabel: toyoshimaNotifyModeLabelV1(
         rules.notifyMainNearMode || rules.notifyStagedMode
