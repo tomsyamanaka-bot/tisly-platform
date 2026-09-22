@@ -7,7 +7,8 @@ VPS イベント送信を行う。
 
 24 時間常時通知。ライト点灯は 18:00〜06:00 のみ。
 日中は通知のみ（ライト・フラッシュ省略）。
-force_relay_test（既定 True）時は昼夜を無視してリレー駆動。
+夜間は force_relay_test を無視してライト連動する。
+日中だけ force_relay_test でテスト点灯する。
 
 付帯: チップ内蔵温度（CORE_TEMP / ADC4） /
 5分 heartbeat / 物理 WDT 8 秒
@@ -227,15 +228,16 @@ class ToyoshimaBaseController:
 
     def _can_run_lights(self):
         """DO ライト点灯可否。
-        force_relay_test 時は昼夜・警戒を無視する。
+        夜間は昼間テストを無視して点灯する。
+        日中だけ force_relay_test を見る。
         """
-        if bool(getattr(self, "_force_relay_test", False)):
-            return True
         if self._security_paused:
             return False
         if self._guard_mode == "off":
             return False
-        return self._is_in_light_schedule()
+        if self._is_in_light_schedule():
+            return True
+        return bool(getattr(self, "_force_relay_test", False))
 
     def on_di_edge(self, di, prev_state, new_state):
         """ハードデバウンス後の立上りで即時リレー。

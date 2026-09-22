@@ -398,6 +398,9 @@ const TS_ICON_BULB = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
  * 3D枠の外に出したボタンの装飾のみ。
  */
 export function renderAreaSwitchCard(activeId) {
+  /* 顧客画面からは見るエリアを出さない
+   * 関数は再表示用に残す */
+  return "";
   const focus = activeId === "outdoor" ? "outdoor" : "1f";
   const items = [
     { id: "1f", label: "1F" },
@@ -1099,24 +1102,23 @@ function renderCustomerActivitySection(dash) {
   </section>`;
 }
 
-/** スマート3連セグメント · 警戒モード */
+/** 警戒 ON / OFF の2択 */
 function renderCustomerModeCards(dash) {
-  const current = dash.customerMode || "home";
+  const current = dash.customerMode === "disarmed" ? "disarmed" : "away";
   const modes = [
-    { id: "away", emoji: "🏃", label: "おでかけ警戒" },
-    { id: "home", emoji: "🏠", label: "在宅見守り" },
-    { id: "disarmed", emoji: "⏸️", label: "警戒解除" },
+    { id: "away", emoji: "🛡️", label: "警戒 ON" },
+    { id: "disarmed", emoji: "⏸️", label: "警戒 OFF" },
   ];
   return `<section class="ts-card ts-mode-card" id="ts-mode-card" aria-label="警戒モード">
     <h3 class="ts-card-head">🛡️ 警戒モード</h3>
-    <div class="ts-mode-segment" role="radiogroup" aria-label="警戒モード切替">
+    <div class="ts-mode-segment ts-mode-segment-2" role="radiogroup" aria-label="警戒モード切替">
       ${modes
         .map(
           (m) => `<button type="button" class="ts-mode-seg ${
-            current === m.id ? "is-on" : ""
-          }" data-ts-customer-mode="${m.id}" role="radio" aria-checked="${
-            current === m.id ? "true" : "false"
-          }">
+            m.id === "away" ? "ts-mode-seg-on" : "ts-mode-seg-off"
+          } ${current === m.id ? "is-on" : ""}" data-ts-customer-mode="${
+            m.id
+          }" role="radio" aria-checked="${current === m.id ? "true" : "false"}">
         <span class="ts-mode-seg-emoji" aria-hidden="true">${m.emoji}</span>
         <span class="ts-mode-seg-label">${m.label}</span>
       </button>`
@@ -2330,7 +2332,6 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
     <div class="ts-tab-panes ts-customer-dash" id="ts-tab-panes" data-ts-active-pane="map">
       <div class="ts-tab-pane is-on" data-ts-pane="map">
         ${renderCustomerStatusBanner(dash)}
-        ${renderAreaSwitchCard(window.__TISLY_SF_FLOOR || "1f")}
         ${renderCustomerModeCards(dash)}
         ${renderCustomerDailySettings(dash)}
       </div>
@@ -2496,7 +2497,7 @@ async function setCustomerMode(mode) {
   if (!data?.ok) throw new Error(data?.error || "モード切替に失敗");
   await syncFirmwareConfigAfterSave();
   if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
-  showToast(`${data.modeLabel || "警戒モード"} に切り替えました`);
+  showToast(mode === "disarmed" ? "警戒 OFF にしました" : "警戒 ON にしました");
 }
 
 function ensureSnapshotLightbox() {

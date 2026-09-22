@@ -222,6 +222,11 @@
   letter-spacing: 0.04em;
 }
 
+/* 顧客画面では見るエリアを出さない */
+.sf-body.sf-customer .sf-area-switch {
+  display: none !important;
+}
+
 .sf-area-tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

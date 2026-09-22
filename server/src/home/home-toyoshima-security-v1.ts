@@ -31,6 +31,7 @@ import {
   isHomeNotifyAnyPushV1,
   isHomeNotifyModeV1,
   isHomeNotifyPushEnabledV1,
+  isHomeScheduleWindowActiveV1,
   isHomeSecurityArmedV1,
   isHomeSecurityPausedV1,
   type HomeGuardModeV1,
@@ -1018,6 +1019,26 @@ export function resolveToyoshimaNotifyGateV1(input: {
   };
 }
 
+/**
+ * 夜間は昼間テストを無視してライト連動する。
+ * 日中だけ forceRelayTest を見る。
+ */
+export function shouldToyoshimaDriveSensorLightsV1(
+  rules: ReturnType<typeof getHomeSecurityRulesV1>,
+  at: Date = new Date()
+): boolean {
+  const mode = deriveCustomerSecurityModeV1(rules);
+  if (mode === "disarmed") return false;
+  if (isHomeSecurityPausedV1(rules, at)) return false;
+  const night = isHomeScheduleWindowActiveV1(
+    rules.scheduleStart,
+    rules.scheduleEnd,
+    at
+  );
+  if (night) return true;
+  return rules.forceRelayTest === true;
+}
+
 function formatToyoshimaJstV1(iso: string): string {
   return new Date(iso).toLocaleString("ja-JP", {
     timeZone: "Asia/Tokyo",
@@ -1056,8 +1077,8 @@ function toyoshimaEventTypeV1(
     : "toyoshima_detached_path";
 }
 
-/** 同一センサーの二重発火を抑える（秒） */
-const TOYOSHIMA_NOTIFY_DEDUP_SEC_V1 = 20;
+/** 同一センサーの再通知クールダウン（45秒で必ず解除） */
+export const TOYOSHIMA_NOTIFY_COOLDOWN_MS_V1 = 45_000;
 const lastToyoshimaNotifyAtV1 = new Map<string, number>();
 const lastToyoshimaDiStateV1: Record<
   ToyoshimaBuildingIdV1,
@@ -1066,6 +1087,7 @@ const lastToyoshimaDiStateV1: Record<
   main: { "1": "unknown", "2": "unknown" },
   detached: { "1": "unknown", "2": "unknown" },
 };
+const toyoshimaNotifyResetTimersV1 = new Map<string, ReturnType<typeof setTimeout>>();
 
 function toyoshimaNotifyDedupKeyV1(
   building: ToyoshimaBuildingIdV1,
@@ -1074,13 +1096,36 @@ function toyoshimaNotifyDedupKeyV1(
   return `${building}:${di}`;
 }
 
+function releaseToyoshimaNotifyStopperV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): void {
+  const key = toyoshimaNotifyDedupKeyV1(building, di);
+  lastToyoshimaNotifyAtV1.delete(key);
+  lastToyoshimaDiStateV1[building][String(di) as "1" | "2"] = "off";
+  const timer = toyoshimaNotifyResetTimersV1.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    toyoshimaNotifyResetTimersV1.delete(key);
+  }
+  console.log(`[toyoshima] notify stopper released ${key}`);
+}
+
 function markToyoshimaNotifyFiredV1(
   building: ToyoshimaBuildingIdV1,
   di: ToyoshimaDiChannelV1
 ): void {
-  lastToyoshimaNotifyAtV1.set(
-    toyoshimaNotifyDedupKeyV1(building, di),
-    Date.now()
+  const key = toyoshimaNotifyDedupKeyV1(building, di);
+  lastToyoshimaNotifyAtV1.set(key, Date.now());
+  lastToyoshimaDiStateV1[building][String(di) as "1" | "2"] = "on";
+  const prev = toyoshimaNotifyResetTimersV1.get(key);
+  if (prev) clearTimeout(prev);
+  /* 45秒後にフラグを必ず戻す */
+  toyoshimaNotifyResetTimersV1.set(
+    key,
+    setTimeout(() => {
+      releaseToyoshimaNotifyStopperV1(building, di);
+    }, TOYOSHIMA_NOTIFY_COOLDOWN_MS_V1)
   );
 }
 
@@ -1092,7 +1137,15 @@ function isToyoshimaNotifyDuplicateV1(
     toyoshimaNotifyDedupKeyV1(building, di)
   );
   if (last == null) return false;
-  return Date.now() - last < TOYOSHIMA_NOTIFY_DEDUP_SEC_V1 * 1000;
+  return Date.now() - last < TOYOSHIMA_NOTIFY_COOLDOWN_MS_V1;
+}
+
+/** テスト用 · ストッパーを即時解除する */
+export function releaseToyoshimaNotifyStopperForTestV1(
+  building: ToyoshimaBuildingIdV1,
+  di: ToyoshimaDiChannelV1
+): void {
+  releaseToyoshimaNotifyStopperV1(building, di);
 }
 
 /**
@@ -1225,7 +1278,6 @@ async function handleMainBeamDetect(
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
-  const lightsActive = isHomeGuardActiveV1(rules);
   const securityMode = String(rules.securityMode || "2STEP").toUpperCase();
   const flashEnabled = rules.flashEnabled !== false;
   const isFar = di === 1;
@@ -1262,9 +1314,11 @@ async function handleMainBeamDetect(
   const silent = securityMode === "SILENT";
   const full =
     !silent && (securityMode === "DIRECT" || !isFar);
-  const forceRelay = rules.forceRelayTest !== false;
+  /* 夜間は昼間テストを見ず無条件で点灯する */
   const driveRelays =
-    Boolean(beamActive) && !silent && (forceRelay || lightsActive);
+    Boolean(beamActive) &&
+    !silent &&
+    shouldToyoshimaDriveSensorLightsV1(rules);
   const d1 = findDo(runtime.main, 1);
   const d2 = findDo(runtime.main, 2);
   const durationMs = (rules.lightingDurationSec ?? 45) * 1000;
@@ -1313,7 +1367,6 @@ async function handleDetachedDi(
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
-  const lightsActive = isHomeGuardActiveV1(rules);
   /* 一時解除以外は外周センサーを有効 */
   const perimeterActive =
     customerMode === "away" || customerMode === "home";
@@ -1346,7 +1399,11 @@ async function handleDetachedDi(
   touchToyoshimaDeviceCommV1("detached");
 
   const light = findDo(runtime.detached, 1);
-  if (perimeterActive && lightsActive && light) {
+  if (
+    perimeterActive &&
+    shouldToyoshimaDriveSensorLightsV1(rules) &&
+    light
+  ) {
     light.on = true;
     appendTimeline({
       at,
@@ -1496,7 +1553,7 @@ function readHeartbeatDiStateV1(
 
 /**
  * heartbeat の inputStates から DI 立上りを拾う。
- * /event 欠落時のバックアップ。20秒以内の重複は捨てる。
+ * /event 欠落時のバックアップ。45秒以内の重複は捨てる。
  */
 export async function ingestToyoshimaHeartbeatInputsV1(input: {
   siteId?: string;
@@ -2289,6 +2346,10 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
   lastToyoshimaNotifyAtV1.clear();
   lastToyoshimaDiStateV1.main = { "1": "unknown", "2": "unknown" };
   lastToyoshimaDiStateV1.detached = { "1": "unknown", "2": "unknown" };
+  for (const timer of toyoshimaNotifyResetTimersV1.values()) {
+    clearTimeout(timer);
+  }
+  toyoshimaNotifyResetTimersV1.clear();
   for (const [, timer] of runtime.patliteTimers) {
     clearInterval(timer);
   }

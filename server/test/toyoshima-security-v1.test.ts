@@ -9,6 +9,7 @@ import {
   processToyoshimaSecurityEventV1,
   recordToyoshimaHeartbeatV1,
   recordToyoshimaModeChangeV1,
+  shouldToyoshimaDriveSensorLightsV1,
   setToyoshimaHeartbeatAtForTestV1,
   resetToyoshimaSecurityStateForTestV1,
   runToyoshimaHeartbeatWatchdogV1,
@@ -25,6 +26,7 @@ import {
 import { findHomeSiteV1 } from "../src/home/home-sites-v1.js";
 import {
   buildHomeSecurityFirmwareRulesV1,
+  getHomeSecurityRulesV1,
   updateHomeSecurityRulesV1,
 } from "../src/home/home-security-rules-v1.js";
 import {
@@ -581,5 +583,43 @@ describe("toyoshima-security-v1", () => {
       consumeToyoshimaDeviceCommandV1("main"),
       null
     );
+  });
+
+  it("night schedule drives lights even when daytime forceRelayTest is off", () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      forceRelayTest: false,
+      scheduleStart: "18:00",
+      scheduleEnd: "06:00",
+    });
+    const rules = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    const night = new Date("2026-09-22T10:15:00.000Z");
+    const day = new Date("2026-09-22T03:00:00.000Z");
+    assert.equal(shouldToyoshimaDriveSensorLightsV1(rules, night), true);
+    assert.equal(shouldToyoshimaDriveSensorLightsV1(rules, day), false);
+  });
+
+  it("daytime forceRelayTest turns lights on only outside the night window", () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      forceRelayTest: true,
+      scheduleStart: "18:00",
+      scheduleEnd: "06:00",
+    });
+    const rules = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    const day = new Date("2026-09-22T03:00:00.000Z");
+    assert.equal(shouldToyoshimaDriveSensorLightsV1(rules, day), true);
+  });
+
+  it("disarmed never drives sensor lights even at night", () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "disarmed",
+      forceRelayTest: true,
+      scheduleStart: "18:00",
+      scheduleEnd: "06:00",
+    });
+    const rules = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    const night = new Date("2026-09-22T10:15:00.000Z");
+    assert.equal(shouldToyoshimaDriveSensorLightsV1(rules, night), false);
   });
 });

@@ -1086,10 +1086,19 @@
   text-align: center;
 }
 
+.ts-mode-segment-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .ts-mode-seg.is-on {
   background: #1e3a8a;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(30, 58, 138, 0.28);
+}
+
+.ts-mode-seg-off.is-on {
+  background: #64748b;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.28);
 }
 
 /* ワンタップ警戒モード（互換） */

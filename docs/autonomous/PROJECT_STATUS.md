@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2558-toyoshima-ui-cleanup` |
+| SW | `tisly-pwa-v2559-guard-onoff-notify-reset` |
 
 ---
 
@@ -1984,6 +1984,18 @@ p2350-relay-v1.ts �E firmware main.py |
 | 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
+### 豊島邸 通知ストッパー解除・昼夜ライト分離・警戒ON/OFF（2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 対象 | `TOYOSHIMA001` · `/customer/security` · `/event` · heartbeat |
+| 1. 通知ストッパー | `lastToyoshimaDiState` が ON のまま固まるのを 45 秒タイムアウトで `off` に戻す。再検知で何度でも Push |
+| 2. 昼夜ライト | 夜間窓は `forceRelayTest` を無視して連動。日中だけ昼間テストを見る |
+| 3. UI | 見るエリア（1F/外周）を顧客非表示。警戒は ON=`away` / OFF=`disarmed` の 2 択 |
+| 既存保護 | `home` 型・DO 配列・板橋 3 択は削除せず残す |
+| SW | `tisly-pwa-v2559-guard-onoff-notify-reset` |
+| 確認 | https://tisly.jp/api/health |
 
 ### 豊島邸 センサー検知 Push 完全独立（2026-09-22）
 

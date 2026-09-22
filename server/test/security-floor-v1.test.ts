@@ -805,6 +805,15 @@ describe("security-floor-v1", () => {
     assert.match(floorMapJs, /sf-tab-sub/);
     assert.match(toyoshimaJs, /renderDayNightRuleCard/);
     assert.match(toyoshimaJs, /renderAreaSwitchCard/);
+    assert.match(toyoshimaJs, /警戒 ON/);
+    assert.match(toyoshimaJs, /警戒 OFF/);
+    assert.match(toyoshimaJs, /ts-mode-segment-2/);
+    assert.match(toyoshimaJs, /ts-mode-seg-off/);
+    assert.match(toyoshimaJs, /顧客画面からは見るエリアを出さない/);
+    assert.doesNotMatch(
+      toyoshimaJs,
+      /function renderCustomerModeCards[\s\S]{0,400}在宅見守り/
+    );
     assert.match(toyoshimaJs, /☀️/);
     assert.match(toyoshimaJs, /🌙/);
     assert.match(toyoshimaJs, /日中（通知のみ）/);
@@ -909,9 +918,12 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaCss, /\.ts-dn-night\.is-now/);
     assert.match(toyoshimaCss, /\.ts-slider-rich \.ts-slider-val/);
     assert.match(toyoshimaCss, /\.ts-slider-scale/);
+    assert.match(toyoshimaCss, /\.ts-mode-segment-2/);
+    assert.match(toyoshimaCss, /\.ts-mode-seg-off\.is-on/);
     assert.match(floorCss, /\.sf-tab--iconed/);
     assert.match(floorCss, /\.sf-tab-ico svg/);
     assert.match(floorCss, /\.sf-area-switch/);
+    assert.match(floorCss, /\.sf-body\.sf-customer \.sf-area-switch/);
     assert.match(floorCss, /\.sf-slider-rich/);
     assert.match(html, /sf-slider-rich/);
     assert.match(html, /sf-op-daynight/);

@@ -16,6 +16,7 @@ const {
   SEC_JP_TOYOSHIMA_SITE_ID_V1,
   ingestToyoshimaHeartbeatInputsV1,
   processToyoshimaSecurityEventV1,
+  releaseToyoshimaNotifyStopperForTestV1,
   resetToyoshimaSecurityStateForTestV1,
   resolveToyoshimaNotifyGateV1,
   toyoshimaSensorLabelV1,
@@ -245,5 +246,29 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.ok(row, "heartbeat 立上りでも発報履歴を残す");
     assert.equal(row?.detail?.sensorName, "道路側センサー（はなれ）");
     assert.ok(row?.detail?.detectedAtJst);
+  });
+
+  it("releases notify stopper so later detections can fire again", async () => {
+    armAway();
+    await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "off", "2": "off" },
+    });
+    const first = await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "on", "2": "off" },
+    });
+    assert.equal(first, 1);
+    const stuck = await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "on", "2": "off" },
+    });
+    assert.equal(stuck, 0, "同一ONはクールダウン中に再発火しない");
+    releaseToyoshimaNotifyStopperForTestV1("detached", 1);
+    const again = await ingestToyoshimaHeartbeatInputsV1({
+      building: "detached",
+      inputStates: { "1": "on", "2": "off" },
+    });
+    assert.equal(again, 1, "ストッパー解除後は再通知できる");
   });
 });
