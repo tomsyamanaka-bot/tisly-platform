@@ -70,6 +70,8 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.match(main.text, /豊島邸/);
     assert.match(main.text, /toyoshima\/command/);
     assert.match(main.text, /_relay_gpio_level/);
+    assert.match(main.text, /COMMAND_WAIT_MS = 0/);
+    assert.match(main.text, /sensor_near/);
     assert.match(main.headers["content-type"] || "", /text\/plain/);
 
     const logic = await request(app).get(

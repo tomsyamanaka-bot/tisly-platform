@@ -347,6 +347,18 @@ function syncLiveBundleVersionV1(
     site.version = bundle;
     changed = true;
   }
+  if (compareSemverV1(bundle, site.version) >= 0) {
+    const liveChecksum = combinedChecksum(live.checksums);
+    if (
+      site.checksum !== liveChecksum ||
+      Object.keys(site.files).length === 0
+    ) {
+      site.files = { ...live.files };
+      site.checksums = { ...live.checksums };
+      site.checksum = liveChecksum;
+      changed = true;
+    }
+  }
   if (compareSemverV1(bundle, site.stagingVersion) > 0) {
     site.stagingVersion = bundle;
     site.stagingFiles = { ...live.files };
