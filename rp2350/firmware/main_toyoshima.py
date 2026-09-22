@@ -79,6 +79,34 @@ W5500_CS = 33
 W5500_RST = 25
 
 
+# --- Waveshare RP2350-POE-ETH-8DI-8RO 公式ピン配列 ---
+# RO1〜RO8 = GPIO17〜24 / DI1〜DI8 = GPIO9〜16
+# config.py は OTA skipFiles のため実機側が古いままになる。
+# CH1/CH2 が欠落した config でも本テーブルで必ず生成する。
+BOARD_CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
+BOARD_DI_GPIO = {1: 9, 2: 10, 3: 11, 4: 12, 5: 13, 6: 14, 7: 15, 8: 16}
+
+
+def _resolve_pin_map(attr_name, board_map, label):
+    """公式配列を正とし、config 側のズレ・欠落を補正する。"""
+    resolved = dict(board_map)
+    cfg = getattr(config, attr_name, None)
+    if isinstance(cfg, dict):
+        for key, gpio in cfg.items():
+            try:
+                idx = int(key)
+                gpio_no = int(gpio)
+            except Exception:
+                continue
+            if idx in board_map and gpio_no != board_map[idx]:
+                print(
+                    "[豊島邸] {}{} GPIO{} -> 公式 GPIO{} へ補正".format(
+                        label, idx, gpio_no, board_map[idx]
+                    )
+                )
+    return resolved
+
+
 def _relay_gpio_level(channel, on):
     """論理ONをGPIOレベルへ変換する。
     豊島邸 Waveshare 8RO は HIGH=コイルON を強制する。
@@ -139,17 +167,20 @@ def _channels_for_manual_cmd(cmd):
     return []
 
 
+CH_GPIO_MAP = _resolve_pin_map("CH_GPIO", BOARD_CH_GPIO, "CH")
+DI_GPIO_MAP = _resolve_pin_map("DI_GPIO", BOARD_DI_GPIO, "DI")
+
 CH_PINS = {}
-for ch, gpio in config.CH_GPIO.items():
-    pin = Pin(gpio, Pin.OUT)
+for ch in sorted(CH_GPIO_MAP.keys()):
+    pin = Pin(CH_GPIO_MAP[ch], Pin.OUT)
     pin.value(_relay_gpio_level(ch, False))
     CH_PINS[ch] = pin
 
 DI_PINS = {}
 _di_active_low = bool(getattr(config, "DI_ACTIVE_LOW", True))
 _di_pull = Pin.PULL_UP if _di_active_low else Pin.PULL_DOWN
-for di, gpio in config.DI_GPIO.items():
-    DI_PINS[di] = Pin(gpio, Pin.IN, _di_pull)
+for di in sorted(DI_GPIO_MAP.keys()):
+    DI_PINS[di] = Pin(DI_GPIO_MAP[di], Pin.IN, _di_pull)
 
 ch_states = {str(i): "off" for i in range(1, 9)}
 input_states = {str(i): "off" for i in range(1, 9)}
@@ -436,10 +467,15 @@ def http_post(path, payload):
 def set_ch_output(channel, on):
     """リレー出力と ch_states を同期更新。
     HIGH でコイルON・DO青LED点灯。
+    CH1/CH2 が未生成でも公式 GPIO で作り直す。
     """
-    if channel not in CH_PINS:
+    gpio = CH_GPIO_MAP.get(channel)
+    if gpio is None:
+        log_error("CH{} は未定義 — 駆動しない".format(channel))
         return
-    gpio = config.CH_GPIO.get(channel)
+    if channel not in CH_PINS:
+        CH_PINS[channel] = Pin(gpio, Pin.OUT)
+        log("CH{} GPIO{} を遅延生成".format(channel, gpio))
     level = _relay_gpio_level(channel, on)
     CH_PINS[channel].value(level)
     ch_states[str(channel)] = "on" if on else "off"
@@ -832,6 +868,12 @@ async def async_main():
             FIRMWARE_LOGIC_VERSION,
             getattr(config, "DI_DEBOUNCE_MS", DI_DEBOUNCE_MS),
             COMMAND_WAIT_MS,
+        )
+    )
+
+    log(
+        "relay pinmap CH1=GPIO{} CH2=GPIO{} CH3=GPIO{}".format(
+            CH_GPIO_MAP.get(1), CH_GPIO_MAP.get(2), CH_GPIO_MAP.get(3)
         )
     )
 

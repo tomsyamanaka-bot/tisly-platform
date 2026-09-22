@@ -51,7 +51,11 @@ WDT_TIMEOUT_MS = 8000
 # 盤内過熱しきい値（℃）
 BOARD_TEMP_OVERHEAT_C = 60.0
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.4"
+FIRMWARE_LOGIC_VERSION = "1.2.5"
+# リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
+# 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
+# ここは参照用の正の写しで、ズレ検知テストが参照する。
+BOARD_CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
 
 
 def _parse_hm(value, fallback):

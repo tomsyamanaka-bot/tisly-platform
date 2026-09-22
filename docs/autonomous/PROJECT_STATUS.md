@@ -1985,6 +1985,22 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind` |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+### 豊島邸 リレー GPIO 確定＆CH1/CH2 不点灯の解消（OTA 1.2.5 / 2026-09-22）
+
+| 領域 | 内容 |
+|------|------|
+| 症状 | センサー検知で CH3 のみ点灯し、CH1（DO1）· CH2（DO2）の青 LED が点灯しない |
+| 原因 | リレー Pin を OTA 対象外の `config.py`（skipFiles）の `CH_GPIO` から生成していたため、実機に古い／欠けた定義が残ると CH1/CH2 の Pin が作られず `set_ch_output` が黙って return |
+| ピン確定 | `main.py` に `BOARD_CH_GPIO`（RO1〜RO8 = GPIO17〜24）· `BOARD_DI_GPIO`（DI1〜DI8 = GPIO9〜16）をハードコード。Waveshare 公式 `02-MQTT` / `01-RS485` サンプルと一致 |
+| 補正 | `_resolve_pin_map` が config 側のズレをログに出して公式配列へ矯正。`set_ch_output` は Pin 未生成なら遅延生成 |
+| DI1 | CH1 / GPIO17 HIGH（`lightingDurationSec`） |
+| DI2 | CH1+CH2 HIGH ＋ CH3 を 15 秒（`flash_duration_sec`） |
+| 昼夜 | `force_relay_test` 既定 True で昼間もリレー駆動 |
+| OTA | ライブ版が store より新しければ本番も `pending=true`。`GET script` もライブと突合してから配信 |
+| 既存保護 | 2.2 系・はなれ・板橋・ナレッジ配列は削除せず追記 |
+| SW | `tisly-pwa-v2555-toyoshima-do-bind`（PWA 変更なし） |
+| 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
+
 
 
 

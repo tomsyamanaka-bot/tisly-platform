@@ -284,8 +284,28 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
-def test_firmware_logic_version_is_1_2_4():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.4"
+def test_firmware_logic_version_is_1_2_5():
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.5"
+
+
+def test_board_ch_gpio_matches_waveshare_ro1_ro8():
+    """RO1〜RO8 = GPIO17〜24。CH1/CH2/CH3 のズレを禁止する。"""
+    assert ts.BOARD_CH_GPIO[1] == 17
+    assert ts.BOARD_CH_GPIO[2] == 18
+    assert ts.BOARD_CH_GPIO[3] == 19
+    assert ts.BOARD_CH_GPIO[8] == 24
+
+
+def test_main_firmware_pins_relays_independently_of_config():
+    """config.py が欠けても CH1/CH2 の Pin を生成する。"""
+    src = (ROOT / "firmware" / "main_toyoshima.py").read_text(
+        encoding="utf-8"
+    )
+    assert "BOARD_CH_GPIO = {1: 17, 2: 18, 3: 19" in src
+    assert "_resolve_pin_map" in src
+    assert "CH_GPIO_MAP = _resolve_pin_map" in src
+    assert "CH_PINS[channel] = Pin(gpio, Pin.OUT)" in src
+    assert "for ch, gpio in config.CH_GPIO.items():" not in src
 
 
 def test_on_di_edge_di1_kicks_ch1_immediately():
@@ -367,7 +387,9 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
-    test_firmware_logic_version_is_1_2_4()
+    test_firmware_logic_version_is_1_2_5()
+    test_board_ch_gpio_matches_waveshare_ro1_ro8()
+    test_main_firmware_pins_relays_independently_of_config()
     test_on_di_edge_di1_kicks_ch1_immediately()
     test_on_di_edge_di2_kicks_lights_and_flash()
     test_manual_sensor_near_kicks_all_channels()

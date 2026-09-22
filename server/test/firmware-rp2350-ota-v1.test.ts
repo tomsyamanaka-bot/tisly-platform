@@ -42,7 +42,7 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(resolveTislyOtaSiteKeyV1("SEC-JP-TOSHIMA-001"), "toyoshima");
   });
 
-  it("GET version returns checksum json without pending", async () => {
+  it("GET version marks a newer live bundle as pending", async () => {
     resetTislyOtaStoreForTestV1();
     const res = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(res.status, 200);
@@ -51,8 +51,8 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(typeof res.body.version, "string");
     assert.equal(typeof res.body.checksum, "string");
     assert.equal(res.body.checksum.length, 64);
-    assert.equal(res.body.pending, false);
-    assert.equal(res.body.has_ota_update, false);
+    assert.equal(res.body.pending, true);
+    assert.equal(res.body.has_ota_update, true);
     assert.match(String(res.body.version), /^1\.2\.\d+/);
     assert.ok(res.body.files.includes("main.py"));
     assert.ok(res.body.skipFiles.includes("config.py"));
@@ -74,6 +74,8 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.match(main.text, /_channels_for_manual_cmd/);
     assert.match(main.text, /HIGH=コイルON を強制/);
     assert.match(main.text, /sensor_near/);
+    assert.match(main.text, /BOARD_CH_GPIO = \{1: 17, 2: 18, 3: 19/);
+    assert.match(main.text, /_resolve_pin_map/);
     assert.match(main.headers["content-type"] || "", /text\/plain/);
 
     const logic = await request(app).get(
@@ -81,7 +83,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(logic.status, 200);
     assert.match(logic.text, /ToyoshimaMainHouseController|heartbeat/);
-    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.4"/);
+    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.5"/);
     assert.match(logic.text, /rising fire/);
   });
 
@@ -331,12 +333,12 @@ describe("firmware-rp2350-ota-v1", () => {
     );
   });
 
-  it("GET toyoshima version advertises live 1.2.4 and stages it", async () => {
+  it("GET toyoshima version advertises live 1.2.5 and stages it", async () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);
-    assert.match(String(prod.body.version), /^1\.2\.\d+/);
-    assert.equal(prod.body.pending, false);
+    assert.match(String(prod.body.version), /^1\.2\.5/);
+    assert.equal(prod.body.pending, true);
     const staging = await request(app).get(
       "/api/firmware/toyoshima/version?channel=staging"
     );

@@ -164,6 +164,25 @@
 | PWA | `/customer` `/app` の外構ライト手動操作に一括ON/OFFを含む。session header 付き POST |
 | OTA | クラウド最新 1.2.4 をステージング |
 
+### 2.2.7 リレー GPIO 確定表とピン自己修復（2026-09-22 追記）
+
+既存 2.2 / 2.2.1〜2.2.6 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|-----|
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.2.5` · `OTA_VERSION=1.2.5` |
+| 公式配列 | Waveshare RP2350-POE-ETH-8DI-8RO **RO1〜RO8 = GPIO17〜24** / **DI1〜DI8 = GPIO9〜16** |
+| CH1 | GPIO17（DO1 防犯ライト1） |
+| CH2 | GPIO18（DO2 防犯ライト2） |
+| CH3 | GPIO19（DO3 フラッシュ） |
+| ピンの正 | `main.py` の `BOARD_CH_GPIO`。`config.py` は OTA skipFiles のため実機側が古くても無視して補正する |
+| 自己修復 | `set_ch_output` は CH の Pin 未生成時に公式 GPIO で遅延生成する（CH1/CH2 無反応の再発防止） |
+| 起動ログ | `relay pinmap CH1=GPIO17 CH2=GPIO18 CH3=GPIO19` |
+| DI1 検知 | CH1 HIGH（`lightingDurationSec`） |
+| DI2 検知 | CH1+CH2 HIGH ＋ CH3 を `flash_duration_sec`（既定 15 秒） |
+| 昼夜バイパス | `force_relay_test` 既定 True。昼間でも DO1/DO2 を駆動 |
+| OTA | ライブ版が新しければ本番も `pending=true`。script 取得時もライブと突合して配る |
+
 ### 2.3 子機（はなれ RP2350 6ch）
 
 | 端子 | 役割 | 備考 |
@@ -377,6 +396,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-09-22 | 豊島邸 リレー GPIO を公式配列（RO1〜RO8=GPIO17〜24）で固定し、config.py 依存の CH1/CH2 未生成を自己修復。ファーム 1.2.5。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-22 | 豊島邸 手動 DO1/DO2/DO3 完全連動。GPIO HIGH 強制 · channels 推論 · ファーム 1.2.3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | 豊島邸 手動点灯を GPIO 明示キックに強化。ライト1=CH1 / ライト2=CH2 / 一括ON=CH1+CH2+CH3。既存 2.2 系・はなれ・板橋は非破壊 |
 | 2026-09-21 | TESTER001 ログインを関数先頭ハードコード＋VPS の systemd/pm2 強制再起動に強化。入口は https://tisly.jp/customer のまま。既存顧客データは非破壊 |

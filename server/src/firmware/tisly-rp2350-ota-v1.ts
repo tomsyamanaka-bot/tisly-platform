@@ -346,6 +346,9 @@ function syncLiveBundleVersionV1(
   let changed = false;
   if (compareSemverV1(bundle, site.version) > 0) {
     site.version = bundle;
+    /* 新版は本番も配信待ちにする（実機が次の HB で取りに来る） */
+    site.pending = true;
+    site.lastDeployAt = nowIso();
     changed = true;
   }
   /* ストア版がバンドルより先にバンプされてもライブ本体を配る */
@@ -730,7 +733,9 @@ export function getTislyOtaScriptV1(input: {
   const requested = String(input.name ?? "main.py").trim() || "main.py";
   if (!(requested in profile.fileMap)) return null;
   const store = loadStore();
-  const site = store.sites[input.siteKey];
+  const site = getOrCreateSite(store, input.siteKey);
+  /* スナップショットが古いまま配られないよう毎回ライブと突き合わせる */
+  syncLiveBundleVersionV1(store, site, input.siteKey, readMappedFiles(profile));
   const snap =
     channel === "staging" ? site?.stagingFiles : site?.files;
   if (snap && typeof snap[requested] === "string") {
