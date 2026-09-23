@@ -442,7 +442,7 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.main.do[2].blinking, false);
   });
 
-  it("2STEP DI2 lights DO1+DO2 and flashes DO3", async () => {
+  it("2STEP DI2 alone lights DO1+DO2 and does not flash DO3", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",
       guardMode: "always",
@@ -459,7 +459,36 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.do[0].on, true);
     assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[2].blinking, false);
+  });
+
+  it("2STEP DI2 after DI1 flashes DO3", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "2STEP",
+      flashEnabled: true,
+      perimeterTimeoutSec: 120,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, true);
     assert.equal(dash.main.do[2].blinking, true);
+    const far = consumeToyoshimaDeviceCommandV1("main");
+    const near = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(far?.command, "sensor_far");
+    assert.equal(near?.command, "sensor_near");
+    assert.deepEqual(near?.channels, [1, 2, 3]);
   });
 
   it("SILENT mode skips lights and flash", async () => {
@@ -569,14 +598,14 @@ describe("toyoshima-security-v1", () => {
     assert.equal(row?.forceRelayTest, true);
   });
 
-  it("main DI2 queues sensor_near with CH1-3", async () => {
+  it("main DI2 alone queues sensor_near with CH1-2", async () => {
     await processToyoshimaSecurityEventV1({
       building: "main",
       di: 2,
     });
     const row = consumeToyoshimaDeviceCommandV1("main");
     assert.equal(row?.command, "sensor_near");
-    assert.deepEqual(row?.channels, [1, 2, 3]);
+    assert.deepEqual(row?.channels, [1, 2]);
   });
 
   it("firmware JSON exposes force_relay_test", () => {

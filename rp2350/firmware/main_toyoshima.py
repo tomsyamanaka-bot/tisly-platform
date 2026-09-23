@@ -247,6 +247,20 @@ def _relay_gpio_level(channel, on):
     return 1 if on else 0
 
 
+def _sensor_near_allows_flash():
+    """外周が先の段階侵入のときだけ DO3 を許可する。"""
+    if _security is None:
+        return False
+    planner = getattr(_security, "plan_main_response", None)
+    if not planner:
+        return False
+    try:
+        plan = planner(2)
+    except Exception:
+        return False
+    return bool(plan.get("do3"))
+
+
 def _channels_for_manual_cmd(cmd):
     """PWA 命令名から駆動 CH を決める。"""
     cmd = str(cmd or "").strip().lower()
@@ -286,10 +300,11 @@ def _channels_for_manual_cmd(cmd):
         "bulk_off",
         "light_all_on",
         "light_all_off",
-        "sensor_near",
-        "di2_alarm",
     ):
         return [1] if _building() == "detached" else [1, 2, 3]
+    if cmd in ("sensor_near", "di2_alarm"):
+        # 至近の既定はライトのみ。DO3 は段階侵入の plan が足す
+        return [1] if _building() == "detached" else [1, 2]
     return []
 
 
@@ -1194,6 +1209,8 @@ async def apply_manual_payload(payload):
         duration_ms = 0
     off = cmd in ("bulk_off", "light_all_off") or str(cmd).endswith("_off")
     raw_ch = payload.get("channels") or []
+    near_cmd = cmd in ("sensor_near", "di2_alarm")
+    allow_flash = True if not near_cmd else _sensor_near_allows_flash()
     forced = []
     if isinstance(raw_ch, list):
         for item in raw_ch:
@@ -1203,10 +1220,16 @@ async def apply_manual_payload(payload):
                 continue
             if ch < 1 or ch > 8:
                 continue
+            if near_cmd and ch == 3 and not allow_flash:
+                continue
             set_ch_output(ch, not off)
             forced.append(ch)
+    if near_cmd and not allow_flash and _building() != "detached":
+        set_ch_output(3, False)
     if not forced:
         for ch in _channels_for_manual_cmd(cmd):
+            if near_cmd and ch == 3 and not allow_flash:
+                continue
             set_ch_output(ch, not off)
             forced.append(ch)
     log(
@@ -1285,8 +1308,12 @@ async def exec_manual_do(cmd, duration_ms=0):
     if cmd in ("sensor_near", "di2_alarm"):
         set_ch_output(1, True)
         set_ch_output(2, True)
-        set_ch_output(3, True)
-        log("EXEC {} CH1+CH2+CH3".format(cmd))
+        if _sensor_near_allows_flash():
+            set_ch_output(3, True)
+            log("EXEC {} CH1+CH2+CH3".format(cmd))
+        else:
+            set_ch_output(3, False)
+            log("EXEC {} CH1+CH2 (near first, no flash)".format(cmd))
         return True
     if cmd in ("flash_test", "patlite_test"):
         ch = 2 if _building() == "detached" else 3

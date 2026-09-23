@@ -3,6 +3,7 @@
  * /api/home/v1/control (target=security_light)
  */
 
+import { showViewportToast } from "./toast-viewport-v1.js";
 import { resolveHomeSiteId } from "./security-floor-remote-config-v1.js";
 import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 
@@ -33,20 +34,7 @@ function $(id) {
 }
 
 function showToast(message) {
-  let el = $("sf-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "sf-toast";
-    el.className = "sf-toast";
-    el.setAttribute("role", "status");
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.add("is-visible");
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => {
-    el.classList.remove("is-visible");
-  }, 3200);
+  showViewportToast("sf-toast", "sf-toast", message, 3200);
 }
 
 function homeSiteId() {

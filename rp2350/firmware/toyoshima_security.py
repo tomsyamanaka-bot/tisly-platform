@@ -36,6 +36,8 @@ PATLITE_BLINK_MS = 500
 DEFAULT_OUTPUT_MS = 45_000
 # フラッシュ既定維持（ms）
 DEFAULT_FLASH_MS = 15_000
+# 外周検知から至近までの段階侵入窓（ms）
+DEFAULT_PERIMETER_MS = 120_000
 # 遠近モード既定（クラウド同期）
 DEFAULT_SECURITY_MODE = "2STEP"
 # 夜間スケジュール既定（JST）
@@ -59,11 +61,26 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.13"
+FIRMWARE_LOGIC_VERSION = "1.2.14"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
 BOARD_CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
+
+
+def _mono_ms():
+    """ホストテストでも動く単調ミリ秒。"""
+    ticks = getattr(time, "ticks_ms", None)
+    if ticks:
+        return int(ticks())
+    return int(time.time() * 1000)
+
+
+def _mono_diff(later, earlier):
+    diff = getattr(time, "ticks_diff", None)
+    if diff:
+        return int(diff(later, earlier))
+    return int(later) - int(earlier)
 
 
 def _parse_hm(value, fallback):
@@ -112,6 +129,8 @@ class ToyoshimaBaseController:
         self._security_mode = DEFAULT_SECURITY_MODE
         self._active_tasks = []
         self._manual_task = None
+        self._far_seen_ms = None
+        self._perimeter_ms = DEFAULT_PERIMETER_MS
 
     def set_di_reader(self, get_di):
         """DI 状態 callable(di) -> 'on'|'off'。"""
@@ -191,6 +210,26 @@ class ToyoshimaBaseController:
             self._flash_enabled = bool(rules.get("flash_enabled"))
         elif "flashEnabled" in rules:
             self._flash_enabled = bool(rules.get("flashEnabled"))
+        peri = rules.get("perimeterFlagMs")
+        if peri is None:
+            peri = rules.get("perimeter_flag_ms")
+        if peri is None and rules.get("perimeterTimeoutSec") is not None:
+            try:
+                peri = int(rules.get("perimeterTimeoutSec")) * 1000
+            except Exception:
+                peri = None
+        if peri is None and rules.get("perimeter_timeout_sec") is not None:
+            try:
+                peri = int(rules.get("perimeter_timeout_sec")) * 1000
+            except Exception:
+                peri = None
+        if peri is not None:
+            try:
+                peri_ms = int(peri)
+                if 1000 <= peri_ms <= 600_000:
+                    self._perimeter_ms = peri_ms
+            except Exception:
+                pass
         # テスト時は昼間でもリレーを動かす
         if "force_relay_test" in rules:
             self._force_relay_test = bool(rules.get("force_relay_test"))
@@ -521,6 +560,10 @@ class ToyoshimaBaseController:
         if cmd in ("sensor_far", "di1_alarm", "sensor_near", "di2_alarm"):
             di = 2 if cmd in ("sensor_near", "di2_alarm") else 1
             if hasattr(self, "plan_main_response"):
+                if di == getattr(self, "DI_BEAM_FAR", 1):
+                    note = getattr(self, "note_perimeter_edge", None)
+                    if note:
+                        note(di)
                 plan = self.plan_main_response(di)
                 self._kick_relays_now(plan)
                 try:
@@ -567,13 +610,33 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         """母屋ビームは debounceBeamMs を使用。"""
         return getattr(self, "_debounce_beam_ms", self._di_confirm_ms)
 
+    def note_perimeter_edge(self, di):
+        """外周（DI1）の立上り時刻を覚える。"""
+        if di == self.DI_BEAM_FAR:
+            self._far_seen_ms = _mono_ms()
+
+    def near_is_staged(self):
+        """外周が先に反応した窓の中だけ段階侵入。"""
+        seen = getattr(self, "_far_seen_ms", None)
+        if seen is None:
+            return False
+        window = int(getattr(self, "_perimeter_ms", DEFAULT_PERIMETER_MS))
+        elapsed = _mono_diff(_mono_ms(), seen)
+        return 0 <= elapsed <= window
+
     def plan_main_response(self, di):
         """
         遠近2段階の出力計画を返す。
+        至近が外周より先、または単独のときは DO3 を出さない。
         ホストテストから同期で検証する。
         """
         mode = str(getattr(self, "_security_mode", "2STEP")).upper()
         silent = mode == "SILENT"
+        near_first = (
+            (not silent)
+            and di == self.DI_BEAM_NEAR
+            and not self.near_is_staged()
+        )
         full = (not silent) and (
             mode == "DIRECT" or di == self.DI_BEAM_NEAR
         )
@@ -582,6 +645,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             light_ok
             and full
             and bool(getattr(self, "_flash_enabled", True))
+            and not near_first
         )
         if di == self.DI_BEAM_FAR:
             msg = "⚠️ 外周で接近検知"
@@ -593,6 +657,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             "do1": light_ok,
             "do2": light_ok and full,
             "do3": flash_on,
+            "near_first": near_first,
             "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
             "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
         }
@@ -600,6 +665,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     def _fire_di(self, di):
         if di not in (self.DI_BEAM_FAR, self.DI_BEAM_NEAR):
             return
+        self.note_perimeter_edge(di)
         force = bool(getattr(self, "_force_relay_test", False))
         plan = self.plan_main_response(di)
         drive = self._is_armed_now() or force
@@ -626,11 +692,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             self._set_ch(self.DO_LIGHT_2, True)
         if plan.get("do3"):
             self._set_ch(self.DO_FLASH, True)
+        elif plan.get("near_first"):
+            self._set_ch(self.DO_FLASH, False)
 
     async def _main_beam_response(self, di):
         """
-        2STEP: DI1=DO1 / DI2=DO1+DO2+DO3
-        DIRECT: DI1/DI2 とも全開＋フラッシュ
+        2STEP: DI1=DO1 / DI2単独=DO1+DO2 / 段階侵入のみ DO3
+        DIRECT: 至近単独は DO3 なし。外周が先のときだけフラッシュ
         force_relay_test 時は昼夜無視。
         """
         plan = self.plan_main_response(di)

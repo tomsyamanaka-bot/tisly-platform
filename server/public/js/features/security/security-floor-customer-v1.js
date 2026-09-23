@@ -4,6 +4,7 @@
  * ログイン後は自邸1件に完全固定
  */
 
+import { showViewportToast } from "./toast-viewport-v1.js";
 import {
   formatAlarmTime,
   renderGuardModes,
@@ -129,7 +130,7 @@ const state = {
   layoutSiteId: null,
   floorId: "1f",
   dash: null,
-  pane: "map",
+  pane: "alert",
   pollTimer: null,
   alarmSig: "",
   tenantReady: false,
@@ -337,7 +338,7 @@ function applySiteLayout(force = false) {
     stopItabashiAssurePolling();
     loadToyoshimaDashboard().catch(() => {});
     startToyoshimaPolling();
-    setToyoshimaCustomerPane(state.pane || "map");
+    setToyoshimaCustomerPane(state.pane || "alert");
   } else if (isItabashiSecuritySite(state.siteId)) {
     stopToyoshimaPolling();
     hideToyoshimaDashboard();
@@ -739,21 +740,7 @@ function bindCustomerCamera() {
 
 /** ヘッダー／カード共通 · 最新状態トースト */
 function flashStatusToast(message) {
-  let el = $("sf-status-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "sf-status-toast";
-    el.className = "ts-toast";
-    el.setAttribute("role", "status");
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.add("is-visible");
-  clearTimeout(flashStatusToast._timer);
-  flashStatusToast._timer = setTimeout(
-    () => el.classList.remove("is-visible"),
-    2800
-  );
+  showViewportToast("sf-status-toast", "ts-toast", message, 2800);
 }
 
 async function refreshCustomerStatus(btn) {
@@ -794,7 +781,8 @@ function bindCustomerPaneTabs() {
     const btn = e.target.closest("button[data-pane]");
     if (!btn || !nav.contains(btn)) return;
     e.preventDefault();
-    state.pane = btn.getAttribute("data-pane") || "map";
+    state.pane = btn.getAttribute("data-pane") || "alert";
+    window.__TISLY_TS_PANE_USER = true;
     document
       .querySelectorAll(".sf-mobile-tabs button")
       .forEach((b) => b.classList.toggle("is-on", b === btn));
@@ -893,7 +881,7 @@ async function boot() {
   await forceRefreshOnDeployedCommit();
   await ensureSecurityServiceWorker();
   bind();
-  document.body.setAttribute("data-pane", state.pane || "map");
+  document.body.setAttribute("data-pane", state.pane || "alert");
   const tenantOk = await initTenantSecurity();
   if (!tenantOk) return;
   const profile = loadTenantProfile();

@@ -201,7 +201,7 @@ def test_twostep_di1_only_light1_at_night():
     assert plan["light_ms"] == 30_000
 
 
-def test_twostep_di2_full_and_flash_at_night():
+def test_twostep_di2_alone_skips_flash_at_night():
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
     ctrl.apply_rules({
         "securityMode": "2STEP",
@@ -213,9 +213,27 @@ def test_twostep_di2_full_and_flash_at_night():
         plan = ctrl.plan_main_response(2)
     assert plan["do1"] is True
     assert plan["do2"] is True
-    assert plan["do3"] is True
+    assert plan["do3"] is False
+    assert plan["near_first"] is True
     assert plan["flash_ms"] == 15_000
     assert plan["message"] == "🚨 建物至近で侵入検知！"
+
+
+def test_twostep_di2_after_di1_flashes():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({
+        "securityMode": "2STEP",
+        "flashEnabled": True,
+        "flashDurationSec": 15,
+    })
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        ctrl.note_perimeter_edge(1)
+        plan = ctrl.plan_main_response(2)
+    assert plan["do1"] is True
+    assert plan["do2"] is True
+    assert plan["do3"] is True
+    assert plan["near_first"] is False
 
 
 def test_direct_di1_full_response():
@@ -285,7 +303,7 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.13"
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.14"
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8
@@ -372,7 +390,7 @@ def test_on_di_edge_di2_kicks_lights_and_flash():
             ctrl.on_di_edge(2, "off", "on")
     assert outputs.get(1) is True
     assert outputs.get(2) is True
-    assert outputs.get(3) is True
+    assert outputs.get(3) is not True
 
 
 def test_manual_sensor_near_kicks_all_channels():
@@ -390,7 +408,7 @@ def test_manual_sensor_near_kicks_all_channels():
     assert ok is True
     assert outputs.get(1) is True
     assert outputs.get(2) is True
-    assert outputs.get(3) is True
+    assert outputs.get(3) is not True
 
 
 def test_di_edge_notifies_vps_even_in_silent_mode():
@@ -574,7 +592,8 @@ if __name__ == "__main__":
     test_detached_event_messages()
     test_main_event_message()
     test_twostep_di1_only_light1_at_night()
-    test_twostep_di2_full_and_flash_at_night()
+    test_twostep_di2_alone_skips_flash_at_night()
+    test_twostep_di2_after_di1_flashes()
     test_direct_di1_full_response()
     test_silent_skips_outputs()
     test_kick_watchdog_none_safe()

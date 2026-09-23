@@ -633,12 +633,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /security-floor-light-v1\.js/);
     assert.doesNotMatch(customerHtml, /security-floor-iso3d-v1\.js/);
     assert.match(customerHtml, /security-floor-push-v1\.js/);
-    assert.match(customerHtml, /sf-customer-camera/);
-    assert.match(customerHtml, /カメラを見る/);
-    assert.match(customerHtml, /href="guardviewer:\/\/"/);
-    assert.match(customerHtml, /id1026746566/);
-    assert.match(customerHtml, /data-gv-store/);
-    assert.match(customerHtml, /アプリが起動しない場合はこちら/);
+    assert.doesNotMatch(customerHtml, /sf-customer-camera|カメラを見る|guardviewer:\/\/|data-gv-store/);
     assert.match(customerHtml, /sf-customer-lighting-duration/);
     assert.match(customerHtml, /日常詳細設定/);
     assert.ok(
@@ -686,6 +681,14 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(customerHtml, /sf-iso3d-floor-switch/);
     assert.doesNotMatch(customerHtml, /階層展開/);
     assert.match(customerHtml, /家のようす/);
+    const customerTabs = customerHtml.slice(
+      customerHtml.indexOf('role="tablist"'),
+      customerHtml.indexOf("</nav>")
+    );
+    assert.ok(customerTabs.indexOf("お知らせ") < customerTabs.indexOf("家のようす"));
+    assert.ok(customerTabs.indexOf("家のようす") < customerTabs.indexOf(">履歴<"));
+    assert.match(customerTabs, /data-pane="alert"[^>]*aria-selected="true"/);
+    assert.match(customerHtml, /data-pane="alert"/);
     assert.doesNotMatch(customerHtml, /縦スワイプ/);
     assert.doesNotMatch(customerHtml, /タブでフロア切替/);
     assert.doesNotMatch(customerHtml, /sf-orbit-hint/);
@@ -775,16 +778,17 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /board_temp:\s*SIM_BOARD_TEMP_C|board_temp:\s*36\.2/);
     assert.match(toyoshimaJs, /正常稼働中（オンライン）/);
     assert.match(toyoshimaJs, /data-ssot=\"toyoshima-commHealth\"/);
-    assert.match(toyoshimaJs, /カメラを見る/);
-    assert.match(toyoshimaJs, /data-gv-launch/);
-    assert.match(toyoshimaJs, /renderGuardViewerStoreHelpHtmlV1/);
-    /* 顧客は Guard Viewer 起動だけ。映像・スナップは出さない */
+    assert.doesNotMatch(toyoshimaJs, /カメラを見る|renderCustomerCameraCard|ts-camera-cta-only|ライブ映像は専用アプリ/);
+    assert.match(toyoshimaJs, /showViewportToast/);
+    assert.match(toyoshimaJs, /customerAreaNotifySensors/);
+    assert.match(toyoshimaJs, /main_beam_far", "main_beam_near/);
+    assert.match(toyoshimaJs, /🔕 通知オフ/);
+    assert.doesNotMatch(toyoshimaJs, /道路側センサー（はなれ）|通路側センサー（はなれ）/);
+    assert.match(toyoshimaJs, /activeCustomerPane = "alert"/);
+    /* 顧客は映像・スナップを出さない */
     assert.doesNotMatch(toyoshimaJs, /ts-alarm-snaps/);
     assert.match(toyoshimaJs, /ts-alarm-compact/);
     assert.match(toyoshimaJs, /ts-alarm-sensor/);
-    assert.match(toyoshimaJs, /ts-camera-cta-only/);
-    assert.match(toyoshimaJs, /\$\{renderCustomerCameraCard\(\)\}/);
-    assert.match(toyoshimaJs, /カメラを見る/);
     assert.match(toyoshimaJs, /renderMsSliderField/);
     assert.match(toyoshimaJs, /ts-debounce-di1/);
     /* 一括ON/OFF はキック行の1組だけ */

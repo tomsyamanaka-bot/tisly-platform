@@ -3,6 +3,8 @@
  * RP2350（板橋自宅）と /api/home/v1/security/config 連動
  */
 
+import { showViewportToast } from "./toast-viewport-v1.js";
+
 const HOME_API = "/api/home/v1";
 const DEFAULT_HOME_SITE = "HOME-JP-ITABASHI-LIVE";
 
@@ -105,20 +107,7 @@ function setText(id, text) {
 }
 
 function showToast(message) {
-  let el = $("sf-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "sf-toast";
-    el.className = "sf-toast";
-    el.setAttribute("role", "status");
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.add("is-visible");
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => {
-    el.classList.remove("is-visible");
-  }, 3200);
+  showViewportToast("sf-toast", "sf-toast", message, 3200);
 }
 
 /** Security 物件 ID → RP2350 用 HOME siteId */

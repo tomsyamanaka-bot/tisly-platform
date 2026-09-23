@@ -152,7 +152,7 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.equal(result.pushSent, false);
     const cmd = consumeToyoshimaDeviceCommandV1("main");
     assert.equal(cmd?.command, "sensor_near");
-    assert.deepEqual(cmd?.channels, [1, 2, 3]);
+    assert.deepEqual(cmd?.channels, [1, 2]);
   });
 
   it("disarmed detection still records history and logs the skip reason", async () => {

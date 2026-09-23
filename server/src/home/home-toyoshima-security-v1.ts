@@ -1434,7 +1434,25 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   return pushSent;
 }
 
+/** 外周（DI1）検知時刻。至近がこれより先なら DO3 を出さない */
+const toyoshimaFarBeamAtMsV1 = new Map<string, number>();
+
+function markToyoshimaFarBeamV1(siteId: string): void {
+  toyoshimaFarBeamAtMsV1.set(siteId, Date.now());
+}
+
+function isToyoshimaNearStagedV1(
+  siteId: string,
+  perimeterTimeoutSec: number
+): boolean {
+  const seen = toyoshimaFarBeamAtMsV1.get(siteId);
+  if (seen == null) return false;
+  const windowMs = Math.max(1, perimeterTimeoutSec) * 1000;
+  return Date.now() - seen <= windowMs;
+}
+
 /** 母屋：遠近2段階検知 → ライト／フラッシュ連動
+ * 至近が外周より先、または単独のときは DO3 を起動しない
  * Push は processToyoshimaSecurityEventV1 側で独立発火 */
 async function handleMainBeamDetect(
   siteId: string,
@@ -1476,6 +1494,12 @@ async function handleMainBeamDetect(
   runtime.alarmLatch = beamActive;
   touchToyoshimaDeviceCommV1("main");
 
+  if (isFar) {
+    markToyoshimaFarBeamV1(homeId);
+  }
+  const nearFirst =
+    !isFar &&
+    !isToyoshimaNearStagedV1(homeId, rules.perimeterTimeoutSec ?? 120);
   const silent = securityMode === "SILENT";
   const full =
     !silent && (securityMode === "DIRECT" || !isFar);
@@ -1484,6 +1508,7 @@ async function handleMainBeamDetect(
     Boolean(beamActive) &&
     !silent &&
     shouldToyoshimaDriveSensorLightsV1(rules);
+  const flashOn = driveRelays && full && flashEnabled && !nearFirst;
   const d1 = findDo(runtime.main, 1);
   const d2 = findDo(runtime.main, 2);
   const durationMs = (rules.lightingDurationSec ?? 45) * 1000;
@@ -1495,14 +1520,18 @@ async function handleMainBeamDetect(
       building: "main",
       kind: "manual",
       title: full
-        ? "防犯ライト1+2 点灯（至近／即時）"
+        ? nearFirst
+          ? "防犯ライト1+2 点灯（至近単独・フラッシュなし）"
+          : "防犯ライト1+2 点灯（至近／即時）"
         : "防犯ライト1 点灯（外周）",
-      detail: `母屋 2STEP · ${securityMode}`,
+      detail: nearFirst
+        ? `母屋 至近が先 · DO3抑止 · ${securityMode}`
+        : `母屋 2STEP · ${securityMode}`,
     });
     queueToyoshimaDeviceCommandV1({
       building: "main",
       command: full ? "sensor_near" : "sensor_far",
-      channels: full ? [1, 2, 3] : [1],
+      channels: !full ? [1] : flashOn ? [1, 2, 3] : [1, 2],
       durationMs,
     });
     setTimeout(() => {
@@ -1511,7 +1540,7 @@ async function handleMainBeamDetect(
     }, durationMs);
   }
 
-  if (driveRelays && full && flashEnabled) {
+  if (flashOn) {
     startPatliteBlink(
       "main",
       3,
@@ -2559,6 +2588,7 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
   };
   runtime.alarmLatch = false;
   lastToyoshimaNotifyAtV1.clear();
+  toyoshimaFarBeamAtMsV1.clear();
   lastToyoshimaDiStateV1.main = { "1": "unknown", "2": "unknown" };
   lastToyoshimaDiStateV1.detached = { "1": "unknown", "2": "unknown" };
   for (const timer of toyoshimaNotifyResetTimersV1.values()) {

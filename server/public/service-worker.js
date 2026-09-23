@@ -4,8 +4,9 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2563-board-temp-toms";
+const SW_VERSION = "tisly-pwa-v2564-customer-alert-tab";
 /* 旧世代名は activate で破棄する
+ * tisly-pwa-v2563-board-temp-toms
  * tisly-pwa-v2556-security-ui-icons
  * tisly-pwa-v2555-toyoshima-do-bind
  * tisly-pwa-v2554-toyoshima-maint-std

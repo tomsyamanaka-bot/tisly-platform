@@ -156,11 +156,13 @@ function defaultChannelsForCommandV1(
     cmd === "bulk_on" ||
     cmd === "bulk_off" ||
     cmd === "light_all_on" ||
-    cmd === "light_all_off" ||
-    cmd === "sensor_near" ||
-    cmd === "di2_alarm"
+    cmd === "light_all_off"
   ) {
     return building === "detached" ? [1] : [1, 2, 3];
+  }
+  if (cmd === "sensor_near" || cmd === "di2_alarm") {
+    /* 至近の既定はライト2台。DO3 は段階侵入のときだけ明示する */
+    return building === "detached" ? [1] : [1, 2];
   }
   return [];
 }

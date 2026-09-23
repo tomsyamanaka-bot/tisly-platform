@@ -4,6 +4,7 @@
  * 全物件を selectedPropertyId で同期切替
  */
 
+import { showViewportToast } from "./toast-viewport-v1.js";
 import {
   formatAlarmTime,
   renderGuardModes,
@@ -978,21 +979,7 @@ function exportReport() {
 }
 
 function flashStatusToast(message) {
-  let el = $("sf-status-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "sf-status-toast";
-    el.className = "ts-toast";
-    el.setAttribute("role", "status");
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.add("is-visible");
-  clearTimeout(flashStatusToast._timer);
-  flashStatusToast._timer = setTimeout(
-    () => el.classList.remove("is-visible"),
-    2800
-  );
+  showViewportToast("sf-status-toast", "ts-toast", message, 2800);
 }
 
 async function refreshOperatorStatus(btn) {

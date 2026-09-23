@@ -11,8 +11,8 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2563" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2563" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2564" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2564" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -33,7 +33,7 @@
     }
   </style>
 </head>
-<body class="sf-body sf-soc sf-customer is-resolving-tenant" data-hqs-skip="1">
+<body class="sf-body sf-soc sf-customer is-resolving-tenant" data-hqs-skip="1" data-pane="alert">
   <header class="sf-soc-header">
     <a class="sf-back" href="/customer">← 戻る</a>
     <div class="sf-soc-brand">
@@ -99,8 +99,8 @@
   </script>
 
   <nav class="sf-mobile-tabs" role="tablist" aria-label="画面切替">
-    <button type="button" role="tab" class="is-on" data-pane="map" aria-selected="true">家のようす</button>
-    <button type="button" role="tab" data-pane="alert" aria-selected="false">お知らせ</button>
+    <button type="button" role="tab" data-pane="alert" class="is-on" aria-selected="true">お知らせ</button>
+    <button type="button" role="tab" data-pane="map" aria-selected="false">家のようす</button>
     <button type="button" role="tab" data-pane="log" aria-selected="false">履歴</button>
   </nav>
 
@@ -277,27 +277,6 @@
       </div>
     </section>
 
-    <section class="sf-card sf-customer-camera-card">
-      <p class="sf-card-label">📷 カメラ</p>
-      <a
-        class="sf-btn sf-btn-wide"
-        id="sf-customer-camera"
-        href="guardviewer://"
-        data-gv-launch="1"
-      >
-        📷 カメラを見る
-        <span class="gv-cta-hint">📲 Guard Viewerアプリで確認</span>
-      </a>
-      <p class="gv-store-help">
-        <a
-          href="https://apps.apple.com/jp/app/guard-viewer/id1026746566"
-          target="_blank"
-          rel="noopener noreferrer"
-          data-gv-store
-        >📲 アプリが起動しない場合はこちら（App Store / Google Play）</a>
-      </p>
-    </section>
-
     <section class="sf-soc-bottom" data-pane="log">
       <p class="sf-card-label">最近のできごと（直近10件）</p>
       <div class="sf-log-compact" id="sf-log-compact"></div>
@@ -335,7 +314,7 @@
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2563"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2563"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2564"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2564"></script>
 </body>
 </html>

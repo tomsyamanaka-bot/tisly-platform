@@ -2475,13 +2475,22 @@
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
 }
 
-.sf-toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%) translateY(120%);
-  z-index: 9999;
+.sf-toast,
+.sf-toast:popover-open {
+  position: fixed !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: 24px !important;
+  left: 50% !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  width: max-content;
   max-width: min(92vw, 420px);
+  height: auto;
+  overflow: visible;
+  border: none;
   padding: 14px 18px;
   border-radius: 14px;
   background: var(--sf-navy);
@@ -2489,12 +2498,12 @@
   font-weight: 800;
   text-align: center;
   box-shadow: var(--sf-shadow);
-  transition: transform 0.28s ease;
   pointer-events: none;
 }
 
-.sf-toast.is-visible {
-  transform: translateX(-50%) translateY(0);
+.sf-toast:not(.is-visible) {
+  visibility: hidden;
+  opacity: 0;
 }
 
 /* 玄関インターホン連携カード（末尾追記） */
@@ -2971,6 +2980,16 @@
 .sf-pro-di-trigger:disabled {
   opacity: 0.55;
   cursor: wait;
+}
+
+/* 顧客タブ: 選んだ面だけを先頭に出す（豊島邸は独自ペイン） */
+body.sf-customer:not(.is-toyoshima)[data-pane="alert"] .sf-soc-shell > :not([data-pane="alert"]),
+body.sf-customer:not(.is-toyoshima)[data-pane="log"] .sf-soc-shell > :not([data-pane="log"]) {
+  display: none;
+}
+body.sf-customer:not(.is-toyoshima)[data-pane="map"] .sf-soc-shell > [data-pane="alert"],
+body.sf-customer:not(.is-toyoshima)[data-pane="map"] .sf-soc-shell > [data-pane="log"] {
+  display: none;
 }
 
 /* 顧客ポータル · シンプル操作のみ */

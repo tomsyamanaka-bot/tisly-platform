@@ -15,12 +15,8 @@ import {
   isHardwareOnline,
   subscribeToyoshimaStatus,
 } from "./use-toyoshima-status-v1.js";
-import {
-  bindGuardViewerLaunchersV1,
-  GUARD_VIEWER_HINT_V1,
-  GUARD_VIEWER_SCHEME_V1,
-  renderGuardViewerStoreHelpHtmlV1,
-} from "./open-guard-viewer-v1.js";
+import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
+import { showViewportToast } from "./toast-viewport-v1.js";
 import {
   bindSecurityHistoryModalV1,
   openSecurityHistoryModalV1,
@@ -65,8 +61,9 @@ function syncSettingsState(dash) {
 
 let lastDashSig = "";
 let clientLatencyMs = null;
-/** 顧客/社内タブの単一真実ソース（家のようす/お知らせ/履歴） */
+/** 顧客タブの単一真実ソース。初期はお知らせ */
 let activeCustomerPane = "map";
+const CUSTOMER_NOTIFY_SENSOR_ORDER = ["main_beam_far", "main_beam_near"];
 /** お知らせ再描画用の直近ダッシュ */
 let lastRenderedDash = null;
 /** 豊島邸ポータル通知（既存行は削除しない） */
@@ -275,18 +272,7 @@ function buildCommHealthView(dash) {
 }
 
 function showToast(message) {
-  let el = $("ts-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "ts-toast";
-    el.className = "ts-toast";
-    el.setAttribute("role", "status");
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.add("is-visible");
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => el.classList.remove("is-visible"), 3200);
+  showViewportToast("ts-toast", "ts-toast", message, 3200);
 }
 
 const LIGHT_KICK_TOAST = {
@@ -732,7 +718,7 @@ function renderCustomerDailySettings(dash) {
   const patliteOn = dash.patliteThreatEnabled !== false;
   const start = normalizeTimeHm(dash.scheduleStart, "18:00");
   const end = normalizeTimeHm(dash.scheduleEnd, "06:00");
-  const sensors = dash.notifySensors || [];
+  const sensors = customerAreaNotifySensors(dash.notifySensors);
   const lightLabel =
     mode === "away"
       ? "防犯ライト点灯維持時間"
@@ -767,7 +753,7 @@ function renderCustomerDailySettings(dash) {
           </button>
           <button type="button" class="ts-notify-btn ${s.mode === "silent" ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
-            🔕 サイレント
+            🔕 通知オフ
           </button>
           <button type="button" class="ts-notify-btn ${s.mode === "off" ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="off">
@@ -853,24 +839,6 @@ function renderCustomerDailySettings(dash) {
 
       <p class="ts-hint">変更は自動保存され、実機へ即時反映されます</p>
     </div>
-  </section>`;
-}
-
-/** 顧客向け · 映像は出さず Guard Viewer 起動だけ */
-function renderCustomerCameraCard() {
-  return `<section class="ts-card ts-camera-card ts-camera-cta-only">
-    <h3 class="ts-card-head">📷 カメラ</h3>
-    <p class="ts-hint">ライブ映像は専用アプリで確認します</p>
-    <a
-      class="ts-btn ts-btn-primary ts-btn-camera-cta"
-      id="ts-customer-camera"
-      href="${GUARD_VIEWER_SCHEME_V1}"
-      data-gv-launch="1"
-    >
-      カメラを見る
-      <span class="gv-cta-hint">${GUARD_VIEWER_HINT_V1}</span>
-    </a>
-    ${renderGuardViewerStoreHelpHtmlV1()}
   </section>`;
 }
 
@@ -1449,6 +1417,14 @@ function renderSettingsCard(dash) {
   </section>`;
 }
 
+/** 顧客のエリア別通知は稼働中の母屋ビームだけ */
+function customerAreaNotifySensors(sensors) {
+  const list = Array.isArray(sensors) ? sensors : [];
+  return CUSTOMER_NOTIFY_SENSOR_ORDER.map((id) =>
+    list.find((s) => s.id === id)
+  ).filter(Boolean);
+}
+
 function renderNotifySensorRow(sensor) {
   const buttons = NOTIFY_MODES.map(
     (mode) =>
@@ -1974,7 +1950,7 @@ function patchToyoshimaDashboard(dash) {
       }
       const notifyRoot = $("ts-customer-notify");
       if (notifyRoot && dash.notifySensors) {
-        notifyRoot.innerHTML = (dash.notifySensors || [])
+        notifyRoot.innerHTML = customerAreaNotifySensors(dash.notifySensors)
           .map((s) => {
             const receive = s.mode === "critical";
             return `<div class="ts-notify-row ts-customer-notify-row">
@@ -1986,7 +1962,7 @@ function patchToyoshimaDashboard(dash) {
           </button>
           <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
-            🔕 サイレント
+            🔕 通知オフ
           </button>
         </div>
       </div>`;
@@ -2117,8 +2093,9 @@ export function isToyoshimaSecuritySite(siteId) {
  */
 export function setToyoshimaCustomerPane(pane, opts = {}) {
   const allowed = new Set(["map", "alert", "log"]);
-  const raw = String(pane || "map").trim();
-  const id = allowed.has(raw) ? raw : "map";
+  const fallback = isCustomerPortal() ? "alert" : "map";
+  const raw = String(pane || fallback).trim();
+  const id = allowed.has(raw) ? raw : fallback;
   activeCustomerPane = id;
   document.body.setAttribute("data-pane", id);
   document.querySelectorAll(".sf-mobile-tabs button").forEach((btn) => {
@@ -2142,7 +2119,7 @@ export function setToyoshimaCustomerPane(pane, opts = {}) {
 
 /** 現在のタブID（テスト・再同期用） */
 export function getToyoshimaCustomerPane() {
-  return activeCustomerPane || "map";
+  return activeCustomerPane || (isCustomerPortal() ? "alert" : "map");
 }
 
 /** soft patch / 再描画後にタブ表示を復元 */
@@ -2150,7 +2127,7 @@ function restoreActiveCustomerPane() {
   setToyoshimaCustomerPane(
     activeCustomerPane ||
       document.body.getAttribute("data-pane") ||
-      "map"
+      (isCustomerPortal() ? "alert" : "map")
   );
 }
 
@@ -2368,20 +2345,23 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
 
   root.hidden = false;
   const customer = isCustomerPortal();
+  if (customer && !window.__TISLY_TS_PANE_USER) {
+    activeCustomerPane = "alert";
+  }
+  const openPane = customer ? activeCustomerPane || "alert" : "map";
   if (customer) {
     root.innerHTML = `
-    <div class="ts-tab-panes ts-customer-dash" id="ts-tab-panes" data-ts-active-pane="map">
-      <div class="ts-tab-pane is-on" data-ts-pane="map">
+    <div class="ts-tab-panes ts-customer-dash" id="ts-tab-panes" data-ts-active-pane="${openPane}">
+      <div class="ts-tab-pane${openPane === "map" ? " is-on" : ""}" data-ts-pane="map">
         ${renderCustomerStatusBanner(dash)}
         ${renderCustomerModeCards(dash)}
-        ${renderCustomerCameraCard()}
         ${renderCustomerDailySettings(dash)}
       </div>
-      <div class="ts-tab-pane" data-ts-pane="alert">
+      <div class="ts-tab-pane${openPane === "alert" ? " is-on" : ""}" data-ts-pane="alert">
         <div id="ts-alarm-root">${renderAlarmCard(dash, { customer: true })}</div>
         ${renderCustomerNotifySection(dash)}
       </div>
-      <div class="ts-tab-pane" data-ts-pane="log">
+      <div class="ts-tab-pane${openPane === "log" ? " is-on" : ""}" data-ts-pane="log">
         ${renderCustomerActivitySection(dash)}
       </div>
     </div>`;
@@ -2462,6 +2442,7 @@ export function hideToyoshimaDashboard() {
   lastDashSig = "";
   clientLatencyMs = null;
   activeCustomerPane = "map";
+  window.__TISLY_TS_PANE_USER = false;
 }
 
 async function fetchToyoshimaDashboardJson(force = false) {
@@ -2591,7 +2572,9 @@ async function setNotifyMode(sensorId, mode) {
     mode === "critical"
       ? "🔔 通知ON に変更しました"
       : mode === "silent"
-        ? "🔕 サイレント に変更しました"
+        ? isCustomerPortal()
+          ? "🔕 通知オフ に変更しました"
+          : "🔕 サイレント に変更しました"
         : `${NOTIFY_LABELS[mode] || mode} に変更しました`
   );
 }
@@ -2670,7 +2653,8 @@ function bindToyoshimaCustomerTabs() {
         document.body.classList.contains("is-toyoshima") ||
         $("ts-dashboard-root")?.dataset?.mounted === "1";
       if (!toyoshimaUi) return;
-      const pane = btn.getAttribute("data-pane") || "map";
+      const pane = btn.getAttribute("data-pane") || "alert";
+      window.__TISLY_TS_PANE_USER = true;
       setToyoshimaCustomerPane(pane, { fetchNotify: true });
     },
     true
