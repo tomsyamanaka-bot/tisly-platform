@@ -8,12 +8,14 @@ import {
 import { navigateCustomer, setCustomerReturnUrl } from "./customer-nav-v1.js";
 import { initCustomerCacheGuard } from "./customer-cache-v1.js";
 import {
+  clearCustomerChrome,
   clearCustomerSession,
   fetchSessionHome,
   getCustomerCode,
   isLoggedIn,
   loadTenantProfile,
   loginCustomer,
+  markCustomerChromeAuthed,
 } from "./customer-tenant-session-v1.js";
 import {
   bindTesterPushBar,
@@ -43,6 +45,7 @@ let liveStatusHook = null;
 initCustomerCacheGuard().catch(() => {});
 
 function renderLogin(errorMsg = "") {
+  clearCustomerChrome();
   const params = new URLSearchParams(location.search);
   const needLogin = params.get("login") === "required";
   document.getElementById("page-title").textContent = "TiSLY お客様ページ";
@@ -177,6 +180,7 @@ function bindLiveStatusRefresh(data) {
 }
 
 function renderHome(data) {
+  markCustomerChromeAuthed();
   const code = getCustomerCode() || "";
   document.getElementById("page-title").textContent = data.title;
   document.getElementById("page-subtitle").textContent = code;
@@ -218,6 +222,10 @@ function renderHome(data) {
 }
 
 async function loadLandingWithoutAuth() {
+  if (!isLoggedIn()) {
+    renderLogin();
+    return;
+  }
   const params = new URLSearchParams(location.search);
   const projectShare = params.get("project");
   if (projectShare) {
@@ -232,15 +240,8 @@ async function loadLandingWithoutAuth() {
     }
   }
 
-  const res = await fetch("/api/customer-portal/v1/landing", {
-    cache: "no-store",
-  });
-  const landing = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
-    return;
-  }
-  renderHome(landing.home);
+  clearCustomerSession();
+  renderLogin("セッションが無効です。再度ログインしてください。");
 }
 
 async function load() {

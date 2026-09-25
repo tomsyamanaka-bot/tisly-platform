@@ -224,6 +224,12 @@
 .cv-maint-list dt { font-size: 0.95rem; color: var(--cv-muted); margin-top: 0.55rem; font-weight: 700; }
 .cv-maint-list dd { margin: 0.2rem 0 0; font-size: 1.08rem; font-weight: 700; color: var(--cv-text); }
 
+body.customer-v1:not(.is-customer-authed) .cv-bottom-bar,
+body.customer-v1:not(.is-customer-authed) .tisly-practical-bottomnav,
+body.customer-v1:not(.is-customer-authed) #tisly-practical-bottomnav-root {
+  display: none !important;
+}
+
 .cv-bottom-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
   display: flex; gap: 0.55rem; padding: 0.85rem 1rem;

@@ -93,12 +93,17 @@ function buildOverlay() {
 }
 
 function renderItems(listEl, items, mode) {
-  if (!items.length) {
+  let list = items;
+  if (mode === "customer") {
+    const homeId = customerHomeSiteId();
+    list = homeId ? items.filter((item) => item.siteId === homeId) : [];
+  }
+  if (!list.length) {
     listEl.innerHTML =
       '<p class="hqs-empty">表示できる住まいがありません</p>';
     return;
   }
-  listEl.innerHTML = items
+  listEl.innerHTML = list
     .map((item) => {
       const href =
         mode === "customer" ? item.customerHref : item.internalHref;
@@ -124,15 +129,48 @@ function renderItems(listEl, items, mode) {
     .join("");
 }
 
+function hasCustomerSession() {
+  try {
+    const token =
+      localStorage.getItem("tisly_admin_token") ||
+      sessionStorage.getItem("tisly_token") ||
+      "";
+    const code =
+      sessionStorage.getItem("tisly_customer_code") ||
+      localStorage.getItem("tisly_customer_code") ||
+      "";
+    return Boolean(token && code);
+  } catch {
+    return false;
+  }
+}
+
+function customerHomeSiteId() {
+  try {
+    const raw = sessionStorage.getItem("tisly_tenant_profile_v1");
+    if (!raw) return "";
+    const profile = JSON.parse(raw);
+    return String(profile?.homeSiteId || "");
+  } catch {
+    return "";
+  }
+}
+
 function shouldSkip() {
   if (document.body?.dataset?.hqsSkip === "1") return true;
   const p = location.pathname || "";
-  return (
+  if (
     p === "/security-v1" ||
     p === "/app/security" ||
     p === "/app/security-v1" ||
     p === "/customer/security"
-  );
+  ) {
+    return true;
+  }
+  // お客様入口（/customer）はログイン成功後だけ出す
+  if (p === "/customer" || p === "/customer/") return !hasCustomerSession();
+  if (p.startsWith("/customer") && !hasCustomerSession()) return true;
+  return false;
 }
 
 function mount() {

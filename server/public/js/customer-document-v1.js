@@ -1,5 +1,6 @@
 import { escapeHtml, CUSTOMER_DOCUMENT_ACTIONS } from "./customer-shared-v1.js";
 import { initCustomerPage, goCustomerBack } from "./customer-nav-v1.js";
+import { requireCustomerSession } from "./customer-tenant-session-v1.js";
 
 const main = document.getElementById("main-content");
 const shareId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[2] || "");
@@ -151,8 +152,10 @@ async function load() {
   await renderPdfFrame(data.previewUrl, data.label || "書類");
 }
 
-wireBottomBar();
-load().catch(() => {
-  showPreparing();
+if (requireCustomerSession()) {
   wireBottomBar();
-});
+  load().catch(() => {
+    showPreparing();
+    wireBottomBar();
+  });
+}

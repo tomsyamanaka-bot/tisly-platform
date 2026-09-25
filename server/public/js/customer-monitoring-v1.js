@@ -9,6 +9,7 @@ import {
   findHighlightKey,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, setCustomerReturnUrl } from "./customer-nav-v1.js";
+import { requireCustomerSession } from "./customer-tenant-session-v1.js";
 import { openGuardViewerAppV1 } from "./features/security/open-guard-viewer-v1.js";
 
 const main = document.getElementById("main-content");
@@ -100,7 +101,9 @@ async function load() {
   }
 }
 
-setCustomerReturnUrl(`/customer/project/${encodeURIComponent(shareId)}`);
-load().catch(() => {
-  main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
-});
+if (requireCustomerSession()) {
+  setCustomerReturnUrl(`/customer/project/${encodeURIComponent(shareId)}`);
+  load().catch(() => {
+    main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
+  });
+}

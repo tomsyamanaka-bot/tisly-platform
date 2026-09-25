@@ -720,6 +720,17 @@ function restoreBuffers() {
 }
 
 function boot() {
+  if ((location.pathname || "").startsWith("/customer")) {
+    import("../../customer-tenant-session-v1.js").then(({ requireCustomerSession }) => {
+      if (!requireCustomerSession()) return;
+      bootEcoWater();
+    });
+    return;
+  }
+  bootEcoWater();
+}
+
+function bootEcoWater() {
   configureBackLink();
   syncSiteSelectOptions();
   restoreBuffers();

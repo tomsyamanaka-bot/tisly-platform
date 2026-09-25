@@ -107,8 +107,8 @@ function applyPlaySdkVersionsToAppGradle() {
   }
   const twa = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   const minSdk = Math.max(PLAY_MIN_SDK, Number(twa.minSdkVersion) || PLAY_MIN_SDK);
-  const versionCode = Number(twa.appVersionCode) || 4;
-  const versionName = String(twa.appVersion || "1.1.2");
+  const versionCode = Number(twa.appVersionCode) || 5;
+  const versionName = String(twa.appVersion || "1.1.3");
   let src = fs.readFileSync(gradlePath, "utf8");
   src = src.replace(/minSdkVersion\s+\d+/, `minSdkVersion ${minSdk}`);
   src = src.replace(/\bminSdk\s+\d+/, `minSdk ${minSdk}`);
@@ -139,8 +139,8 @@ function verifyPlaySdkVersionsInAppGradle() {
   if (!(minSdk >= PLAY_MIN_SDK)) fail(`minSdkVersion must be >= ${PLAY_MIN_SDK}, got ${minSdk}`);
   if (!(compileSdk >= PLAY_COMPILE_SDK)) fail(`compileSdkVersion must be >= ${PLAY_COMPILE_SDK}, got ${compileSdk}`);
   if (!(targetSdk >= PLAY_TARGET_SDK)) fail(`targetSdkVersion must be >= ${PLAY_TARGET_SDK}, got ${targetSdk}`);
-  if (versionCode !== 4) fail(`versionCode must be 4, got ${versionCode}`);
-  if (versionName !== "1.1.2") fail(`versionName must be 1.1.2, got ${versionName}`);
+  if (versionCode !== 5) fail(`versionCode must be 5, got ${versionCode}`);
+  if (versionName !== "1.1.3") fail(`versionName must be 1.1.3, got ${versionName}`);
   log(`Verified app/build.gradle minSdk=${minSdk} compileSdk=${compileSdk} targetSdk=${targetSdk} ${versionCode} (${versionName})`);
 }
 

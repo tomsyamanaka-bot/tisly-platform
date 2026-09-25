@@ -4,6 +4,7 @@ import {
   renderNotifications,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, navigateCustomer } from "./customer-nav-v1.js";
+import { requireCustomerSession } from "./customer-tenant-session-v1.js";
 
 const main = document.getElementById("main-content");
 const customerCode = location.pathname.split("/").filter(Boolean)[1] || "TOMS001";
@@ -42,6 +43,8 @@ async function load() {
   });
 }
 
-load().catch(() => {
-  main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
-});
+if (requireCustomerSession()) {
+  load().catch(() => {
+    main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
+  });
+}

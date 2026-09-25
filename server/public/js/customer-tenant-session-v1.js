@@ -274,17 +274,36 @@ export async function fetchSessionHome() {
   return data;
 }
 
+export function markCustomerChromeAuthed() {
+  document.documentElement.classList.add("is-customer-authed");
+  document.body?.classList.add("is-customer-authed");
+  if (document.body?.dataset) delete document.body.dataset.hqsSkip;
+}
+
+export function clearCustomerChrome() {
+  document.documentElement.classList.remove("is-customer-authed");
+  document.body?.classList.remove("is-customer-authed");
+  if (document.body) document.body.dataset.hqsSkip = "1";
+  document
+    .querySelectorAll(
+      ".hqs-fab, .hqs-overlay, .tisly-practical-bottomnav, #tisly-practical-bottomnav-root, .customer-bottom-nav"
+    )
+    .forEach((el) => el.remove());
+}
+
 export function requireCustomerSession() {
   if (!isLoggedIn()) {
+    clearCustomerChrome();
     if (location.pathname !== CUSTOMER_ENTRY) {
       sessionStorage.setItem(
         "tisly_customer_return_url_v1",
-        location.pathname
+        location.pathname + location.search
       );
     }
     location.replace(CUSTOMER_ENTRY);
     return false;
   }
+  markCustomerChromeAuthed();
   return true;
 }
 

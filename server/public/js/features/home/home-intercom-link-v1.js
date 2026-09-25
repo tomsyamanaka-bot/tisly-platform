@@ -5,6 +5,7 @@
 
 import { showToast } from "./home-shared-v1.js";
 import { getTislySessionHeadersV1 } from "../../customer-auth.js";
+import { isLoggedIn } from "../../customer-tenant-session-v1.js";
 
 const HOME_API = "/api/home/v1";
 const RELAY_PULSE_API = "/api/devices/rp2350/relay/1/pulse";
@@ -192,6 +193,8 @@ function bindUi() {
 }
 
 export function mountHomeIntercomLinkPanelV1() {
+  const path = location.pathname || "";
+  if (path.startsWith("/customer") && !isLoggedIn()) return;
   if (!$("hm-intercom-link")) return;
   bindUi();
 }

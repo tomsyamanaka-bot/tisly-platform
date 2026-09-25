@@ -3,6 +3,8 @@
  * 電気デマンド · 防犯状態カード
  */
 
+import { requireCustomerSession } from "../../customer-tenant-session-v1.js";
+
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -150,6 +152,7 @@ async function init() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (!requireCustomerSession()) return;
   init().catch((err) => {
     console.error(err);
     const label = document.getElementById("ds-status-label");

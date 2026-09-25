@@ -9,6 +9,7 @@ import {
   renderProjectPhotos,
 } from "./customer-shared-v1.js";
 import { goCustomerBack, initCustomerPage, navigateCustomer } from "./customer-nav-v1.js";
+import { requireCustomerSession } from "./customer-tenant-session-v1.js";
 
 const main = document.getElementById("main-content");
 const shareId = decodeURIComponent(location.pathname.split("/").pop() || "");
@@ -146,6 +147,6 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-load().catch(() => {
+if (requireCustomerSession()) load().catch(() => {
   main.innerHTML = `<p class="cv-preparing">読み込みに失敗しました</p>`;
 });

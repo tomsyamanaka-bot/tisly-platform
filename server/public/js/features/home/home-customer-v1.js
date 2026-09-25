@@ -68,7 +68,9 @@ import {
 
 } from "./home-tiles-v1.js";
 
+import { requireCustomerSession } from "../../customer-tenant-session-v1.js";
 
+const customerSessionOk = requireCustomerSession();
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -443,6 +445,8 @@ async function refresh() {
 
 
 document.addEventListener("DOMContentLoaded", async () => {
+
+  if (!customerSessionOk) return;
 
   currentSiteId = readSiteIdFromUrl();
 

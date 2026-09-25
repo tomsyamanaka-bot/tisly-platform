@@ -7,6 +7,7 @@
  */
 
 import { createAccordionStateV1 } from "./gas-monitor-accordion-state-v1.js?v=2452";
+import { requireCustomerSession } from "../../customer-tenant-session-v1.js";
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -465,6 +466,7 @@ async function init() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (!requireCustomerSession()) return;
   init().catch((err) => {
     console.error(err);
     const label = document.getElementById("gm-status-label");

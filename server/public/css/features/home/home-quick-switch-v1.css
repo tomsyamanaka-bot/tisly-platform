@@ -4,6 +4,14 @@
  * hqs- 接頭辞のみを使う。
  * ライトモード（白ベース × 紺アクセント）。 */
 
+/* ログイン前は描画しない（JS が後から付けても隠す） */
+body[data-hqs-skip="1"] .hqs-fab,
+body[data-hqs-skip="1"] .hqs-overlay,
+body:not(.is-customer-authed).customer-v1 .hqs-fab,
+body:not(.is-customer-authed).customer-v1 .hqs-overlay {
+  display: none !important;
+}
+
 .hqs-fab {
   position: fixed;
   right: 16px;
