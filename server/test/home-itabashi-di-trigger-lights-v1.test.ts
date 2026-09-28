@@ -2,16 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it, afterEach } from "node:test";
 import { triggerHardwareDiTestV1 } from "../src/home/home-hardware-pro-v1.js";
 import {
+  armItabashiLiveDiSensorLightsV1,
   evaluateHomeSensorLightWindowV1,
   queueHomeSensorLinkedLightsV1,
+  resetItabashiLiveSensorLightArmForTestV1,
 } from "../src/home/home-security-light-v1.js";
 import {
+  buildHomeSecurityFirmwareRulesV1,
   getHomeSecurityRulesV1,
   updateHomeSecurityRulesV1,
 } from "../src/home/home-security-rules-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../src/home/home-sites-v1.js";
 import {
   getRemoteTestStatus,
+  queueChPulseCommand,
   resetRemoteTestState,
 } from "../src/remote-test/remote-test-state.js";
 
@@ -22,6 +26,7 @@ function jstDate(hour: number, minute: number): Date {
 
 describe("Itabashi DI trigger sensor lights", () => {
   afterEach(() => {
+    resetItabashiLiveSensorLightArmForTestV1();
     resetRemoteTestState();
   });
 
@@ -94,5 +99,63 @@ describe("Itabashi DI trigger sensor lights", () => {
     if (queued.queued) {
       assert.match(String(queued.command), /^sensor_pulse_A_\d+$/);
     }
+  });
+
+  it("queues light_all_on for a real night sensor so firmware 1.6.1 turns both lights on", () => {
+    ensureNightRulesV1();
+    resetRemoteTestState();
+    const armed = armItabashiLiveDiSensorLightsV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      di: 1,
+      pattern: "pattern_a",
+      at: jstDate(19, 0),
+    });
+    assert.equal(armed.queued, true);
+    assert.equal(armed.command, "light_all_on");
+    assert.equal(getRemoteTestStatus().pendingCommand, "light_all_on");
+  });
+
+  it("does not queue light_all_on at noon", () => {
+    ensureNightRulesV1();
+    resetRemoteTestState();
+    const armed = armItabashiLiveDiSensorLightsV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      di: 1,
+      pattern: "pattern_a",
+      at: jstDate(12, 0),
+    });
+    assert.equal(armed.queued, false);
+    assert.equal(armed.skippedReason, "outside_schedule");
+    assert.equal(getRemoteTestStatus().pendingCommand, null);
+  });
+
+  it("does not replace an in-flight bath pulse", () => {
+    ensureNightRulesV1();
+    resetRemoteTestState();
+    queueChPulseCommand(1, 500);
+    const armed = armItabashiLiveDiSensorLightsV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      di: 2,
+      pattern: "pattern_c",
+      at: jstDate(19, 0),
+    });
+    assert.equal(armed.queued, false);
+    assert.equal(armed.skippedReason, "pending_command_busy");
+    assert.equal(getRemoteTestStatus().pendingCommand, "ch1_pulse_500");
+    resetItabashiLiveSensorLightArmForTestV1();
+  });
+
+  it("advances firmware rules version every minute so night guardActive is reapplied", () => {
+    ensureNightRulesV1();
+    const rules = getHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
+    const fw = buildHomeSecurityFirmwareRulesV1(
+      HOME_ITABASHI_LIVE_SITE_ID_V1
+    );
+    const updatedMs = Date.parse(rules.updatedAt);
+    const now = Date.now();
+    assert.ok(fw.version >= updatedMs);
+    assert.ok(fw.version >= now - 60_000);
+    assert.ok(fw.version <= now);
+    assert.equal(fw.lightScheduleActive, fw.guardActive);
   });
 });

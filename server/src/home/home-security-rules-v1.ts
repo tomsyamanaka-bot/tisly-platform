@@ -931,11 +931,13 @@ export function buildHomeSecurityFirmwareRulesV1(
 ): HomeSecurityFirmwareRulesV1 {
   const rules = getHomeSecurityRulesV1(siteId);
   const guardActive = isHomeGuardActiveV1(rules);
-  /* updatedAt 由来の単調 version（切替反映バグ対策） */
-  const version = Math.max(
-    1,
-    Date.parse(rules.updatedAt) || Date.now()
-  );
+  /* 実機 1.6.1 は version が増えたときだけ guardActive を読む。
+   * updatedAt のままだと 18 時を跨いでも昼の「点灯しない」が残る。
+   * 分単位で単調増加させ、過去の updatedAt よりは小さくしない。 */
+  const updatedMs = Math.max(1, Date.parse(rules.updatedAt) || 0);
+  const nowMs = Date.now();
+  const minuteMs = nowMs - (nowMs % 60_000);
+  const version = Math.max(updatedMs, minuteMs, 1);
   return {
     version,
     siteId: rules.siteId,

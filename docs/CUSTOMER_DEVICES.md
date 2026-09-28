@@ -501,6 +501,16 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | デバウンス（板橋ファーム） | **50 ms**（`DI_DEBOUNCE_MS` / `_DEFAULT_DI_CONFIRM_MS`） |
 | 解錠パルス | 1000 ms（CH1） |
 
+### 3.5.1 夜間センサー点灯（2026-09-28 追記）
+
+既存の端子・時間帯は変えない。
+
+| 項目 | 値 |
+|------|-----|
+| 実機ファーム | `1.6.1-di-confirm-250ms`（OTA 未更新。`sensor_pulse` は無視する） |
+| 実センサー | 点灯時間内の DI 立上りで VPS が `light_all_on` を投入し、維持秒数後に `light_all_off` |
+| ルール version | 分ごとに増加。18時を跨いでも実機が `guardActive` を読み直す |
+
 ### 3.7 通信ステータス・盤内温度（追記）
 
 既存の DI/DO・NVR・ドアホン設定は変更しない。

@@ -24,6 +24,7 @@ import {
   type HomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import { armItabashiLiveDiSensorLightsV1 } from "./home-security-light-v1.js";
 import { recordHomeDiSecurityAlarmV1 } from "../security-floor/security-floor-soc-v1.js";
 
 const HOME_PUSH_USER_ID = "home-security";
@@ -504,7 +505,23 @@ export async function processHomeSecurityInputChangesV1(
   for (const change of changes) {
     if (change.to !== "on" || change.from === "on") continue;
     if (change.input !== 1 && change.input !== 2) continue;
-    await handleDiRisingEdgeV1(sid, change.input as 1 | 2, rules, armed, lightsActive);
+    const handled = await handleDiRisingEdgeV1(
+      sid,
+      change.input as 1 | 2,
+      rules,
+      armed,
+      lightsActive
+    );
+    /* 通知は 24 時間。点灯は時間帯内だけ実機へ命令する。
+     * 実機 1.6.1 はルール保存時の guardActive を保持し、
+     * sensor_pulse も解釈しないため light_all_on を使う。 */
+    if (lightsActive) {
+      armItabashiLiveDiSensorLightsV1({
+        siteId: sid,
+        di: change.input as 1 | 2,
+        pattern: handled.pattern,
+      });
+    }
   }
 }
 

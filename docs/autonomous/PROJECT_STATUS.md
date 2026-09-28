@@ -1829,6 +1829,15 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2544-itabashi-di-trigger-lights` |
 | 確認 | `/security-v1` Pro DI擬似発報 · https://tisly.jp/api/health |
 
+### 板橋自宅 夜間センサー点灯（実機 1.6.1）
+
+| 領域 | 内容 |
+|------|------|
+| 症状 | 18時以降もセンサー通知は来るが DO2/DO3 が点かない。手動の強制点灯はできる |
+| 原因 | 実機 `1.6.1-di-confirm-250ms` はルール保存時の `guardActive` を保持し、18時を跨いでも昼の「点灯しない」のまま。VPS は通知ログだけ書いてリレー命令を出していなかった |
+| 修正 | 実センサー立上りかつ点灯時間内は `light_all_on` をキューし、維持秒数後に `light_all_off`。ファームルール version は分単位で進めて `guardActive` を再読込させる |
+| 確認 | 板橋自宅でセンサーを通すと外側ライトと投光器が点き、約45秒で消える |
+
 ### Security画面 3DマップUI完全撤去（完成済み）
 
 | 領域 | 内容 |
