@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2565-customer-login-guard` |
+| SW | `tisly-pwa-v2566-review-sandbox` |
 
 ---
 
@@ -1783,6 +1783,18 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2541-tester-login-hardpass` |
 | テスト | `server/test/tester-hardware-mock-v1.test.ts` · `server/test/tester-tenant-v1.test.ts` |
 | 確認 | `/customer` · https://tisly.jp/api/health |
+
+### クローズドテスト実機隔離（2026-09-28）
+
+| 領域 | 内容 |
+|------|------|
+| 目的 | 未ログインと TESTER001 がフローティングボタンから実機物件を開いて解錠できないようにする |
+| 一覧 | `/api/home/v1/quick-switch` と Security 物件セレクタはデモ物件のみ |
+| 操作 | 実機向け POST は `reviewSandbox` で 200 を返し、SwitchBot / RP2350 へ送らない |
+| 施主 | TOMS001 / TOYOSHIMA001 / 社内トークン付き操作は従来どおり実機へ届く |
+| ログイン | 全角 `ＴＥＳＴＥＲ００１` とユーザー名 `tester.user` でも TESTER001 |
+| Android | `appVersionCode` 6 / `1.1.4`。起動は `StartActivity` → アプリ内 WebView |
+| SW | `tisly-pwa-v2566-review-sandbox` |
 
 ---
 

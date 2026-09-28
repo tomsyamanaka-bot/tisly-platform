@@ -7,6 +7,7 @@
  */
 
 import {
+  findSecuritySiteV1,
   listSecurityFloorUiSitesV1,
   SECURITY_FLOOR_UI_DEFAULT_SITE_ID_V1,
   type SecuritySiteV1,
@@ -53,6 +54,20 @@ export function listCustomerSecuritySitesV1(): CustomerSecuritySiteOptionV1[] {
 /** 社内オペレーター用（全件動的一覧） */
 export function listOperatorSecuritySitesV1(): CustomerSecuritySiteOptionV1[] {
   return listCustomerSecuritySitesV1();
+}
+
+const REVIEW_DEMO_SECURITY_IDS_V1 = [
+  "SEC-JP-MORIYA-001",
+  "SEC-JP-TSUKUBA-001",
+] as const;
+
+/** クローズドテスト向け。実機（板橋・豊島）は含めない */
+export function listReviewDemoSecuritySitesV1(): CustomerSecuritySiteOptionV1[] {
+  return REVIEW_DEMO_SECURITY_IDS_V1.flatMap((id) => {
+    const site = findSecuritySiteV1(id);
+    if (site.id !== id) return [];
+    return [mapSiteToCustomerOptionV1(site)];
+  });
 }
 
 /**

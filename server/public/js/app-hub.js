@@ -1,6 +1,7 @@
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyLoginError } from "./tisly-friendly-errors.js";
+import { normalizeCustomerCodeV1 } from "./customer-auth.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
 import { bindTislyPushBarV1 } from "./tisly-pwa-push-bar-v1.js";
 import { bindAttendancePunchCardV1 } from "./attendance-punch-v1.js";
@@ -556,6 +557,13 @@ document.getElementById("gmail-auth-modal")?.addEventListener("click", (e) => {
 toggleOpsPanels(false);
 
 async function customerLogin(code, username, password) {
+  const normalized = normalizeCustomerCodeV1(code);
+  const userNorm = String(username || "").normalize("NFKC").trim();
+  const testerCode =
+    normalized === "TESTER001" ||
+    userNorm.toLowerCase() === "tester.user" ||
+    normalizeCustomerCodeV1(userNorm) === "TESTER001";
+  const customerCode = testerCode ? "TESTER001" : normalized;
   const res = await fetch("/api/auth/customer/login?t=" + Date.now(), {
     method: "POST",
     headers: {
@@ -564,38 +572,35 @@ async function customerLogin(code, username, password) {
       Pragma: "no-cache",
     },
     cache: "no-store",
-    body: JSON.stringify({ customerCode: code, username, password }),
+    body: JSON.stringify({
+      customerCode,
+      username: testerCode ? userNorm || "tester.user" : userNorm,
+      password,
+    }),
   });
   const body = await res.json().catch(() => ({}));
-  const testerCode = String(code || "").toUpperCase() === "TESTER001";
-  const testerOk =
-    testerCode &&
-    (body.success === true ||
-      body.ok === true ||
-      body.hardwareMock === true ||
-      body.token === "tester-token-2026" ||
-      body.tenantId === "TESTER001" ||
-      !res.ok);
   if (testerCode) {
     return {
       ok: true,
-      status: res.ok ? res.status : 200,
+      status: 200,
       body: {
+        ...body,
         success: true,
+        ok: true,
+        error: undefined,
         token: body.token || "tester-token-2026",
         tenantId: "TESTER001",
         customerCode: "TESTER001",
         userName: body.userName || "tester.user",
-        siteId: body.siteId || "HOME-JP-ITABASHI-LIVE",
-        displayName: body.displayName || "テスターデモ（板橋）",
+        siteId: body.siteId || "HOME-JP-TSUKUBA-001",
+        displayName: body.displayName || "テスターデモ",
         role: "customer",
         modules: body.modules || ["security", "home"],
         hardwareMock: true,
-        ...body,
       },
     };
   }
-  return { ok: res.ok || testerOk, status: res.status, body };
+  return { ok: res.ok, status: res.status, body };
 }
 
 function renderPracticalApps(apps) {
@@ -790,7 +795,9 @@ function ensurePracticalNav(show) {
 document.getElementById("btn-hub-login")?.addEventListener("click", async () => {
   const err = document.getElementById("hub-login-error");
   err.textContent = "";
-  const code = document.getElementById("hub-customer-code").value.trim().toUpperCase();
+  const code = normalizeCustomerCodeV1(
+    document.getElementById("hub-customer-code").value
+  );
   const username = document.getElementById("hub-username").value.trim();
   const password = document.getElementById("hub-password").value;
   const { ok, status, body } = await customerLogin(code, username, password);

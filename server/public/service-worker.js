@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2565-customer-login-guard";
+const SW_VERSION = "tisly-pwa-v2566-review-sandbox";
+/* tisly-pwa-v2565-customer-login-guard */
 /* tisly-pwa-v2564-customer-alert-tab */
 /* 旧世代名は activate で破棄する
  * tisly-pwa-v2563-board-temp-toms
@@ -53,9 +54,9 @@ const SW_VERSION = "tisly-pwa-v2565-customer-login-guard";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2543-itabashi-light-bypass";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2543-itabashi-light-bypass";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2543-itabashi-light-bypass";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2566-review-sandbox";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2566-review-sandbox";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2566-review-sandbox";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */

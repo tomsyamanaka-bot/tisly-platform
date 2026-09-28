@@ -27,24 +27,37 @@ export function isTesterStaticTokenV1(token: string | null | undefined): boolean
   return String(token ?? "").trim() === TESTER_STATIC_TOKEN_V1;
 }
 
+/** 全角英数・空白・ハイフンをログイン判定用に揃える */
+export function normalizeLoginCustomerCodeV1(raw: unknown): string {
+  const nfkc = String(raw ?? "")
+    .normalize("NFKC")
+    .trim()
+    .toUpperCase();
+  const compact = nfkc.replace(/[\s_-]+/g, "");
+  if (compact === TESTER_CUSTOMER_CODE_V1) return TESTER_CUSTOMER_CODE_V1;
+  if (compact === "TOSHIMA001") return "TOYOSHIMA001";
+  return nfkc.replace(/\s+/g, "");
+}
+
 export function extractLoginCustomerCodeV1(
   body: Record<string, unknown> | null | undefined
 ): string {
   const src = body ?? {};
-  const primary = String(
-    src.customerCode ?? src.customer_code ?? src.tenantId ?? src.tenant_id ?? ""
-  )
-    .trim()
-    .toUpperCase();
-  if (primary) return primary;
-  /* 顧客コード空でもユーザー名で判定 */
-  const username = String(src.username ?? src.user ?? "").trim();
+  const username = String(src.username ?? src.user ?? "")
+    .normalize("NFKC")
+    .trim();
   const userUp = username.toUpperCase();
-  if (userUp === TESTER_CUSTOMER_CODE_V1) return TESTER_CUSTOMER_CODE_V1;
-  if (username.toLowerCase() === TESTER_USERNAME_V1) {
+  /* ユーザー名がテスターなら顧客コードの表記ゆれより優先 */
+  if (
+    userUp === TESTER_CUSTOMER_CODE_V1 ||
+    username.toLowerCase() === TESTER_USERNAME_V1
+  ) {
     return TESTER_CUSTOMER_CODE_V1;
   }
-  return "";
+  const primary = normalizeLoginCustomerCodeV1(
+    src.customerCode ?? src.customer_code ?? src.tenantId ?? src.tenant_id ?? ""
+  );
+  return primary;
 }
 
 /** ログイン JSON が TESTER001 か */

@@ -129,6 +129,7 @@ import { customerPortalV1Router } from "./api/routes/customer-portal-v1.js";
 import { cameraPreviewV1Router } from "./api/routes/camera-preview-v1.js";
 import { isCustomerReservedSegmentV1 } from "./shared/routes/tisly-routes-v1.js";
 import { attachTesterHardwareMockContextV1 } from "./shared/customer/tester-hardware-mock-v1.js";
+import { reviewSandboxGuardV1 } from "./shared/customer/review-sandbox-v1.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -147,6 +148,8 @@ export function createApp(): express.Application {
   );
   /* TESTER001 セッションは実機 DO を遮断（既存顧客は非改変） */
   app.use(attachTesterHardwareMockContextV1);
+  /* 未ログイン / TESTER001 の実機操作はモック応答で止める */
+  app.use(reviewSandboxGuardV1);
 
   app.use("/api/auth", authRouter);
   app.use("/api/pwa", pwaHubRouter);

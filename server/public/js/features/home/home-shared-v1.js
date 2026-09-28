@@ -58,6 +58,9 @@ export async function fetchHomeCustomer(siteId) {
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "読込に失敗しました");
+  if (typeof window !== "undefined") {
+    window.__TISLY_REVIEW_SANDBOX = data.reviewSandbox === true;
+  }
   return data.dashboard;
 }
 
@@ -79,6 +82,12 @@ export async function fetchHomeOperator() {
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "読込に失敗しました");
+  if (data.dashboard) {
+    data.dashboard.reviewSandbox = data.reviewSandbox === true;
+  }
+  if (typeof window !== "undefined") {
+    window.__TISLY_REVIEW_SANDBOX = data.reviewSandbox === true;
+  }
   return data.dashboard;
 }
 
@@ -858,6 +867,12 @@ export function hideRingPopup() {
 export async function renderSwitchBotBadge() {
   const el = byId("hm-switchbot-badge");
   if (!el) return;
+  if (typeof window !== "undefined" && window.__TISLY_REVIEW_SANDBOX) {
+    el.className = "hm-badge hm-badge-mute";
+    el.textContent = "テストモード：実機には送信しません";
+    el.title = "クローズドテスト中は実機へ命令を送りません";
+    return;
+  }
   try {
     const res = await fetch(`${HOME_API_V1}/switchbot-status`, {
       cache: "no-store",

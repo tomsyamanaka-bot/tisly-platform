@@ -6,6 +6,8 @@
  * 保持し、Security 画面の出し分けに使う。
  */
 
+import { normalizeCustomerCodeV1 } from "./customer-auth.js";
+
 const TOKEN_KEY = "tisly_token";
 const ADMIN_TOKEN_KEY = "tisly_admin_token";
 const CUSTOMER_CODE_KEY = "tisly_customer_code";
@@ -162,14 +164,17 @@ function applyTesterSession(data) {
 }
 
 export async function loginCustomer(credentials) {
-  let customerCode = String(credentials.customerCode || "")
-    .trim()
-    .toUpperCase();
-  if (customerCode === "TOSHIMA001") customerCode = "TOYOSHIMA001";
-  const username = String(credentials.username || "").trim();
+  let customerCode = normalizeCustomerCodeV1(credentials.customerCode || "");
+  const username = String(credentials.username || "")
+    .normalize("NFKC")
+    .trim();
   const password = String(credentials.password || "");
-  /* ユーザー名が TESTER001 なら顧客コードを補正 */
-  if (isTesterCode(username) || username.toLowerCase() === "tester.user") {
+  /* ユーザー名がテスターなら顧客コードの表記ゆれを補正 */
+  if (
+    isTesterCode(username) ||
+    username.toLowerCase() === "tester.user" ||
+    normalizeCustomerCodeV1(username) === "TESTER001"
+  ) {
     customerCode = "TESTER001";
   }
   const testerBypass = isTesterCode(customerCode);

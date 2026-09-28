@@ -6,6 +6,10 @@
 
 import { showViewportToast } from "./toast-viewport-v1.js";
 import {
+  isLivePropertyIdV1,
+  viewerMayUseLiveHardwareV1,
+} from "../../customer-auth.js";
+import {
   formatAlarmTime,
   renderGuardModes,
   renderIsoStack,
@@ -194,18 +198,34 @@ function publishOperatorScope() {
 function fillSiteSelect(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
-  const list = sortSitesForSelect(
+  let list = sortSitesForSelect(
     (sites?.length ? sites : listFallbackSites()).map(normalizeSiteOption)
   ).filter((s) => s.siteId);
+  const reviewer = !viewerMayUseLiveHardwareV1();
+  if (reviewer) {
+    list = list.filter(
+      (s) =>
+        !isLivePropertyIdV1(s.siteId) && !isLivePropertyIdV1(s.propertyId)
+    );
+  }
   if (!list.length) {
     list.push(
-      normalizeSiteOption({
-        id: "SEC-JP-ITABASHI-LIVE",
-        siteId: "SEC-JP-ITABASHI-LIVE",
-        displayName: "板橋自宅",
-        propertyId: "HOME-JP-ITABASHI-LIVE",
-        countryCode: "JP",
-      })
+      normalizeSiteOption(
+        reviewer
+          ? {
+              id: "SEC-JP-MORIYA-001",
+              siteId: "SEC-JP-MORIYA-001",
+              displayName: "平屋デモ宅",
+              countryCode: "JP",
+            }
+          : {
+              id: "SEC-JP-ITABASHI-LIVE",
+              siteId: "SEC-JP-ITABASHI-LIVE",
+              displayName: "板橋自宅",
+              propertyId: "HOME-JP-ITABASHI-LIVE",
+              countryCode: "JP",
+            }
+      )
     );
   }
   state.siteOptions = list;

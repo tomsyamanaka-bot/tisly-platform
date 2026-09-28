@@ -13,6 +13,8 @@
  * お客様向けリンク（/customer/home）へ切り替わる。
  */
 
+import { getTislySessionHeadersV1, isLivePropertyIdV1, viewerMayUseLiveHardwareV1 } from "../../customer-auth.js";
+
 const CSS_HREF = "/css/features/home/home-quick-switch-v1.css";
 const API_URL = "/api/home/v1/quick-switch";
 
@@ -49,12 +51,25 @@ function resolveMode() {
 
 async function loadItems() {
   try {
-    const res = await fetch(API_URL, { cache: "no-store" });
+    const res = await fetch(API_URL, {
+      cache: "no-store",
+      headers: getTislySessionHeadersV1(),
+    });
     const data = await res.json();
-    if (!data.ok) return [];
-    return Array.isArray(data.items) ? data.items : [];
+    if (!data.ok) return { items: [], reviewSandbox: true };
+    let items = Array.isArray(data.items) ? data.items : [];
+    const reviewSandbox =
+      data.reviewSandbox === true || !viewerMayUseLiveHardwareV1();
+    if (reviewSandbox) {
+      items = items.filter(
+        (item) =>
+          !isLivePropertyIdV1(item.siteId) &&
+          !String(item.displayName || "").includes("実機")
+      );
+    }
+    return { items, reviewSandbox };
   } catch {
-    return [];
+    return { items: [], reviewSandbox: true };
   }
 }
 
@@ -204,7 +219,13 @@ function mount() {
     overlay.hidden = false;
     if (loaded) return;
     loaded = true;
-    const items = await loadItems();
+    const loadedItems = await loadItems();
+    const items = loadedItems.items || [];
+    const sub = overlay.querySelector(".hqs-sheet-sub");
+    if (sub && loadedItems.reviewSandbox) {
+      sub.textContent =
+        "テストモードです。この一覧の操作は実機に届きません";
+    }
     renderItems(listEl, items, mode);
   });
 

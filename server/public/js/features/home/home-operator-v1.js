@@ -233,6 +233,10 @@ async function handleControl(el) {
         res.message || "湯はり指令送信完了";
     }
     showToast(res.message || "操作しました");
+    if (res.reviewSandbox || !res.dashboard) {
+      await refresh();
+      return;
+    }
     if (target === "intercom") hideRingPopup();
     renderSiteDetail(res.dashboard);
     const operator = await fetchHomeOperator();
@@ -280,6 +284,14 @@ function bindControlDelegation() {
 async function refresh() {
   const operator = await fetchHomeOperator();
   operatorCache = operator;
+  if (
+    currentSiteId &&
+    !(operator.sites || []).some((site) => site.siteId === currentSiteId)
+  ) {
+    currentSiteId = operator.sites[0]?.siteId || "";
+    if (currentSiteId) replaceSiteIdInUrl(currentSiteId);
+    showToast("実機の物件はテストでは開けません。デモ物件を表示しています");
+  }
   if (!currentSiteId && operator.sites.length) {
     currentSiteId = operator.sites[0].siteId;
   }
@@ -293,6 +305,7 @@ async function refresh() {
     publishHomeOperatorScope(dashboard.displayName);
     renderSiteDetail(dashboard);
   }
+  renderSwitchBotBadge();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

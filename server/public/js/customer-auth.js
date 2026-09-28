@@ -24,6 +24,45 @@ export function getCustomerToken() {
   );
 }
 
+const LIVE_OWNER_CODES_V1 = new Set([
+  "TOMS001",
+  "HOME001",
+  "TOYOSHIMA001",
+  "TOSHIMA001",
+]);
+
+/** 全角英数・空白・ハイフンを顧客コード比較用に揃える */
+export function normalizeCustomerCodeV1(raw) {
+  const nfkc = String(raw || "")
+    .normalize("NFKC")
+    .trim()
+    .toUpperCase();
+  const compact = nfkc.replace(/[\s_-]+/g, "");
+  if (compact === "TESTER001") return "TESTER001";
+  if (compact === "TOSHIMA001") return "TOYOSHIMA001";
+  return nfkc.replace(/\s+/g, "");
+}
+
+export function isLivePropertyIdV1(id) {
+  const s = String(id || "").toUpperCase();
+  if (!s) return false;
+  return s.includes("ITABASHI-LIVE") || s.includes("TOYOSHIMA") || s.includes("TOSHIMA");
+}
+
+/** 施主・社内トークンがあるときだけ実機物件を出す */
+export function viewerMayUseLiveHardwareV1() {
+  const token = getCustomerToken();
+  if (!token || token === "tester-token-2026") return false;
+  const code = normalizeCustomerCodeV1(
+    sessionStorage.getItem(CUSTOMER_CODE_KEY) ||
+      localStorage.getItem(CUSTOMER_CODE_KEY) ||
+      ""
+  );
+  if (!code) return true;
+  if (code === "TESTER001") return false;
+  return LIVE_OWNER_CODES_V1.has(code);
+}
+
 /** HOME / Security 制御 API に載せるセッションヘッダ */
 export function getTislySessionHeadersV1(extra) {
   const headers = { ...(extra || {}) };
@@ -35,8 +74,26 @@ export function getTislySessionHeadersV1(extra) {
 }
 
 try {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && !window.__TISLY_FETCH_PATCHED) {
+    window.__TISLY_FETCH_PATCHED = true;
     window.getTislySessionHeadersV1 = getTislySessionHeadersV1;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input?.url || "";
+      const sameOriginApi =
+        url.startsWith("/api/") || url.includes("://tisly.jp/api/");
+      if (!sameOriginApi) return origFetch(input, init);
+      const headers = new Headers(init?.headers || undefined);
+      if (!headers.has("Authorization")) {
+        const token = getCustomerToken();
+        if (token) headers.set("Authorization", `Bearer ${token}`);
+      }
+      if (!headers.has("X-Tisly-Customer-Code")) {
+        const code = customerCodeFromPath();
+        if (code) headers.set("X-Tisly-Customer-Code", code);
+      }
+      return origFetch(input, { ...(init || {}), headers });
+    };
   }
 } catch {
   /* ignore */

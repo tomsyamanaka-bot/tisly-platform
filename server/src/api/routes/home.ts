@@ -26,6 +26,10 @@ import {
 } from "../../home/home-customer-facing-v1.js";
 import { buildHomeCustomerMgmtViewV1 } from "../../home/home-customer-mgmt-v1.js";
 import {
+  isLiveControlledSiteIdV1,
+  viewerMayUseLiveHardwareV1,
+} from "../../shared/customer/review-sandbox-v1.js";
+import {
   registerHomeSiteV1,
   updateHomeSiteRegistryV1,
 } from "../../home/home-customer-registry-v1.js";
@@ -200,20 +204,39 @@ homeRouter.get("/sites", (_req, res) => {
 });
 
 /** お客様（住まい）向け — 物件選択（シンプル） */
-homeRouter.get("/customer-sites", (_req, res) => {
-  res.json({ ok: true, sites: buildHomeCustomerSiteOptionsV1() });
+homeRouter.get("/customer-sites", (req, res) => {
+  const includeLive = viewerMayUseLiveHardwareV1(req);
+  const sites = buildHomeCustomerSiteOptionsV1().filter(
+    (site) => includeLive || !isLiveControlledSiteIdV1(site.id)
+  );
+  res.json({
+    ok: true,
+    sites,
+    reviewSandbox: !includeLive,
+  });
 });
 
 /** お客様（住まい）向け — 内部情報を除外したダッシュボード */
 homeRouter.get("/customer", async (req, res) => {
-  const siteId = String(req.query.siteId ?? "").trim() || null;
+  const requested = String(req.query.siteId ?? "").trim() || null;
+  const includeLive = viewerMayUseLiveHardwareV1(req);
+  const blockedLive =
+    Boolean(requested) &&
+    !includeLive &&
+    isLiveControlledSiteIdV1(requested);
+  const siteId = blockedLive ? null : requested;
   try {
     await syncHomeSwitchBotDevicesV1(siteId);
   } catch {
     // モック継続
   }
   const dashboard = buildHomeCustomerFacingDashboardV1(siteId);
-  res.json({ ok: true, dashboard });
+  res.json({
+    ok: true,
+    dashboard,
+    reviewSandbox: !includeLive,
+    liveSiteBlocked: blockedLive,
+  });
 });
 
 /** 社内「顧客を見る」 — TiSLY HOME 契約物件のみ */
@@ -271,19 +294,48 @@ homeRouter.patch("/customer-mgmt/sites/:siteId", (req, res) => {
 });
 
 /** 社内・事業者向け */
-homeRouter.get("/operator", async (_req, res) => {
+homeRouter.get("/operator", async (req, res) => {
   try {
     await syncHomeDefaultLockFromSwitchBotV1();
   } catch {
     // モック継続
   }
-  const dashboard = buildHomeOperatorDashboardV1();
-  res.json({ ok: true, dashboard });
+  const includeLive = viewerMayUseLiveHardwareV1(req);
+  const full = buildHomeOperatorDashboardV1();
+  const sites = includeLive
+    ? full.sites
+    : full.sites.filter((site) => !isLiveControlledSiteIdV1(site.siteId));
+  const dashboard = includeLive
+    ? full
+    : {
+        ...full,
+        sites,
+        totalSites: sites.length,
+        overloadCount: sites.filter((site) => site.ct.level !== "normal").length,
+        securityAlertCount: sites.filter(
+          (site) => site.status === "security_alert"
+        ).length,
+        bathRunningCount: sites.filter(
+          (site) =>
+            site.bath.fillState === "filling" || site.bath.reheating
+        ).length,
+        airconRunningCount: sites.reduce(
+          (sum, site) => sum + site.activeAirconCount,
+          0
+        ),
+        intercomRingingCount: sites.filter((site) => site.intercomRinging)
+          .length,
+      };
+  res.json({ ok: true, dashboard, reviewSandbox: !includeLive });
 });
 
 /** どの画面からでも呼べる切り替え用 */
-homeRouter.get("/quick-switch", (_req, res) => {
-  res.json({ ok: true, items: buildHomeQuickSwitchV1() });
+homeRouter.get("/quick-switch", (req, res) => {
+  const includeLive = viewerMayUseLiveHardwareV1(req);
+  const items = buildHomeQuickSwitchV1().filter(
+    (item) => includeLive || !isLiveControlledSiteIdV1(item.siteId)
+  );
+  res.json({ ok: true, items, reviewSandbox: !includeLive });
 });
 
 /**

@@ -23,8 +23,10 @@ import {
 import {
   defaultCustomerSecuritySiteIdV1,
   listOperatorSecuritySitesV1,
+  listReviewDemoSecuritySitesV1,
   listTenantScopedSecuritySitesV1,
 } from "../../shared/customer/customer-security-sites-v1.js";
+import { viewerMayUseLiveHardwareV1 } from "../../shared/customer/review-sandbox-v1.js";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import {
   ackSecurityAlarmsV1,
@@ -77,14 +79,20 @@ securityFloorRouter.get(
 );
 
 /** 社内 Security 物件セレクタ（UI 表示対象の全件） */
-securityFloorRouter.get("/operator-sites", (_req, res) => {
-  const sites = listOperatorSecuritySitesV1();
+securityFloorRouter.get("/operator-sites", (req, res) => {
+  const includeLive = viewerMayUseLiveHardwareV1(req);
+  const sites = includeLive
+    ? listOperatorSecuritySitesV1()
+    : listReviewDemoSecuritySitesV1();
   res.json({
     ok: true,
     sites,
-    defaultSiteId: defaultCustomerSecuritySiteIdV1(),
+    defaultSiteId: includeLive
+      ? defaultCustomerSecuritySiteIdV1()
+      : sites[0]?.siteId || "SEC-JP-MORIYA-001",
     locked: false,
-    scope: "operator_all",
+    scope: includeLive ? "operator_all" : "review_sandbox",
+    reviewSandbox: !includeLive,
   });
 });
 

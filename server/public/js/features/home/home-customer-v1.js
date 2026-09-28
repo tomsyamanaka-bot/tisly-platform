@@ -69,6 +69,10 @@ import {
 } from "./home-tiles-v1.js";
 
 import { requireCustomerSession } from "../../customer-tenant-session-v1.js";
+import {
+  isLivePropertyIdV1,
+  viewerMayUseLiveHardwareV1,
+} from "../../customer-auth.js";
 
 const customerSessionOk = requireCustomerSession();
 
@@ -103,6 +107,14 @@ async function loadSiteOptions() {
         const profile = loadTenantProfile();
         tenantHomeId = profile?.homeSiteId || "";
         tenantName = profile?.displayName || "";
+        if (
+          tenantHomeId &&
+          isLivePropertyIdV1(tenantHomeId) &&
+          !viewerMayUseLiveHardwareV1()
+        ) {
+          tenantHomeId = "";
+          tenantName = "";
+        }
       }
     } catch {
       /* テナント未使用ページでも継続 */
@@ -112,7 +124,7 @@ async function loadSiteOptions() {
     let filtered = sites;
     if (tenantHomeId) {
       filtered = sites.filter((s) => s.id === tenantHomeId);
-      if (!filtered.length && tenantHomeId) {
+      if (!filtered.length && tenantHomeId && !isLivePropertyIdV1(tenantHomeId)) {
         filtered = [
           {
             id: tenantHomeId,

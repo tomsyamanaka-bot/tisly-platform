@@ -119,7 +119,11 @@ async function pulseUnlockRelay(btn) {
     } catch {
       /* リレー成功を優先 */
     }
-    showToast("電気錠へ解錠パルス（CH1・1秒）を送信しました");
+    showToast(
+      data.reviewSandbox
+        ? data.message || "テストモードです。実機には送信していません"
+        : "電気錠へ解錠パルス（CH1・1秒）を送信しました"
+    );
     setVisitorState("idle");
   } catch (err) {
     showToast(err.message || "解錠に失敗しました");
