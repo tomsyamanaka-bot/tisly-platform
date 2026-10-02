@@ -339,7 +339,7 @@ function syncLiveBundleVersionV1(
   siteKey: TislyOtaSiteKeyV1,
   live: { files: Record<string, string>; checksums: Record<string, string> }
 ): void {
-  if (siteKey !== "toyoshima") return;
+  /* 豊島邸と同じく板橋自宅もライブ版が新しければ配信待ちにする */
   const bundle = liveBundleSemverV1(siteKey, live.files);
   if (!bundle) return;
   const liveChecksum = combinedChecksum(live.checksums);

@@ -96,6 +96,8 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(res.status, 200);
     assert.match(res.text, /SecurityLight|security_light|DI/);
+    assert.match(res.text, /JST_OFFSET_SEC/);
+    assert.match(res.text, /DO2\+DO3/);
   });
 
   it("POST deploy sets pending and has_ota_update", async () => {

@@ -297,6 +297,127 @@ def test_vps_sensor_pulse_ignores_daytime_rtc():
     assert started == [("A", 66000)]
 
 
+def _stub_ticks():
+    import security_light as sl
+
+    sl.time.ticks_ms = lambda: 0
+    sl.time.ticks_add = lambda a, b: a + b
+    sl.time.ticks_diff = lambda a, b: a - b
+
+
+def test_ntp_utc_is_converted_before_17_window():
+    """NTP が UTC でも 17:00〜06:00 は JST で判定し DO2/DO3 を ON する。"""
+    from datetime import datetime, timezone
+
+    _stub_ticks()
+    # JST 19:00 = UTC 10:00。UTC のままだと 17:00〜06:00 の外になる。
+    utc = int(datetime(2026, 10, 2, 10, 0, tzinfo=timezone.utc).timestamp())
+    lights = []
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = SecurityLightController(
+            lambda ch, on: lights.append((ch, on)),
+            send_heartbeat=lambda: None,
+        )
+        ctrl.apply_rules(
+            {
+                "version": 50,
+                "guardMode": "night_only",
+                "scheduleStart": "17:00",
+                "scheduleEnd": "06:00",
+                "lighting_duration_sec": 45,
+                "jstMinutes": 10 * 60,
+                "lightScheduleActive": False,
+            }
+        )
+        assert ctrl._jst_minutes() == 19 * 60
+        assert ctrl._is_in_light_schedule() is True
+        assert ctrl._can_run_lights() is True
+        assert ctrl._di1_duration_ms == 45_000
+        ctrl._start_sequence = lambda *args, **kwargs: None
+        ctrl._on_di1_detected()
+    assert (2, True) in lights
+    assert (3, True) in lights
+    assert all(ch != 1 for ch, _on in lights)
+
+
+def test_ntp_utc_afternoon_stays_off():
+    """JST 16:00（UTC 07:00）は 17:00 開始の窓の外。"""
+    from datetime import datetime, timezone
+
+    _stub_ticks()
+    utc = int(datetime(2026, 10, 2, 7, 0, tzinfo=timezone.utc).timestamp())
+    lights = []
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = SecurityLightController(
+            lambda ch, on: lights.append((ch, on)),
+            send_heartbeat=lambda: None,
+        )
+        ctrl.apply_rules(
+            {
+                "version": 51,
+                "guardMode": "always",
+                "scheduleStart": "17:00",
+                "scheduleEnd": "06:00",
+            }
+        )
+        assert ctrl._jst_minutes() == 16 * 60
+        assert ctrl._can_run_lights() is False
+        ctrl._on_di1_detected()
+    assert lights == []
+
+
+def test_overnight_window_includes_0530_excludes_0600():
+    """日跨ぎ: JST 05:30 は窓内、06:00 は終了ちょうどで窓外。"""
+    from datetime import datetime, timezone
+
+    inside = int(
+        datetime(2026, 10, 1, 20, 30, tzinfo=timezone.utc).timestamp()
+    )
+    edge = int(
+        datetime(2026, 10, 1, 21, 0, tzinfo=timezone.utc).timestamp()
+    )
+    with patch("security_light.time.time", return_value=inside):
+        ctrl = _ctrl(
+            {
+                "version": 52,
+                "guardMode": "always",
+                "scheduleStart": "17:00",
+                "scheduleEnd": "06:00",
+            }
+        )
+        assert ctrl._jst_minutes() == 5 * 60 + 30
+        assert ctrl._is_in_light_schedule() is True
+    with patch("security_light.time.time", return_value=edge):
+        ctrl2 = _ctrl(
+            {
+                "version": 53,
+                "guardMode": "always",
+                "scheduleStart": "17:00",
+                "scheduleEnd": "06:00",
+            }
+        )
+        assert ctrl2._jst_minutes() == 6 * 60
+        assert ctrl2._is_in_light_schedule() is False
+
+
+def test_jst_1700_boundary_is_inside():
+    """JST 17:00（UTC 08:00）は開始ちょうどで窓内。"""
+    from datetime import datetime, timezone
+
+    utc = int(datetime(2026, 10, 2, 8, 0, tzinfo=timezone.utc).timestamp())
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = _ctrl(
+            {
+                "version": 54,
+                "guardMode": "always",
+                "light_start": "17:00",
+                "light_end": "06:00",
+            }
+        )
+        assert ctrl._jst_minutes() == 17 * 60
+        assert ctrl._is_in_light_schedule() is True
+
+
 def test_physical_di1_lights_when_vps_jst_is_1900():
     """物理 DI1 は VPS 19:00 JST なら即時点灯可。"""
     utc_day = 3 * 3600
@@ -333,5 +454,9 @@ if __name__ == "__main__":
     test_itabashi_light_gpio_map()
     test_parse_vps_sensor_pulse_66s()
     test_vps_sensor_pulse_ignores_daytime_rtc()
+    test_ntp_utc_is_converted_before_17_window()
+    test_ntp_utc_afternoon_stays_off()
+    test_overnight_window_includes_0530_excludes_0600()
+    test_jst_1700_boundary_is_inside()
     test_physical_di1_lights_when_vps_jst_is_1900()
     print("ok")

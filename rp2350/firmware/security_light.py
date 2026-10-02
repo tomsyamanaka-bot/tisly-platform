@@ -3,15 +3,25 @@ DI赤外線センサー連動
 段階的防犯ライト制御（uasyncio）
 
 DI1=駐車場センサー / DI2=ガレージセンサー
-DO CH2=外側100V (GPIO18) / DO CH3=100V投光器 (GPIO19)
+DO2/CH2=外側100V 防犯ライト (GPIO18)
+DO3/CH3=100V投光器 防犯ライト (GPIO19)
+CH1 は電気錠ワンショット専用。防犯ライトでは駆動しない。
 サーバーから動的同期したルールで動作。
-DI1/DI2 検知時は DO2+DO3 を設定時間点灯し、タイマー後に消灯する。
+DI1/DI2 検知時は DO2+DO3 を維持秒数（既定 45 秒）点灯する。
 
-検知確定: 50ms 継続 ON で 1 回だけ確定
-（早歩き・短いパルスでも取りこぼし防止）。
+点灯時間帯は NTP の UTC を必ず JST（UTC+9）へ変換してから判定する。
+17:00〜06:00 のような日跨ぎも同じ関数で扱う。
 """
 
 import time
+
+# OTA がこの文字列から版を読む（config.py は実機上書きしない）
+FIRMWARE_LOGIC_VERSION = "1.6.5"
+
+# NTP の time.time() は UTC。窓判定の前に必ず足す。
+JST_OFFSET_SEC = 9 * 3600
+# これ未満は NTP 未同期（テスト用の小さい epoch を含む）
+_NTP_EPOCH_MIN = 1700000000
 
 try:
     import uasyncio as asyncio
@@ -136,11 +146,26 @@ def _hm_to_minutes(h, m):
     return h * 60 + m
 
 
+def utc_epoch_to_jst_minutes(utc_sec):
+    """UTC epoch を JST の分（0-1439）にする。
+
+    MicroPython の time.localtime() はタイムゾーンを持たず
+    UTC の時分を返す。それをそのまま 17:00〜06:00 と比べると
+    夜間なのにライトが消える。localtime は使わず +9 時間する。
+    """
+    try:
+        sec = int(utc_sec)
+    except Exception:
+        sec = 0
+    jst_sec = sec + JST_OFFSET_SEC
+    return (jst_sec // 60) % (24 * 60)
+
+
 class SecurityLightController:
     """DI1/DI2 段階侵入に応じた防犯ライト制御。"""
 
     def __init__(self, set_ch, send_heartbeat=None):
-        self._set_ch = set_ch
+        self._set_output = set_ch
         self._send_heartbeat = send_heartbeat
         self._perimeter_until_ms = 0
         self._seq_id = 0
@@ -310,11 +335,31 @@ class SecurityLightController:
     def log(self, msg):
         print("[tisly security]", msg)
 
+    def _set_ch(self, channel, on):
+        """防犯ライトは DO2/DO3 のみ。CH1 電気錠は駆動しない。"""
+        try:
+            ch = int(channel)
+        except Exception:
+            ch = 0
+        if ch == 1:
+            self.log("skip CH1 electric lock one-shot")
+            return
+        self._set_output(ch, on)
+
     def _jst_minutes(self):
-        """JST の分（0-1439）を返す。
-        VPS 同期値を優先し、
-        無ければ RTC を UTC とみなして +9h。
+        """点灯窓判定用の JST 分（0-1439）。
+
+        NTP 同期済みの time.time() は UTC。必ず +9h してから
+        時分を取る。日跨ぎ（17:00〜06:00 等）もこの分で判定する。
+        NTP 未同期のときだけ VPS が渡した JST 分を使う。
         """
+        utc_sec = 0
+        try:
+            utc_sec = int(time.time())
+        except Exception:
+            utc_sec = 0
+        if utc_sec >= _NTP_EPOCH_MIN:
+            return utc_epoch_to_jst_minutes(utc_sec)
         if self._vps_jst_valid:
             extra = 0
             try:
@@ -325,9 +370,7 @@ class SecurityLightController:
             except Exception:
                 extra = 0
             return (self._vps_jst_minutes + extra) % (24 * 60)
-        utc_sec = int(time.time())
-        jst_sec = utc_sec + 9 * 3600
-        return (jst_sec // 60) % (24 * 60)
+        return utc_epoch_to_jst_minutes(utc_sec)
 
     def _is_in_light_schedule(self):
         """防犯ライト点灯時間帯（日跨ぎ対応）。"""
@@ -361,6 +404,7 @@ class SecurityLightController:
     def _can_run_lights(self):
         """センサー連動の点灯可否。
         手動命令は execute_manual 側でバイパス。
+        時間帯は JST 変換後のローカル判定だけを使う。
         """
         if self._security_paused:
             self.log("security paused - lights off")
@@ -368,43 +412,56 @@ class SecurityLightController:
         if self._guard_mode == "off":
             self.log("guard off (DISARMED) - lights off")
             return False
-        # VPS JST 分があればそれを正とする
-        if self._vps_jst_valid:
-            return self._is_in_light_schedule()
-        if self._vps_light_active_set:
-            if not self._vps_light_active:
-                self.log(
-                    "VPS lightScheduleActive=false - lights off"
-                )
-            return self._vps_light_active
         if not self._is_in_light_schedule():
+            now = self._jst_minutes()
             self.log(
-                "outside light schedule ({}~{}) - lights off".format(
+                "outside light schedule (%s~%s) jst=%02d:%02d - DO2/DO3 off"
+                % (
                     self._light_start,
                     self._light_end,
+                    now // 60,
+                    now % 60,
                 )
             )
             return False
         return True
+
+    def _arm_do2_do3(self, mode_do2, mode_do3, duration_ms):
+        """DI 検知の瞬間に DO2/DO3 を ON する。CH1 は触らない。"""
+        armed = False
+        if mode_do2 != "off":
+            self._set_ch(CH_24V, True)
+            armed = True
+        if mode_do3 != "off":
+            self._set_ch(CH_100V, True)
+            armed = True
+        if armed:
+            self.log(
+                "DO2+DO3 security lights ON {}s".format(
+                    int(duration_ms) // 1000
+                )
+            )
+        return armed
 
     def _can_run(self):
         """互換: ライト連動可否。"""
         return self._can_run_lights()
 
     def on_di_edge(self, di, prev_state, new_state):
-        """立上りで confirm_ms 待機後に確定。OFF でキャンセル。"""
+        """立上りで DO2/DO3 を即時 ON。
+
+        poll 側の 50ms デバウンス後に届く。
+        追加の非同期確認は HTTP ブロック中に取りこぼすため使わない。
+        """
         if di not in (DI_OUTER, DI_INNER):
             return
         if new_state == "on" and prev_state != "on":
-            gen = self._confirm_gen.get(di, 0) + 1
-            self._confirm_gen[di] = gen
-            self._di_confirmed[di] = False
-            try:
-                asyncio.create_task(self._confirm_rising(di, gen))
-            except Exception as exc:
-                self.log("confirm task err: {}".format(exc))
-                # フォールバック: 即確定
-                self._fire_di(di)
+            if self._di_confirmed.get(di):
+                self.log("DI{} already latched this hold".format(di))
+                return
+            self._di_confirmed[di] = True
+            self.log("DI{} rising fire".format(di))
+            self._fire_di(di)
         elif new_state != "on":
             self._confirm_gen[di] = self._confirm_gen.get(di, 0) + 1
             self._di_confirmed[di] = False
@@ -475,6 +532,12 @@ class SecurityLightController:
         self._notify_vps("security event DI1 pattern_a", "A")
         if not self._can_run_lights():
             return
+        mode = self._di1_mode
+        if mode == "off":
+            self.log("Pattern A: lights OFF (config)")
+            return
+        mode_100v = "steady" if mode == "strobe" else mode
+        self._arm_do2_do3(mode, mode_100v, self._di1_duration_ms)
         self._start_sequence("A")
 
     def _on_di2_detected(self):
@@ -486,12 +549,22 @@ class SecurityLightController:
             self._notify_vps("security event DI2 pattern_b", "B")
             if not self._can_run_lights():
                 return
+            self._arm_do2_do3(
+                self._di2_mode,
+                self._di2_100v_mode,
+                self._di2_duration_ms,
+            )
             self._start_sequence("B")
         else:
             self.log("DI2 alone -> Pattern C")
             self._notify_vps("security event DI2 pattern_c", "C")
             if not self._can_run_lights():
                 return
+            self._arm_do2_do3(
+                self._di2_standalone_24v,
+                self._di2_standalone_100v,
+                self._di2_standalone_ms,
+            )
             self._start_sequence("C")
 
     def _start_sequence(self, pattern, duration_ms=None):
@@ -502,9 +575,13 @@ class SecurityLightController:
                 self._active_task.cancel()
             except Exception:
                 pass
-        self._active_task = asyncio.create_task(
-            self._run_sequence(pattern, seq_id, duration_ms)
-        )
+        try:
+            self._active_task = asyncio.create_task(
+                self._run_sequence(pattern, seq_id, duration_ms)
+            )
+        except Exception as exc:
+            self.log("sequence start err: {}".format(exc))
+            self._active_task = None
 
     def _all_security_off(self):
         self._set_ch(CH_24V, False)

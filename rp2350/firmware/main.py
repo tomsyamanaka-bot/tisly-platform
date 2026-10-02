@@ -548,14 +548,42 @@ def _relay_gpio_level(channel, on):
     return 1 if on else 0
 
 
+# 板橋自宅: DO2/DO3 は防犯ライト。CH1 は電気錠ワンショットのまま。
+# config.py は OTA で上書きしないため、古い割当でも GPIO18/19 に直す。
+ITABASHI_DO_LIGHT_GPIO = {
+    2: 18,
+    3: 19,
+}
+
+
+def ensure_itabashi_light_pin(channel):
+    """DO2/DO3 の Pin を公式 GPIO に揃える。"""
+    expected = ITABASHI_DO_LIGHT_GPIO.get(channel)
+    if expected is None:
+        return
+    gpio_map = getattr(config, "CH_GPIO", None)
+    mapped = gpio_map.get(channel) if isinstance(gpio_map, dict) else None
+    if channel in CH_PINS and mapped == expected:
+        return
+    try:
+        CH_PINS[channel] = Pin(expected, Pin.OUT)
+        if isinstance(gpio_map, dict):
+            gpio_map[channel] = expected
+        log("itabashi DO{} rebind GPIO{}".format(channel, expected))
+    except Exception as exc:
+        log_error("itabashi DO{} rebind: {}".format(channel, exc))
+
+
 def set_ch_output(channel, on):
     """リレー出力と ch_states を同期更新。
     板橋 DO2=GPIO18 / DO3=GPIO19 を明示駆動。
+    CH1 電気錠の GPIO はここでは付け替えない。
     """
+    ensure_itabashi_light_pin(channel)
     if channel not in CH_PINS:
         return
     gpio = config.CH_GPIO.get(channel)
-    expected = {2: 18, 3: 19}.get(channel)
+    expected = ITABASHI_DO_LIGHT_GPIO.get(channel)
     if expected is not None and gpio != expected:
         log_error(
             "CH{} GPIO mismatch expected {} got {}".format(
@@ -1126,7 +1154,7 @@ async def async_main():
 
     _security.set_di_reader(_read_di_for_confirm)
 
-    log("security light control enabled (DI1/DI2 confirm 50ms)")
+    log("security light DO2/DO3 enabled (JST UTC+9, DI rising)")
 
     rules_sync_every = int(
         getattr(config, "SECURITY_RULES_SYNC_EVERY", 10)
