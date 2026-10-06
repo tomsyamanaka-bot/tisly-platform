@@ -16,7 +16,7 @@ DI1/DI2 検知時は DO2+DO3 を維持秒数（既定 45 秒）点灯する。
 import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
-FIRMWARE_LOGIC_VERSION = "1.6.5"
+FIRMWARE_LOGIC_VERSION = "1.6.6"
 
 # NTP の time.time() は UTC。窓判定の前に必ず足す。
 JST_OFFSET_SEC = 9 * 3600
@@ -61,6 +61,23 @@ MANUAL_OFF_COMMANDS = (
     "light_100v_off",
     "light_all_off",
 )
+
+
+def _hold_ms(raw, fallback_ms):
+    """点灯維持をミリ秒にする。
+
+    5〜180 は秒、1000〜300000 はミリ秒。
+    豊島邸の flash_duration_sec はここでは読まない。
+    """
+    try:
+        value = int(raw)
+    except Exception:
+        return int(fallback_ms)
+    if 1000 <= value <= 300000:
+        return value
+    if 5 <= value <= 180:
+        return value * 1000
+    return int(fallback_ms)
 
 
 def _clamp_pulse_ms(ms, default_ms):
@@ -260,18 +277,45 @@ class SecurityLightController:
         )
         self._guard_active = bool(rules.get("guardActive", True))
         self._security_paused = bool(rules.get("securityPaused", False))
-        self._di1_duration_ms = int(
-            rules.get("di1DurationMs", _DEFAULT_DURATION_MS)
+        # 板橋の維持秒。flash_duration_sec は豊島邸専用なので無視する。
+        light_raw = rules.get("lighting_duration_sec")
+        if light_raw is None:
+            light_raw = rules.get("light_duration_sec")
+        master_ms = (
+            _hold_ms(light_raw, self._di1_duration_ms)
+            if light_raw is not None
+            else None
         )
-        self._di2_duration_ms = int(
-            rules.get("di2AlertDurationMs", _DEFAULT_DURATION_MS)
-        )
-        self._di2_standalone_ms = int(
-            rules.get(
-                "di2StandaloneDurationMs",
-                self._di2_duration_ms,
+        di1_raw = rules.get("di1DurationMs")
+        if master_ms is not None:
+            di1_ms = (
+                _hold_ms(di1_raw, master_ms)
+                if di1_raw is not None
+                else master_ms
             )
-        )
+            # ch パルスの 5 秒上限が di1DurationMs に残っても
+            # 点灯維持スライダーを消灯時刻にする
+            if di1_ms < master_ms:
+                di1_ms = master_ms
+            self._di1_duration_ms = di1_ms
+        elif di1_raw is not None:
+            self._di1_duration_ms = _hold_ms(
+                di1_raw, self._di1_duration_ms
+            )
+        alert_raw = rules.get("di2AlertDurationMs")
+        if alert_raw is not None:
+            self._di2_duration_ms = _hold_ms(
+                alert_raw, self._di1_duration_ms
+            )
+        elif master_ms is not None:
+            self._di2_duration_ms = master_ms
+        solo_raw = rules.get("di2StandaloneDurationMs")
+        if solo_raw is not None:
+            self._di2_standalone_ms = _hold_ms(
+                solo_raw, self._di2_duration_ms
+            )
+        elif master_ms is not None:
+            self._di2_standalone_ms = self._di2_duration_ms
         self._di1_mode = str(rules.get("di1LightMode", "steady"))
         self._di2_mode = str(rules.get("di2LightMode", "fast_blink"))
         self._di2_100v_mode = str(
@@ -292,26 +336,6 @@ class SecurityLightController:
         self._strobe_off_ms = int(
             rules.get("strobeOffMs", _DEFAULT_STROBE_OFF_MS)
         )
-        lighting_sec = int(
-            rules.get(
-                "lighting_duration_sec",
-                rules.get("di1DurationMs", _DEFAULT_DURATION_MS) // 1000,
-            )
-        )
-        if 5 <= lighting_sec <= 180:
-            lighting_ms = lighting_sec * 1000
-            self._di1_duration_ms = int(
-                rules.get("di1DurationMs", lighting_ms)
-            )
-            self._di2_duration_ms = int(
-                rules.get("di2AlertDurationMs", lighting_ms)
-            )
-            self._di2_standalone_ms = int(
-                rules.get(
-                    "di2StandaloneDurationMs",
-                    self._di2_duration_ms,
-                )
-            )
         confirm = int(
             rules.get("diConfirmMs", self._di_confirm_ms)
         )
@@ -596,9 +620,9 @@ class SecurityLightController:
             elif pattern == "C":
                 await self._pattern_c(seq_id, duration_ms)
         except asyncio.CancelledError:
-            # 手動命令中は消灯しない
-            # （キャンセル競合で即OFFする不具合対策）
-            if not self._manual_hold:
+            # 後継の序列が既に始まっているときは消灯しない。
+            # 約5秒後に届く次命令がコイルを落とす競合を防ぐ。
+            if not self._manual_hold and self._seq_id == seq_id:
                 self._all_security_off()
             raise
         finally:
@@ -762,14 +786,39 @@ class SecurityLightController:
                 pattern, duration_ms // 1000
             )
         )
+        self._arm_pattern(pattern, duration_ms)
         self._start_sequence(pattern, duration_ms)
         return True
+
+    def _arm_pattern(self, pattern, duration_ms):
+        """パターンに対応する DO2/DO3 を即時 ON。"""
+        if pattern == "B":
+            mode_do2 = self._di2_mode
+            mode_do3 = self._di2_100v_mode
+        elif pattern == "C":
+            mode_do2 = self._di2_standalone_24v
+            mode_do3 = self._di2_standalone_100v
+        else:
+            mode_do2 = self._di1_mode
+            mode_do3 = "steady" if mode_do2 == "strobe" else mode_do2
+        self._arm_do2_do3(mode_do2, mode_do3, duration_ms)
 
     async def execute_manual_command(self, cmd):
         """VPS 手動命令。
         点灯時間帯インターロックを完全バイパスし、
         対象リレーへ即時 ON/OFF する。
         """
+        if (
+            cmd == "light_all_on"
+            and self._active_task is not None
+            and not self._manual_hold
+        ):
+            # センサー維持中の全点灯は序列を消さない。
+            # ポーリング約5秒で届く light_all_on が
+            # スライダー秒数の消灯を止めていた。
+            self.log("sensor hold kept; skip light_all_on")
+            self._arm_do2_do3("steady", "steady", self._di1_duration_ms)
+            return True
         if cmd in MANUAL_ON_COMMANDS:
             self._manual_hold = True
         elif cmd in MANUAL_OFF_COMMANDS:

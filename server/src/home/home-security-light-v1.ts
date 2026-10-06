@@ -301,13 +301,7 @@ export function queueHomeSensorLinkedLightsV1(input: {
   };
 }
 
-const ITABASHI_SENSOR_ON_V1 = "light_all_on";
-const ITABASHI_SENSOR_OFF_V1 = "light_all_off";
-const ITABASHI_SENSOR_OFF_GRACE_MS_V1 = 20_000;
-
-let sensorOffTimer: ReturnType<typeof setTimeout> | null = null;
 let sensorRetryTimer: ReturnType<typeof setTimeout> | null = null;
-let sensorOffDueMs = 0;
 
 function rememberTimer(
   timer: ReturnType<typeof setTimeout>
@@ -318,67 +312,25 @@ function rememberTimer(
 
 function pendingBlocksSensorLightV1(command: string | null): boolean {
   if (!command) return false;
-  return (
-    command !== ITABASHI_SENSOR_ON_V1 &&
-    command !== ITABASHI_SENSOR_OFF_V1
-  );
+  if (command.startsWith("sensor_pulse_")) return false;
+  if (command === "light_all_on" || command === "light_all_off") {
+    return false;
+  }
+  return true;
 }
 
-/** テスト終了時に消灯タイマーを止める */
+/** テスト終了時に再送タイマーを止める */
 export function resetItabashiLiveSensorLightArmForTestV1(): void {
-  if (sensorOffTimer) clearTimeout(sensorOffTimer);
   if (sensorRetryTimer) clearTimeout(sensorRetryTimer);
-  sensorOffTimer = null;
   sensorRetryTimer = null;
-  sensorOffDueMs = 0;
-}
-
-function scheduleItabashiSensorLightOffV1(waitMs: number): void {
-  if (sensorOffTimer) clearTimeout(sensorOffTimer);
-  const wait = Math.max(200, waitMs);
-  sensorOffTimer = rememberTimer(
-    setTimeout(() => {
-      sensorOffTimer = null;
-      flushItabashiSensorLightOffV1();
-    }, wait)
-  );
-}
-
-function flushItabashiSensorLightOffV1(): void {
-  const now = Date.now();
-  if (now + 50 < sensorOffDueMs) {
-    scheduleItabashiSensorLightOffV1(sensorOffDueMs - now);
-    return;
-  }
-  const pending = getRemoteTestStatus().pendingCommand;
-  if (pending === ITABASHI_SENSOR_ON_V1) {
-    scheduleItabashiSensorLightOffV1(1000);
-    return;
-  }
-  if (
-    pendingBlocksSensorLightV1(pending) &&
-    now < sensorOffDueMs + ITABASHI_SENSOR_OFF_GRACE_MS_V1
-  ) {
-    scheduleItabashiSensorLightOffV1(1000);
-    return;
-  }
-  const queued = queueSecurityLightCommandV1(ITABASHI_SENSOR_OFF_V1);
-  sensorOffDueMs = 0;
-  if (!queued.ok || queued.mocked) return;
-  recordSystemLogV1({
-    siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
-    category: "light_event",
-    message: "センサー連動消灯: DO2+DO3",
-    detail: { command: ITABASHI_SENSOR_OFF_V1 },
-    actor: "rp2350",
-  });
 }
 
 function queueItabashiSensorLightOnV1(
+  letter: "A" | "B" | "C",
   durationSec: number,
   detail: Record<string, unknown>,
   attempt = 0
-): { queued: boolean; skippedReason?: string } {
+): { queued: boolean; skippedReason?: string; command?: string } {
   const pending = getRemoteTestStatus().pendingCommand;
   if (pendingBlocksSensorLightV1(pending)) {
     if (attempt >= 8) {
@@ -388,41 +340,44 @@ function queueItabashiSensorLightOnV1(
     sensorRetryTimer = rememberTimer(
       setTimeout(() => {
         sensorRetryTimer = null;
-        queueItabashiSensorLightOnV1(durationSec, detail, attempt + 1);
+        queueItabashiSensorLightOnV1(
+          letter,
+          durationSec,
+          detail,
+          attempt + 1
+        );
       }, 400)
     );
     return { queued: false, skippedReason: "pending_command_busy" };
   }
-  const queued = queueSecurityLightCommandV1(ITABASHI_SENSOR_ON_V1);
+  const durationMs = clampSensorPulseMsV1(durationSec * 1000);
+  const command = `sensor_pulse_${letter}_${durationMs}`;
+  const queued = queueSensorLinkedLightCommandV1(command);
   if (!queued.ok || queued.mocked) {
     return {
       queued: false,
       skippedReason: queued.mocked ? "mocked" : queued.error || "queue_failed",
     };
   }
-  const holdMs = clampSensorPulseMsV1(durationSec * 1000);
-  const due = Date.now() + holdMs;
-  if (due > sensorOffDueMs) sensorOffDueMs = due;
-  scheduleItabashiSensorLightOffV1(sensorOffDueMs - Date.now());
   recordSystemLogV1({
     siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
     category: "light_event",
     message: `センサー連動点灯: DO2+DO3 を${durationSec}秒点灯`,
     detail: {
       ...detail,
-      command: ITABASHI_SENSOR_ON_V1,
+      command,
       durationSec,
+      durationMs,
     },
     actor: "rp2350",
   });
-  return { queued: true };
+  return { queued: true, command };
 }
 
 /**
  * 実センサーの立上りで DO2+DO3 を点灯する。
- * 板橋実機 1.6.1 は sensor_pulse を捨て、
- * ルール version が変わらない限り夜間でも点灯しない。
- * 手動と同じ light_all_on を使い、維持秒数後に消灯する。
+ * 維持秒は sensor_pulse のミリ秒。実機がローカルで消灯する。
+ * light_all_on はポーリング約 5 秒で届き、維持序列を消す。
  */
 export function armItabashiLiveDiSensorLightsV1(input: {
   siteId: string;
@@ -454,7 +409,7 @@ export function armItabashiLiveDiSensorLightsV1(input: {
   }
   const letter = patternLetterForSensorV1(input.pattern, input.di);
   const durationSec = durationSecForSensorV1(rules, letter);
-  const armed = queueItabashiSensorLightOnV1(durationSec, {
+  const armed = queueItabashiSensorLightOnV1(letter, durationSec, {
     di: input.di,
     pattern: letter,
     jstMinutes: windowEval.jstMinutes,
@@ -467,7 +422,7 @@ export function armItabashiLiveDiSensorLightsV1(input: {
     isWithinTimeRange: true,
     lightsActive: true,
     armed: windowEval.armed,
-    command: ITABASHI_SENSOR_ON_V1,
+    command: armed.command,
     durationSec,
     jstMinutes: windowEval.jstMinutes,
   };

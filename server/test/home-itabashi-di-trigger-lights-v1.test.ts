@@ -101,18 +101,60 @@ describe("Itabashi DI trigger sensor lights", () => {
     }
   });
 
-  it("queues light_all_on for a real night sensor so firmware 1.6.1 turns both lights on", () => {
+  it("queues a 130s sensor pulse and does not force a 5s off", () => {
     ensureNightRulesV1();
-    resetRemoteTestState();
-    const armed = armItabashiLiveDiSensorLightsV1({
-      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
-      di: 1,
-      pattern: "pattern_a",
-      at: jstDate(19, 0),
+    const before = getHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+      lightingDurationSec: 130,
+      di1DurationSec: 130,
+      di2AlertDurationSec: 130,
+      di2StandaloneDurationSec: 130,
+      flashDurationSec: 5,
     });
-    assert.equal(armed.queued, true);
-    assert.equal(armed.command, "light_all_on");
-    assert.equal(getRemoteTestStatus().pendingCommand, "light_all_on");
+    resetRemoteTestState();
+    try {
+      const armed = armItabashiLiveDiSensorLightsV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        di: 1,
+        pattern: "pattern_a",
+        at: jstDate(19, 0),
+      });
+      assert.equal(armed.queued, true);
+      assert.equal(armed.durationSec, 130);
+      assert.equal(armed.command, "sensor_pulse_A_130000");
+      assert.equal(
+        getRemoteTestStatus().pendingCommand,
+        "sensor_pulse_A_130000"
+      );
+      assert.notEqual(getRemoteTestStatus().pendingCommand, "light_all_on");
+
+      resetRemoteTestState();
+      const staged = armItabashiLiveDiSensorLightsV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        di: 2,
+        pattern: "pattern_b",
+        at: jstDate(19, 0),
+      });
+      assert.equal(staged.command, "sensor_pulse_B_130000");
+      assert.equal(staged.durationSec, 130);
+
+      resetRemoteTestState();
+      const alone = armItabashiLiveDiSensorLightsV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        di: 2,
+        pattern: "pattern_c",
+        at: jstDate(19, 0),
+      });
+      assert.equal(alone.command, "sensor_pulse_C_130000");
+    } finally {
+      updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+        lightingDurationSec: before.lightingDurationSec,
+        di1DurationSec: before.di1DurationSec,
+        di2AlertDurationSec: before.di2AlertDurationSec,
+        di2StandaloneDurationSec: before.di2StandaloneDurationSec,
+        flashDurationSec: before.flashDurationSec,
+      });
+    }
   });
 
   it("does not queue light_all_on at noon", () => {

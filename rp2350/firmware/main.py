@@ -951,9 +951,13 @@ def _parse_channel_command(cmd):
 
             pulse_ms = 50
 
-        if pulse_ms > 5000:
+        # CH1 電気錠はワンショット 5 秒まで。
+        # DO2/DO3 防犯ライトは点灯維持スライダー（最大 300 秒）。
+        pulse_cap = 5000 if channel == 1 else 300000
 
-            pulse_ms = 5000
+        if pulse_ms > pulse_cap:
+
+            pulse_ms = pulse_cap
 
         return channel, True, pulse_ms
 

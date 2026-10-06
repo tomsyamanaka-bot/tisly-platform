@@ -426,7 +426,9 @@ export function queueChPulseCommand(
   if (!isValidChannel(channel)) {
     throw new Error(`Invalid channel: ${channel}`);
   }
-  const ms = Math.max(50, Math.min(5000, Math.round(durationMs)));
+  // CH1 電気錠は 5 秒まで。DO2/DO3 の点灯維持はスライダー秒（最大 300 秒）。
+  const maxMs = channel === 1 ? 5000 : 300_000;
+  const ms = Math.max(50, Math.min(maxMs, Math.round(durationMs)));
   const command = `ch${channel}_pulse_${ms}`;
   const queuedAt = new Date().toISOString();
   if (shouldBlockPhysicalDoV1()) {

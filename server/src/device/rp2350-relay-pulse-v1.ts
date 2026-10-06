@@ -35,12 +35,14 @@ export interface Rp2350RelayPulseResultV1 {
   mocked?: boolean;
 }
 
-function clampDurationMs(value: unknown): number {
+function clampDurationMs(value: unknown, channel: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return RP2350_DEFAULT_PULSE_MS_V1;
+  // CH1 は電気錠ワンショット。DO2/DO3 は点灯維持（最大 300 秒）。
+  const maxMs = channel === 1 ? RP2350_MAX_PULSE_MS_V1 : 300_000;
   return Math.max(
     RP2350_MIN_PULSE_MS_V1,
-    Math.min(RP2350_MAX_PULSE_MS_V1, Math.round(n))
+    Math.min(maxMs, Math.round(n))
   );
 }
 
@@ -58,7 +60,7 @@ export function queueRp2350RelayPulseV1(
       error: `channel は 1〜${CHANNEL_COUNT} です`,
     };
   }
-  const durationMs = clampDurationMs(input.durationMs);
+  const durationMs = clampDurationMs(input.durationMs, channel);
   let pulsed: RemoteTestPulseResult;
   try {
     pulsed = queueChPulseCommand(channel, durationMs);

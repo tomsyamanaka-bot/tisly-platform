@@ -165,6 +165,60 @@ def test_light_start_end_alias():
         assert ctrl._is_in_light_schedule() is True
 
 
+def test_slider_130s_beats_5s_pulse_and_toyoshima_flash():
+    """点灯維持 130 秒は 5 秒パルスと豊島邸フラッシュより優先する。"""
+    from security_light import parse_vps_sensor_command
+
+    ctrl = _ctrl(
+        {
+            "version": 80,
+            "guardMode": "always",
+            "lighting_duration_sec": 130,
+            "di1DurationMs": 5000,
+            "di2AlertDurationMs": 130000,
+            "di2StandaloneDurationMs": 130000,
+            "flash_duration_sec": 5,
+        }
+    )
+    assert ctrl._di1_duration_ms == 130_000
+    assert ctrl._di2_duration_ms == 130_000
+    assert ctrl._di2_standalone_ms == 130_000
+    pattern, ms = parse_vps_sensor_command("sensor_pulse_B_130000", 5000)
+    assert pattern == "B"
+    assert ms == 130_000
+    pattern_c, ms_c = parse_vps_sensor_command(
+        "sensor_pulse_C_130000", 5000
+    )
+    assert pattern_c == "C"
+    assert ms_c == 130_000
+
+
+def test_light_all_on_does_not_cancel_sensor_hold():
+    """検知中の light_all_on は維持序列を消さない。"""
+    import asyncio
+
+    lights = []
+    ctrl = SecurityLightController(lambda ch, on: lights.append((ch, on)))
+    ctrl.apply_rules(
+        {
+            "version": 81,
+            "guardMode": "always",
+            "lighting_duration_sec": 130,
+            "di1DurationMs": 5000,
+            "flash_duration_sec": 5,
+        }
+    )
+    ctrl._active_task = object()
+    ctrl._manual_hold = False
+    ctrl._seq_id = 3
+    ok = asyncio.run(ctrl.execute_manual_command("light_all_on"))
+    assert ok is True
+    assert ctrl._seq_id == 3
+    assert ctrl._manual_hold is False
+    assert (2, True) in lights
+    assert (3, True) in lights
+
+
 def test_lighting_duration_sec_applied():
     ctrl = _ctrl(
         {
@@ -445,6 +499,8 @@ if __name__ == "__main__":
     test_version_bump_applies_mode_change()
     test_di1_daytime_logs_without_lights()
     test_di1_skips_lights_when_paused()
+    test_slider_130s_beats_5s_pulse_and_toyoshima_flash()
+    test_light_all_on_does_not_cancel_sensor_hold()
     test_lighting_duration_sec_applied()
     test_default_di_confirm_ms_is_50()
     test_apply_rules_accepts_50ms_confirm()

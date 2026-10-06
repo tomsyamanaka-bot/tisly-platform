@@ -512,9 +512,9 @@ export async function processHomeSecurityInputChangesV1(
       armed,
       lightsActive
     );
-    /* 通知は 24 時間。点灯は時間帯内だけ実機へ命令する。
-     * 実機 1.6.1 はルール保存時の guardActive を保持し、
-     * sensor_pulse も解釈しないため light_all_on を使う。 */
+    /* 通知は 24 時間。点灯は時間帯内だけ。
+     * 維持秒は実機のローカル序列と sensor_pulse のミリ秒。
+     * light_all_on は約 5 秒後に届いて序列を消すため使わない。 */
     if (lightsActive) {
       armItabashiLiveDiSensorLightsV1({
         siteId: sid,
