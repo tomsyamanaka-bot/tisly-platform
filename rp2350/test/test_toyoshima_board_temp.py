@@ -303,7 +303,7 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.14"
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.15"
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8
@@ -565,6 +565,133 @@ def test_di_edge_kicks_relay_before_event():
     assert "event" in order
 
 
+def test_two_stage_blink_plan_far_and_near():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "flash_enabled": True,
+        "light_duration_sec": 45,
+        "flash_duration_sec": 15,
+    })
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        far = ctrl.plan_main_response(1)
+        near = ctrl.plan_main_response(2)
+    assert ctrl._security_mode == "two_stage_blink"
+    assert far["do1_pattern"] == "blink"
+    assert far["do2_pattern"] == "steady"
+    assert far["do3_pattern"] == "off"
+    assert far["do3"] is False
+    assert near["do1_pattern"] == "blink"
+    assert near["do2_pattern"] == "blink"
+    assert near["do3_pattern"] == "steady"
+    assert near["do3"] is True
+    assert near["near_first"] is False
+    ctrl.apply_rules({"securityMode": "TWO_STAGE_BLINK"})
+    assert ctrl._security_mode == "two_stage_blink"
+
+
+def test_two_stage_blink_edges_switch_phase():
+    outputs = {}
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "force_relay_test": True,
+        "flash_enabled": True,
+    })
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(1, "off", "on")
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            assert outputs.get(3) is False
+            ctrl.on_di_edge(2, "off", "on")
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            assert outputs.get(3) is True
+            ctrl.on_di_edge(2, "on", "off")
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            assert outputs.get(3) is False
+
+
+def test_two_stage_blink_near_skips_flash_when_disabled():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "force_relay_test": True,
+        "flash_enabled": False,
+    })
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(2, "off", "on")
+    assert outputs.get(1) is True
+    assert outputs.get(2) is True
+    assert outputs.get(3) is not True
+
+
+def test_two_stage_blink_off_delay_returns_to_idle():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "force_relay_test": True,
+        "flash_enabled": True,
+    })
+    ctrl._output_ms = 40
+    utc_day = 3 * 3600
+
+    async def run():
+        with patch.object(ts.time, "time", return_value=utc_day):
+            ctrl.on_di_edge(1, "off", "on")
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            assert outputs.get(3) is False
+            ctrl.on_di_edge(1, "on", "off")
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            await asyncio.sleep(0.15)
+        assert outputs.get(1) is False
+        assert outputs.get(2) is False
+        assert outputs.get(3) is False
+        assert ctrl._blink_phase == "idle"
+
+    asyncio.run(run())
+
+
+def test_leaving_blink_mode_turns_outputs_off():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "force_relay_test": True,
+        "flash_enabled": True,
+    })
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(2, "off", "on")
+            assert outputs.get(3) is True
+            ctrl.apply_rules({"security_mode": "2STEP"})
+    assert ctrl._security_mode == "2STEP"
+    assert outputs.get(1) is False
+    assert outputs.get(2) is False
+    assert outputs.get(3) is False
+
+
 def test_event_send_failure_does_not_raise():
     """通知失敗でリレー処理を止めない。"""
     outputs = {}
@@ -622,4 +749,9 @@ if __name__ == "__main__":
     test_di_edge_notifies_when_disarmed_without_force()
     test_di_edge_notifies_when_disarmed_with_force_relay_test()
     test_event_send_failure_does_not_raise()
+    test_two_stage_blink_plan_far_and_near()
+    test_two_stage_blink_edges_switch_phase()
+    test_two_stage_blink_near_skips_flash_when_disabled()
+    test_two_stage_blink_off_delay_returns_to_idle()
+    test_leaving_blink_mode_turns_outputs_off()
     print("ok")

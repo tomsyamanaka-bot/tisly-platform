@@ -53,7 +53,11 @@ export type HomeDi2StandaloneLightModeV1 =
 export type HomeNotifyModeV1 = "critical" | "silent" | "off";
 
 /** 豊島邸 遠近ビーム連動モード */
-export type HomeSecurityModeV1 = "2STEP" | "DIRECT" | "SILENT";
+export type HomeSecurityModeV1 =
+  | "2STEP"
+  | "DIRECT"
+  | "SILENT"
+  | "two_stage_blink";
 
 /** JST 夜間開始（18:00）— 実機 security_light.py と同期 */
 export const HOME_GUARD_NIGHT_START_HOUR_JST_V1 = 18;
@@ -114,8 +118,8 @@ export interface HomeSecurityRulesV1 {
    */
   patliteThreatEnabled?: boolean;
   /**
-   * 遠近2段階モード
-   * 2STEP / DIRECT / SILENT
+   * 遠近ビーム連動モード
+   * 2STEP / DIRECT / SILENT / two_stage_blink
    */
   securityMode?: HomeSecurityModeV1;
   /** 100V フラッシュ維持秒数（5〜180） */
@@ -165,7 +169,7 @@ export interface HomeSecurityRulesPatchV1 {
   customerSecurityMode?: "away" | "home" | "disarmed";
   /** おでかけ警戒時パトライト威嚇 */
   patliteThreatEnabled?: boolean;
-  /** 遠近2段階モード */
+  /** 遠近ビーム連動モード */
   securityMode?: HomeSecurityModeV1;
   /** 100V フラッシュ維持秒数 */
   flashDurationSec?: number;
@@ -221,7 +225,7 @@ export interface HomeSecurityFirmwareRulesV1 {
   lighting_duration_sec: number;
   /** ライト維持秒（エイリアス） */
   light_duration_sec: number;
-  /** 遠近2段階モード */
+  /** 遠近ビーム連動モード */
   security_mode: HomeSecurityModeV1;
   /** 点灯時間帯オブジェクト */
   light_schedule: { start: string; end: string };
@@ -307,14 +311,20 @@ const SECURITY_MODES: HomeSecurityModeV1[] = [
   "2STEP",
   "DIRECT",
   "SILENT",
+  "two_stage_blink",
 ];
 
-/** 遠近モードを正規化 */
+/** 遠近モードを正規化。威嚇点滅は小文字 ID のまま保存する */
 export function parseHomeSecurityModeV1(
   value: unknown,
   fallback: HomeSecurityModeV1 = "2STEP"
 ): HomeSecurityModeV1 {
-  const raw = String(value ?? "").trim().toUpperCase();
+  const raw = String(value ?? "").trim();
+  if (raw.toUpperCase() === "TWO_STAGE_BLINK") return "two_stage_blink";
+  const upper = raw.toUpperCase();
+  if (upper === "2STEP" || upper === "DIRECT" || upper === "SILENT") {
+    return upper;
+  }
   return SECURITY_MODES.includes(raw as HomeSecurityModeV1)
     ? (raw as HomeSecurityModeV1)
     : fallback;

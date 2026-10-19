@@ -39,8 +39,10 @@ import {
   isHomeScheduleWindowActiveV1,
   isHomeSecurityArmedV1,
   isHomeSecurityPausedV1,
+  parseHomeSecurityModeV1,
   type HomeGuardModeV1,
   type HomeNotifyModeV1,
+  type HomeSecurityModeV1,
   updateHomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import {
@@ -351,8 +353,8 @@ export interface ToyoshimaSecurityDashboardV1 {
   perimeterTimeoutSec: number;
   /** おでかけ警戒時パトライト威嚇 */
   patliteThreatEnabled: boolean;
-  /** 遠近2段階モード */
-  securityMode: "2STEP" | "DIRECT" | "SILENT";
+  /** 遠近ビーム連動モード */
+  securityMode: HomeSecurityModeV1;
   /** 母屋 DO3 フラッシュ連動 */
   flashEnabled: boolean;
   /** フラッシュ維持秒数 */
@@ -910,6 +912,87 @@ function patliteTimerKey(
   return `${building}:do${ch}`;
 }
 
+const outputHoldTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function unrefHandle(timer: { unref?: () => void }): void {
+  if (typeof timer.unref === "function") timer.unref();
+}
+
+function clearOutputHold(key: string): void {
+  const timer = outputHoldTimers.get(key);
+  if (!timer) return;
+  clearTimeout(timer);
+  outputHoldTimers.delete(key);
+}
+
+function armOutputHold(
+  key: string,
+  durationMs: number,
+  fn: () => void
+): void {
+  clearOutputHold(key);
+  const timer = setTimeout(() => {
+    outputHoldTimers.delete(key);
+    fn();
+  }, durationMs);
+  unrefHandle(timer);
+  outputHoldTimers.set(key, timer);
+}
+
+function releaseToyoshimaOutputV1(
+  building: ToyoshimaBuildingIdV1,
+  ch: ToyoshimaDoChannelV1
+): void {
+  clearOutputHold(patliteTimerKey(building, ch));
+  stopPatliteBlink(building, ch);
+}
+
+/** 0.5秒点滅。保持時間後に消灯する */
+function startRelayBlink(
+  building: ToyoshimaBuildingIdV1,
+  ch: ToyoshimaDoChannelV1,
+  durationMs: number
+): void {
+  const key = patliteTimerKey(building, ch);
+  clearOutputHold(key);
+  stopPatliteBlink(building, ch);
+  const dout = findDo(getBuilding(building), ch);
+  if (!dout) return;
+  dout.blinking = true;
+  dout.on = true;
+  let on = true;
+  const timer = setInterval(() => {
+    on = !on;
+    dout.on = on;
+  }, TOYOSHIMA_PATLITE_BLINK_MS_V1);
+  unrefHandle(timer);
+  runtime.patliteTimers.set(key, timer);
+  armOutputHold(key, durationMs, () => {
+    stopPatliteBlink(building, ch);
+  });
+}
+
+/** 常時点灯。保持時間後に消灯する */
+function holdSteadyOutput(
+  building: ToyoshimaBuildingIdV1,
+  ch: ToyoshimaDoChannelV1,
+  durationMs: number
+): void {
+  const key = patliteTimerKey(building, ch);
+  clearOutputHold(key);
+  stopPatliteBlink(building, ch);
+  const dout = findDo(getBuilding(building), ch);
+  if (!dout) return;
+  dout.blinking = false;
+  dout.on = true;
+  armOutputHold(key, durationMs, () => {
+    const row = findDo(getBuilding(building), ch);
+    if (!row) return;
+    row.blinking = false;
+    row.on = false;
+  });
+}
+
 function stopPatliteBlink(
   building: ToyoshimaBuildingIdV1,
   ch: ToyoshimaDoChannelV1
@@ -1451,6 +1534,78 @@ function isToyoshimaNearStagedV1(
   return Date.now() - seen <= windowMs;
 }
 
+/**
+ * 遠近威嚇点滅。
+ * 外周: DO1 点滅 + DO2 点灯、DO3 は出さない。
+ * 至近: DO1/DO2 点滅。フラッシュ連動ONのときだけ DO3 を点灯時間だけ点ける。
+ * 実機側はセンサーOFF後のオフディレイで消灯する。
+ */
+function driveTwoStageBlinkMainV1(input: {
+  rules: ReturnType<typeof getHomeSecurityRulesV1>;
+  isFar: boolean;
+  beamActive: boolean;
+  flashEnabled: boolean;
+}): void {
+  const drive =
+    input.beamActive &&
+    shouldToyoshimaDriveSensorLightsV1(input.rules);
+  const lightMs = (input.rules.lightingDurationSec ?? 45) * 1000;
+  const flashMs = (input.rules.flashDurationSec ?? 15) * 1000;
+  const at = nowIso();
+  if (!drive) {
+    appendTimeline({
+      at,
+      building: "main",
+      kind: "manual",
+      title: "遠近威嚇点滅 · 日中はライト省略",
+      detail: "two_stage_blink",
+    });
+    return;
+  }
+  if (input.isFar) {
+    startRelayBlink("main", 1, lightMs);
+    holdSteadyOutput("main", 2, lightMs);
+    releaseToyoshimaOutputV1("main", 3);
+    appendTimeline({
+      at,
+      building: "main",
+      kind: "manual",
+      title: "外周 威嚇（ライト1点滅・ライト2点灯）",
+      detail: "two_stage_blink · DO3なし",
+    });
+    queueToyoshimaDeviceCommandV1({
+      building: "main",
+      command: "sensor_far",
+      channels: [1, 2],
+      durationMs: lightMs,
+    });
+    return;
+  }
+  const flashOn = input.flashEnabled;
+  startRelayBlink("main", 1, lightMs);
+  startRelayBlink("main", 2, lightMs);
+  if (flashOn) {
+    holdSteadyOutput("main", 3, flashMs);
+  } else {
+    releaseToyoshimaOutputV1("main", 3);
+  }
+  appendTimeline({
+    at,
+    building: "main",
+    kind: "manual",
+    title: flashOn
+      ? "至近 威嚇（ライト1+2点滅・フラッシュ点灯）"
+      : "至近 威嚇（ライト1+2点滅・フラッシュなし）",
+    detail: "two_stage_blink",
+  });
+  queueToyoshimaDeviceCommandV1({
+    building: "main",
+    command: "sensor_near",
+    channels: flashOn ? [1, 2, 3] : [1, 2],
+    durationMs: lightMs,
+  });
+}
+
 /** 母屋：遠近2段階検知 → ライト／フラッシュ連動
  * 至近が外周より先、または単独のときは DO3 を起動しない
  * Push は processToyoshimaSecurityEventV1 側で独立発火 */
@@ -1461,7 +1616,10 @@ async function handleMainBeamDetect(
   const homeId = resolveHomeSiteId(siteId);
   const rules = getHomeSecurityRulesV1(homeId);
   const customerMode = deriveCustomerSecurityModeV1(rules);
-  const securityMode = String(rules.securityMode || "2STEP").toUpperCase();
+  const securityMode = parseHomeSecurityModeV1(
+    rules.securityMode,
+    "2STEP"
+  );
   const flashEnabled = rules.flashEnabled !== false;
   const isFar = di === 1;
   /* 解除以外は外周・至近とも有効 */
@@ -1496,6 +1654,19 @@ async function handleMainBeamDetect(
 
   if (isFar) {
     markToyoshimaFarBeamV1(homeId);
+  }
+  if (securityMode === "two_stage_blink") {
+    driveTwoStageBlinkMainV1({
+      rules,
+      isFar,
+      beamActive,
+      flashEnabled,
+    });
+    const timer = setTimeout(() => {
+      if (diState) diState.state = "normal";
+    }, 5000);
+    unrefHandle(timer);
+    return;
   }
   const nearFirst =
     !isFar &&
@@ -2525,10 +2696,7 @@ export function buildToyoshimaSecurityDashboardV1(
       rules.lightingDurationSec ?? rules.di1DurationSec ?? 45,
     perimeterTimeoutSec: rules.perimeterTimeoutSec ?? 120,
     patliteThreatEnabled: rules.patliteThreatEnabled !== false,
-    securityMode: (rules.securityMode as
-      | "2STEP"
-      | "DIRECT"
-      | "SILENT") || "2STEP",
+    securityMode: parseHomeSecurityModeV1(rules.securityMode, "2STEP"),
     flashEnabled: rules.flashEnabled !== false,
     flashDurationSec: rules.flashDurationSec ?? 15,
     forceRelayTest: rules.forceRelayTest !== false,
@@ -2603,6 +2771,10 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
     clearTimeout(timer);
   }
   runtime.lightAutoOffTimers = [];
+  for (const timer of outputHoldTimers.values()) {
+    clearTimeout(timer);
+  }
+  outputHoldTimers.clear();
 }
 
 /** 豊島邸の初期ルールを merge（初回のみ） */

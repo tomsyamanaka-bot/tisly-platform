@@ -39,6 +39,16 @@ const NOTIFY_LABELS = {
   off: "OFF",
 };
 
+function normalizeSecurityMode(value) {
+  const raw = String(value || "").trim();
+  if (raw.toLowerCase() === "two_stage_blink") return "two_stage_blink";
+  const upper = raw.toUpperCase();
+  if (upper === "DIRECT" || upper === "SILENT" || upper === "2STEP") {
+    return upper;
+  }
+  return "2STEP";
+}
+
 function syncSettingsState(dash) {
   if (!dash) return;
   settingsState = {
@@ -48,7 +58,7 @@ function syncSettingsState(dash) {
     scheduleStart: dash.scheduleStart || "18:00",
     scheduleEnd: dash.scheduleEnd || "06:00",
     customerMode: dash.customerMode || "home",
-    securityMode: String(dash.securityMode || "2STEP").toUpperCase(),
+    securityMode: normalizeSecurityMode(dash.securityMode || "2STEP"),
     flashEnabled: dash.flashEnabled !== false,
     flashDurationSec: dash.flashDurationSec ?? 15,
     forceRelayTest: dash.forceRelayTest !== false,
@@ -98,6 +108,11 @@ const SECURITY_MODE_OPTIONS = [
     id: "2STEP",
     label: "遠近2段階",
     desc: "外周はライト1、至近は全点灯",
+  },
+  {
+    id: "two_stage_blink",
+    label: "遠近2段階（威嚇点滅）",
+    desc: "外周はライト1点滅+2点灯、至近は全点滅",
   },
   {
     id: "DIRECT",
@@ -665,9 +680,9 @@ function applyHardwareStatusFromDash(dash, view = null) {
 
 /** 顧客向け · 日常詳細設定（常時表示カード） */
 function renderTwoStepRemoteBlock(dash) {
-  const mode = String(
+  const mode = normalizeSecurityMode(
     dash.securityMode || settingsState.securityMode || "2STEP"
-  ).toUpperCase();
+  );
   const flashOn = dash.flashEnabled !== false;
   const forceRelay = dash.forceRelayTest !== false;
   const flashSec = dash.flashDurationSec ?? settingsState.flashDurationSec ?? 15;
@@ -2719,9 +2734,9 @@ function bindToyoshimaControls() {
     const secModeBtn = e.target.closest("[data-ts-security-mode]");
     if (secModeBtn) {
       e.preventDefault();
-      const mode = String(
+      const mode = normalizeSecurityMode(
         secModeBtn.getAttribute("data-ts-security-mode") || "2STEP"
-      ).toUpperCase();
+      );
       settingsState.securityMode = mode;
       document.querySelectorAll("[data-ts-security-mode]").forEach((btn) => {
         btn.classList.toggle(

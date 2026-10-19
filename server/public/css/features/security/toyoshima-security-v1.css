@@ -1913,7 +1913,7 @@
 
 @media (min-width: 640px) {
   .ts-seg-row {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 

@@ -491,6 +491,91 @@ describe("toyoshima-security-v1", () => {
     assert.deepEqual(near?.channels, [1, 2, 3]);
   });
 
+  it("two_stage_blink far blinks DO1, holds DO2, and skips DO3", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "two_stage_blink",
+      flashEnabled: true,
+      flashDurationSec: 15,
+      lightingDurationSec: 45,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.securityMode, "two_stage_blink");
+    assert.equal(dash.main.do[0].blinking, true);
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[1].blinking, false);
+    assert.equal(dash.main.do[2].on, false);
+    assert.equal(dash.main.do[2].blinking, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(cmd?.command, "sensor_far");
+    assert.deepEqual(cmd?.channels, [1, 2]);
+  });
+
+  it("two_stage_blink near blinks both lights and steadies DO3", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "two_stage_blink",
+      flashEnabled: true,
+      flashDurationSec: 15,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].blinking, true);
+    assert.equal(dash.main.do[1].blinking, true);
+    assert.equal(dash.main.do[2].on, true);
+    assert.equal(dash.main.do[2].blinking, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(cmd?.command, "sensor_near");
+    assert.deepEqual(cmd?.channels, [1, 2, 3]);
+  });
+
+  it("two_stage_blink near leaves DO3 off when flash linkage is off", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "two_stage_blink",
+      flashEnabled: false,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].blinking, true);
+    assert.equal(dash.main.do[1].blinking, true);
+    assert.equal(dash.main.do[2].on, false);
+    assert.equal(dash.main.do[2].blinking, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.deepEqual(cmd?.channels, [1, 2]);
+  });
+
+  it("firmware JSON keeps two_stage_blink for RP2350 sync", () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      securityMode: "TWO_STAGE_BLINK",
+      flashEnabled: true,
+    });
+    const fw = buildHomeSecurityFirmwareRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    assert.equal(fw.security_mode, "two_stage_blink");
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.securityMode, "two_stage_blink");
+  });
+
   it("SILENT mode skips lights and flash", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",

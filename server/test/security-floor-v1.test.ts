@@ -766,6 +766,9 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /data-ts-security-mode/);
     assert.match(toyoshimaJs, /flashEnabled/);
     assert.match(toyoshimaJs, /遠近2段階/);
+    assert.match(toyoshimaJs, /two_stage_blink/);
+    assert.match(toyoshimaJs, /遠近2段階（威嚇点滅）/);
+    assert.match(toyoshimaJs, /外周はライト1点滅\+2点灯、至近は全点滅/);
     assert.match(toyoshimaJs, /ts-mode-segment/);
     assert.match(toyoshimaJs, /ts-safety-card/);
     assert.match(toyoshimaJs, /ts-assure-health-card|システム安心ステータス/);

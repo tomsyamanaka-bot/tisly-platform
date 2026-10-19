@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2566-review-sandbox` |
+| SW | `tisly-pwa-v2567-toyoshima-blink-mode` |
 
 ---
 
@@ -1794,7 +1794,7 @@ p2350-relay-v1.ts �E firmware main.py |
 | 施主 | TOMS001 / TOYOSHIMA001 / 社内トークン付き操作は従来どおり実機へ届く |
 | ログイン | 全角 `ＴＥＳＴＥＲ００１` とユーザー名 `tester.user` でも TESTER001 |
 | Android | `appVersionCode` 6 / `1.1.4`。起動は `StartActivity` → アプリ内 WebView |
-| SW | `tisly-pwa-v2566-review-sandbox` |
+| SW | `tisly-pwa-v2567-toyoshima-blink-mode` |
 
 ---
 

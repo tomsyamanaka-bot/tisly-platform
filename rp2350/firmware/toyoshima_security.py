@@ -22,6 +22,14 @@ try:
 except ImportError:
     import asyncio
 
+# ホスト検証用。実機 uasyncio は sleep_ms を持つ
+if not hasattr(asyncio, "sleep_ms"):
+
+    async def _host_sleep_ms(ms):
+        await asyncio.sleep(max(0, int(ms)) / 1000.0)
+
+    asyncio.sleep_ms = _host_sleep_ms
+
 # ── 豊島邸 物件識別子（VPS / 実機共通） ──
 TENANT_ID = "TOYOSHIMA001"
 SITE_ID = "SEC-JP-TOYOSHIMA-001"
@@ -40,6 +48,8 @@ DEFAULT_FLASH_MS = 15_000
 DEFAULT_PERIMETER_MS = 120_000
 # 遠近モード既定（クラウド同期）
 DEFAULT_SECURITY_MODE = "2STEP"
+# 威嚇点滅モード ID（PWA value と同一・大文字化しない）
+SECURITY_MODE_BLINK = "two_stage_blink"
 # 夜間スケジュール既定（JST）
 DEFAULT_LIGHT_START = "18:00"
 DEFAULT_LIGHT_END = "06:00"
@@ -61,7 +71,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.14"
+FIRMWARE_LOGIC_VERSION = "1.2.15"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -102,6 +112,19 @@ def _parse_hm(value, fallback):
 
 def _hm_to_minutes(h, m):
     return h * 60 + m
+
+
+def _canon_security_mode(raw):
+    """2STEP / DIRECT / SILENT は大文字。威嚇点滅は two_stage_blink。"""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    upper = text.upper()
+    if upper in ("2STEP", "DIRECT", "SILENT"):
+        return upper
+    if upper == "TWO_STAGE_BLINK":
+        return SECURITY_MODE_BLINK
+    return ""
 
 
 class ToyoshimaBaseController:
@@ -171,12 +194,23 @@ class ToyoshimaBaseController:
             self._debounce_beam_ms = beam
         else:
             self._debounce_beam_ms = self._di_confirm_ms
-        # 遠近モード（2STEP / DIRECT / SILENT）
-        mode = str(
+        # 遠近モード（2STEP / DIRECT / SILENT / two_stage_blink）
+        prev_mode = str(getattr(self, "_security_mode", ""))
+        mode = _canon_security_mode(
             rules.get("security_mode", rules.get("securityMode", ""))
-        ).strip().upper()
-        if mode in ("2STEP", "DIRECT", "SILENT"):
+        )
+        if mode:
             self._security_mode = mode
+        if (
+            prev_mode == SECURITY_MODE_BLINK
+            and str(getattr(self, "_security_mode", "")) != SECURITY_MODE_BLINK
+        ):
+            stop = getattr(self, "_blink_force_idle", None)
+            if stop:
+                try:
+                    stop()
+                except Exception:
+                    pass
         # light_schedule: {"start","end"} も受け取る
         sched = rules.get("light_schedule")
         if isinstance(sched, dict):
@@ -559,6 +593,12 @@ class ToyoshimaBaseController:
 
         if cmd in ("sensor_far", "di1_alarm", "sensor_near", "di2_alarm"):
             di = 2 if cmd in ("sensor_near", "di2_alarm") else 1
+            if (
+                str(getattr(self, "_security_mode", "")) == SECURITY_MODE_BLINK
+                and hasattr(self, "_pulse_two_stage_blink")
+            ):
+                self._pulse_two_stage_blink(di)
+                return True
             if hasattr(self, "plan_main_response"):
                 if di == getattr(self, "DI_BEAM_FAR", 1):
                     note = getattr(self, "note_perimeter_edge", None)
@@ -624,12 +664,265 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         elapsed = _mono_diff(_mono_ms(), seen)
         return 0 <= elapsed <= window
 
+    def on_di_edge(self, di, prev_state, new_state):
+        """威嚇点滅はレベル＋オフディレイ。それ以外は従来の立上り。"""
+        if str(getattr(self, "_security_mode", "")) != SECURITY_MODE_BLINK:
+            ToyoshimaBaseController.on_di_edge(self, di, prev_state, new_state)
+            return
+        if di not in (self.DI_BEAM_FAR, self.DI_BEAM_NEAR):
+            return
+        self._ensure_blink_state()
+        rising = new_state == "on" and prev_state != "on"
+        if rising:
+            if self._event_acked.get(di):
+                self.log("DI{} already notified this hold".format(di))
+                self._di_level[di] = True
+                self._apply_two_stage_blink()
+                return
+            self._di_level[di] = True
+            self.log("DI{} rising fire".format(di))
+            self._apply_two_stage_blink()
+            plan = self.plan_main_response(di)
+            self._notify_vps("main", di, plan["message"])
+            return
+        if new_state != "on":
+            self._di_level[di] = False
+            self._event_acked[di] = False
+            self._confirm_gen[di] = self._confirm_gen.get(di, 0) + 1
+            self._di_confirmed[di] = False
+            self._apply_two_stage_blink()
+
+    def _ensure_blink_state(self):
+        if getattr(self, "_blink_ready", False):
+            return
+        self._blink_ready = True
+        self._di_level = {1: False, 2: False}
+        self._blink_gen = 0
+        self._blink_phase = "idle"
+        self._blink_holding = False
+        self._blink_hold_token = 0
+
+    def _spawn(self, coro):
+        try:
+            task = asyncio.create_task(coro)
+        except Exception as exc:
+            self.log("blink task err: {}".format(exc))
+            try:
+                coro.close()
+            except Exception:
+                pass
+            return None
+        name = type(task).__name__
+        if name in ("MagicMock", "Mock", "AsyncMock"):
+            try:
+                coro.close()
+            except Exception:
+                pass
+        return task
+
+    def _blink_outputs_allowed(self):
+        force = bool(getattr(self, "_force_relay_test", False))
+        if not (self._is_armed_now() or force):
+            return False
+        return bool(self._can_run_lights())
+
+    def _blink_all_off(self):
+        self._set_ch(self.DO_LIGHT_1, False)
+        self._set_ch(self.DO_LIGHT_2, False)
+        self._set_ch(self.DO_FLASH, False)
+
+    def _blink_force_idle(self):
+        self._ensure_blink_state()
+        self._blink_hold_token = self._blink_hold_token + 1
+        self._blink_holding = False
+        self._blink_gen = self._blink_gen + 1
+        self._blink_phase = "idle"
+        self._blink_all_off()
+
+    def _cancel_hold(self):
+        self._ensure_blink_state()
+        self._blink_hold_token = self._blink_hold_token + 1
+        self._blink_holding = False
+
+    def _arm_hold(self):
+        """センサーOFF後、点灯維持秒だけパターンを残して全消灯。"""
+        self._ensure_blink_state()
+        if self._blink_holding:
+            return
+        if self._blink_phase not in ("far", "near"):
+            return
+        self._blink_holding = True
+        self._blink_hold_token = self._blink_hold_token + 1
+        token = self._blink_hold_token
+        self._spawn(self._blink_hold_then_idle(token))
+
+    async def _blink_hold_then_idle(self, token):
+        try:
+            await asyncio.sleep_ms(int(self._output_ms))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+        if self._blink_hold_token != token:
+            return
+        if self._di_level.get(1) or self._di_level.get(2):
+            self._blink_holding = False
+            return
+        self._blink_gen = self._blink_gen + 1
+        self._blink_all_off()
+        self._blink_phase = "idle"
+        self._blink_holding = False
+        self.log("two_stage_blink hold done")
+
+    async def _blink_until_gen(self, channel, gen):
+        """0.5秒ON / 0.5秒OFF。世代が変わったらピンは次の処理へ渡す。"""
+        on = True
+        try:
+            self._set_ch(channel, True)
+            while self._blink_gen == gen:
+                await asyncio.sleep_ms(PATLITE_BLINK_MS)
+                if self._blink_gen != gen:
+                    return
+                on = not on
+                self._set_ch(channel, on)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+
+    async def _steady_until_gen(self, channel, gen):
+        try:
+            while self._blink_gen == gen:
+                self._set_ch(channel, True)
+                await asyncio.sleep_ms(200)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+
+    async def _steady_ms_gen(self, channel, duration_ms, gen):
+        """フラッシュ点灯時間。世代が変わったら途中で手放す。"""
+        try:
+            self._set_ch(channel, True)
+            left = int(duration_ms)
+            while left > 0 and self._blink_gen == gen:
+                step = 100 if left > 100 else left
+                await asyncio.sleep_ms(step)
+                left -= step
+            if self._blink_gen == gen:
+                self._set_ch(channel, False)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+
+    def _begin_phase(self, phase):
+        self._ensure_blink_state()
+        self._cancel_hold()
+        self._blink_gen = self._blink_gen + 1
+        gen = self._blink_gen
+        self._blink_phase = phase
+        if phase == "far":
+            self._set_ch(self.DO_LIGHT_1, True)
+            self._set_ch(self.DO_LIGHT_2, True)
+            self._set_ch(self.DO_FLASH, False)
+            self._spawn(self._blink_until_gen(self.DO_LIGHT_1, gen))
+            self._spawn(self._steady_until_gen(self.DO_LIGHT_2, gen))
+            self.log("two_stage_blink far")
+            return
+        flash = bool(getattr(self, "_flash_enabled", True))
+        self._set_ch(self.DO_LIGHT_1, True)
+        self._set_ch(self.DO_LIGHT_2, True)
+        self._set_ch(self.DO_FLASH, flash)
+        self._spawn(self._blink_until_gen(self.DO_LIGHT_1, gen))
+        self._spawn(self._blink_until_gen(self.DO_LIGHT_2, gen))
+        if flash:
+            self._spawn(
+                self._steady_ms_gen(
+                    self.DO_FLASH,
+                    int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
+                    gen,
+                )
+            )
+        self.log("two_stage_blink near flash={}".format(flash))
+
+    def _apply_two_stage_blink(self):
+        """DI1/DI2 の現在値から出力相を決める。"""
+        self._ensure_blink_state()
+        if not self._blink_outputs_allowed():
+            self._blink_force_idle()
+            return
+        di1 = bool(self._di_level.get(1))
+        di2 = bool(self._di_level.get(2))
+        if di2:
+            self._cancel_hold()
+            if self._blink_phase != "near":
+                self._begin_phase("near")
+            return
+        if di1:
+            self._cancel_hold()
+            if self._blink_phase != "far":
+                self._begin_phase("far")
+            return
+        if self._blink_phase in ("far", "near"):
+            self._arm_hold()
+            return
+        self._blink_all_off()
+
+    def _pulse_two_stage_blink(self, di):
+        """VPS バックアップ。実 DI が見えていればレベル制御に任せる。"""
+        self._ensure_blink_state()
+        if self._di_level.get(1) or self._di_level.get(2):
+            self._apply_two_stage_blink()
+            return
+        if not self._blink_outputs_allowed():
+            self.log("two_stage_blink pulse skipped")
+            return
+        phase = "near" if di == self.DI_BEAM_NEAR else "far"
+        self._begin_phase(phase)
+        self._arm_hold()
+
+    def _plan_two_stage_blink(self, di):
+        light_ok = bool(self._can_run_lights())
+        is_near = di == self.DI_BEAM_NEAR
+        flash_on = (
+            light_ok
+            and is_near
+            and bool(getattr(self, "_flash_enabled", True))
+        )
+        if is_near:
+            d1 = "blink" if light_ok else "off"
+            d2 = "blink" if light_ok else "off"
+            d3 = "steady" if flash_on else "off"
+            msg = "🚨 建物至近で侵入検知！"
+        else:
+            d1 = "blink" if light_ok else "off"
+            d2 = "steady" if light_ok else "off"
+            d3 = "off"
+            msg = "⚠️ 外周で接近検知"
+        return {
+            "mode": SECURITY_MODE_BLINK,
+            "message": msg,
+            "do1": d1 != "off",
+            "do2": d2 != "off",
+            "do3": d3 != "off",
+            "do1_pattern": d1,
+            "do2_pattern": d2,
+            "do3_pattern": d3,
+            "near_first": False,
+            "force_outputs": True,
+            "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
+            "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
+        }
+
     def plan_main_response(self, di):
         """
         遠近2段階の出力計画を返す。
         至近が外周より先、または単独のときは DO3 を出さない。
         ホストテストから同期で検証する。
         """
+        if str(getattr(self, "_security_mode", "")) == SECURITY_MODE_BLINK:
+            return self._plan_two_stage_blink(di)
         mode = str(getattr(self, "_security_mode", "2STEP")).upper()
         silent = mode == "SILENT"
         near_first = (
@@ -686,6 +979,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
 
     def _kick_relays_now(self, plan):
         """create_task 失敗時も即時 HIGH。"""
+        if plan.get("force_outputs"):
+            self._set_ch(self.DO_LIGHT_1, bool(plan.get("do1")))
+            self._set_ch(self.DO_LIGHT_2, bool(plan.get("do2")))
+            self._set_ch(self.DO_FLASH, bool(plan.get("do3")))
+            return
         if plan.get("do1"):
             self._set_ch(self.DO_LIGHT_1, True)
         if plan.get("do2"):
@@ -694,6 +992,14 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             self._set_ch(self.DO_FLASH, True)
         elif plan.get("near_first"):
             self._set_ch(self.DO_FLASH, False)
+
+    def _output_pattern(self, plan, key, enabled, when_on):
+        pat = plan.get(key)
+        if pat in ("steady", "blink", "off"):
+            return pat
+        if enabled:
+            return when_on
+        return "off"
 
     async def _main_beam_response(self, di):
         """
@@ -704,19 +1010,40 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         plan = self.plan_main_response(di)
         self._kick_relays_now(plan)
         tasks = []
-        if plan["do1"]:
+        d1 = self._output_pattern(plan, "do1_pattern", plan["do1"], "steady")
+        d2 = self._output_pattern(plan, "do2_pattern", plan["do2"], "steady")
+        d3 = self._output_pattern(plan, "do3_pattern", plan["do3"], "blink")
+        if d1 == "steady":
             tasks.append(
                 asyncio.create_task(
                     self._drive_steady(self.DO_LIGHT_1, plan["light_ms"])
                 )
             )
-        if plan["do2"]:
+        elif d1 == "blink":
+            tasks.append(
+                asyncio.create_task(
+                    self._drive_blink(self.DO_LIGHT_1, plan["light_ms"])
+                )
+            )
+        if d2 == "steady":
             tasks.append(
                 asyncio.create_task(
                     self._drive_steady(self.DO_LIGHT_2, plan["light_ms"])
                 )
             )
-        if plan["do3"]:
+        elif d2 == "blink":
+            tasks.append(
+                asyncio.create_task(
+                    self._drive_blink(self.DO_LIGHT_2, plan["light_ms"])
+                )
+            )
+        if d3 == "steady":
+            tasks.append(
+                asyncio.create_task(
+                    self._drive_steady(self.DO_FLASH, plan["flash_ms"])
+                )
+            )
+        elif d3 == "blink":
             tasks.append(
                 asyncio.create_task(
                     self._drive_blink(self.DO_FLASH, plan["flash_ms"])
