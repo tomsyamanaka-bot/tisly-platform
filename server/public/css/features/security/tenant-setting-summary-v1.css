@@ -1,5 +1,9 @@
+body.sf-customer #sf-setting-summary {
+  display: none !important;
+}
+
 .sf-setting-summary {
-  margin: 12px 16px 0;
+  margin: 12px 16px 12px;
   padding: 14px 16px;
   background: #ffffff;
   border: 1px solid #dbe3f0;

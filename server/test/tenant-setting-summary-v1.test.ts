@@ -98,4 +98,31 @@ describe("tenant-setting-summary-v1", () => {
     assert.ok(demo);
     assert.match(demo.summary, /夜間（/);
   });
+
+  it("places the summary on the operator page only", () => {
+    const op = fs.readFileSync(
+      path.resolve("public/security-v1.html"),
+      "utf8"
+    );
+    const customer = fs.readFileSync(
+      path.resolve("public/security-customer-v1.html"),
+      "utf8"
+    );
+    const home = fs.readFileSync(
+      path.resolve("public/customer-v1.html"),
+      "utf8"
+    );
+    const shellAt = op.indexOf('<div class="sf-soc-shell">');
+    const summaryAt = op.indexOf('id="sf-setting-summary"');
+    assert.ok(summaryAt > 0 && summaryAt < shellAt);
+    assert.equal(customer.includes("sf-setting-summary"), false);
+    assert.equal(customer.includes("現在の設定サマリー"), false);
+    assert.equal(home.includes("sf-setting-summary"), false);
+    const js = fs.readFileSync(
+      path.resolve("public/js/features/security/tenant-setting-summary-v1.js"),
+      "utf8"
+    );
+    assert.match(js, /sf-customer/);
+    assert.match(js, /\/customer/);
+  });
 });

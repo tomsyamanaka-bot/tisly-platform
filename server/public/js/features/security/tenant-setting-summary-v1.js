@@ -6,10 +6,31 @@ import { TOYOSHIMA_RULES_CHANNEL } from "./use-toyoshima-status-v1.js";
 
 const SUMMARY_PATH = "/api/home/v1/setting-summary";
 
+/** 社内 Security（/app）だけ。顧客画面では出さない */
+export function isOperatorSettingSummaryScope() {
+  if (typeof document === "undefined" || typeof location === "undefined") {
+    return false;
+  }
+  if (document.body?.classList.contains("sf-customer")) return false;
+  const path = String(location.pathname || "").replace(/\/+$/, "") || "/";
+  if (path === "/customer" || path.startsWith("/customer/")) return false;
+  return (
+    path === "/app/security" ||
+    path === "/app/security-v1" ||
+    path === "/security-v1" ||
+    path.endsWith("/security-v1.html")
+  );
+}
+
 export async function paintTenantSettingSummary(siteId) {
   const root = document.getElementById("sf-setting-summary");
   const text = document.getElementById("sf-setting-summary-text");
   if (!root || !text) return;
+  if (!isOperatorSettingSummaryScope()) {
+    text.textContent = "";
+    root.hidden = true;
+    return;
+  }
   const id = String(siteId || "").trim();
   if (!id) {
     root.hidden = true;
