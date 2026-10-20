@@ -18,6 +18,15 @@ const {
 
 const app = createApp();
 
+function productSemver(): string {
+  const pkg = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), "../package.json"), "utf8")
+  ) as { version?: string };
+  const match = String(pkg.version || "").match(/\d+\.\d+\.\d+/);
+  if (!match) throw new Error("root package.json version missing");
+  return match[0];
+}
+
 describe("firmware-rp2350-ota-v1", () => {
   before(() => {
     resetTislyOtaStoreForTestV1();
@@ -86,7 +95,10 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(logic.status, 200);
     assert.match(logic.text, /ToyoshimaMainHouseController|heartbeat/);
-    assert.match(logic.text, /FIRMWARE_LOGIC_VERSION = "1.2.19"/);
+    assert.match(
+      logic.text,
+      new RegExp(`FIRMWARE_LOGIC_VERSION = "${productSemver()}"`)
+    );
     assert.match(logic.text, /rising fire/);
   });
 
@@ -349,11 +361,14 @@ describe("firmware-rp2350-ota-v1", () => {
     );
   });
 
-  it("GET toyoshima version advertises live 1.2.19 and stages it", async () => {
+  it("GET toyoshima version advertises the synced release and stages it", async () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);
-    assert.match(String(prod.body.version), /^1\.2\.19/);
+    assert.match(
+      String(prod.body.version),
+      new RegExp(`^${productSemver().replace(/\./g, "\\.")}`)
+    );
     assert.equal(prod.body.pending, true);
     const staging = await request(app).get(
       "/api/firmware/toyoshima/version?channel=staging"

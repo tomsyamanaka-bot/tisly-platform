@@ -38,4 +38,17 @@ Then automatically:
 - Commit API keys, passwords, secrets, or `.env`
 - Perform destructive changes without prior user confirmation
 
+## Version bump (required on every code deploy)
+
+Product semver lives in the root `package.json` (`version`). Do not hand-edit `FIRMWARE_LOGIC_VERSION`, `OTA_VERSION`, `FIRMWARE_VERSION`, or `server/public/js/tisly-release-version-v1.js`.
+
+- Every fix that ships runs **root** `npm run build`. Its `prebuild` (`scripts/bump-tisly-version.mjs`) adds 1 to the patch and writes that number into the Toyoshima delivery scripts and the PWA system-version label.
+- Run that build **once** per deploy, then commit the bumped files with the change.
+- Do not add the bump to `server/package.json`. VPS deploy runs `npm run build` inside `server/` after `git reset --hard` and must serve the committed version.
+- CI sets `CI=true` and skips the bump so a rebuild does not drift past git. 板橋 `1.6.x` is a separate line and must not be rewritten.
+
+## Customer charts
+
+When a tenant's settings or customer UI change, update the matching Markdown under `docs/clients/` in plain Japanese (for example `docs/clients/toyoshima.md`). Append the changed facts. Do not delete existing chart text, and do not overwrite stored settings JSON.
+
 Entry point for humans: `docs/autonomous/README.md`.

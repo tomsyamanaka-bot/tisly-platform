@@ -12,13 +12,13 @@ import {
   broadcastToyoshimaRulesChanged,
   fetchToyoshimaDashboard,
   fetchToyoshimaStatus,
-  formatFirmwareCustomerLabel,
   isHardwareOnline,
   subscribeToyoshimaRules,
   subscribeToyoshimaStatus,
 } from "./use-toyoshima-status-v1.js";
 import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
 import { showViewportToast } from "./toast-viewport-v1.js";
+import { tislySystemVersionLabel } from "../../tisly-release-version-v1.js";
 import {
   bindSecurityHistoryModalV1,
   openSecurityHistoryModalV1,
@@ -285,7 +285,7 @@ function buildCommHealthView(dash) {
       (!!dash?.ota?.runningVersion &&
         dash.ota.runningVersion === dash.ota.serverVersion &&
         !dash.ota.has_ota_update),
-    firmwareLabel: formatFirmwareCustomerLabel(
+    firmwareLabel: tislySystemVersionLabel(
       health.firmwareVersion || dash?.ota?.runningVersion
     ),
   };

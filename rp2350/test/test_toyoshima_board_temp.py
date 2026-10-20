@@ -616,7 +616,13 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.19"
+    import re
+
+    text = (ROOT / "firmware" / "config_toyoshima.py").read_text(encoding="utf-8")
+    ota = re.search(r'OTA_VERSION = "(\d+\.\d+\.\d+)"', text)
+    fw = re.search(r'FIRMWARE_VERSION = "(\d+\.\d+\.\d+)', text)
+    assert ota and fw
+    assert ts.FIRMWARE_LOGIC_VERSION == ota.group(1) == fw.group(1)
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8

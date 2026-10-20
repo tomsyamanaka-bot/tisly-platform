@@ -5,6 +5,7 @@
  */
 
 import { renderGuardViewerStoreHelpHtmlV1 } from "./features/security/open-guard-viewer-v1.js";
+import { tislySystemVersionLabel } from "./tisly-release-version-v1.js";
 
 export const CUSTOMER_JS_VERSION = "customer-v1-phase28-zone";
 
@@ -66,7 +67,9 @@ export function renderHomeStatus(data) {
           ? `<p class="cv-firmware" id="cv-firmware-row">
         <span class="cv-firmware-key">システムバージョン</span>
         <span class="cv-firmware-val" id="cv-firmware-val">${escapeHtml(
-          data.firmwareLabel || "―"
+          data.liveStatusSite === "toyoshima"
+            ? tislySystemVersionLabel(data.firmwareLabel)
+            : data.firmwareLabel || "―"
         )}</span>
         <span class="cv-fw-badge" id="cv-firmware-badge"${
           data.firmwareLatest ? "" : " hidden"

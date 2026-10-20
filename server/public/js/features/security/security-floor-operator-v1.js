@@ -61,6 +61,10 @@ import {
   bindSecurityHistoryModalV1,
   setSecurityHistorySiteIdV1,
 } from "./security-history-modal-v1.js";
+import {
+  bindTenantSettingSummaryRefresh,
+  paintTenantSettingSummary,
+} from "./tenant-setting-summary-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -890,6 +894,7 @@ async function switchOperatorSite(nextSiteId) {
   syncHeaderTitle(row || { displayName: nextSiteId });
   applySiteLayout(true);
   await refreshSecurityRemoteConfigV1(state.siteId).catch(() => {});
+  await paintTenantSettingSummary(state.siteId);
   if (!isToyoshimaSecuritySite(state.siteId)) {
     await loadOperator();
   }
@@ -1152,6 +1157,7 @@ async function boot() {
     await loadOperator();
   }
   await refreshSecurityRemoteConfigV1(state.siteId).catch(() => {});
+  bindTenantSettingSummaryRefresh(() => state.siteId);
 }
 
 boot().catch((err) => {

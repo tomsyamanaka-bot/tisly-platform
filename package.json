@@ -1,11 +1,13 @@
 {
   "name": "tisly-home-security-demo",
+  "version": "1.2.21",
   "private": true,
   "description": "TiSLY HOME Security DEMO — monorepo scripts + Capacitor iOS",
   "type": "module",
   "scripts": {
     "demo": "npm run demo --prefix server",
     "dev": "npm run dev --prefix server",
+    "prebuild": "node scripts/bump-tisly-version.mjs",
     "build": "npm run build --prefix server",
     "build:android": "node scripts/build-android.mjs",
     "build:android:unsigned": "node scripts/build-android.mjs --skip-signing",

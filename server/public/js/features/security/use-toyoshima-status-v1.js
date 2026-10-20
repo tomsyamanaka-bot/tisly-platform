@@ -4,6 +4,8 @@
  * cache: no-store と ?t= で強制再取得
  */
 
+import { tislySystemVersionLabel } from "../../tisly-release-version-v1.js";
+
 export const TOYOSHIMA_STATUS_PATH =
   "/api/home/v1/toyoshima/status";
 export const TOYOSHIMA_DASHBOARD_PATH =
@@ -91,8 +93,7 @@ export function formatFirmwareCustomerLabel(running) {
 function paintFirmwareEls(status) {
   const run =
     status.firmwareVersion || status.runningVersion || null;
-  const label =
-    status.firmwareLabel || formatFirmwareCustomerLabel(run);
+  const label = tislySystemVersionLabel(run);
   const latest =
     status.firmwareLatest === true && label !== "―";
   const fwEl = document.getElementById("ts-assure-fw");

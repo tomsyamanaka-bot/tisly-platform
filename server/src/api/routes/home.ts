@@ -92,6 +92,7 @@ import {
   type HomeNotifyModeV1,
   type HomeSecurityModeV1,
 } from "../../home/home-security-rules-v1.js";
+import { buildTenantSettingSummaryForSiteV1 } from "../../shared/customer/tenant-setting-summary-v1.js";
 import {
   buildHomeSecurityNotifyPolicyV1,
   processHomeSecurityEventV1,
@@ -669,6 +670,21 @@ homeRouter.post("/control", async (req, res) => {
 });
 
 const SCENE_IDS: HomeSceneIdV1[] = ["away", "welcome", "goodnight"];
+
+/** 選択中テナントの設定を日本語で返す（読取のみ） */
+homeRouter.get("/setting-summary", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const summary = buildTenantSettingSummaryForSiteV1(siteId);
+  if (!summary) {
+    res.status(404).json({ ok: false, error: "site not found" });
+    return;
+  }
+  res.json(summary);
+});
 
 /** 防犯ルール取得 */
 homeRouter.get("/security-rules", (req, res) => {

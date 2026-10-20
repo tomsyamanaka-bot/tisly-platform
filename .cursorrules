@@ -1,0 +1,14 @@
+# TiSLY version bump
+
+いかなる修正・デプロイも、リポジトリ直下の `npm run build` を経由する。
+
+- `prebuild` の `scripts/bump-tisly-version.mjs` がパッチを +1 し、`package.json`、`rp2350/firmware/toyoshima_security.py` の `FIRMWARE_LOGIC_VERSION`、`rp2350/firmware/config_toyoshima.py` の `FIRMWARE_VERSION` / `OTA_VERSION`、`server/public/js/tisly-release-version-v1.js` を同じ番号にする。
+- バージョン番号を手で書き換えない。
+- 1 回のデプロイで `npm run build` は 1 回だけ実行し、上がった番号をコミットする。
+- `server/` の `npm run build` では上げない。VPS は git に入った版を配信する。
+- 板橋の `1.6.x` は別系統。書き換えない。
+- `force: true` の OTA は使わない。
+
+# 顧客カルテ
+
+テナントの設定や UI の仕様を変更したときは、必ず `docs/clients/` 以下の該当テナントの Markdown（例: `docs/clients/toyoshima.md`）も自然言語で更新する。既存の文章は消さず、変わった箇所を書き足す。設定 JSON や現場データは上書きしない。

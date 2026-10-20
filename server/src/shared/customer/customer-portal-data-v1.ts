@@ -65,6 +65,7 @@ function overlayToyoshimaLiveStatusV1(
   return {
     ...home,
     liveStatusSsot: true,
+    liveStatusSite: "toyoshima",
     systemStatus: ssot.isHardwareOnline ? "normal" : "alert",
     systemStatusEmoji: ssot.isHardwareOnline ? "🟢" : "🔴",
     systemStatusLabel: ssot.isHardwareOnline

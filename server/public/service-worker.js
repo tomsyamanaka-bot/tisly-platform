@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2570-customer-home-push";
+const SW_VERSION = "tisly-pwa-v2572-setting-summary";
 /* tisly-pwa-v2567-toyoshima-blink-mode */
 /* tisly-pwa-v2566-review-sandbox */
 /* tisly-pwa-v2565-customer-login-guard */
@@ -56,9 +56,9 @@ const SW_VERSION = "tisly-pwa-v2570-customer-home-push";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2570-customer-home-push";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2570-customer-home-push";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2570-customer-home-push";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2572-setting-summary";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2572-setting-summary";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2572-setting-summary";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -201,6 +201,7 @@ const SHELL_URLS = [
   "/customer-document-v1.html",
   "/customer-monitoring-v1.html",
   "/js/customer-v1.js",
+  "/js/tisly-release-version-v1.js",
   "/js/customer-push-subscribe-v1.js",
   "/js/customer-tester-push-v1.js",
   "/js/customer-tenant-session-v1.js",
@@ -319,6 +320,8 @@ const SHELL_URLS = [
   "/js/features/security/security-floor-manual-light-v1.js",
   "/js/features/security/security-floor-intercom-v1.js",
   "/js/features/security/security-floor-operator-v1.js",
+  "/js/features/security/tenant-setting-summary-v1.js",
+  "/css/features/security/tenant-setting-summary-v1.css",
   "/js/features/security/security-floor-customer-v1.js",
   "/js/features/security/toyoshima-security-dashboard-v1.js",
   "/js/features/security/open-guard-viewer-v1.js",

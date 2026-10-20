@@ -570,6 +570,7 @@ async function postSecurityConfig(homeSiteId, payload) {
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "反映に失敗しました");
   renderRules(data.rules, data.notifyPolicy);
+  document.dispatchEvent(new Event("tisly-setting-summary-refresh"));
   return data;
 }
 
