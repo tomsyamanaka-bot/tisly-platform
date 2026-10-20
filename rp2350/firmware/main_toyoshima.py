@@ -1208,6 +1208,26 @@ async def apply_manual_payload(payload):
     except Exception:
         duration_ms = 0
     off = cmd in ("bulk_off", "light_all_off") or str(cmd).endswith("_off")
+    sensor_cmd = cmd in (
+        "sensor_far",
+        "di1_alarm",
+        "sensor_near",
+        "di2_alarm",
+    )
+    if sensor_cmd and _security:
+        handled = False
+        try:
+            handled = await _security.execute_manual_command(
+                cmd, duration_ms
+            )
+        except Exception as cmd_exc:
+            log_error("manual: {}".format(cmd_exc))
+            handled = False
+        if handled:
+            log("sensor timer cmd={} ms={}".format(cmd, duration_ms))
+            return
+        await _fallback_sensor_hold(cmd, duration_ms)
+        return
     raw_ch = payload.get("channels") or []
     near_cmd = cmd in ("sensor_near", "di2_alarm")
     allow_flash = True if not near_cmd else _sensor_near_allows_flash()
@@ -1248,6 +1268,40 @@ async def apply_manual_payload(payload):
             handled = False
     if not handled:
         await exec_manual_do(cmd, duration_ms)
+
+
+async def _fallback_sensor_hold(cmd, duration_ms):
+    """コントローラがタイマーを持てないときの消灯。点いたままにしない。"""
+    channels = [1]
+    if cmd in ("sensor_near", "di2_alarm"):
+        channels = [1, 2]
+        if _sensor_near_allows_flash():
+            channels.append(3)
+        else:
+            set_ch_output(3, False)
+    for ch in channels:
+        set_ch_output(ch, True)
+    ms = int(duration_ms or 0)
+    if ms < 1000:
+        ms = 45000
+
+    async def _off():
+        try:
+            await asyncio.sleep_ms(ms)
+        except Exception as exc:
+            log_error("fallback off err: {}".format(exc))
+        finally:
+            for ch in channels:
+                try:
+                    set_ch_output(ch, False)
+                except Exception as off_exc:
+                    log_error("fallback off CH{}: {}".format(ch, off_exc))
+
+    try:
+        asyncio.create_task(_off())
+    except Exception as exc:
+        log_error("fallback task: {}".format(exc))
+        await _off()
 
 
 async def exec_manual_do(cmd, duration_ms=0):
@@ -1301,19 +1355,9 @@ async def exec_manual_do(cmd, duration_ms=0):
             set_ch_output(3, False)
         log("EXEC bulk_off CH1+CH2+CH3")
         return True
-    if cmd in ("sensor_far", "di1_alarm"):
-        set_ch_output(1, True)
-        log("EXEC {} CH1".format(cmd))
-        return True
-    if cmd in ("sensor_near", "di2_alarm"):
-        set_ch_output(1, True)
-        set_ch_output(2, True)
-        if _sensor_near_allows_flash():
-            set_ch_output(3, True)
-            log("EXEC {} CH1+CH2+CH3".format(cmd))
-        else:
-            set_ch_output(3, False)
-            log("EXEC {} CH1+CH2 (near first, no flash)".format(cmd))
+    if cmd in ("sensor_far", "di1_alarm", "sensor_near", "di2_alarm"):
+        await _fallback_sensor_hold(cmd, duration_ms)
+        log("EXEC {} hold {}ms".format(cmd, duration_ms))
         return True
     if cmd in ("flash_test", "patlite_test"):
         ch = 2 if _building() == "detached" else 3

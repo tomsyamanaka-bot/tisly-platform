@@ -560,7 +560,7 @@ describe("toyoshima-security-v1", () => {
     assert.deepEqual(cmd?.channels, [1, 2]);
   });
 
-  it("2STEP near retrigger during the lighting hold is ignored", async () => {
+  it("2STEP near retrigger extends the off timer without a second push", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",
       guardMode: "always",
@@ -581,7 +581,9 @@ describe("toyoshima-security-v1", () => {
       di: 2,
     });
     assert.equal(again.pushSent, false);
-    assert.equal(consumeToyoshimaDeviceCommandV1("main"), null);
+    const extend = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(extend?.command, "sensor_near");
+    assert.equal(extend?.durationMs, 45000);
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.do[0].on, true);
     assert.equal(dash.main.do[1].on, true);

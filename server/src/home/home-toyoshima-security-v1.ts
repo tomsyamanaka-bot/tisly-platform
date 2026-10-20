@@ -1556,6 +1556,36 @@ function reserveToyoshima2StepNearOutputV1(
   return "armed";
 }
 
+/** 点灯中の再検知は Push せず、消灯期限だけ最新の秒数で伸ばす */
+function extendToyoshima2StepNearHoldV1(
+  siteId: string,
+  rules: ReturnType<typeof getHomeSecurityRulesV1>
+): void {
+  const id = resolveHomeSiteId(siteId);
+  const durationMs = (rules.lightingDurationSec ?? 45) * 1000;
+  const flashOn = rules.flashEnabled !== false;
+  const flashMs = flashOn ? (rules.flashDurationSec ?? 15) * 1000 : 0;
+  holdSteadyOutput("main", 1, durationMs);
+  holdSteadyOutput("main", 2, durationMs);
+  if (flashOn) {
+    holdSteadyOutput("main", 3, flashMs);
+  } else {
+    releaseToyoshimaOutputV1("main", 3);
+  }
+  nearOutputLockUntilMsV1.set(
+    id,
+    Date.now() +
+      Math.max(durationMs, flashMs) +
+      TOYOSHIMA_NEAR_RETRIGGER_COOLDOWN_MS_V1
+  );
+  queueToyoshimaDeviceCommandV1({
+    building: "main",
+    command: "sensor_near",
+    channels: flashOn ? [1, 2, 3] : [1, 2],
+    durationMs,
+  });
+}
+
 function markToyoshimaFarBeamV1(siteId: string): void {
   toyoshimaFarBeamAtMsV1.set(siteId, Date.now());
 }
@@ -1900,8 +1930,10 @@ export async function processToyoshimaSecurityEventV1(input: {
   if (building === "main" && di === 2) {
     const nearGate = reserveToyoshima2StepNearOutputV1(siteId, rules);
     if (nearGate === "locked") {
+      extendToyoshima2StepNearHoldV1(siteId, rules);
       console.log(
-        `[toyoshima] near cooldown ignore building=main di=2 siteId=${siteId}`
+        `[toyoshima] near hold extended building=main di=2 siteId=${siteId}` +
+          ` sec=${rules.lightingDurationSec}`
       );
       return {
         ok: true,

@@ -263,7 +263,40 @@ def test_twostep_far_forces_do2_and_do3_off():
     assert outputs[3] is False
 
 
-def test_twostep_near_retrigger_is_ignored_until_low():
+def test_lighting_duration_sec_and_camel_case():
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    ctrl.apply_rules({"lightingDurationSec": 77})
+    assert ctrl._output_ms == 77000
+    ctrl.apply_rules({"lighting_duration_sec": 12})
+    assert ctrl._output_ms == 12000
+    ctrl._apply_command_light_ms(20000)
+    assert ctrl._output_ms == 20000
+
+
+def test_steady_timer_turns_off_and_survives_errors():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+
+    async def run_off():
+        await ctrl._drive_steady(1, 15)
+
+    asyncio.run(run_off())
+    assert outputs[1] is False
+
+    async def boom(_ms):
+        raise RuntimeError("timer died")
+
+    async def run_err():
+        with patch.object(ts.asyncio, "sleep_ms", boom):
+            await ctrl._drive_steady(2, 30)
+
+    asyncio.run(run_err())
+    assert outputs[2] is False
+
+
+def test_twostep_hold_ends_with_outputs_off():
     outputs = {}
     ctrl = ts.ToyoshimaMainHouseController(
         lambda ch, on: outputs.__setitem__(ch, on)
@@ -271,6 +304,30 @@ def test_twostep_near_retrigger_is_ignored_until_low():
     ctrl.apply_rules({
         "security_mode": "2STEP",
         "flash_enabled": True,
+        "force_relay_test": True,
+    })
+    ctrl._output_ms = 20
+    ctrl._flash_ms = 10
+
+    async def run():
+        await ctrl._main_beam_response(2)
+
+    asyncio.run(run())
+    assert outputs[1] is False
+    assert outputs[2] is False
+    assert outputs[3] is False
+    assert ctrl._auto_off_pending is False
+
+
+def test_twostep_near_retrigger_extends_while_lit():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "2STEP",
+        "flash_enabled": True,
+        "force_relay_test": True,
         "light_duration_sec": 30,
         "flash_duration_sec": 5,
     })
@@ -279,6 +336,52 @@ def test_twostep_near_retrigger_is_ignored_until_low():
         assert outputs.get(1) is True
         assert outputs.get(2) is True
         assert outputs.get(3) is True
+        assert ctrl._auto_off_pending is True
+        first_lock = ctrl._near_lock_until_ms
+        outputs[1] = False
+        outputs[2] = False
+        outputs[3] = False
+        ctrl.on_di_edge(2, "on", "off")
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is True
+        assert outputs.get(2) is True
+        assert outputs.get(3) is True
+        assert ctrl._near_lock_until_ms >= first_lock
+        ctrl._auto_off_pending = False
+        ctrl._near_lock_until_ms = ts._mono_ms() + 5000
+        outputs[1] = False
+        outputs[2] = False
+        outputs[3] = False
+        ctrl.on_di_edge(2, "on", "off")
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is False
+        ctrl._near_lock_until_ms = ts._mono_ms() - 1000
+        ctrl._near_wait_low = True
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is False
+        ctrl.on_di_edge(2, "on", "off")
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is True
+
+
+def test_twostep_near_retrigger_is_ignored_until_low():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "2STEP",
+        "flash_enabled": True,
+        "force_relay_test": True,
+        "light_duration_sec": 30,
+        "flash_duration_sec": 5,
+    })
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is True
+        assert outputs.get(2) is True
+        assert outputs.get(3) is True
+        ctrl._auto_off_pending = False
         outputs[1] = False
         outputs[2] = False
         outputs[3] = False
@@ -449,7 +552,7 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.17"
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.18"
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8
@@ -869,6 +972,10 @@ if __name__ == "__main__":
     test_twostep_di2_skips_flash_when_disabled()
     test_direct_near_alone_skips_flash()
     test_twostep_far_forces_do2_and_do3_off()
+    test_lighting_duration_sec_and_camel_case()
+    test_steady_timer_turns_off_and_survives_errors()
+    test_twostep_hold_ends_with_outputs_off()
+    test_twostep_near_retrigger_extends_while_lit()
     test_twostep_near_retrigger_is_ignored_until_low()
     test_bulk_off_stops_blink_and_forces_outputs_off()
     test_output_seq_clears_previous_timer()

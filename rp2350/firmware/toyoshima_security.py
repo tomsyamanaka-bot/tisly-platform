@@ -73,7 +73,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.17"
+FIRMWARE_LOGIC_VERSION = "1.2.18"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -220,10 +220,12 @@ class ToyoshimaBaseController:
                 self._light_start = str(sched.get("start"))
             if sched.get("end"):
                 self._light_end = str(sched.get("end"))
-        # ライト維持秒（クラウドキー）
+        # ライト維持秒（クラウドキー）。スライダーは camelCase でも受ける
         light_sec = rules.get("light_duration_sec")
         if light_sec is None:
             light_sec = rules.get("lighting_duration_sec")
+        if light_sec is None:
+            light_sec = rules.get("lightingDurationSec")
         if light_sec is not None:
             try:
                 sec = int(light_sec)
@@ -391,22 +393,46 @@ class ToyoshimaBaseController:
             return True
         return getattr(self, "_seq_gen", None) == gen
 
-    async def _drive_steady(self, channel, duration_ms):
-        gen = getattr(self, "_seq_gen", None)
-        self._set_ch(channel, True)
-        self.log("relay CH{} HIGH {}ms".format(channel, duration_ms))
+    def _hold_ms(self, duration_ms):
+        """0 や壊れた値でも、最後に同期した点灯秒で消灯する。"""
         try:
-            await asyncio.sleep_ms(duration_ms)
+            ms = int(duration_ms or 0)
         except Exception:
-            return
-        if not self._output_seq_current(gen):
-            return
-        self._set_ch(channel, False)
+            ms = 0
+        if ms < 1:
+            ms = int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS) or DEFAULT_OUTPUT_MS)
+        if ms < 1:
+            ms = DEFAULT_OUTPUT_MS
+        return ms
+
+    def _safe_off(self, channel):
+        try:
+            self._set_ch(channel, False)
+            self.log("relay CH{} LOW".format(channel))
+        except Exception as exc:
+            self.log("auto-off fail CH{}: {}".format(channel, exc))
+
+    async def _drive_steady(self, channel, duration_ms):
+        """指定ミリ秒後に必ず消す。例外でも世代が生きていれば OFF。"""
+        gen = getattr(self, "_seq_gen", None)
+        ms = self._hold_ms(duration_ms)
+        self._set_ch(channel, True)
+        self.log("relay CH{} HIGH {}ms".format(channel, ms))
+        try:
+            await asyncio.sleep_ms(ms)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.log("auto-off err CH{}: {}".format(channel, exc))
+        finally:
+            if self._output_seq_current(gen):
+                self._safe_off(channel)
 
     async def _drive_blink(self, channel, duration_ms):
         """0.5 秒周期トグル点滅。世代が変わったらピンは触らない。"""
         gen = getattr(self, "_seq_gen", None)
-        end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
+        ms = self._hold_ms(duration_ms)
+        end_ms = time.ticks_add(time.ticks_ms(), ms)
         ch_on = False
         try:
             while True:
@@ -417,11 +443,13 @@ class ToyoshimaBaseController:
                 ch_on = not ch_on
                 self._set_ch(channel, ch_on)
                 await asyncio.sleep_ms(PATLITE_BLINK_MS)
-        except Exception:
-            return
-        if not self._output_seq_current(gen):
-            return
-        self._set_ch(channel, False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.log("blink off err CH{}: {}".format(channel, exc))
+        finally:
+            if self._output_seq_current(gen):
+                self._safe_off(channel)
 
     def mark_event_acked(self, di):
         """送信成功後にフラグを立て、物理OFFまで再送しない。"""
@@ -497,15 +525,16 @@ class ToyoshimaBaseController:
         return 3
 
     def _cancel_manual(self):
-        """直前の手動タスクを止める。"""
+        """直前の手動タスクを止める。世代を進めて古い finally が消さない。"""
+        self._manual_token = int(getattr(self, "_manual_token", 0)) + 1
         task = getattr(self, "_manual_task", None)
+        self._manual_task = None
         if not task:
             return
         try:
             task.cancel()
         except Exception:
             pass
-        self._manual_task = None
 
     def _abort_autonomous_outputs(self):
         """点灯・点滅タスクを止め、手動OFFのあとにピンを戻さない。"""
@@ -560,14 +589,27 @@ class ToyoshimaBaseController:
             ms = 180000
         return ch, ms
 
-    async def _hold_then_off(self, channels, duration_ms):
-        """指定秒のあと対象 CH を落とす。"""
+    def _apply_command_light_ms(self, duration_ms):
+        """クラウドが付けた点灯ミリ秒を、この消灯タイマーへ使う。"""
         try:
-            await asyncio.sleep_ms(int(duration_ms))
-            for ch in channels:
-                self._set_ch(ch, False)
+            ms = int(duration_ms or 0)
+        except Exception:
+            return
+        if 5000 <= ms <= 180000:
+            self._output_ms = ms
+
+    async def _hold_then_off(self, channels, duration_ms, token):
+        """指定秒のあと対象 CH を落とす。失敗しても同じ世代なら消す。"""
+        try:
+            await asyncio.sleep_ms(self._hold_ms(duration_ms))
         except asyncio.CancelledError:
             raise
+        except Exception as exc:
+            self.log("manual off err: {}".format(exc))
+        finally:
+            if getattr(self, "_manual_token", None) == token:
+                for ch in channels:
+                    self._safe_off(ch)
 
     async def execute_manual_command(self, cmd, duration_ms=0):
         """PWA 手動命令。
@@ -587,8 +629,10 @@ class ToyoshimaBaseController:
         if pulse:
             ch, ms = pulse
             self._set_ch(ch, True)
+            self._manual_token = int(getattr(self, "_manual_token", 0)) + 1
+            token = self._manual_token
             self._manual_task = asyncio.create_task(
-                self._hold_then_off((ch,), ms)
+                self._hold_then_off((ch,), ms, token)
             )
             return True
 
@@ -618,8 +662,10 @@ class ToyoshimaBaseController:
             ch = on_map[cmd]
             self._set_ch(ch, True)
             if duration_ms > 0:
+                self._manual_token = int(getattr(self, "_manual_token", 0)) + 1
+                token = self._manual_token
                 self._manual_task = asyncio.create_task(
-                    self._hold_then_off((ch,), duration_ms)
+                    self._hold_then_off((ch,), duration_ms, token)
                 )
             return True
         if cmd in off_map:
@@ -632,8 +678,10 @@ class ToyoshimaBaseController:
             for ch in channels:
                 self._set_ch(ch, True)
             if duration_ms > 0:
+                self._manual_token = int(getattr(self, "_manual_token", 0)) + 1
+                token = self._manual_token
                 self._manual_task = asyncio.create_task(
-                    self._hold_then_off(channels, duration_ms)
+                    self._hold_then_off(channels, duration_ms, token)
                 )
             return True
         if cmd in ("bulk_off", "light_all_off"):
@@ -661,6 +709,7 @@ class ToyoshimaBaseController:
 
         if cmd in ("sensor_far", "di1_alarm", "sensor_near", "di2_alarm"):
             di = 2 if cmd in ("sensor_near", "di2_alarm") else 1
+            self._apply_command_light_ms(duration_ms)
             if (
                 str(getattr(self, "_security_mode", "")) == SECURITY_MODE_BLINK
                 and hasattr(self, "_pulse_two_stage_blink")
@@ -686,11 +735,9 @@ class ToyoshimaBaseController:
                 ):
                     arm(plan)
                 self._kick_relays_now(plan)
-                try:
-                    asyncio.create_task(self._main_beam_response(di))
-                except Exception as exc:
-                    self.log("sensor cmd err: {}".format(exc))
-                return True
+                if self._schedule_main_response(di):
+                    return True
+                return False
             self._fire_di(di)
             return True
 
@@ -756,7 +803,10 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._near_wait_low = True
 
     def _near_retrigger_blocked(self):
+        """点灯中は再検知でタイマーを延ばす。消灯後だけ無視する。"""
         if str(getattr(self, "_security_mode", "")).upper() != "2STEP":
+            return False
+        if getattr(self, "_auto_off_pending", False):
             return False
         until = getattr(self, "_near_lock_until_ms", None)
         if until is not None and _mono_diff(until, _mono_ms()) > 0:
@@ -859,11 +909,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
 
     async def _blink_hold_then_idle(self, token):
         try:
-            await asyncio.sleep_ms(int(self._output_ms))
+            await asyncio.sleep_ms(self._hold_ms(self._output_ms))
         except asyncio.CancelledError:
             raise
-        except Exception:
-            return
+        except Exception as exc:
+            self.log("blink hold err: {}".format(exc))
         if self._blink_hold_token != token:
             return
         if self._di_level.get(1) or self._di_level.get(2):
@@ -888,8 +938,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
                 self._set_ch(channel, on)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            return
+        except Exception as exc:
+            self.log("blink loop err CH{}: {}".format(channel, exc))
+        finally:
+            if self._blink_gen == gen:
+                self._safe_off(channel)
 
     async def _steady_until_gen(self, channel, gen):
         try:
@@ -898,8 +951,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
                 await asyncio.sleep_ms(200)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            return
+        except Exception as exc:
+            self.log("steady hold err CH{}: {}".format(channel, exc))
+        finally:
+            if self._blink_gen == gen:
+                self._safe_off(channel)
 
     async def _steady_ms_gen(self, channel, duration_ms, gen):
         """フラッシュ点灯時間。世代が変わったら途中で手放す。"""
@@ -911,11 +967,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
                 await asyncio.sleep_ms(step)
                 left -= step
             if self._blink_gen == gen:
-                self._set_ch(channel, False)
+                self._safe_off(channel)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            return
+        except Exception as exc:
+            self.log("flash hold err CH{}: {}".format(channel, exc))
+            if self._blink_gen == gen:
+                self._safe_off(channel)
 
     def _begin_phase(self, phase):
         self._ensure_blink_state()
@@ -1090,10 +1148,21 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         if plan["mode"] == "SILENT":
             self.log("SILENT — ライト/フラッシュ省略")
             return
+        if not self._schedule_main_response(di):
+            self._safe_off(self.DO_LIGHT_1)
+            self._safe_off(self.DO_LIGHT_2)
+            self._safe_off(self.DO_FLASH)
+
+    def _schedule_main_response(self, di):
+        """消灯タスクを1本起動する。失敗したら呼び出し側が消灯する。"""
+        self._auto_off_pending = True
         try:
             asyncio.create_task(self._main_beam_response(di))
+            return True
         except Exception as exc:
+            self._auto_off_pending = False
             self.log("main response err: {}".format(exc))
+            return False
 
     def _kick_relays_now(self, plan):
         """create_task 失敗時も即時 HIGH。"""
@@ -1131,60 +1200,69 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         """
         plan = self.plan_main_response(di)
         driving = bool(plan.get("do1") or plan.get("do2") or plan.get("do3"))
+        ticket = int(getattr(self, "_auto_off_ticket", 0)) + 1
+        self._auto_off_ticket = ticket
+        self._auto_off_pending = True
         if driving:
             self._begin_output_seq()
-        self._kick_relays_now(plan)
-        if not driving:
-            self.log("日中 — ライト省略（通知のみ）")
-            return
-        tasks = []
-        d1 = self._output_pattern(plan, "do1_pattern", plan["do1"], "steady")
-        d2 = self._output_pattern(plan, "do2_pattern", plan["do2"], "steady")
-        d3 = self._output_pattern(plan, "do3_pattern", plan["do3"], "blink")
-        if d1 == "steady":
-            tasks.append(
-                asyncio.create_task(
-                    self._drive_steady(self.DO_LIGHT_1, plan["light_ms"])
-                )
-            )
-        elif d1 == "blink":
-            tasks.append(
-                asyncio.create_task(
-                    self._drive_blink(self.DO_LIGHT_1, plan["light_ms"])
-                )
-            )
-        if d2 == "steady":
-            tasks.append(
-                asyncio.create_task(
-                    self._drive_steady(self.DO_LIGHT_2, plan["light_ms"])
-                )
-            )
-        elif d2 == "blink":
-            tasks.append(
-                asyncio.create_task(
-                    self._drive_blink(self.DO_LIGHT_2, plan["light_ms"])
-                )
-            )
-        if d3 == "steady":
-            tasks.append(
-                asyncio.create_task(
-                    self._drive_steady(self.DO_FLASH, plan["flash_ms"])
-                )
-            )
-        elif d3 == "blink":
-            tasks.append(
-                asyncio.create_task(
-                    self._drive_blink(self.DO_FLASH, plan["flash_ms"])
-                )
-            )
-        self._seq_tasks = tasks
-        if not tasks:
-            self.log("日中 — ライト省略（通知のみ）")
-            return
         try:
-            await asyncio.gather(*tasks)
-        except Exception as exc:
-            self.log("output seq end: {}".format(exc))
+            self._kick_relays_now(plan)
+            if not driving:
+                self.log("日中 — ライト省略（通知のみ）")
+                return
+            tasks = []
+            d1 = self._output_pattern(plan, "do1_pattern", plan["do1"], "steady")
+            d2 = self._output_pattern(plan, "do2_pattern", plan["do2"], "steady")
+            d3 = self._output_pattern(plan, "do3_pattern", plan["do3"], "blink")
+            if d1 == "steady":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_steady(self.DO_LIGHT_1, plan["light_ms"])
+                    )
+                )
+            elif d1 == "blink":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_blink(self.DO_LIGHT_1, plan["light_ms"])
+                    )
+                )
+            if d2 == "steady":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_steady(self.DO_LIGHT_2, plan["light_ms"])
+                    )
+                )
+            elif d2 == "blink":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_blink(self.DO_LIGHT_2, plan["light_ms"])
+                    )
+                )
+            if d3 == "steady":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_steady(self.DO_FLASH, plan["flash_ms"])
+                    )
+                )
+            elif d3 == "blink":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_blink(self.DO_FLASH, plan["flash_ms"])
+                    )
+                )
+            self._seq_tasks = tasks
+            if not tasks:
+                self.log("日中 — ライト省略（通知のみ）")
+                return
+            try:
+                await asyncio.gather(*tasks)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                self.log("output seq end: {}".format(exc))
+        finally:
+            if getattr(self, "_auto_off_ticket", None) == ticket:
+                self._auto_off_pending = False
 
 
 class ToyoshimaDetachedController(ToyoshimaBaseController):
