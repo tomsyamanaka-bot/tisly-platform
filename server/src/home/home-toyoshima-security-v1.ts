@@ -2122,13 +2122,12 @@ export function applyToyoshimaManualControlV1(input: {
   }
 
   const dout = findDo(building, spec.ch);
-  if (dout) {
-    if (!spec.on && dout.blinking) {
-      stopPatliteBlink(input.building, spec.ch);
-    } else {
-      dout.on = spec.on;
-      dout.blinking = false;
-    }
+  if (!spec.on) {
+    releaseToyoshimaOutputV1(input.building, spec.ch);
+    nearOutputLockUntilMsV1.delete(siteId);
+  } else if (dout) {
+    dout.on = true;
+    dout.blinking = false;
   }
 
   /* PWA 手動はスケジュール外でも実機リレーを動かす */
@@ -2557,6 +2556,16 @@ export function applyToyoshimaBulkLightsV1(input: {
 }): { ok: boolean; durationSec?: number } {
   const on = input.action === "on";
   const actor = input.actor ?? "customer-portal";
+  if (!on) {
+    nearOutputLockUntilMsV1.clear();
+    for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+      releaseToyoshimaOutputV1(building, 1);
+      releaseToyoshimaOutputV1(building, 2);
+      if (building === "main") {
+        releaseToyoshimaOutputV1(building, 3);
+      }
+    }
+  }
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
     touchToyoshimaDeviceCommV1(building);
     applyToyoshimaManualControlV1({

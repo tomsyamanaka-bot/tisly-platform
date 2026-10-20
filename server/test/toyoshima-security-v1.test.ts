@@ -589,6 +589,33 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.main.do[2].blinking, false);
   });
 
+  it("bulk off clears a running near sequence", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "two_stage_blink",
+      flashEnabled: true,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    applyToyoshimaBulkLightsV1({ action: "off" });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, false);
+    assert.equal(dash.main.do[0].blinking, false);
+    assert.equal(dash.main.do[1].on, false);
+    assert.equal(dash.main.do[1].blinking, false);
+    assert.equal(dash.main.do[2].on, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(cmd?.command, "sensor_near");
+    const off = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(off?.command, "bulk_off");
+    assert.deepEqual(off?.channels, [1, 2, 3]);
+  });
+
   it("DIRECT DI2 alone still skips DO3", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",

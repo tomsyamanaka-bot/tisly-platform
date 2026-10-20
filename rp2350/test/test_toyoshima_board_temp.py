@@ -214,6 +214,8 @@ def test_twostep_di2_alone_flashes_at_night():
     assert plan["do1"] is True
     assert plan["do2"] is True
     assert plan["do3"] is True
+    assert plan["do1_pattern"] == "steady"
+    assert plan["do2_pattern"] == "steady"
     assert plan["do3_pattern"] == "steady"
     assert plan["near_first"] is True
     assert plan["flash_ms"] == 15_000
@@ -293,6 +295,37 @@ def test_twostep_near_retrigger_is_ignored_until_low():
         assert outputs.get(1) is True
         assert outputs.get(2) is True
         assert outputs.get(3) is True
+
+
+def test_bulk_off_stops_blink_and_forces_outputs_off():
+    outputs = {1: True, 2: True, 3: True}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "flash_enabled": True,
+        "force_relay_test": True,
+    })
+    ctrl._ensure_blink_state()
+    ctrl._di_level = {1: False, 2: True}
+    ctrl._blink_phase = "near"
+    ctrl._blink_gen = 4
+
+    async def run():
+        task = asyncio.create_task(ctrl._blink_until_gen(1, 4))
+        await asyncio.sleep(0.05)
+        ok = await ctrl.execute_manual_command("bulk_off")
+        await asyncio.sleep(0.7)
+        task.cancel()
+        return ok
+
+    ok = asyncio.run(run())
+    assert ok is True
+    assert outputs[1] is False
+    assert outputs[2] is False
+    assert outputs[3] is False
+    assert ctrl._blink_phase == "idle"
 
 
 def test_output_seq_clears_previous_timer():
@@ -416,7 +449,7 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.16"
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.17"
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8
@@ -837,6 +870,7 @@ if __name__ == "__main__":
     test_direct_near_alone_skips_flash()
     test_twostep_far_forces_do2_and_do3_off()
     test_twostep_near_retrigger_is_ignored_until_low()
+    test_bulk_off_stops_blink_and_forces_outputs_off()
     test_output_seq_clears_previous_timer()
     test_stale_output_timer_does_not_force_off()
     test_twostep_di2_after_di1_flashes()

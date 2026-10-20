@@ -73,7 +73,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.16"
+FIRMWARE_LOGIC_VERSION = "1.2.17"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -507,6 +507,30 @@ class ToyoshimaBaseController:
             pass
         self._manual_task = None
 
+    def _abort_autonomous_outputs(self):
+        """点灯・点滅タスクを止め、手動OFFのあとにピンを戻さない。"""
+        self._seq_gen = int(getattr(self, "_seq_gen", 0)) + 1
+        tasks = list(getattr(self, "_seq_tasks", None) or [])
+        self._seq_tasks = []
+        for task in tasks:
+            cancel = getattr(task, "cancel", None)
+            if not cancel:
+                continue
+            try:
+                cancel()
+            except Exception:
+                pass
+        self._cancel_manual()
+        if hasattr(self, "_blink_gen"):
+            self._blink_gen = int(self._blink_gen) + 1
+            self._blink_hold_token = int(
+                getattr(self, "_blink_hold_token", 0)
+            ) + 1
+            self._blink_holding = False
+            self._blink_phase = "idle"
+        self._near_lock_until_ms = None
+        self._near_wait_low = False
+
     def _parse_pulse_command(self, cmd):
         """ch1_pulse_1000 形式を分解する。"""
         if "_pulse_" not in cmd:
@@ -599,6 +623,7 @@ class ToyoshimaBaseController:
                 )
             return True
         if cmd in off_map:
+            self._abort_autonomous_outputs()
             self._set_ch(off_map[cmd], False)
             return True
 
@@ -612,6 +637,13 @@ class ToyoshimaBaseController:
                 )
             return True
         if cmd in ("bulk_off", "light_all_off"):
+            self._abort_autonomous_outputs()
+            idle = getattr(self, "_blink_force_idle", None)
+            if idle:
+                try:
+                    idle()
+                except Exception:
+                    pass
             for ch in self._bulk_do_channels():
                 self._set_ch(ch, False)
             return True
@@ -1024,8 +1056,10 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
             "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
         }
-        # 2STEP のフラッシュは点灯時間だけ ON。ソフト点滅は重ねない。
+        # 遠近2段階は常時点灯。点滅は two_stage_blink だけ。
         if mode == "2STEP":
+            plan["do1_pattern"] = "steady" if plan["do1"] else "off"
+            plan["do2_pattern"] = "steady" if plan["do2"] else "off"
             plan["do3_pattern"] = "steady" if flash_on else "off"
         return plan
 
