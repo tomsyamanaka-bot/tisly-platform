@@ -254,10 +254,15 @@ def test_twostep_far_forces_do2_and_do3_off():
         lambda ch, on: outputs.__setitem__(ch, on)
     )
     ctrl.apply_rules({"security_mode": "2STEP", "flash_enabled": True})
+    ctrl._ensure_hold_state()
+    ctrl._ch_off_at[2] = ts._mono_ms() + 5000
+    ctrl._ch_off_at[3] = ts._mono_ms() + 5000
+    ctrl._ch_hold_alive[2] = True
+    ctrl._ch_hold_alive[3] = True
     utc_night = 12 * 3600
     with patch.object(ts.time, "time", return_value=utc_night):
         plan = ctrl.plan_main_response(1)
-        ctrl._kick_relays_now(plan)
+        ctrl._apply_steady_hold(plan)
     assert outputs[1] is True
     assert outputs[2] is False
     assert outputs[3] is False
@@ -269,6 +274,12 @@ def test_lighting_duration_sec_and_camel_case():
     assert ctrl._output_ms == 77000
     ctrl.apply_rules({"lighting_duration_sec": 12})
     assert ctrl._output_ms == 12000
+    ctrl.apply_rules({"lightingDurationSec": 45})
+    assert ctrl._output_ms == 45000
+    ctrl._apply_command_light_ms(45)
+    assert ctrl._output_ms == 45000
+    ctrl._apply_command_light_ms(45000)
+    assert ctrl._output_ms == 45000
     ctrl._apply_command_light_ms(20000)
     assert ctrl._output_ms == 20000
 
@@ -296,6 +307,58 @@ def test_steady_timer_turns_off_and_survives_errors():
     assert outputs[2] is False
 
 
+def test_cancel_does_not_drop_a_live_relay():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl._seq_gen = 1
+
+    async def run():
+        task = asyncio.create_task(ctrl._drive_steady(1, 5000))
+        await asyncio.sleep(0.02)
+        assert outputs[1] is True
+        ctrl._seq_gen = 2
+        task.cancel()
+        await asyncio.sleep(0.03)
+        return outputs[1]
+
+    assert asyncio.run(run()) is True
+
+
+def test_far_then_near_keeps_do1_on():
+    outputs = {}
+    dropped = []
+
+    def set_ch(ch, on):
+        if ch == 1 and outputs.get(1) is True and on is False:
+            dropped.append(ch)
+        outputs[ch] = on
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({
+        "security_mode": "2STEP",
+        "flash_enabled": True,
+        "force_relay_test": True,
+    })
+    ctrl._output_ms = 80
+    ctrl._flash_ms = 40
+
+    async def run():
+        await ctrl._main_beam_response(1)
+        assert outputs[1] is True
+        assert outputs.get(2) is not True
+        await ctrl._main_beam_response(2)
+        assert outputs[1] is True
+        assert outputs[2] is True
+        assert outputs[3] is True
+        await asyncio.sleep(0.03)
+        assert outputs[1] is True
+        assert dropped == []
+
+    asyncio.run(run())
+
+
 def test_twostep_hold_ends_with_outputs_off():
     outputs = {}
     ctrl = ts.ToyoshimaMainHouseController(
@@ -306,11 +369,12 @@ def test_twostep_hold_ends_with_outputs_off():
         "flash_enabled": True,
         "force_relay_test": True,
     })
-    ctrl._output_ms = 20
-    ctrl._flash_ms = 10
+    ctrl._output_ms = 30
+    ctrl._flash_ms = 20
 
     async def run():
         await ctrl._main_beam_response(2)
+        await asyncio.sleep(0.08)
 
     asyncio.run(run())
     assert outputs[1] is False
@@ -552,7 +616,7 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.18"
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.19"
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8
@@ -974,6 +1038,8 @@ if __name__ == "__main__":
     test_twostep_far_forces_do2_and_do3_off()
     test_lighting_duration_sec_and_camel_case()
     test_steady_timer_turns_off_and_survives_errors()
+    test_cancel_does_not_drop_a_live_relay()
+    test_far_then_near_keeps_do1_on()
     test_twostep_hold_ends_with_outputs_off()
     test_twostep_near_retrigger_extends_while_lit()
     test_twostep_near_retrigger_is_ignored_until_low()

@@ -73,7 +73,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.18"
+FIRMWARE_LOGIC_VERSION = "1.2.19"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -227,23 +227,17 @@ class ToyoshimaBaseController:
         if light_sec is None:
             light_sec = rules.get("lightingDurationSec")
         if light_sec is not None:
-            try:
-                sec = int(light_sec)
-                if 5 <= sec <= 180:
-                    self._output_ms = sec * 1000
-            except Exception:
-                pass
+            self._output_ms = self._normalize_duration_ms(
+                light_sec, self._output_ms
+            )
         # フラッシュ維持秒
         flash_sec = rules.get("flash_duration_sec")
         if flash_sec is None:
             flash_sec = rules.get("flashDurationSec")
         if flash_sec is not None:
-            try:
-                fsec = int(flash_sec)
-                if 5 <= fsec <= 180:
-                    self._flash_ms = fsec * 1000
-            except Exception:
-                pass
+            self._flash_ms = self._normalize_duration_ms(
+                flash_sec, self._flash_ms
+            )
         if "flash_enabled" in rules:
             self._flash_enabled = bool(rules.get("flash_enabled"))
         elif "flashEnabled" in rules:
@@ -393,6 +387,26 @@ class ToyoshimaBaseController:
             return True
         return getattr(self, "_seq_gen", None) == gen
 
+    def _normalize_duration_ms(self, raw, fallback_ms):
+        """45 は 45 秒。45000 は 45 秒のミリ秒。45ms としては使わない。"""
+        try:
+            n = int(raw)
+        except Exception:
+            n = 0
+        if 5 <= n <= 180:
+            return n * 1000
+        if 1000 <= n <= 180000:
+            return n
+        try:
+            fallback = int(fallback_ms or 0)
+        except Exception:
+            fallback = 0
+        if 5 <= fallback <= 180:
+            return fallback * 1000
+        if fallback >= 1000:
+            return fallback
+        return DEFAULT_OUTPUT_MS
+
     def _hold_ms(self, duration_ms):
         """0 や壊れた値でも、最後に同期した点灯秒で消灯する。"""
         try:
@@ -413,7 +427,7 @@ class ToyoshimaBaseController:
             self.log("auto-off fail CH{}: {}".format(channel, exc))
 
     async def _drive_steady(self, channel, duration_ms):
-        """指定ミリ秒後に必ず消す。例外でも世代が生きていれば OFF。"""
+        """指定ミリ秒後に消す。キャンセルではピンを落とさない。"""
         gen = getattr(self, "_seq_gen", None)
         ms = self._hold_ms(duration_ms)
         self._set_ch(channel, True)
@@ -421,12 +435,11 @@ class ToyoshimaBaseController:
         try:
             await asyncio.sleep_ms(ms)
         except asyncio.CancelledError:
-            raise
+            return
         except Exception as exc:
             self.log("auto-off err CH{}: {}".format(channel, exc))
-        finally:
-            if self._output_seq_current(gen):
-                self._safe_off(channel)
+        if self._output_seq_current(gen):
+            self._safe_off(channel)
 
     async def _drive_blink(self, channel, duration_ms):
         """0.5 秒周期トグル点滅。世代が変わったらピンは触らない。"""
@@ -444,12 +457,11 @@ class ToyoshimaBaseController:
                 self._set_ch(channel, ch_on)
                 await asyncio.sleep_ms(PATLITE_BLINK_MS)
         except asyncio.CancelledError:
-            raise
+            return
         except Exception as exc:
             self.log("blink off err CH{}: {}".format(channel, exc))
-        finally:
-            if self._output_seq_current(gen):
-                self._safe_off(channel)
+        if self._output_seq_current(gen):
+            self._safe_off(channel)
 
     def mark_event_acked(self, di):
         """送信成功後にフラグを立て、物理OFFまで再送しない。"""
@@ -559,6 +571,7 @@ class ToyoshimaBaseController:
             self._blink_phase = "idle"
         self._near_lock_until_ms = None
         self._near_wait_low = False
+        self._cancel_channel_holds()
 
     def _parse_pulse_command(self, cmd):
         """ch1_pulse_1000 形式を分解する。"""
@@ -590,13 +603,10 @@ class ToyoshimaBaseController:
         return ch, ms
 
     def _apply_command_light_ms(self, duration_ms):
-        """クラウドが付けた点灯ミリ秒を、この消灯タイマーへ使う。"""
-        try:
-            ms = int(duration_ms or 0)
-        except Exception:
-            return
-        if 5000 <= ms <= 180000:
-            self._output_ms = ms
+        """クラウドが付けた点灯時間を、この消灯タイマーへ使う。"""
+        self._output_ms = self._normalize_duration_ms(
+            duration_ms, self._output_ms
+        )
 
     async def _hold_then_off(self, channels, duration_ms, token):
         """指定秒のあと対象 CH を落とす。失敗しても同じ世代なら消す。"""
@@ -1164,12 +1174,125 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             self.log("main response err: {}".format(exc))
             return False
 
+    def _ensure_hold_state(self):
+        if getattr(self, "_ch_off_at", None) is None:
+            self._ch_off_at = {}
+            self._ch_token = {}
+            self._ch_hold_alive = {}
+            self._ch_alive_gen = {}
+
+    def _cancel_channel_holds(self):
+        """手動OFF。ループはピンを触らずに終える。"""
+        self._ensure_hold_state()
+        for ch in (
+            self.DO_LIGHT_1,
+            self.DO_LIGHT_2,
+            self.DO_FLASH,
+        ):
+            self._ch_token[ch] = int(self._ch_token.get(ch, 0)) + 1
+            self._ch_off_at[ch] = None
+
+    def _holds_active(self):
+        self._ensure_hold_state()
+        now = _mono_ms()
+        for off_at in self._ch_off_at.values():
+            if off_at is not None and _mono_diff(off_at, now) > 0:
+                return True
+        return False
+
+    def _refresh_auto_off_pending(self):
+        self._auto_off_pending = self._holds_active()
+
+    def _extend_channel_hold(self, channel, duration_ms):
+        """点灯を維持したまま、消灯期限だけ後ろへずらす。"""
+        self._ensure_hold_state()
+        ms = self._hold_ms(duration_ms)
+        self._set_ch(channel, True)
+        gen = int(self._ch_token.get(channel, 0))
+        self._ch_off_at[channel] = _mono_ms() + ms
+        if (
+            self._ch_hold_alive.get(channel)
+            and self._ch_alive_gen.get(channel) == gen
+        ):
+            self.log("relay CH{} hold extend {}ms".format(channel, ms))
+            return
+        self._ch_hold_alive[channel] = True
+        self._ch_alive_gen[channel] = gen
+        try:
+            asyncio.create_task(self._channel_hold_loop(channel))
+        except Exception as exc:
+            if self._ch_alive_gen.get(channel) == gen:
+                self._ch_hold_alive[channel] = False
+            self.log("hold task err CH{}: {}".format(channel, exc))
+
+    def _release_channel_hold(self, channel):
+        """この計画で不要な CH だけ落とす。未使用なら触らない。"""
+        self._ensure_hold_state()
+        if self._ch_off_at.get(channel) is None and not self._ch_hold_alive.get(channel):
+            return
+        self._ch_token[channel] = int(self._ch_token.get(channel, 0)) + 1
+        self._ch_off_at[channel] = None
+        self._set_ch(channel, False)
+
+    async def _channel_hold_loop(self, channel):
+        """期限が伸びたらピンは ON のまま待つ。期限切れのときだけ OFF。"""
+        token = int(self._ch_alive_gen.get(channel, 0))
+        try:
+            while int(self._ch_token.get(channel, 0)) == token:
+                off_at = self._ch_off_at.get(channel)
+                if off_at is None:
+                    return
+                left = _mono_diff(off_at, _mono_ms())
+                if left > 20:
+                    step = left if left < 250 else 250
+                    try:
+                        await asyncio.sleep_ms(step)
+                    except asyncio.CancelledError:
+                        return
+                    continue
+                if self._ch_off_at.get(channel) != off_at:
+                    continue
+                if int(self._ch_token.get(channel, 0)) != token:
+                    return
+                self._ch_off_at[channel] = None
+                self._safe_off(channel)
+                return
+        finally:
+            if self._ch_alive_gen.get(channel) == token:
+                self._ch_hold_alive[channel] = False
+                self._refresh_auto_off_pending()
+
+    def _apply_steady_hold(self, plan):
+        """2STEP。増灯しても、既に点いている CH は OFF にしない。"""
+        light_ms = plan.get("light_ms")
+        flash_ms = plan.get("flash_ms")
+        wanted = (
+            (self.DO_LIGHT_1, bool(plan.get("do1")), light_ms),
+            (self.DO_LIGHT_2, bool(plan.get("do2")), light_ms),
+            (self.DO_FLASH, bool(plan.get("do3")), flash_ms),
+        )
+        for ch, on, ms in wanted:
+            if on:
+                self._extend_channel_hold(ch, ms)
+            else:
+                self._release_channel_hold(ch)
+        self._refresh_auto_off_pending()
+
     def _kick_relays_now(self, plan):
         """create_task 失敗時も即時 HIGH。"""
-        if plan.get("force_outputs") or (
+        if (
             plan.get("mode") == "2STEP"
             and (plan.get("do1") or plan.get("do2") or plan.get("do3"))
         ):
+            # 増灯の途中で、既に点いている CH を LOW にしない
+            if plan.get("do1"):
+                self._set_ch(self.DO_LIGHT_1, True)
+            if plan.get("do2"):
+                self._set_ch(self.DO_LIGHT_2, True)
+            if plan.get("do3"):
+                self._set_ch(self.DO_FLASH, True)
+            return
+        if plan.get("force_outputs"):
             self._set_ch(self.DO_LIGHT_1, bool(plan.get("do1")))
             self._set_ch(self.DO_LIGHT_2, bool(plan.get("do2")))
             self._set_ch(self.DO_FLASH, bool(plan.get("do3")))
@@ -1200,6 +1323,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         """
         plan = self.plan_main_response(di)
         driving = bool(plan.get("do1") or plan.get("do2") or plan.get("do3"))
+        if str(plan.get("mode")) == "2STEP":
+            if not driving:
+                self._auto_off_pending = False
+                self.log("日中 — ライト省略（通知のみ）")
+                return
+            self._apply_steady_hold(plan)
+            return
         ticket = int(getattr(self, "_auto_off_ticket", 0)) + 1
         self._auto_off_ticket = ticket
         self._auto_off_pending = True
