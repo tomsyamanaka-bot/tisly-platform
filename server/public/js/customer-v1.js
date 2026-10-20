@@ -23,6 +23,10 @@ import {
   isTesterCustomerCode,
   renderTesterPushBarHtml,
 } from "./customer-tester-push-v1.js";
+import {
+  bindCustomerPushSubscribe,
+  renderCustomerPushSubscribeHtml,
+} from "./customer-push-subscribe-v1.js";
 import { isCameraNavHref } from "./camera-webrtc-viewer-v1.js";
 import {
   bindGuardViewerLaunchersV1,
@@ -191,6 +195,7 @@ function renderHome(data) {
   main.innerHTML = `
     ${renderHomeStatus(data)}
     ${renderNotifications(data.notifications)}
+    ${renderCustomerPushSubscribeHtml()}
     ${isTesterCustomerCode(code) ? renderTesterPushBarHtml() : ""}
     ${renderHomeCards(cards)}
     <p class="cv-logout-row">
@@ -199,6 +204,7 @@ function renderHome(data) {
   `;
 
   bindCustomerNavLinks();
+  bindCustomerPushSubscribe();
   bindTesterPushBar(code);
   bindGuardViewerLaunchersV1();
   document.querySelectorAll(".cv-big-card").forEach((el) => {

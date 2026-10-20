@@ -3,6 +3,35 @@
  * カード一覧ヘッダー向け購読UI
  */
 
+import { getPropertyScope } from "./shared/property-scope-v1.js";
+import {
+  getCustomerCode,
+  loadTenantProfile,
+} from "./customer-tenant-session-v1.js";
+
+/** 表示中の物件。顧客ホームと社内バーで同じ購読先にする */
+export function readTislyPushPropertyContextV1() {
+  const scope = getPropertyScope();
+  const profile = loadTenantProfile() || {};
+  let customerCode = String(profile.customerCode || getCustomerCode() || "")
+    .trim()
+    .toUpperCase();
+  if (customerCode === "TOSHIMA001") customerCode = "TOYOSHIMA001";
+  const siteId = String(
+    scope.selectedSiteId ||
+      window.__TISLY_SF_SITE_ID ||
+      profile.securitySiteId ||
+      ""
+  ).trim();
+  const propertyId = String(
+    scope.selectedPropertyId ||
+      window.__TISLY_SELECTED_PROPERTY_ID ||
+      profile.homeSiteId ||
+      ""
+  ).trim();
+  return { customerCode, siteId, propertyId };
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -136,6 +165,7 @@ export async function registerTislyWebPushV1(opts = {}) {
   if (!json?.endpoint || !json?.keys?.p256dh || !json?.keys?.auth) {
     throw new Error("購読エンドポイント取得失敗（keys/endpoint なし）");
   }
+  const ctx = readTislyPushPropertyContextV1();
   const res = await fetch("/api/notifications/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -143,9 +173,13 @@ export async function registerTislyWebPushV1(opts = {}) {
       userId,
       audience:
         String(location.pathname || "").includes("/customer") ||
-        document.body?.classList?.contains("sf-customer")
+        document.body?.classList?.contains("sf-customer") ||
+        document.body?.classList?.contains("customer-v1")
           ? "customer"
           : "toms",
+      siteId: ctx.siteId || undefined,
+      propertyId: ctx.propertyId || undefined,
+      customerCode: ctx.customerCode || undefined,
       subscription: { endpoint: json.endpoint, keys: json.keys },
     }),
   });
@@ -159,15 +193,30 @@ export async function registerTislyWebPushV1(opts = {}) {
  * @param {string} [siteId]
  */
 export async function sendTislySecurityTestPushV1(siteId = "") {
+  const ctx = readTislyPushPropertyContextV1();
   const resolved =
     siteId ||
+    ctx.propertyId ||
+    ctx.siteId ||
     new URLSearchParams(location.search).get("siteId") ||
     document.getElementById("hm-site-select")?.value ||
     "HOME-JP-ITABASHI-LIVE";
-  const res = await fetch("/api/security-floor/v1/test-notify", {
+  const toyoshima =
+    ctx.customerCode === "TOYOSHIMA001" ||
+    /TOYOSHIMA|TOSHIMA/.test(`${resolved} ${ctx.siteId}`);
+  const url = toyoshima
+    ? "/api/home/v1/toyoshima/test-notify"
+    : "/api/security-floor/v1/test-notify";
+  const bodySite = toyoshima
+    ? ctx.propertyId || resolved || "HOME-JP-TOYOSHIMA"
+    : ctx.siteId || resolved;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ siteId: resolved }),
+    body: JSON.stringify({
+      siteId: bodySite,
+      customerCode: ctx.customerCode || undefined,
+    }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `送信失敗 (${res.status})`);

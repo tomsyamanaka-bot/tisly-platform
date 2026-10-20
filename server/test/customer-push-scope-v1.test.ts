@@ -1,5 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { getDatabase } from "../src/db/database.js";
@@ -10,6 +12,32 @@ import {
 } from "../src/notification/push-property-scope-v1.js";
 
 describe("customer push property scope", () => {
+  it("shows subscribe and test on the /customer home", () => {
+    const home = fs.readFileSync(
+      path.join(process.cwd(), "public/js/customer-v1.js"),
+      "utf8"
+    );
+    const card = fs.readFileSync(
+      path.join(process.cwd(), "public/js/customer-push-subscribe-v1.js"),
+      "utf8"
+    );
+    const shared = fs.readFileSync(
+      path.join(process.cwd(), "public/js/tisly-pwa-push-bar-v1.js"),
+      "utf8"
+    );
+    assert.match(home, /renderCustomerPushSubscribeHtml\(\)/);
+    assert.match(home, /bindCustomerPushSubscribe\(\)/);
+    assert.match(card, /Push通知を登録・購読する/);
+    assert.match(card, /通知テストを送る/);
+    assert.match(card, /未登録/);
+    assert.match(card, /許可済み/);
+    assert.match(card, /ブロック中/);
+    assert.match(card, /registerTislyWebPushV1/);
+    assert.match(shared, /\/api\/notifications\/subscribe/);
+    assert.match(shared, /siteId: ctx\.siteId/);
+    assert.match(shared, /customerCode: ctx\.customerCode/);
+  });
+
   it("treats Toyoshima HOME and SEC ids as one property", () => {
     assert.equal(
       pushPropertiesOverlapV1(

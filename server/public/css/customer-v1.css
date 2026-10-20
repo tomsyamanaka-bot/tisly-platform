@@ -467,3 +467,33 @@ body.customer-v1:not(.is-customer-authed) #tisly-practical-bottomnav-root {
   margin: 0;
 }
 
+.cv-push-card {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+.cv-push-permission {
+  margin: 0 0 0.35rem;
+  color: #0f172a;
+  font-weight: 800;
+  line-height: 1.45;
+}
+.cv-push-diag {
+  margin: 0 0 0.75rem;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.cv-push-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+.cv-push-actions .cv-login-btn,
+.cv-push-actions .cv-logout-btn {
+  width: 100%;
+  margin: 0;
+}
+
