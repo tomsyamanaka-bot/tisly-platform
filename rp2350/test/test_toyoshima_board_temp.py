@@ -201,7 +201,7 @@ def test_twostep_di1_only_light1_at_night():
     assert plan["light_ms"] == 30_000
 
 
-def test_twostep_di2_alone_skips_flash_at_night():
+def test_twostep_di2_alone_flashes_at_night():
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
     ctrl.apply_rules({
         "securityMode": "2STEP",
@@ -213,10 +213,123 @@ def test_twostep_di2_alone_skips_flash_at_night():
         plan = ctrl.plan_main_response(2)
     assert plan["do1"] is True
     assert plan["do2"] is True
-    assert plan["do3"] is False
+    assert plan["do3"] is True
+    assert plan["do3_pattern"] == "steady"
     assert plan["near_first"] is True
     assert plan["flash_ms"] == 15_000
     assert plan["message"] == "🚨 建物至近で侵入検知！"
+
+
+def test_twostep_di2_skips_flash_when_disabled():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({
+        "securityMode": "2STEP",
+        "flashEnabled": False,
+    })
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(2)
+    assert plan["do1"] is True
+    assert plan["do2"] is True
+    assert plan["do3"] is False
+
+
+def test_direct_near_alone_skips_flash():
+    ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
+    ctrl.apply_rules({"security_mode": "DIRECT", "flash_enabled": True})
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(2)
+    assert plan["do1"] is True
+    assert plan["do2"] is True
+    assert plan["do3"] is False
+    assert plan["near_first"] is True
+
+
+def test_twostep_far_forces_do2_and_do3_off():
+    outputs = {1: False, 2: True, 3: True}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({"security_mode": "2STEP", "flash_enabled": True})
+    utc_night = 12 * 3600
+    with patch.object(ts.time, "time", return_value=utc_night):
+        plan = ctrl.plan_main_response(1)
+        ctrl._kick_relays_now(plan)
+    assert outputs[1] is True
+    assert outputs[2] is False
+    assert outputs[3] is False
+
+
+def test_twostep_near_retrigger_is_ignored_until_low():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "2STEP",
+        "flash_enabled": True,
+        "light_duration_sec": 30,
+        "flash_duration_sec": 5,
+    })
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is True
+        assert outputs.get(2) is True
+        assert outputs.get(3) is True
+        outputs[1] = False
+        outputs[2] = False
+        outputs[3] = False
+        ctrl.on_di_edge(2, "on", "off")
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is False
+        assert outputs.get(3) is False
+        ctrl._near_lock_until_ms = ts._mono_ms() - 1000
+        ctrl._near_wait_low = True
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is False
+        ctrl.on_di_edge(2, "on", "off")
+        ctrl.on_di_edge(2, "off", "on")
+        assert outputs.get(1) is True
+        assert outputs.get(2) is True
+        assert outputs.get(3) is True
+
+
+def test_output_seq_clears_previous_timer():
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    cancelled = {"n": 0}
+
+    class Task:
+        def cancel(self):
+            cancelled["n"] += 1
+
+    ctrl._seq_tasks = [Task()]
+    first = ctrl._begin_output_seq()
+    second = ctrl._begin_output_seq()
+    assert second == first + 1
+    assert cancelled["n"] == 1
+    assert ctrl._seq_tasks == []
+
+
+def test_stale_output_timer_does_not_force_off():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl._seq_gen = 1
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+        if on:
+            ctrl._seq_gen = 2
+
+    ctrl._set_ch = set_ch
+
+    async def run():
+        await ctrl._drive_steady(1, 5)
+
+    asyncio.run(run())
+    assert outputs[1] is True
 
 
 def test_twostep_di2_after_di1_flashes():
@@ -303,7 +416,7 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
 
 
 def test_firmware_logic_version_is_1_2_13():
-    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.15"
+    assert ts.FIRMWARE_LOGIC_VERSION == "1.2.16"
     assert ts.BOARD_TEMP_FAN_ON_C == 45.0
     assert ts.BOARD_TEMP_FAN_OFF_C == 40.0
     assert ts.FAN_CH == 8
@@ -390,7 +503,7 @@ def test_on_di_edge_di2_kicks_lights_and_flash():
             ctrl.on_di_edge(2, "off", "on")
     assert outputs.get(1) is True
     assert outputs.get(2) is True
-    assert outputs.get(3) is not True
+    assert outputs.get(3) is True
 
 
 def test_manual_sensor_near_kicks_all_channels():
@@ -408,7 +521,7 @@ def test_manual_sensor_near_kicks_all_channels():
     assert ok is True
     assert outputs.get(1) is True
     assert outputs.get(2) is True
-    assert outputs.get(3) is not True
+    assert outputs.get(3) is True
 
 
 def test_di_edge_notifies_vps_even_in_silent_mode():
@@ -719,7 +832,13 @@ if __name__ == "__main__":
     test_detached_event_messages()
     test_main_event_message()
     test_twostep_di1_only_light1_at_night()
-    test_twostep_di2_alone_skips_flash_at_night()
+    test_twostep_di2_alone_flashes_at_night()
+    test_twostep_di2_skips_flash_when_disabled()
+    test_direct_near_alone_skips_flash()
+    test_twostep_far_forces_do2_and_do3_off()
+    test_twostep_near_retrigger_is_ignored_until_low()
+    test_output_seq_clears_previous_timer()
+    test_stale_output_timer_does_not_force_off()
     test_twostep_di2_after_di1_flashes()
     test_direct_di1_full_response()
     test_silent_skips_outputs()

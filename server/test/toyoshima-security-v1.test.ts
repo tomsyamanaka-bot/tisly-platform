@@ -515,7 +515,7 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.main.do[2].blinking, false);
   });
 
-  it("2STEP DI2 alone lights DO1+DO2 and does not flash DO3", async () => {
+  it("2STEP DI2 alone lights DO1+DO2 and flashes DO3 when enabled", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",
       guardMode: "always",
@@ -532,7 +532,82 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.do[0].on, true);
     assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[2].on, true);
     assert.equal(dash.main.do[2].blinking, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.deepEqual(cmd?.channels, [1, 2, 3]);
+  });
+
+  it("2STEP DI2 alone leaves DO3 off when flash is disabled", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "2STEP",
+      flashEnabled: false,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[2].blinking, false);
+    assert.equal(dash.main.do[2].on, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.deepEqual(cmd?.channels, [1, 2]);
+  });
+
+  it("2STEP near retrigger during the lighting hold is ignored", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "2STEP",
+      flashEnabled: true,
+      lightingDurationSec: 45,
+      flashDurationSec: 5,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    consumeToyoshimaDeviceCommandV1("main");
+    const again = await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    assert.equal(again.pushSent, false);
+    assert.equal(consumeToyoshimaDeviceCommandV1("main"), null);
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[2].on, true);
+    assert.equal(dash.main.do[2].blinking, false);
+  });
+
+  it("DIRECT DI2 alone still skips DO3", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "DIRECT",
+      flashEnabled: true,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[2].blinking, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.deepEqual(cmd?.channels, [1, 2]);
   });
 
   it("2STEP DI2 after DI1 flashes DO3", async () => {
@@ -556,7 +631,8 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.do[0].on, true);
     assert.equal(dash.main.do[1].on, true);
-    assert.equal(dash.main.do[2].blinking, true);
+    assert.equal(dash.main.do[2].on, true);
+    assert.equal(dash.main.do[2].blinking, false);
     const far = consumeToyoshimaDeviceCommandV1("main");
     const near = consumeToyoshimaDeviceCommandV1("main");
     assert.equal(far?.command, "sensor_far");
@@ -756,14 +832,22 @@ describe("toyoshima-security-v1", () => {
     assert.equal(row?.forceRelayTest, true);
   });
 
-  it("main DI2 alone queues sensor_near with CH1-2", async () => {
+  it("main DI2 alone queues sensor_near with CH1-3 when flash is on", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "2STEP",
+      flashEnabled: true,
+    });
     await processToyoshimaSecurityEventV1({
       building: "main",
       di: 2,
     });
     const row = consumeToyoshimaDeviceCommandV1("main");
     assert.equal(row?.command, "sensor_near");
-    assert.deepEqual(row?.channels, [1, 2]);
+    assert.deepEqual(row?.channels, [1, 2, 3]);
   });
 
   it("firmware JSON exposes force_relay_test", () => {

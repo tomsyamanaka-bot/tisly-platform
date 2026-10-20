@@ -44,6 +44,8 @@ PATLITE_BLINK_MS = 500
 DEFAULT_OUTPUT_MS = 45_000
 # フラッシュ既定維持（ms）
 DEFAULT_FLASH_MS = 15_000
+# 至近の点灯が終わったあとの再検知無視（ms）
+NEAR_RETRIGGER_COOLDOWN_MS = 5_000
 # 外周検知から至近までの段階侵入窓（ms）
 DEFAULT_PERIMETER_MS = 120_000
 # 遠近モード既定（クラウド同期）
@@ -71,7 +73,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.15"
+FIRMWARE_LOGIC_VERSION = "1.2.16"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -369,22 +371,56 @@ class ToyoshimaBaseController:
     def _fire_di(self, di):
         raise NotImplementedError
 
+    def _begin_output_seq(self):
+        """点灯シーケンスを1本にする。古いタイマーは消灯しない。"""
+        self._seq_gen = int(getattr(self, "_seq_gen", 0)) + 1
+        tasks = list(getattr(self, "_seq_tasks", None) or [])
+        self._seq_tasks = []
+        for task in tasks:
+            cancel = getattr(task, "cancel", None)
+            if not cancel:
+                continue
+            try:
+                cancel()
+            except Exception:
+                pass
+        return self._seq_gen
+
+    def _output_seq_current(self, gen):
+        if gen is None:
+            return True
+        return getattr(self, "_seq_gen", None) == gen
+
     async def _drive_steady(self, channel, duration_ms):
+        gen = getattr(self, "_seq_gen", None)
         self._set_ch(channel, True)
         self.log("relay CH{} HIGH {}ms".format(channel, duration_ms))
-        await asyncio.sleep_ms(duration_ms)
+        try:
+            await asyncio.sleep_ms(duration_ms)
+        except Exception:
+            return
+        if not self._output_seq_current(gen):
+            return
         self._set_ch(channel, False)
 
     async def _drive_blink(self, channel, duration_ms):
-        """0.5 秒周期トグル点滅。"""
+        """0.5 秒周期トグル点滅。世代が変わったらピンは触らない。"""
+        gen = getattr(self, "_seq_gen", None)
         end_ms = time.ticks_add(time.ticks_ms(), duration_ms)
         ch_on = False
-        while True:
-            if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
-                break
-            ch_on = not ch_on
-            self._set_ch(channel, ch_on)
-            await asyncio.sleep_ms(PATLITE_BLINK_MS)
+        try:
+            while True:
+                if not self._output_seq_current(gen):
+                    return
+                if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
+                    break
+                ch_on = not ch_on
+                self._set_ch(channel, ch_on)
+                await asyncio.sleep_ms(PATLITE_BLINK_MS)
+        except Exception:
+            return
+        if not self._output_seq_current(gen):
+            return
         self._set_ch(channel, False)
 
     def mark_event_acked(self, di):
@@ -599,12 +635,24 @@ class ToyoshimaBaseController:
             ):
                 self._pulse_two_stage_blink(di)
                 return True
+            blocked = getattr(self, "_near_retrigger_blocked", None)
+            if di == 2 and blocked and blocked():
+                self.log("sensor_near cooldown")
+                return True
             if hasattr(self, "plan_main_response"):
                 if di == getattr(self, "DI_BEAM_FAR", 1):
                     note = getattr(self, "note_perimeter_edge", None)
                     if note:
                         note(di)
                 plan = self.plan_main_response(di)
+                arm = getattr(self, "_arm_near_output_lock", None)
+                if (
+                    arm
+                    and plan.get("mode") == "2STEP"
+                    and di == 2
+                    and plan.get("do1")
+                ):
+                    arm(plan)
                 self._kick_relays_now(plan)
                 try:
                     asyncio.create_task(self._main_beam_response(di))
@@ -664,9 +712,30 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         elapsed = _mono_diff(_mono_ms(), seen)
         return 0 <= elapsed <= window
 
+    def _near_span_ms(self, plan):
+        span = int(plan.get("light_ms") or 0)
+        if plan.get("do3"):
+            span = max(span, int(plan.get("flash_ms") or 0))
+        return span + NEAR_RETRIGGER_COOLDOWN_MS
+
+    def _arm_near_output_lock(self, plan):
+        """至近の点灯中と消灯後は、同じ DI2 を再トリガーしない。"""
+        self._near_lock_until_ms = _mono_ms() + self._near_span_ms(plan)
+        self._near_wait_low = True
+
+    def _near_retrigger_blocked(self):
+        if str(getattr(self, "_security_mode", "")).upper() != "2STEP":
+            return False
+        until = getattr(self, "_near_lock_until_ms", None)
+        if until is not None and _mono_diff(until, _mono_ms()) > 0:
+            return True
+        return bool(getattr(self, "_near_wait_low", False))
+
     def on_di_edge(self, di, prev_state, new_state):
         """威嚇点滅はレベル＋オフディレイ。それ以外は従来の立上り。"""
         if str(getattr(self, "_security_mode", "")) != SECURITY_MODE_BLINK:
+            if new_state != "on" and di == self.DI_BEAM_NEAR:
+                self._near_wait_low = False
             ToyoshimaBaseController.on_di_edge(self, di, prev_state, new_state)
             return
         if di not in (self.DI_BEAM_FAR, self.DI_BEAM_NEAR):
@@ -918,7 +987,8 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
     def plan_main_response(self, di):
         """
         遠近2段階の出力計画を返す。
-        至近が外周より先、または単独のときは DO3 を出さない。
+        2STEP の至近はフラッシュ連動ONなら DO3 を出す。
+        DIRECT の至近単独だけ DO3 を出さない。
         ホストテストから同期で検証する。
         """
         if str(getattr(self, "_security_mode", "")) == SECURITY_MODE_BLINK:
@@ -938,13 +1008,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             light_ok
             and full
             and bool(getattr(self, "_flash_enabled", True))
-            and not near_first
+            and (mode == "2STEP" or not near_first)
         )
         if di == self.DI_BEAM_FAR:
             msg = "⚠️ 外周で接近検知"
         else:
             msg = "🚨 建物至近で侵入検知！"
-        return {
+        plan = {
             "mode": mode,
             "message": msg,
             "do1": light_ok,
@@ -954,14 +1024,28 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
             "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
         }
+        # 2STEP のフラッシュは点灯時間だけ ON。ソフト点滅は重ねない。
+        if mode == "2STEP":
+            plan["do3_pattern"] = "steady" if flash_on else "off"
+        return plan
 
     def _fire_di(self, di):
         if di not in (self.DI_BEAM_FAR, self.DI_BEAM_NEAR):
+            return
+        if di == self.DI_BEAM_NEAR and self._near_retrigger_blocked():
+            self.log("DI2 cooldown ignore")
             return
         self.note_perimeter_edge(di)
         force = bool(getattr(self, "_force_relay_test", False))
         plan = self.plan_main_response(di)
         drive = self._is_armed_now() or force
+        if (
+            drive
+            and plan.get("mode") == "2STEP"
+            and di == self.DI_BEAM_NEAR
+            and plan.get("do1")
+        ):
+            self._arm_near_output_lock(plan)
         if drive and plan["mode"] != "SILENT":
             self._kick_relays_now(plan)
         # 警戒OFFでも /event は1回送る
@@ -979,7 +1063,10 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
 
     def _kick_relays_now(self, plan):
         """create_task 失敗時も即時 HIGH。"""
-        if plan.get("force_outputs"):
+        if plan.get("force_outputs") or (
+            plan.get("mode") == "2STEP"
+            and (plan.get("do1") or plan.get("do2") or plan.get("do3"))
+        ):
             self._set_ch(self.DO_LIGHT_1, bool(plan.get("do1")))
             self._set_ch(self.DO_LIGHT_2, bool(plan.get("do2")))
             self._set_ch(self.DO_FLASH, bool(plan.get("do3")))
@@ -1003,12 +1090,19 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
 
     async def _main_beam_response(self, di):
         """
-        2STEP: DI1=DO1 / DI2単独=DO1+DO2 / 段階侵入のみ DO3
+        2STEP: DI1=DO1（DO2/DO3はOFF） / DI2=DO1+DO2、連動ONなら DO3
         DIRECT: 至近単独は DO3 なし。外周が先のときだけフラッシュ
+        点灯を始める前に、前のシーケンスのタイマーを捨てる。
         force_relay_test 時は昼夜無視。
         """
         plan = self.plan_main_response(di)
+        driving = bool(plan.get("do1") or plan.get("do2") or plan.get("do3"))
+        if driving:
+            self._begin_output_seq()
         self._kick_relays_now(plan)
+        if not driving:
+            self.log("日中 — ライト省略（通知のみ）")
+            return
         tasks = []
         d1 = self._output_pattern(plan, "do1_pattern", plan["do1"], "steady")
         d2 = self._output_pattern(plan, "do2_pattern", plan["do2"], "steady")
@@ -1049,10 +1143,14 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
                     self._drive_blink(self.DO_FLASH, plan["flash_ms"])
                 )
             )
+        self._seq_tasks = tasks
         if not tasks:
             self.log("日中 — ライト省略（通知のみ）")
             return
-        await asyncio.gather(*tasks)
+        try:
+            await asyncio.gather(*tasks)
+        except Exception as exc:
+            self.log("output seq end: {}".format(exc))
 
 
 class ToyoshimaDetachedController(ToyoshimaBaseController):

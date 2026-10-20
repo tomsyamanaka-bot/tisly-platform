@@ -1016,21 +1016,23 @@ function startPatliteBlink(
   ch: ToyoshimaDoChannelV1,
   durationMs = 45_000
 ): void {
+  const key = patliteTimerKey(building, ch);
+  clearOutputHold(key);
   stopPatliteBlink(building, ch);
   const b = getBuilding(building);
   const dout = findDo(b, ch);
   if (!dout) return;
   dout.blinking = true;
   let on = false;
-  const key = patliteTimerKey(building, ch);
   const timer = setInterval(() => {
     on = !on;
     dout.on = on;
   }, TOYOSHIMA_PATLITE_BLINK_MS_V1);
+  unrefHandle(timer);
   runtime.patliteTimers.set(key, timer);
-  setTimeout(() => {
+  armOutputHold(key, durationMs, () => {
     stopPatliteBlink(building, ch);
-  }, durationMs);
+  });
 }
 
 async function sendToyoshimaPush(input: {
@@ -1517,8 +1519,42 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   return pushSent;
 }
 
-/** 外周（DI1）検知時刻。至近がこれより先なら DO3 を出さない */
+/** 外周（DI1）検知時刻。DIRECT の至近単独では DO3 を出さない */
 const toyoshimaFarBeamAtMsV1 = new Map<string, number>();
+
+/** 2STEP 至近の点灯中＋消灯後に、同じ DI2 を無視する */
+export const TOYOSHIMA_NEAR_RETRIGGER_COOLDOWN_MS_V1 = 5_000;
+const nearOutputLockUntilMsV1 = new Map<string, number>();
+
+function reserveToyoshima2StepNearOutputV1(
+  siteId: string,
+  rules: ReturnType<typeof getHomeSecurityRulesV1>
+): "locked" | "armed" | "open" {
+  if (parseHomeSecurityModeV1(rules.securityMode, "2STEP") !== "2STEP") {
+    return "open";
+  }
+  const id = resolveHomeSiteId(siteId);
+  if (Date.now() < (nearOutputLockUntilMsV1.get(id) ?? 0)) {
+    return "locked";
+  }
+  const customerMode = deriveCustomerSecurityModeV1(rules);
+  const beamActive = customerMode === "away" || customerMode === "home";
+  const drive =
+    beamActive && shouldToyoshimaDriveSensorLightsV1(rules);
+  if (!drive) return "open";
+  const lightMs = (rules.lightingDurationSec ?? 45) * 1000;
+  const flashMs =
+    rules.flashEnabled !== false
+      ? (rules.flashDurationSec ?? 15) * 1000
+      : 0;
+  nearOutputLockUntilMsV1.set(
+    id,
+    Date.now() +
+      Math.max(lightMs, flashMs) +
+      TOYOSHIMA_NEAR_RETRIGGER_COOLDOWN_MS_V1
+  );
+  return "armed";
+}
 
 function markToyoshimaFarBeamV1(siteId: string): void {
   toyoshimaFarBeamAtMsV1.set(siteId, Date.now());
@@ -1607,7 +1643,8 @@ function driveTwoStageBlinkMainV1(input: {
 }
 
 /** 母屋：遠近2段階検知 → ライト／フラッシュ連動
- * 至近が外周より先、または単独のときは DO3 を起動しない
+ * 2STEP の至近は DO1+DO2。フラッシュ連動ONなら DO3 も点ける。
+ * DIRECT の至近単独だけ DO3 を出さない。
  * Push は processToyoshimaSecurityEventV1 側で独立発火 */
 async function handleMainBeamDetect(
   siteId: string,
@@ -1679,24 +1716,41 @@ async function handleMainBeamDetect(
     Boolean(beamActive) &&
     !silent &&
     shouldToyoshimaDriveSensorLightsV1(rules);
-  const flashOn = driveRelays && full && flashEnabled && !nearFirst;
-  const d1 = findDo(runtime.main, 1);
-  const d2 = findDo(runtime.main, 2);
+  const flashOn =
+    driveRelays &&
+    full &&
+    flashEnabled &&
+    (securityMode === "2STEP" || !nearFirst);
   const durationMs = (rules.lightingDurationSec ?? 45) * 1000;
+  const flashMs = (rules.flashDurationSec ?? 15) * 1000;
   if (driveRelays) {
-    if (d1) d1.on = true;
-    if (full && d2) d2.on = true;
+    if (!full || isFar) {
+      holdSteadyOutput("main", 1, durationMs);
+    }
+    if (full) {
+      holdSteadyOutput("main", 1, durationMs);
+      holdSteadyOutput("main", 2, durationMs);
+    }
+    if (securityMode === "2STEP" && (isFar || !flashOn)) {
+      if (isFar) releaseToyoshimaOutputV1("main", 2);
+      releaseToyoshimaOutputV1("main", 3);
+    }
+    const lightTitle = !full
+      ? "防犯ライト1 点灯（外周）"
+      : securityMode === "2STEP"
+        ? flashOn
+          ? "防犯ライト1+2 点灯（至近・フラッシュ連動）"
+          : "防犯ライト1+2 点灯（至近・フラッシュなし）"
+        : nearFirst
+          ? "防犯ライト1+2 点灯（至近単独・フラッシュなし）"
+          : "防犯ライト1+2 点灯（至近／即時）";
     appendTimeline({
       at,
       building: "main",
       kind: "manual",
-      title: full
-        ? nearFirst
-          ? "防犯ライト1+2 点灯（至近単独・フラッシュなし）"
-          : "防犯ライト1+2 点灯（至近／即時）"
-        : "防犯ライト1 点灯（外周）",
+      title: lightTitle,
       detail: nearFirst
-        ? `母屋 至近が先 · DO3抑止 · ${securityMode}`
+        ? `母屋 至近が先 · ${securityMode}`
         : `母屋 2STEP · ${securityMode}`,
     });
     queueToyoshimaDeviceCommandV1({
@@ -1705,23 +1759,20 @@ async function handleMainBeamDetect(
       channels: !full ? [1] : flashOn ? [1, 2, 3] : [1, 2],
       durationMs,
     });
-    setTimeout(() => {
-      if (d1) d1.on = false;
-      if (d2) d2.on = false;
-    }, durationMs);
   }
 
   if (flashOn) {
-    startPatliteBlink(
-      "main",
-      3,
-      (rules.flashDurationSec ?? 15) * 1000
-    );
+    if (securityMode === "2STEP") {
+      holdSteadyOutput("main", 3, flashMs);
+    } else {
+      startPatliteBlink("main", 3, flashMs);
+    }
   }
 
-  setTimeout(() => {
+  const diTimer = setTimeout(() => {
     if (diState) diState.state = "normal";
   }, 5000);
+  unrefHandle(diTimer);
 }
 
 /** はなれ：DI1 駐車場 / DI2 ガレージ */
@@ -1846,6 +1897,20 @@ export async function processToyoshimaSecurityEventV1(input: {
   );
 
   const rules = getHomeSecurityRulesV1(siteId);
+  if (building === "main" && di === 2) {
+    const nearGate = reserveToyoshima2StepNearOutputV1(siteId, rules);
+    if (nearGate === "locked") {
+      console.log(
+        `[toyoshima] near cooldown ignore building=main di=2 siteId=${siteId}`
+      );
+      return {
+        ok: true,
+        pushSent: false,
+        message: title,
+        sensorLabel,
+      };
+    }
+  }
   const sensorMode =
     sensorId === "main_beam_far"
       ? rules.notifyMainFarMode || rules.notifyStagedMode || "critical"
@@ -2757,6 +2822,7 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
   runtime.alarmLatch = false;
   lastToyoshimaNotifyAtV1.clear();
   toyoshimaFarBeamAtMsV1.clear();
+  nearOutputLockUntilMsV1.clear();
   lastToyoshimaDiStateV1.main = { "1": "unknown", "2": "unknown" };
   lastToyoshimaDiStateV1.detached = { "1": "unknown", "2": "unknown" };
   for (const timer of toyoshimaNotifyResetTimersV1.values()) {

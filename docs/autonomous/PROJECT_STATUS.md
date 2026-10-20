@@ -1889,6 +1889,7 @@ p2350-relay-v1.ts �E firmware main.py |
 | 端子 | DI1 遠・外周 / DI2 近・アプローチ / DO1 主照明 / DO2 増設投光器 / DO3 100Vフラッシュ（CRサージ保護） |
 | モード | `2STEP` · `DIRECT` · `SILENT` — クラウド同期 `security_mode` |
 | 動作 | DI1: 24h Push「⚠️ 外周で接近検知」· 夜間 DO1 / DI2: 24h Push「🚨 建物至近で侵入検知！」· 夜間 DO1+DO2 + フラッシュ |
+| 再検知 | 2STEP の至近は点灯中と消灯後 5 秒、DI2 が LOW に戻るまで再起動しない（OTA 1.2.16）。DIRECT の至近単独は DO3 なしのまま |
 | 入口 | お客様 `https://tisly.jp/customer` · 社内 `https://tisly.jp/app` |
 | 既存保護 | 2.2 旧表・はなれ端子・板橋自宅・ナレッジ配列は削除せず追記 |
 | SW | `tisly-pwa-v2548-toyoshima-2step-flash` |
