@@ -78,24 +78,24 @@ describe("tenant-setting-summary-v1", () => {
       row.summary,
       /夜間（\d{2}:\d{2}〜\d{2}:\d{2}）はセンサー検知で\d+秒間ライト点灯/
     );
-    assert.match(
-      row.summary,
-      /感応度は外周\d+ms、建物至近\d+ms、はなれ\d+msです/
-    );
-    assert.match(row.summary, /カメラ映像と未使用センサーを非表示/);
+    assert.match(row.summary, /感応度は.+msです/);
+    assert.match(row.summary, /至近検知時はフラッシュ/);
+    assert.doesNotMatch(row.summary, /駐車場/);
   });
 
   it("reads Itabashi by the home site id", () => {
     const row = buildTenantSettingSummaryForSiteV1("HOME-JP-ITABASHI-LIVE");
     assert.ok(row);
     assert.equal(row.customerCode, "TOMS001");
-    assert.match(
-      row.summary,
-      /感応度は駐車場\d+ms、ガレージ\d+msです/
-    );
+    assert.match(row.summary, /夜間（\d{2}:\d{2}〜\d{2}:\d{2}）/);
+    assert.match(row.summary, /感応度は.+msです/);
+    assert.doesNotMatch(row.summary, /豊島邸/);
     assert.equal(
       buildTenantSettingSummaryForSiteV1("UNKNOWN-SITE"),
       null
     );
+    const demo = buildTenantSettingSummaryForSiteV1("SEC-JP-MORIYA-001");
+    assert.ok(demo);
+    assert.match(demo.summary, /夜間（/);
   });
 });

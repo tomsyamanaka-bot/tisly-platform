@@ -81,6 +81,10 @@ export interface TislyOtaVersionPayloadV1 {
   force: boolean;
   channel: TislyOtaChannelV1;
   has_ota_update: boolean;
+  /** 実機が版確認に使うパス（ホストは現場の API 基点） */
+  updateUrl: string;
+  /** 実機がスクリプトを取るパスの基点 */
+  scriptBaseUrl: string;
   runningVersion: string | null;
   lastDeployAt: string | null;
   kitting: TislyKittingPayloadV1;
@@ -282,6 +286,12 @@ function bumpPatchVersion(current: string): string {
   const minor = Number(m[2]);
   const patch = Number(m[3]) + 1;
   return `${major}.${minor}.${patch}`;
+}
+
+function looseSemverV1(value: string | null | undefined): string | null {
+  const match = String(value || "").match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return `${Number(match[1])}.${Number(match[2])}.${Number(match[3])}`;
 }
 
 function compareSemverV1(a: string, b: string): number {
@@ -675,8 +685,6 @@ export function getTislyOtaVersionV1(input: {
   const site = getOrCreateSite(store, input.siteKey);
   const live = readMappedFiles(profile);
   syncLiveBundleVersionV1(store, site, input.siteKey, live);
-  const pending =
-    channel === "staging" ? site.pendingStaging : site.pending;
   const snapFiles =
     channel === "staging"
       ? Object.keys(site.stagingFiles).length
@@ -696,9 +704,40 @@ export function getTislyOtaVersionV1(input: {
     (input.deviceId && site.reported[input.deviceId]
       ? site.reported[input.deviceId].firmwareVersion
       : pickRunningVersion(site));
+  const reportedSemver = looseSemverV1(reported);
+  const offeredSemver = looseSemverV1(version);
+  const deviceBehind =
+    Boolean(offeredSemver) &&
+    Boolean(reportedSemver) &&
+    compareSemverV1(reportedSemver as string, offeredSemver as string) < 0;
+  /* 実機が配信版より古いときだけ配信待ちにする。版番号は増やさない */
+  if (deviceBehind) {
+    if (channel === "staging") {
+      if (!site.pendingStaging) {
+        site.pendingStaging = true;
+        site.lastStagingDeployAt = nowIso();
+        store.sites[input.siteKey] = site;
+        saveStore(store);
+      }
+    } else if (!site.pending) {
+      site.pending = true;
+      if (!site.lastDeployAt) site.lastDeployAt = nowIso();
+      store.sites[input.siteKey] = site;
+      saveStore(store);
+    }
+  }
+  const pendingNow =
+    channel === "staging" ? site.pendingStaging : site.pending;
+  const sameSemver =
+    Boolean(offeredSemver) &&
+    Boolean(reportedSemver) &&
+    compareSemverV1(reportedSemver as string, offeredSemver as string) === 0;
   const hasUpdate =
     Boolean(site.force) ||
-    (pending && (!reported || reported !== version));
+    deviceBehind ||
+    (pendingNow && !sameSemver && (!reported || reported !== version));
+  const updateUrl = `/api/firmware/${input.siteKey}/version?channel=${channel}`;
+  const scriptBaseUrl = `/api/firmware/${input.siteKey}/script?channel=${channel}`;
   return {
     ok: true,
     siteId: input.siteKey,
@@ -710,10 +749,12 @@ export function getTislyOtaVersionV1(input: {
     checksums,
     files: Object.keys(checksums).sort(),
     skipFiles: [...profile.skipFiles],
-    pending,
+    pending: pendingNow,
     force: Boolean(site.force),
     channel,
     has_ota_update: hasUpdate,
+    updateUrl,
+    scriptBaseUrl,
     runningVersion: reported || null,
     lastDeployAt:
       channel === "staging"

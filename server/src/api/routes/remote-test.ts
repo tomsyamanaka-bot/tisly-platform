@@ -497,6 +497,8 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     lastPushResult: status.lastPushResult,
     has_ota_update: ota.has_ota_update,
     firmware_latest: ota.version,
+    updateUrl: ota.updateUrl,
+    scriptBaseUrl: ota.scriptBaseUrl,
     ota,
   });
 }

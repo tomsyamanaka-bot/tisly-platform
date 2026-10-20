@@ -1639,6 +1639,8 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         dashboard,
         has_ota_update: ota.has_ota_update,
         firmware_latest: ota.version,
+        updateUrl: ota.updateUrl,
+        scriptBaseUrl: ota.scriptBaseUrl,
         ota,
         command: commandJson.command,
         channels: commandJson.channels,

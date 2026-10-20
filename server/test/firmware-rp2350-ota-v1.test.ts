@@ -361,6 +361,24 @@ describe("firmware-rp2350-ota-v1", () => {
     );
   });
 
+  it("older reported firmware gets the live bundle URL without a version bump", async () => {
+    resetTislyOtaStoreForTestV1();
+    const prod = await request(app).get(
+      "/api/firmware/toyoshima/version?firmware_version=1.2.17"
+    );
+    assert.equal(prod.status, 200);
+    assert.equal(prod.body.has_ota_update, true);
+    assert.equal(prod.body.force, false);
+    assert.match(String(prod.body.version), new RegExp(`^${productSemver()}`));
+    assert.match(String(prod.body.updateUrl), /\/api\/firmware\/toyoshima\/version/);
+    assert.match(String(prod.body.scriptBaseUrl), /\/api\/firmware\/toyoshima\/script/);
+    const same = await request(app).get(
+      `/api/firmware/toyoshima/version?firmware_version=${productSemver()}`
+    );
+    assert.equal(same.body.has_ota_update, false);
+    assert.equal(same.body.version, prod.body.version);
+  });
+
   it("GET toyoshima version advertises the synced release and stages it", async () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
