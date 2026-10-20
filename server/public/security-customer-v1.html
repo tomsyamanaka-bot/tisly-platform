@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
   <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2564" />
-  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2568" />
+  <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2569" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
   <style id="sf-tenant-skeleton-critical">
     /* テナント確定前は仮間取りを出さない */
@@ -264,6 +264,19 @@
         <p class="sf-card-label">いまの警報</p>
         <ul class="sf-alarm-list" id="sf-alarm-list"><li>発報はありません</li></ul>
       </section>
+      <section class="sf-card sf-push-card" id="sf-customer-push-card">
+        <p class="sf-card-label">プッシュ通知</p>
+        <p class="sf-hint">この端末を、いま開いている物件の通知先として登録します</p>
+        <div class="sf-push-panel">
+          <button type="button" class="sf-push-btn" id="sf-push-reregister">
+            🔔 Push通知を再登録・購読
+          </button>
+          <p class="sf-push-diag" id="sf-push-diag" role="status">
+            permission: — / standalone: — / appleAPNs: —
+          </p>
+        </div>
+        <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
+      </section>
     </section>
 
     <section class="sf-card sf-quick-card">
@@ -312,9 +325,9 @@
 
   <script src="/js/features/security/security-floor-light-v1.js?v=2559"></script>
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2559"></script>
+  <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2568"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2568"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2569"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2569"></script>
 </body>
 </html>

@@ -311,6 +311,19 @@
 | 一括OFF | 点灯・点滅タスクをキャンセルし、DO1〜DO3 を OFF にする |
 | OTA | `FIRMWARE_LOGIC_VERSION=1.2.17` · `OTA_VERSION=1.2.17` |
 
+### 2.2.28 顧客画面から Web Push を購読（2026-10-20 追記）
+
+既存 2.2 / 2.2.1〜2.2.27 は残す。上書きしない。
+
+| 項目 | 値 |
+|------|------|
+| 顧客画面 | `/customer` の Security。豊島邸ダッシュボードと板橋自宅の「お知らせ」に購読・状態・通知テストを出す |
+| 共通処理 | `security-floor-push-v1.js` の Service Worker 登録と `PushManager.subscribe()` |
+| 保存 | `POST /api/notifications/subscribe` に `siteId` / `propertyId` / `customerCode` を載せる |
+| 豊島邸 | `SEC-JP-TOYOSHIMA-001` と `HOME-JP-TOYOSHIMA` は同じ物件。`customerCode` は `TOYOSHIMA001` |
+| 板橋自宅 | `SEC-JP-ITABASHI-LIVE` と `HOME-JP-ITABASHI-LIVE`。`TOMS001` |
+| 配信 | 物件付きの施主購読は、その物件の警報だけ受け取る。社内 `toms-ops` と物件未設定の旧購読は従来どおり届く |
+
 ### 2.2.22 至近単独ではフラッシュ（DO3）を出さない（OTA 1.2.14 / 2026-09-23 追記）
 
 既存 2.2 / 2.2.1〜2.2.21 は残す。上書きしない。2STEP の至近は 2.2.26 でフラッシュ連動に戻した。本節の DO3 抑止は DIRECT の至近単独に残る。
@@ -711,6 +724,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-10-20 | 顧客画面（豊島邸・板橋自宅）に Push 再登録・状態表示・通知テストを追加。購読は表示中の物件 ID に保存し、他物件の施主端末へは送らない |
 | 2026-10-20 | 豊島邸の選択が威嚇点滅 `two_stage_blink` になっていたため、遠近2段階 `2STEP` の常時点灯へ戻す。一括OFFは点滅ループをキャンセルして DO1〜DO3 を消す。OTA 1.2.17 |
 | 2026-10-20 | 豊島邸 2STEP の至近は DO1+DO2、フラッシュ連動ONなら DO3。外周は DO1 のみ。至近の再検知は点灯中と消灯後5秒、および DI2 が LOW に戻るまで無視。OTA 1.2.16。DIRECT / 威嚇点滅 / はなれ / 板橋は非破壊 |
 | 2026-10-20 | 豊島邸の警戒・点灯秒・昼夜・通知・手動ライトを社内画面と顧客画面で同じ API に統一。保存結果を双方の画面へ返す。既存 2STEP / はなれ / 板橋は非破壊 |

@@ -4,6 +4,11 @@
  */
 
 import { showSecurityRemoteToastV1 } from "./security-floor-remote-config-v1.js";
+import { getPropertyScope } from "../../shared/property-scope-v1.js";
+import {
+  getCustomerCode,
+  loadTenantProfile,
+} from "../../customer-tenant-session-v1.js";
 
 function $(id) {
   return document.getElementById(id);
@@ -42,9 +47,50 @@ function describePushEndpoint(endpoint) {
   return { host, apple, tail };
 }
 
+function isCustomerPushScreen() {
+  return (
+    document.body?.classList?.contains("sf-customer") ||
+    String(location.pathname || "").includes("/customer")
+  );
+}
+
+/** いま画面に出している物件。購読と通知テストの共通コンテキスト */
+function readSecurityPushContextV1() {
+  const scope = getPropertyScope();
+  const profile = loadTenantProfile() || {};
+  let customerCode = String(
+    profile.customerCode || getCustomerCode() || ""
+  )
+    .trim()
+    .toUpperCase();
+  if (customerCode === "TOSHIMA001") customerCode = "TOYOSHIMA001";
+  const siteId = String(
+    scope.selectedSiteId ||
+      window.__TISLY_SF_SITE_ID ||
+      profile.securitySiteId ||
+      ""
+  ).trim();
+  const propertyId = String(
+    scope.selectedPropertyId ||
+      window.__TISLY_SELECTED_PROPERTY_ID ||
+      profile.homeSiteId ||
+      ""
+  ).trim();
+  return { customerCode, siteId, propertyId };
+}
+
 function setDiagText(text) {
-  const el = $("sf-push-diag");
-  if (el) el.textContent = text;
+  for (const id of ["sf-push-diag", "ts-push-diag"]) {
+    const el = $(id);
+    if (el) el.textContent = text;
+  }
+}
+
+function diagLine(perm, standalone, apple) {
+  const ctx = readSecurityPushContextV1();
+  const site = ctx.propertyId || ctx.siteId;
+  const sitePart = site ? ` / site: ${site}` : "";
+  return `permission: ${perm} / standalone: ${standalone} / appleAPNs: ${apple}${sitePart}`;
 }
 
 async function refreshSecurityPushDiagV1() {
@@ -55,36 +101,24 @@ async function refreshSecurityPushDiagV1() {
   const standalone = isStandalonePwa() ? "yes" : "no";
 
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    setDiagText(
-      `permission: ${perm} / standalone: ${standalone} / appleAPNs: no`
-    );
+    setDiagText(diagLine(perm, standalone, "no"));
     return;
   }
   try {
     const reg = await navigator.serviceWorker.getRegistration("/");
     if (!reg?.pushManager) {
-      setDiagText(
-        `permission: ${perm} / standalone: ${standalone} / appleAPNs: no`
-      );
+      setDiagText(diagLine(perm, standalone, "no"));
       return;
     }
     const sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      setDiagText(
-        `permission: ${perm} / standalone: ${standalone} / appleAPNs: no`
-      );
+      setDiagText(diagLine(perm, standalone, "no"));
       return;
     }
     const ep = describePushEndpoint(sub.endpoint || "");
-    setDiagText(
-      `permission: ${perm} / standalone: ${standalone} / appleAPNs: ${
-        ep.apple ? "yes" : "no"
-      }`
-    );
+    setDiagText(diagLine(perm, standalone, ep.apple ? "yes" : "no"));
   } catch {
-    setDiagText(
-      `permission: ${perm} / standalone: ${standalone} / appleAPNs: no`
-    );
+    setDiagText(diagLine(perm, standalone, "no"));
   }
 }
 
@@ -128,16 +162,16 @@ async function registerSecurityWebPushV1(opts = {}) {
   if (!json?.endpoint || !json?.keys?.p256dh || !json?.keys?.auth) {
     throw new Error("購読エンドポイント取得失敗（keys/endpoint なし）");
   }
+  const ctx = readSecurityPushContextV1();
   const res = await fetch("/api/notifications/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       userId: "home-security",
-      audience:
-        String(location.pathname || "").includes("/customer") ||
-        document.body?.classList?.contains("sf-customer")
-          ? "customer"
-          : "toms",
+      audience: isCustomerPushScreen() ? "customer" : "toms",
+      siteId: ctx.siteId || undefined,
+      propertyId: ctx.propertyId || undefined,
+      customerCode: ctx.customerCode || undefined,
       subscription: { endpoint: json.endpoint, keys: json.keys },
     }),
   });
@@ -149,7 +183,42 @@ async function registerSecurityWebPushV1(opts = {}) {
     appleAPNs: ep.apple,
     endpointTail: ep.tail,
     standalone: isStandalonePwa(),
+    siteId: ctx.siteId,
+    propertyId: ctx.propertyId,
+    customerCode: ctx.customerCode,
   };
+  return data;
+}
+
+async function sendSecurityPushTestV1() {
+  const ctx = readSecurityPushContextV1();
+  const toyoshima =
+    ctx.customerCode === "TOYOSHIMA001" ||
+    /TOYOSHIMA|TOSHIMA/.test(`${ctx.siteId} ${ctx.propertyId}`);
+  const siteId = toyoshima
+    ? ctx.propertyId || ctx.siteId || "HOME-JP-TOYOSHIMA"
+    : ctx.siteId || "SEC-JP-ITABASHI-LIVE";
+  const url = toyoshima
+    ? "/api/home/v1/toyoshima/test-notify"
+    : "/api/security-floor/v1/test-notify";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      siteId,
+      customerCode: ctx.customerCode || undefined,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `通知テスト失敗 (${res.status})`);
+  }
+  if (data.push && data.push.success === false) {
+    throw new Error(data.push.hint || data.push.error || "Push未送信");
+  }
+  if (data.pushSent === false) {
+    throw new Error("通知テスト（Push未送信）");
+  }
   return data;
 }
 
@@ -179,6 +248,21 @@ function bindSecurityPushUiV1() {
     }
   });
 
+  if (isCustomerPushScreen()) {
+    $("sf-demo-alert")?.addEventListener("click", async () => {
+      const btn = $("sf-demo-alert");
+      if (btn) btn.disabled = true;
+      try {
+        await sendSecurityPushTestV1();
+        showSecurityRemoteToastV1("通知テストを送信しました");
+      } catch (err) {
+        showSecurityRemoteToastV1(err.message || String(err));
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+
   void refreshSecurityPushDiagV1();
 }
 
@@ -187,4 +271,6 @@ bindSecurityPushUiV1();
 export {
   registerSecurityWebPushV1,
   refreshSecurityPushDiagV1,
+  readSecurityPushContextV1,
+  sendSecurityPushTestV1,
 };

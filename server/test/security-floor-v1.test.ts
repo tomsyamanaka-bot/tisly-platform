@@ -670,9 +670,16 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(customerHtml, /工事写真/);
     assert.doesNotMatch(customerHtml, /結線図/);
     assert.doesNotMatch(customerHtml, /security-floor-pro-tools/);
-    assert.doesNotMatch(customerHtml, /sf-push-reregister/);
-    assert.doesNotMatch(customerHtml, /sf-demo-alert/);
-    assert.doesNotMatch(customerHtml, /Push通知を再登録/);
+    assert.match(customerHtml, /sf-customer-push-card/);
+    assert.match(customerHtml, /sf-push-reregister/);
+    assert.match(customerHtml, /sf-push-diag/);
+    assert.match(customerHtml, /sf-demo-alert/);
+    assert.match(customerHtml, /Push通知を再登録・購読/);
+    assert.match(customerHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
+    assert.ok(
+      customerHtml.indexOf('data-pane="alert"') <
+        customerHtml.indexOf('id="sf-customer-push-card"')
+    );
     assert.match(customerHtml, /sf-brand-logo/);
     assert.match(customerHtml, /tisly-shield-logo-128\.png/);
     assert.doesNotMatch(customerHtml, /sf-crystal/);
@@ -1064,6 +1071,19 @@ describe("security-floor-v1", () => {
     assert.match(pushJs, /forceResubscribe/);
     assert.match(pushJs, /\/api\/notifications\/subscribe/);
     assert.match(pushJs, /appleAPNs/);
+    assert.match(pushJs, /siteId/);
+    assert.match(pushJs, /propertyId/);
+    assert.match(pushJs, /customerCode/);
+    assert.match(pushJs, /readSecurityPushContextV1/);
+    const notifyStart = toyoshimaJs.indexOf("function renderCustomerPushManageBlock");
+    const notifyEnd = toyoshimaJs.indexOf("function paintCustomerNotifyList");
+    assert.ok(notifyStart >= 0 && notifyEnd > notifyStart);
+    const customerNotify = toyoshimaJs.slice(notifyStart, notifyEnd);
+    assert.match(customerNotify, /ts-push-reregister/);
+    assert.match(customerNotify, /ts-push-diag/);
+    assert.match(customerNotify, /Push通知を再登録・購読/);
+    assert.match(customerNotify, /通知テスト/);
+    assert.match(toyoshimaJs, /bindToyoshimaPush\(\);\s*refreshToyoshimaPushDiag\(\);/);
 
     const remoteJs = fs.readFileSync(
       path.join(

@@ -986,17 +986,25 @@ function renderCustomerNotifyCards(dash) {
     .join("");
 }
 
+function renderCustomerPushManageBlock() {
+  return `<div class="ts-push-manage" id="ts-push-manage">
+    <h4 class="ts-daily-h">🔔 プッシュ通知</h4>
+    <p class="ts-hint">この端末を、いま開いている物件の通知先として登録します</p>
+    <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
+    <p class="ts-push-diag" id="ts-push-diag" role="status">permission: — / standalone: — / appleAPNs: —</p>
+    <button type="button" class="ts-btn" data-ts-action="test_notify">🔔 通知テスト</button>
+  </div>`;
+}
+
 function renderCustomerNotifySection(dash) {
   return `<section class="ts-card ts-customer-notify-card" id="ts-customer-notify-card">
     <div class="ts-assure-head-row">
       <h3 class="ts-card-head">🔔 豊島邸からのお知らせ</h3>
     </div>
+    ${renderCustomerPushManageBlock()}
     <div class="ts-btn-row ts-notify-toolbar">
       <button type="button" class="ts-btn ts-btn-primary" data-ts-action="refresh_notify">
         通知を最新に更新
-      </button>
-      <button type="button" class="ts-btn" data-ts-action="test_notify">
-        🔔 通知テスト
       </button>
       <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="mark_notify_read">
         未読を既読にする
@@ -2641,9 +2649,9 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   setSecurityHistorySiteIdV1(TOYOSHIMA_SEC_ID);
   bindScheduleDialog();
   bindSettingsSliders();
+  bindToyoshimaPush();
+  refreshToyoshimaPushDiag();
   if (!customer) {
-    bindToyoshimaPush();
-    refreshToyoshimaPushDiag();
     loadMonthlyReportIntoDash(dash).catch(() => {});
     loadCloudStreamForm().catch(() => {});
   } else {
@@ -2836,19 +2844,8 @@ function bindToyoshimaPush() {
 }
 
 async function refreshToyoshimaPushDiag() {
-  const el = $("ts-push-diag");
-  if (!el) return;
-  const perm =
-    typeof Notification !== "undefined"
-      ? Notification.permission
-      : "unsupported";
-  el.textContent = `通知許可: ${perm}`;
   try {
     await refreshSecurityPushDiagV1();
-    const sf = $("sf-push-diag");
-    if (sf?.textContent) {
-      el.textContent = sf.textContent.replace(/^permission:/, "通知許可:");
-    }
   } catch {
     /* ignore */
   }

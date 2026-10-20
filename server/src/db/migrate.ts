@@ -175,6 +175,16 @@ export function runMigrations(database: Database.Database): void {
 
   addColumnsIfMissing(database, "sites", SITE_COLUMNS);
   addColumnsIfMissing(database, "devices", DEVICE_COLUMNS);
+  addColumnsIfMissing(database, "notification_tokens", [
+    { name: "site_id", ddl: "ALTER TABLE notification_tokens ADD COLUMN site_id TEXT" },
+    { name: "property_id", ddl: "ALTER TABLE notification_tokens ADD COLUMN property_id TEXT" },
+    { name: "customer_code", ddl: "ALTER TABLE notification_tokens ADD COLUMN customer_code TEXT" },
+  ]);
+  addColumnsIfMissing(database, "pwa_subscriptions", [
+    { name: "site_id", ddl: "ALTER TABLE pwa_subscriptions ADD COLUMN site_id TEXT" },
+    { name: "property_id", ddl: "ALTER TABLE pwa_subscriptions ADD COLUMN property_id TEXT" },
+    { name: "customer_code", ddl: "ALTER TABLE pwa_subscriptions ADD COLUMN customer_code TEXT" },
+  ]);
   database.exec("CREATE INDEX IF NOT EXISTS idx_sites_customer ON sites(customer_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_devices_customer ON devices(customer_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_devices_site ON devices(site_id)");

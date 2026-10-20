@@ -136,7 +136,8 @@ notificationsRouter.post("/read-all", (_req, res) => {
 });
 
 notificationsRouter.post("/subscribe", (req, res) => {
-  const { subscription, userId, deviceId, audience } = req.body;
+  const { subscription, userId, deviceId, audience, siteId, propertyId, customerCode } =
+    req.body ?? {};
   if (!subscription?.endpoint || !subscription?.keys) {
     res.status(400).json({ error: "Web Push subscription required" });
     return;
@@ -145,8 +146,13 @@ notificationsRouter.post("/subscribe", (req, res) => {
     audience,
     userId ?? "admin-default"
   );
-  const tokenId = savePushSubscription(uid, subscription, deviceId);
-  res.status(201).json({ tokenId, ok: true });
+  const scope = {
+    siteId: siteId ?? null,
+    propertyId: propertyId ?? null,
+    customerCode: customerCode ?? null,
+  };
+  const tokenId = savePushSubscription(uid, subscription, deviceId, scope);
+  res.status(201).json({ tokenId, ok: true, userId: uid, ...scope });
 });
 
 notificationsRouter.get("/vapid-public-key", (_req, res) => {

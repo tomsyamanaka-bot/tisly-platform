@@ -10,6 +10,12 @@ import {
   isCustomerPushUserV1,
   isTomsOpsPushUserV1,
 } from "../../home/home-board-temp-alert-v1.js";
+import {
+  explicitPushSiteIdV1,
+  normalizePushScopeV1,
+  pushRowMatchesPropertyScopeV1,
+  type PushSubscriptionScopeV1,
+} from "../push-property-scope-v1.js";
 
 let vapidConfiguredLogged = false;
 
@@ -119,27 +125,23 @@ function rowMatchesAudienceV1(
 function loadActiveWebPushRows(
   db: ReturnType<typeof getDatabase>,
   userId?: string,
-  audience?: NotificationPayload["audience"]
+  audience?: NotificationPayload["audience"],
+  targetSiteId?: string
 ): Array<{ id: string; endpoint: string; keys_json: string }> {
+  const tokenSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id
+     FROM notification_tokens
+     WHERE channel = 'web_push' AND active = 1`;
   const tokens = (
     userId
-      ? db
-          .prepare(
-            `SELECT id, endpoint, keys_json, user_id FROM notification_tokens
-             WHERE channel = 'web_push' AND active = 1 AND user_id = ?`
-          )
-          .all(userId)
-      : db
-          .prepare(
-            `SELECT id, endpoint, keys_json, user_id FROM notification_tokens
-             WHERE channel = 'web_push' AND active = 1`
-          )
-          .all()
+      ? db.prepare(`${tokenSql} AND user_id = ?`).all(userId)
+      : db.prepare(tokenSql).all()
   ) as Array<{
     id: string;
     endpoint: string;
     keys_json: string;
     user_id?: string;
+    site_id?: string | null;
+    property_id?: string | null;
   }>;
 
   let extras: Array<{
@@ -147,27 +149,24 @@ function loadActiveWebPushRows(
     endpoint: string;
     keys_json: string;
     user_id?: string;
+    site_id?: string | null;
+    property_id?: string | null;
   }> = [];
   try {
+    const extraSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id
+       FROM pwa_subscriptions
+       WHERE active = 1`;
     extras = (
       userId
-        ? db
-            .prepare(
-              `SELECT id, endpoint, keys_json, user_id FROM pwa_subscriptions
-               WHERE active = 1 AND user_id = ?`
-            )
-            .all(userId)
-        : db
-            .prepare(
-              `SELECT id, endpoint, keys_json, user_id FROM pwa_subscriptions
-               WHERE active = 1`
-            )
-            .all()
+        ? db.prepare(`${extraSql} AND user_id = ?`).all(userId)
+        : db.prepare(extraSql).all()
     ) as Array<{
       id: string;
       endpoint: string;
       keys_json: string;
       user_id?: string;
+      site_id?: string | null;
+      property_id?: string | null;
     }>;
   } catch (err) {
     console.warn(
@@ -183,6 +182,7 @@ function loadActiveWebPushRows(
   for (const row of [...tokens, ...extras]) {
     if (!row?.endpoint || byEndpoint.has(row.endpoint)) continue;
     if (!rowMatchesAudienceV1(row.user_id, audience)) continue;
+    if (!pushRowMatchesPropertyScopeV1(row, targetSiteId)) continue;
     byEndpoint.set(row.endpoint, row);
   }
   return [...byEndpoint.values()];
@@ -227,7 +227,13 @@ export async function sendWebPush(
       attempts: [],
     };
   }
-  const tokens = loadActiveWebPushRows(db, userId, payload.audience);
+  const targetSiteId = explicitPushSiteIdV1(payload);
+  const tokens = loadActiveWebPushRows(
+    db,
+    userId,
+    payload.audience,
+    targetSiteId
+  );
 
   if (!tokens.length) {
     console.error(
@@ -432,7 +438,8 @@ function ensurePushUserExists(userId: string): void {
 export function savePushSubscription(
   userId: string,
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
-  deviceId?: string
+  deviceId?: string,
+  scope?: PushSubscriptionScopeV1 | null
 ): string {
   if (!subscription?.endpoint) {
     throw new Error("subscription.endpoint required");
@@ -444,6 +451,7 @@ export function savePushSubscription(
   const db = getDatabase();
   ensurePushUserExists(userId);
   const keysJson = JSON.stringify(subscription.keys);
+  const bound = normalizePushScopeV1(scope);
 
   const existing = db
     .prepare(
@@ -457,36 +465,67 @@ export function savePushSubscription(
     db.prepare(
       `UPDATE notification_tokens
        SET user_id = ?, device_id = COALESCE(?, device_id), token = ?, keys_json = ?,
+           site_id = COALESCE(?, site_id),
+           property_id = COALESCE(?, property_id),
+           customer_code = COALESCE(?, customer_code),
            active = 1, updated_at = datetime('now')
        WHERE id = ?`
-    ).run(userId, deviceId ?? null, subscription.endpoint, keysJson, id);
+    ).run(
+      userId,
+      deviceId ?? null,
+      subscription.endpoint,
+      keysJson,
+      bound.siteId,
+      bound.propertyId,
+      bound.customerCode,
+      id
+    );
   } else {
     id = uuid();
     db.prepare(
-      `INSERT INTO notification_tokens (id, user_id, device_id, channel, token, endpoint, keys_json, active)
-       VALUES (?, ?, ?, 'web_push', ?, ?, ?, 1)`
+      `INSERT INTO notification_tokens (
+         id, user_id, device_id, channel, token, endpoint, keys_json, active,
+         site_id, property_id, customer_code
+       )
+       VALUES (?, ?, ?, 'web_push', ?, ?, ?, 1, ?, ?, ?)`
     ).run(
       id,
       userId,
       deviceId ?? null,
       subscription.endpoint,
       subscription.endpoint,
-      keysJson
+      keysJson,
+      bound.siteId,
+      bound.propertyId,
+      bound.customerCode
     );
   }
 
   db.prepare(
-    `INSERT INTO pwa_subscriptions (id, user_id, endpoint, keys_json, active)
-     VALUES (?, ?, ?, ?, 1)
+    `INSERT INTO pwa_subscriptions (
+       id, user_id, endpoint, keys_json, active, site_id, property_id, customer_code
+     )
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?)
      ON CONFLICT(endpoint) DO UPDATE SET
        user_id = excluded.user_id,
        keys_json = excluded.keys_json,
+       site_id = COALESCE(excluded.site_id, pwa_subscriptions.site_id),
+       property_id = COALESCE(excluded.property_id, pwa_subscriptions.property_id),
+       customer_code = COALESCE(excluded.customer_code, pwa_subscriptions.customer_code),
        active = 1,
        updated_at = datetime('now')`
-  ).run(id, userId, subscription.endpoint, keysJson);
+  ).run(
+    id,
+    userId,
+    subscription.endpoint,
+    keysJson,
+    bound.siteId,
+    bound.propertyId,
+    bound.customerCode
+  );
 
   console.log(
-    `[web-push] subscription saved userId=${userId} id=${id} endpoint=${subscription.endpoint.slice(0, 64)}…`
+    `[web-push] subscription saved userId=${userId} site=${bound.siteId || "-"} property=${bound.propertyId || "-"} customer=${bound.customerCode || "-"} id=${id} endpoint=${subscription.endpoint.slice(0, 64)}…`
   );
   return id;
 }
