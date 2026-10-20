@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
+import request from "supertest";
+import { createApp } from "../src/app.js";
 import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
@@ -63,6 +65,77 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.detached.di.length, 2);
     assert.ok(dash.debounceDi1Ms >= 20);
     assert.ok(Array.isArray(dash.notifySensors));
+  });
+
+  it("admin and customer dashboards read the same Toyoshima rules", () => {
+    const before = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      lightingDurationSec: 77,
+      scheduleStart: "19:30",
+      scheduleEnd: "05:15",
+      patliteThreatEnabled: false,
+      securityMode: "two_stage_blink",
+      flashEnabled: false,
+    });
+    try {
+      const fromSecurityId = buildToyoshimaSecurityDashboardV1(
+        SEC_JP_TOYOSHIMA_SITE_ID_V1
+      );
+      const fromHomeId = buildToyoshimaSecurityDashboardV1(
+        HOME_JP_TOYOSHIMA_SITE_ID_V1
+      );
+      for (const dash of [fromSecurityId, fromHomeId]) {
+        assert.equal(dash.lightingDurationSec, 77);
+        assert.equal(dash.scheduleStart, "19:30");
+        assert.equal(dash.scheduleEnd, "05:15");
+        assert.equal(dash.patliteThreatEnabled, false);
+        assert.equal(dash.securityMode, "two_stage_blink");
+        assert.equal(dash.flashEnabled, false);
+        assert.equal(dash.lightsScheduleLabel, "19:30〜05:15");
+      }
+    } finally {
+      updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+        lightingDurationSec: before.lightingDurationSec,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
+        patliteThreatEnabled: before.patliteThreatEnabled,
+        securityMode: before.securityMode,
+        flashEnabled: before.flashEnabled,
+      });
+    }
+  });
+
+  it("security-rules PUT returns the shared Toyoshima dashboard", async () => {
+    const before = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    const app = createApp();
+    try {
+      const res = await request(app)
+        .put("/api/home/v1/security-rules")
+        .send({
+          siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+          actor: "customer-portal",
+          lightingDurationSec: 66,
+          scheduleStart: "18:10",
+          scheduleEnd: "06:10",
+          securityMode: "two_stage_blink",
+        });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.ok, true);
+      assert.notEqual(res.body.reviewSandbox, true);
+      assert.equal(res.body.dashboard.lightingDurationSec, 66);
+      assert.equal(res.body.dashboard.scheduleStart, "18:10");
+      assert.equal(res.body.dashboard.securityMode, "two_stage_blink");
+      assert.equal(res.body.rules.lightingDurationSec, 66);
+    } finally {
+      updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+        lightingDurationSec: before.lightingDurationSec,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
+        patliteThreatEnabled: before.patliteThreatEnabled,
+        securityMode: before.securityMode,
+        flashEnabled: before.flashEnabled,
+      });
+    }
   });
 
   it("main beam event lights DO1/DO2 when schedule active", async () => {

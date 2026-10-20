@@ -16,12 +16,22 @@ export function customerCodeFromPath() {
   return m ? m[1].toUpperCase() : "";
 }
 
+function isCustomerPortalPath() {
+  if (typeof location === "undefined") return false;
+  const path = location.pathname || "";
+  return path === "/customer" || path.startsWith("/customer/");
+}
+
+/**
+ * お客様画面では施主セッションを優先する。
+ * 同じブラウザに残った社内トークンを先に送ると、
+ * 期限切れの Bearer が実機操作をテストモードへ落とす。
+ */
 export function getCustomerToken() {
-  return (
-    localStorage.getItem(ADMIN_TOKEN_KEY) ||
-    sessionStorage.getItem(SESSION_TOKEN_KEY) ||
-    ""
-  );
+  const admin = localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+  const session = sessionStorage.getItem(SESSION_TOKEN_KEY) || "";
+  if (isCustomerPortalPath() && session) return session;
+  return admin || session;
 }
 
 const LIVE_OWNER_CODES_V1 = new Set([

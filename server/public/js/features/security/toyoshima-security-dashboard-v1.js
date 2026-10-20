@@ -9,10 +9,12 @@ import {
 } from "./security-floor-push-v1.js";
 import {
   applyToyoshimaHardwareStatus,
+  broadcastToyoshimaRulesChanged,
   fetchToyoshimaDashboard,
   fetchToyoshimaStatus,
   formatFirmwareCustomerLabel,
   isHardwareOnline,
+  subscribeToyoshimaRules,
   subscribeToyoshimaStatus,
 } from "./use-toyoshima-status-v1.js";
 import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
@@ -50,7 +52,7 @@ function normalizeSecurityMode(value) {
 }
 
 function syncSettingsState(dash) {
-  if (!dash) return;
+  if (!dash || settingsDirty) return;
   settingsState = {
     lightingDurationSec: dash.lightingDurationSec ?? 45,
     perimeterTimeoutSec: dash.perimeterTimeoutSec ?? 120,
@@ -86,6 +88,9 @@ let scheduleState = {
   scheduleEnd: "06:00",
 };
 let settingsSaveTimer = null;
+/** 編集中はポーリングでサーバー値を書き戻さない */
+let settingsDirty = false;
+let settingsRev = 0;
 let settingsState = {
   lightingDurationSec: 45,
   perimeterTimeoutSec: 120,
@@ -299,7 +304,18 @@ const LIGHT_KICK_TOAST = {
   bulk_lights_off: "照明を一括OFFにしました",
 };
 
-function renderManualLightKickRow() {
+function manualLightStatusText(dash) {
+  const rows = dash?.main?.do || [];
+  const bit = (ch) => {
+    const row = rows.find((d) => d.ch === ch);
+    if (!row) return "—";
+    if (row.blinking) return "点滅";
+    return row.on ? "ON" : "OFF";
+  };
+  return `ライト1 ${bit(1)} · ライト2 ${bit(2)} · フラッシュ ${bit(3)}`;
+}
+
+function renderManualLightKickRow(dash) {
   /* document capture で必ず拾う
    * soft patch で DOM が壊れても再結線不要 */
   return `<div class="ts-btn-row ts-manual-light-kicks">
@@ -313,7 +329,8 @@ function renderManualLightKickRow() {
         data-ts-building="main" data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
       <button type="button" class="ts-btn" data-ts-light-kick="patlite_test"
         data-ts-building="main" data-ts-action="patlite_test">⚡ フラッシュ威嚇テスト</button>
-    </div>`;
+    </div>
+    <p class="ts-hint" data-ts-light-status>${manualLightStatusText(dash)}</p>`;
 }
 
 async function kickToyoshimaManualLight(action, building) {
@@ -336,9 +353,10 @@ async function kickToyoshimaManualLight(action, building) {
   if (data.queued === false) {
     throw new Error("実機キューへ送れませんでした");
   }
-  if (data.dashboard) {
+  if (data.dashboard && !settingsDirty) {
     renderToyoshimaDashboard(data.dashboard, { soft: true });
   }
+  publishToyoshimaRules(action);
   showToast(LIGHT_KICK_TOAST[action] || "ライトを点灯しました");
 }
 
@@ -548,7 +566,7 @@ function setSliderValHtml(id, value, unit) {
 }
 
 function syncScheduleState(dash) {
-  if (!dash) return;
+  if (!dash || settingsDirty) return;
   scheduleState = {
     homeSiteId: dash.homeSiteId || dash.propertyId || TOYOSHIMA_HOME_ID,
     guardMode: dash.guardMode || "scheduled",
@@ -604,7 +622,7 @@ function renderCustomerStatusBanner(dash) {
       </div>
       <div class="ts-safety-metric">
         <span class="ts-safety-metric-key">防犯ライト</span>
-        <strong class="ts-safety-metric-val">${escapeHtml(lightLabel)}自動点灯</strong>
+        <strong class="ts-safety-metric-val" id="ts-customer-light-schedule">${escapeHtml(lightLabel)}自動点灯</strong>
       </div>
     </div>
   </section>
@@ -678,6 +696,50 @@ function applyHardwareStatusFromDash(dash, view = null) {
   });
 }
 
+function renderPatliteSlot(dash, opts = {}) {
+  const always = !!opts.always;
+  const mode = dash?.customerMode || "home";
+  const patliteOn = dash?.patliteThreatEnabled !== false;
+  if (!always && mode !== "away") {
+    if (mode === "home") {
+      return `<div class="ts-switch-row is-locked">
+        <span class="ts-label">パトライト威嚇連動</span>
+        <span class="ts-locked-val">OFF固定（作動しません）</span>
+      </div>`;
+    }
+    return `<p class="ts-hint">警戒解除中はライト・パトライトは停止します</p>`;
+  }
+  return `<label class="ts-switch-row" for="ts-patlite-threat">
+        <span class="ts-label">パトライト威嚇連動</span>
+        <span class="ts-switch">
+          <input type="checkbox" id="ts-patlite-threat" ${patliteOn ? "checked" : ""} />
+          <span class="ts-switch-ui" aria-hidden="true"></span>
+          <span class="ts-switch-text" id="ts-patlite-threat-label">${patliteOn ? "ON" : "OFF"}</span>
+        </span>
+      </label>`;
+}
+
+function renderCustomerNotifyRows(sensors) {
+  return customerAreaNotifySensors(sensors)
+    .map((s) => {
+      const receive = s.mode === "critical";
+      return `<div class="ts-notify-row ts-customer-notify-row">
+        <span class="ts-label">${escapeHtml(s.label)}</span>
+        <div class="ts-notify-btns">
+          <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
+            🔔 通知ON
+          </button>
+          <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
+            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
+            🔕 通知オフ
+          </button>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
 /** 顧客向け · 日常詳細設定（常時表示カード） */
 function renderTwoStepRemoteBlock(dash) {
   const mode = normalizeSecurityMode(
@@ -733,51 +795,14 @@ function renderCustomerDailySettings(dash) {
   const patliteOn = dash.patliteThreatEnabled !== false;
   const start = normalizeTimeHm(dash.scheduleStart, "18:00");
   const end = normalizeTimeHm(dash.scheduleEnd, "06:00");
-  const sensors = customerAreaNotifySensors(dash.notifySensors);
   const lightLabel =
     mode === "away"
       ? "防犯ライト点灯維持時間"
       : mode === "home"
         ? "外構ライト点灯維持時間"
         : "ライト点灯維持時間";
-  const patliteBlock =
-    mode === "away"
-      ? `<label class="ts-switch-row" for="ts-patlite-threat">
-        <span class="ts-label">パトライト威嚇連動</span>
-        <span class="ts-switch">
-          <input type="checkbox" id="ts-patlite-threat" ${patliteOn ? "checked" : ""} />
-          <span class="ts-switch-ui" aria-hidden="true"></span>
-          <span class="ts-switch-text" id="ts-patlite-threat-label">${patliteOn ? "ON" : "OFF"}</span>
-        </span>
-      </label>`
-      : mode === "home"
-        ? `<div class="ts-switch-row is-locked">
-        <span class="ts-label">パトライト威嚇連動</span>
-        <span class="ts-locked-val">OFF固定（作動しません）</span>
-      </div>`
-        : `<p class="ts-hint">警戒解除中はライト・パトライトは停止します</p>`;
-
-  const notifyRows = sensors
-    .map((s) => {
-      return `<div class="ts-notify-row ts-customer-notify-row">
-        <span class="ts-label">${escapeHtml(s.label)}</span>
-        <div class="ts-notify-btns">
-          <button type="button" class="ts-notify-btn ${s.mode === "critical" ? "is-on" : ""}"
-            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
-            🔔 緊急
-          </button>
-          <button type="button" class="ts-notify-btn ${s.mode === "silent" ? "is-on" : ""}"
-            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
-            🔕 通知オフ
-          </button>
-          <button type="button" class="ts-notify-btn ${s.mode === "off" ? "is-on" : ""}"
-            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="off">
-            OFF
-          </button>
-        </div>
-      </div>`;
-    })
-    .join("");
+  const patliteSig = `${mode}:${patliteOn ? 1 : 0}`;
+  const notifyRows = renderCustomerNotifyRows(dash.notifySensors);
 
   const modeDetailsHidden = mode === "disarmed" ? " hidden" : "";
 
@@ -805,7 +830,7 @@ function renderCustomerDailySettings(dash) {
           minCaption: "短め",
           maxCaption: "長め",
         })}
-        ${patliteBlock}
+        <div id="ts-patlite-slot" data-sig="${patliteSig}">${renderPatliteSlot(dash)}</div>
       </section>
 
       ${renderTwoStepRemoteBlock(dash)}
@@ -841,7 +866,7 @@ function renderCustomerDailySettings(dash) {
         <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
         <!-- 一括ON/OFFはキック行の1組だけにする
              外側に重ねるとボタンが二重になる -->
-        ${renderManualLightKickRow()}
+        ${renderManualLightKickRow(dash)}
         <div class="ts-btn-row">
           <button type="button" class="ts-btn ts-btn-primary" data-ts-action="manual_lights_3min">
             💡 照明を点灯（3分間）
@@ -1121,7 +1146,7 @@ function renderCustomerModeCards(dash) {
     { id: "away", emoji: "🛡️", label: "警戒 ON" },
     { id: "disarmed", emoji: "⏸️", label: "警戒 OFF" },
   ];
-  return `<section class="ts-card ts-mode-card" id="ts-mode-card" aria-label="警戒モード">
+  return `<section class="ts-card ts-mode-card" id="ts-mode-card" data-ts-mode="${current}" aria-label="警戒モード">
     <h3 class="ts-card-head">🛡️ 警戒モード</h3>
     <div class="ts-mode-segment ts-mode-segment-2" role="radiogroup" aria-label="警戒モード切替">
       ${modes
@@ -1390,9 +1415,25 @@ function renderDoForceTestCard() {
 function renderSettingsCard(dash) {
   const lightSec = dash.lightingDurationSec ?? 45;
   const periSec = dash.perimeterTimeoutSec ?? 120;
+  const start = normalizeTimeHm(dash.scheduleStart, "18:00");
+  const end = normalizeTimeHm(dash.scheduleEnd, "06:00");
+  const patliteOn = dash.patliteThreatEnabled !== false;
+  const patliteSig = `${dash.customerMode || "home"}:${patliteOn ? 1 : 0}`;
   return `<section class="ts-card ts-settings-card" id="ts-settings-card">
     <h3 class="ts-card-head">⚙️ 詳細設定</h3>
     ${renderTwoStepRemoteBlock(dash)}
+    <div id="ts-patlite-slot" data-sig="${patliteSig}">${renderPatliteSlot(dash, { always: true })}</div>
+    ${renderDayNightRuleCard(dash)}
+    <div class="ts-schedule-inline">
+      <label class="ts-schedule-field" for="ts-daily-schedule-start">
+        <span>開始時刻</span>
+        <input type="time" id="ts-daily-schedule-start" value="${start}" />
+      </label>
+      <label class="ts-schedule-field" for="ts-daily-schedule-end">
+        <span>終了時刻</span>
+        <input type="time" id="ts-daily-schedule-end" value="${end}" />
+      </label>
+    </div>
     ${renderSecondsSliderField({
       id: "ts-lighting-duration",
       label: "💡 DOライト点灯維持時間",
@@ -1463,13 +1504,13 @@ function renderNotifyCard(dash) {
   </section>`;
 }
 
-function renderOpsCard() {
+function renderOpsCard(dash) {
   return `<section class="ts-card ts-ops-card">
     <h3 class="ts-card-head">💡 照明一括操作</h3>
     <p class="ts-hint">手動操作は昼夜スケジュールを無視して即時点灯します</p>
     <!-- 一括ON/OFFはキック行の1組だけにする
          外側の複製行は描画しない -->
-    ${renderManualLightKickRow()}
+    ${renderManualLightKickRow(dash)}
     <h3 class="ts-card-head ts-section-gap">🔔 プッシュ通知管理</h3>
     <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
     <p class="ts-push-diag" id="ts-push-diag" role="status">permission: —</p>
@@ -1797,37 +1838,93 @@ async function saveScheduleFromDialog() {
   const guardMode =
     scheduleState.guardMode === "off" ? "off" : "scheduled";
 
-  const res = await fetch(`${HOME_API}/security-rules`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
-      actor: "customer-portal",
-      guardMode,
-      scheduleStart,
-      scheduleEnd,
-      securityPausedUntil: null,
-    }),
+  const data = await requestHomeJson("PUT", "/security-rules", {
+    siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+    actor: isCustomerPortal() ? "customer-portal" : "app",
+    guardMode,
+    scheduleStart,
+    scheduleEnd,
+    securityPausedUntil: null,
   });
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "保存に失敗しました");
 
   scheduleState.scheduleStart = scheduleStart;
   scheduleState.scheduleEnd = scheduleEnd;
-  await refreshToyoshimaDashboard();
+  settingsState.scheduleStart = scheduleStart;
+  settingsState.scheduleEnd = scheduleEnd;
+  if (!settingsDirty && data.dashboard) {
+    renderToyoshimaDashboard(data.dashboard, { soft: true });
+  } else if (!settingsDirty) {
+    await refreshToyoshimaDashboard({ soft: true, forceHealthSync: true });
+  }
+  publishToyoshimaRules("schedule");
+  try {
+    await syncFirmwareConfigAfterSave();
+  } catch (err) {
+    showToast(err.message || "実機への反映に失敗しました");
+    return;
+  }
   $("ts-schedule-dialog")?.close?.();
   showToast("時間設定を保存しました");
 }
 
+function publishToyoshimaRules(reason) {
+  broadcastToyoshimaRulesChanged(reason || "rules");
+}
+
+/**
+ * 社内・顧客が同じ HOME API を叩く。
+ * テストモードの 200 は成功扱いにしない。
+ */
+async function requestHomeJson(method, path, body) {
+  let res;
+  try {
+    res = await fetch(`${HOME_API}${path}`, {
+      method,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body ?? {}),
+    });
+  } catch {
+    throw new Error("通信できませんでした。電波のよい場所でもう一度お試しください");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.ok === false) {
+    const status = res.status;
+    throw new Error(
+      data?.error ||
+        data?.message ||
+        (status === 401 || status === 403
+          ? "権限がありません。ログインし直してください"
+          : `通信エラー (${status})`)
+    );
+  }
+  if (data?.reviewSandbox || data?.hardwareMock || data?.mocked) {
+    throw new Error(
+      data.message || "テストモードです。実機には送信していません"
+    );
+  }
+  return data;
+}
+
 async function postJson(path, body) {
-  const res = await fetch(`${HOME_API}${path}`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: getTislySessionHeadersV1({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body ?? {}),
-  });
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "操作に失敗しました");
+  return requestHomeJson("POST", path, body);
+}
+
+/** 顧客の汎用ボタンとダッシュボードが同じ入口を使う */
+export async function requestToyoshimaApi(method, path, body) {
+  const data = await requestHomeJson(method, path, body);
+  if (!settingsDirty) {
+    if (data?.dashboard) {
+      renderToyoshimaDashboard(data.dashboard, { soft: true });
+    } else {
+      lastDashSig = "";
+      refreshToyoshimaDashboard({ soft: true, forceHealthSync: true }).catch(
+        () => {}
+      );
+    }
+  }
+  publishToyoshimaRules(path);
   return data;
 }
 
@@ -1883,13 +1980,130 @@ async function saveCloudStreamForm() {
 }
 
 async function postControl(building, action) {
-  await postJson("/toyoshima/control", { building, action });
+  const data = await postJson("/toyoshima/control", {
+    siteId: TOYOSHIMA_HOME_ID,
+    building,
+    action,
+    actor: isCustomerPortal() ? "customer-portal" : "app",
+  });
+  if (data.dashboard && !settingsDirty) {
+    renderToyoshimaDashboard(data.dashboard, { soft: true });
+  }
+  publishToyoshimaRules(action);
+  return data;
+}
+
+function controlBusy(el) {
+  return !!(el && el.matches(":active, :focus"));
+}
+
+function patchToggle(selector, labelId, on) {
+  const input = document.querySelector(selector);
+  if (!input || controlBusy(input)) return;
+  input.checked = !!on;
+  const lab = $(labelId);
+  if (lab) lab.textContent = on ? "ON" : "OFF";
+}
+
+function patchSecurityModeButtons(mode) {
+  const row = $("ts-security-mode");
+  if (!row || row.querySelector(":active, :focus")) return;
+  const normalized = normalizeSecurityMode(mode || "2STEP");
+  row.querySelectorAll("[data-ts-security-mode]").forEach((btn) => {
+    btn.classList.toggle(
+      "is-on",
+      btn.getAttribute("data-ts-security-mode") === normalized
+    );
+  });
+}
+
+/** 社内と顧客で同じ id の設定を、編集中でなければ描き戻す */
+function patchSharedSecurityControls(dash) {
+  patchSecurityModeButtons(dash.securityMode);
+  const patliteSlot = $("ts-patlite-slot");
+  if (patliteSlot && !patliteSlot.querySelector(":active, :focus")) {
+    const mode = dash.customerMode || "home";
+    const on = dash.patliteThreatEnabled !== false;
+    const sig = `${mode}:${on ? 1 : 0}:${isCustomerPortal() ? "c" : "o"}`;
+    if (patliteSlot.getAttribute("data-sig") !== sig) {
+      patliteSlot.innerHTML = renderPatliteSlot(dash, {
+        always: !isCustomerPortal(),
+      });
+      patliteSlot.setAttribute("data-sig", sig);
+    }
+  }
+  patchToggle(
+    "#ts-flash-enabled",
+    "ts-flash-enabled-label",
+    dash.flashEnabled !== false
+  );
+  patchToggle(
+    "#ts-force-relay-test",
+    "ts-force-relay-test-label",
+    dash.forceRelayTest !== false
+  );
+  const start = $("ts-daily-schedule-start");
+  const end = $("ts-daily-schedule-end");
+  if (start && !controlBusy(start)) {
+    start.value = normalizeTimeHm(dash.scheduleStart, "18:00");
+  }
+  if (end && !controlBusy(end)) {
+    end.value = normalizeTimeHm(dash.scheduleEnd, "06:00");
+  }
+  const dialog = $("ts-schedule-dialog");
+  if (!dialog?.open) {
+    const ds = $("ts-schedule-start");
+    const de = $("ts-schedule-end");
+    if (ds && !controlBusy(ds)) {
+      ds.value = normalizeTimeHm(dash.scheduleStart, "18:00");
+    }
+    if (de && !controlBusy(de)) {
+      de.value = normalizeTimeHm(dash.scheduleEnd, "06:00");
+    }
+  }
+  const daynight = $("ts-daynight");
+  if (daynight && !daynight.querySelector(":active, :focus")) {
+    const nextSig = `${dash.customerMode}|${dash.scheduleStart}|${dash.scheduleEnd}|${
+      dash.forceRelayTest !== false ? 1 : 0
+    }`;
+    if (daynight.getAttribute("data-sig") !== nextSig) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = renderDayNightRuleCard(dash);
+      const fresh = tmp.querySelector("#ts-daynight");
+      const freshNote = tmp.querySelector(".ts-dn-note");
+      if (fresh) {
+        fresh.setAttribute("data-sig", nextSig);
+        const note = daynight.nextElementSibling;
+        daynight.replaceWith(fresh);
+        if (freshNote && note && note.classList.contains("ts-dn-note")) {
+          note.replaceWith(freshNote);
+        }
+      }
+    }
+  }
+  document.querySelectorAll("[data-ts-light-status]").forEach((el) => {
+    el.textContent = manualLightStatusText(dash);
+  });
+  const lightMetric = $("ts-customer-light-schedule");
+  if (lightMetric) {
+    lightMetric.textContent = `${dash.lightsScheduleLabel || "18:00〜06:00"}自動点灯`;
+  }
+  const modeCard = $("ts-mode-card");
+  if (modeCard && !modeCard.querySelector(":active, :focus")) {
+    const next = dash.customerMode === "disarmed" ? "disarmed" : "away";
+    if (modeCard.getAttribute("data-ts-mode") !== next) {
+      modeCard.outerHTML = renderCustomerModeCards(dash);
+    }
+  }
 }
 
 function patchToyoshimaDashboard(dash) {
-  syncScheduleState(dash);
-  syncSettingsState(dash);
+  if (!settingsDirty) {
+    syncScheduleState(dash);
+    syncSettingsState(dash);
+  }
   applyHardwareStatusFromDash(dash);
+  if (!settingsDirty) patchSharedSecurityControls(dash);
 
   if (isCustomerPortal()) {
     const view = buildCommHealthView(dash);
@@ -1940,9 +2154,6 @@ function patchToyoshimaDashboard(dash) {
       else if (banner) banner.outerHTML = renderCustomerStatusBanner(dash);
     }
 
-    const modeCard = $("ts-mode-card");
-    if (modeCard) modeCard.outerHTML = renderCustomerModeCards(dash);
-
     /* 詳細設定が欠落したらフル再マウント */
     if (!ensureCustomerDailySettingsMounted(dash)) {
       restoreActiveCustomerPane();
@@ -1964,25 +2175,19 @@ function patchToyoshimaDashboard(dash) {
         setSliderValHtml("ts-flash-duration-val", settingsState.flashDurationSec ?? 15, "秒");
       }
       const notifyRoot = $("ts-customer-notify");
-      if (notifyRoot && dash.notifySensors) {
-        notifyRoot.innerHTML = customerAreaNotifySensors(dash.notifySensors)
-          .map((s) => {
-            const receive = s.mode === "critical";
-            return `<div class="ts-notify-row ts-customer-notify-row">
-        <span class="ts-label">${escapeHtml(s.label)}</span>
-        <div class="ts-notify-btns">
-          <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
-            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
-            🔔 通知ON
-          </button>
-          <button type="button" class="ts-notify-btn ${!receive ? "is-on" : ""}"
-            data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="silent">
-            🔕 通知オフ
-          </button>
-        </div>
-      </div>`;
-          })
-          .join("");
+      if (
+        notifyRoot &&
+        dash.notifySensors &&
+        !settingsDirty &&
+        !notifyRoot.querySelector(":active")
+      ) {
+        const sig = customerAreaNotifySensors(dash.notifySensors)
+          .map((s) => `${s.id}:${s.mode}`)
+          .join(",");
+        if (notifyRoot.getAttribute("data-sig") !== sig) {
+          notifyRoot.innerHTML = renderCustomerNotifyRows(dash.notifySensors);
+          notifyRoot.setAttribute("data-sig", sig);
+        }
       }
     }
 
@@ -2002,7 +2207,9 @@ function patchToyoshimaDashboard(dash) {
   const heroTitle = $("ts-hero-title");
   const heroActions = $("ts-hero-actions");
   if (heroTitle) heroTitle.textContent = dash.displayName || "豊島邸";
-  if (heroActions) heroActions.innerHTML = renderHeroChips(dash);
+  if (heroActions && !settingsDirty && !heroActions.querySelector(":active, :focus")) {
+    heroActions.innerHTML = renderHeroChips(dash);
+  }
 
   const view = buildCommHealthView(dash);
   applyHardwareStatusFromDash(dash, view);
@@ -2057,11 +2264,6 @@ function patchToyoshimaDashboard(dash) {
   if (flashSlider && !flashSlider.matches(":active")) {
     flashSlider.value = String(settingsState.flashDurationSec ?? 15);
     setSliderValHtml("ts-flash-duration-val", settingsState.flashDurationSec ?? 15, "秒");
-  }
-
-  const modeCard = $("ts-mode-card");
-  if (modeCard) {
-    modeCard.outerHTML = renderCustomerModeCards(dash);
   }
 
   const alarmCard = $("ts-alarm-card");
@@ -2157,44 +2359,60 @@ async function syncFirmwareConfigAfterSave() {
   }
 }
 
+function touchSettingsDraft() {
+  settingsDirty = true;
+  settingsRev += 1;
+  return settingsRev;
+}
+
 async function saveSettingsDebounced() {
+  const rev = touchSettingsDraft();
   clearTimeout(settingsSaveTimer);
-  settingsSaveTimer = setTimeout(async () => {
-    try {
-      const payload = {
-        siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
-        actor: "customer-portal",
-        lightingDurationSec: settingsState.lightingDurationSec,
-        di1DurationSec: settingsState.lightingDurationSec,
-        scheduleStart: settingsState.scheduleStart,
-        scheduleEnd: settingsState.scheduleEnd,
-        patliteThreatEnabled: settingsState.patliteThreatEnabled,
-        securityMode: settingsState.securityMode || "2STEP",
-        flashEnabled: settingsState.flashEnabled !== false,
-        flashDurationSec: settingsState.flashDurationSec ?? 15,
-        forceRelayTest: settingsState.forceRelayTest !== false,
-      };
-      if (!isCustomerPortal()) {
-        payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
-        payload.diConfirmMs = settingsState.diConfirmMs ?? 100;
-        payload.debounceDi1Ms = settingsState.debounceDi1Ms ?? 100;
-        payload.debounceDi2Ms = settingsState.debounceDi2Ms ?? 100;
-        payload.debounceBeamMs = settingsState.debounceBeamMs ?? 100;
-      }
-      const res = await fetch(`${HOME_API}/security-rules`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!data?.ok) throw new Error(data?.error || "保存に失敗");
-      /* 実機評価APIへ即時同期 */
-      await syncFirmwareConfigAfterSave();
-      showToast("日常設定を保存しました");
-    } catch (err) {
+  settingsSaveTimer = setTimeout(() => {
+    persistSecuritySettings(rev).catch((err) => {
       showToast(err.message || "設定の保存に失敗");
-    }
-  }, 600);
+    });
+  }, 400);
+}
+
+async function persistSecuritySettings(rev) {
+  const payload = {
+    siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+    actor: isCustomerPortal() ? "customer-portal" : "app",
+    lightingDurationSec: settingsState.lightingDurationSec,
+    di1DurationSec: settingsState.lightingDurationSec,
+    scheduleStart: settingsState.scheduleStart,
+    scheduleEnd: settingsState.scheduleEnd,
+    patliteThreatEnabled: settingsState.patliteThreatEnabled,
+    securityMode: settingsState.securityMode || "2STEP",
+    flashEnabled: settingsState.flashEnabled !== false,
+    flashDurationSec: settingsState.flashDurationSec ?? 15,
+    forceRelayTest: settingsState.forceRelayTest !== false,
+  };
+  if (!isCustomerPortal()) {
+    payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
+    payload.diConfirmMs = settingsState.diConfirmMs ?? 100;
+    payload.debounceDi1Ms = settingsState.debounceDi1Ms ?? 100;
+    payload.debounceDi2Ms = settingsState.debounceDi2Ms ?? 100;
+    payload.debounceBeamMs = settingsState.debounceBeamMs ?? 100;
+  }
+  const data = await requestHomeJson("PUT", "/security-rules", payload);
+  if (rev !== settingsRev) return;
+  settingsDirty = false;
+  if (data.dashboard) {
+    renderToyoshimaDashboard(data.dashboard, { soft: true });
+  } else {
+    lastDashSig = "";
+    await refreshToyoshimaDashboard({ soft: true, forceHealthSync: true });
+  }
+  publishToyoshimaRules("security-rules");
+  try {
+    await syncFirmwareConfigAfterSave();
+  } catch (err) {
+    showToast(err.message || "実機への反映に失敗しました");
+    return;
+  }
+  showToast("日常設定を保存しました");
 }
 
 /**
@@ -2318,18 +2536,15 @@ function bindSettingsSliders() {
 }
 
 async function saveHeartbeatWatch(enabled) {
-  const res = await fetch(`${HOME_API}/toyoshima/config`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
-      heartbeatWatchEnabled: !!enabled,
-      actor: "operator",
-    }),
+  const data = await requestHomeJson("PUT", "/toyoshima/config", {
+    siteId: scheduleState.homeSiteId || TOYOSHIMA_HOME_ID,
+    heartbeatWatchEnabled: !!enabled,
+    actor: "operator",
   });
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "保存に失敗しました");
-  if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+  if (data.dashboard && !settingsDirty) {
+    renderToyoshimaDashboard(data.dashboard, { soft: true });
+  }
+  publishToyoshimaRules("heartbeat-watch");
   showToast(
     data.message ||
       (enabled
@@ -2346,8 +2561,10 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
   const root = $("ts-dashboard-root");
   if (!root) return;
 
-  syncScheduleState(dash);
-  syncSettingsState(dash);
+  if (!settingsDirty) {
+    syncScheduleState(dash);
+    syncSettingsState(dash);
+  }
   const sig = dashSignature(dash);
   if (soft && root.dataset.mounted === "1" && sig === lastDashSig) return;
   lastDashSig = sig;
@@ -2403,14 +2620,14 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         <section class="ts-card" id="ts-map-manual-lights">
           <h3 class="ts-card-head">💡 外構ライト手動操作</h3>
           <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
-          ${renderManualLightKickRow()}
+          ${renderManualLightKickRow(dash)}
         </section>
       </div>
       <div class="ts-tab-pane" data-ts-pane="alert">
         <div id="ts-alarm-root">${renderAlarmCard(dash)}</div>
         <div id="ts-settings-root">${renderSettingsCard(dash)}</div>
         <div id="ts-notify-root">${renderNotifyCard(dash)}</div>
-        ${renderOpsCard()}
+        ${renderOpsCard(dash)}
       </div>
       <div class="ts-tab-pane" data-ts-pane="log">
         ${renderActivitySection(dash)}
@@ -2521,19 +2738,17 @@ async function loadMonthlyReportIntoDash(dash) {
 }
 
 async function setCustomerMode(mode) {
-  const res = await fetch(`${HOME_API}/security/mode`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      siteId: TOYOSHIMA_HOME_ID,
-      mode,
-      actor: "customer-portal",
-    }),
+  await requestToyoshimaApi("POST", "/security/mode", {
+    siteId: TOYOSHIMA_HOME_ID,
+    mode,
+    actor: isCustomerPortal() ? "customer-portal" : "app",
   });
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "モード切替に失敗");
-  await syncFirmwareConfigAfterSave();
-  if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
+  try {
+    await syncFirmwareConfigAfterSave();
+  } catch (err) {
+    showToast(err.message || "実機への反映に失敗しました");
+    return;
+  }
   showToast(mode === "disarmed" ? "警戒 OFF にしました" : "警戒 ON にしました");
 }
 
@@ -2569,20 +2784,18 @@ function openSnapshotLightbox(url, title, timeLabel) {
 }
 
 async function setNotifyMode(sensorId, mode) {
-  const res = await fetch(`${HOME_API}/toyoshima/notify-mode`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      siteId: TOYOSHIMA_HOME_ID,
-      sensorId,
-      mode,
-      actor: "customer-portal",
-    }),
+  await requestToyoshimaApi("PUT", "/toyoshima/notify-mode", {
+    siteId: TOYOSHIMA_HOME_ID,
+    sensorId,
+    mode,
+    actor: isCustomerPortal() ? "customer-portal" : "app",
   });
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "通知設定の保存に失敗");
-  if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
-  await syncFirmwareConfigAfterSave();
+  try {
+    await syncFirmwareConfigAfterSave();
+  } catch (err) {
+    showToast(err.message || "実機への反映に失敗しました");
+    return;
+  }
   showToast(
     mode === "critical"
       ? "🔔 通知ON に変更しました"
@@ -2690,9 +2903,8 @@ function bindToyoshimaControls() {
     const action = input.checked ? onAction : offAction;
     try {
       await postControl(building, action);
-      await refreshToyoshimaDashboard();
     } catch (err) {
-      console.warn("[toyoshima-ui]", err);
+      showToast(err.message || "ライト操作に失敗しました");
     }
   });
 
@@ -2982,11 +3194,11 @@ function bindToyoshimaControls() {
         return;
       }
       if (action === "bulk_lights_on" || action === "bulk_lights_off") {
-        const data = await postJson("/toyoshima/bulk-lights", {
+        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
           siteId: TOYOSHIMA_HOME_ID,
           action: action === "bulk_lights_on" ? "on" : "off",
+          actor: isCustomerPortal() ? "customer-portal" : "app",
         });
-        if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
         showToast(
           action === "bulk_lights_on"
             ? "照明を一括ONにしました"
@@ -2995,23 +3207,21 @@ function bindToyoshimaControls() {
         return;
       }
       if (action === "manual_lights_3min") {
-        const data = await postJson("/toyoshima/bulk-lights", {
+        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
           siteId: TOYOSHIMA_HOME_ID,
           action: "on",
           durationSec: 180,
-          actor: "customer-portal",
+          actor: isCustomerPortal() ? "customer-portal" : "app",
         });
-        if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
         showToast("外構ライトを3分間点灯します");
         return;
       }
       if (action === "manual_lights_off") {
-        const data = await postJson("/toyoshima/bulk-lights", {
+        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
           siteId: TOYOSHIMA_HOME_ID,
           action: "off",
-          actor: "customer-portal",
+          actor: isCustomerPortal() ? "customer-portal" : "app",
         });
-        if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
         showToast("外構ライトを消灯しました");
         return;
       }
@@ -3073,6 +3283,8 @@ function bindToyoshimaControls() {
 export async function loadToyoshimaDashboard(opts = {}) {
   try {
     lastDashSig = "";
+    settingsDirty = false;
+    clearTimeout(settingsSaveTimer);
     const force = opts.forceHealthSync !== false;
     const data = await fetchToyoshimaDashboardJson(force);
     if (data?.ok && data.dashboard) {
@@ -3121,6 +3333,16 @@ export function startToyoshimaPolling() {
         tick();
       }
     );
+  }
+  if (!window.__TISLY_TOYOSHIMA_RULES_UNSUB) {
+    window.__TISLY_TOYOSHIMA_RULES_UNSUB = subscribeToyoshimaRules(() => {
+      if (settingsDirty) return;
+      lastDashSig = "";
+      refreshToyoshimaDashboard({
+        soft: true,
+        forceHealthSync: true,
+      }).catch(() => {});
+    });
   }
   tick();
 }

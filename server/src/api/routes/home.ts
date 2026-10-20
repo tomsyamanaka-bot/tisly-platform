@@ -781,6 +781,7 @@ homeRouter.put("/security-rules", (req, res) => {
     req.body ?? {},
     String(req.body?.actor ?? "app")
   );
+  const toyoshima = isToyoshimaSecuritySiteIdV1(siteId);
   res.json({
     ok: true,
     rules: {
@@ -788,6 +789,9 @@ homeRouter.put("/security-rules", (req, res) => {
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
     },
     notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
+    dashboard: toyoshima
+      ? buildToyoshimaSecurityDashboardV1(siteId)
+      : undefined,
   });
 });
 

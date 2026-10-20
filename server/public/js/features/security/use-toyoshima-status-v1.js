@@ -12,6 +12,9 @@ export const TOYOSHIMA_SEC_ID = "SEC-JP-TOYOSHIMA-001";
 /** タブ間の即時同期チャネル名 */
 export const TOYOSHIMA_STATUS_CHANNEL =
   "tisly-toyoshima-hw-status-v1";
+/** 警戒・点灯秒・通知・手動ライトのタブ間同期 */
+export const TOYOSHIMA_RULES_CHANNEL =
+  "tisly-toyoshima-rules-v1";
 
 /** 直近 5 分以内の HB のみオンライン */
 export const HB_UI_ONLINE_MS = 5 * 60 * 1000;
@@ -200,6 +203,42 @@ export function broadcastToyoshimaStatus(status) {
     ch.close();
   } catch {
     /* 非対応ブラウザはポーリングに任せる */
+  }
+}
+
+export function broadcastToyoshimaRulesChanged(reason) {
+  if (typeof BroadcastChannel !== "function") return;
+  try {
+    const ch = new BroadcastChannel(TOYOSHIMA_RULES_CHANNEL);
+    ch.postMessage({
+      type: "rules-changed",
+      at: Date.now(),
+      reason: reason || "rules",
+    });
+    ch.close();
+  } catch {
+    /* 非対応ブラウザは 1.5 秒ポーリングに任せる */
+  }
+}
+
+export function subscribeToyoshimaRules(onChange) {
+  if (typeof BroadcastChannel !== "function") return () => {};
+  try {
+    const ch = new BroadcastChannel(TOYOSHIMA_RULES_CHANNEL);
+    ch.onmessage = (ev) => {
+      const msg = ev?.data;
+      if (msg?.type !== "rules-changed") return;
+      if (typeof onChange === "function") onChange(msg);
+    };
+    return () => {
+      try {
+        ch.close();
+      } catch {
+        /* close 失敗は無視 */
+      }
+    };
+  } catch {
+    return () => {};
   }
 }
 

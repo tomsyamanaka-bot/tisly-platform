@@ -27,6 +27,7 @@ import {
   hideToyoshimaDashboard,
   isToyoshimaSecuritySite,
   loadToyoshimaDashboard,
+  requestToyoshimaApi,
   setToyoshimaCustomerPane,
   startToyoshimaPolling,
   stopToyoshimaPolling,
@@ -570,6 +571,23 @@ function startAlarmPolling() {
 }
 
 async function setMode(mode) {
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    const mapped =
+      mode === "disarmed" ? "disarmed" : mode === "home" ? "home" : "away";
+    try {
+      await requestToyoshimaApi("POST", "/security/mode", {
+        siteId: "HOME-JP-TOYOSHIMA",
+        mode: mapped,
+        actor: "customer-portal",
+      });
+      flashStatusToast(
+        mapped === "disarmed" ? "警戒 OFF にしました" : "警戒を更新しました"
+      );
+    } catch (err) {
+      flashStatusToast(err.message || "モード切替に失敗しました");
+    }
+    return;
+  }
   try {
     const data = await fetchJson("/api/security-floor/v1/guard-mode", {
       method: "POST",
@@ -595,7 +613,9 @@ function bindCustomerLightSlider() {
     if (val) val.innerHTML = `${sec}<span class="sf-unit">秒</span>`;
     clearTimeout(customerLightSaveTimer);
     customerLightSaveTimer = setTimeout(() => {
-      saveCustomerLightDuration(sec).catch(() => {});
+      saveCustomerLightDuration(sec).catch((err) => {
+        flashStatusToast(err.message || "点灯時間の保存に失敗しました");
+      });
     }, 600);
   });
 }
@@ -609,7 +629,9 @@ function bindCustomerSchedule() {
   const save = () => {
     clearTimeout(customerScheduleSaveTimer);
     customerScheduleSaveTimer = setTimeout(() => {
-      saveCustomerSchedule(start.value, end?.value).catch(() => {});
+      saveCustomerSchedule(start.value, end?.value).catch((err) => {
+        flashStatusToast(err.message || "時間帯の保存に失敗しました");
+      });
     }, 600);
   };
   const paint = () => {
@@ -635,7 +657,6 @@ function bindCustomerSchedule() {
 }
 
 async function loadCustomerLightDuration() {
-  if (isToyoshimaSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
   try {
     const data = await fetchJson(
@@ -670,6 +691,15 @@ async function loadCustomerLightDuration() {
 
 async function saveCustomerLightDuration(sec) {
   const homeSiteId = resolveHomeSiteId(state.siteId);
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    await requestToyoshimaApi("PUT", "/security-rules", {
+      siteId: "HOME-JP-TOYOSHIMA",
+      actor: "customer-portal",
+      lightingDurationSec: sec,
+      di1DurationSec: sec,
+    });
+    return;
+  }
   await fetchJson(`${HOME_API}/security-rules`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -683,8 +713,19 @@ async function saveCustomerLightDuration(sec) {
 }
 
 async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
-  if (isToyoshimaSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
+  const body = {
+    siteId: isToyoshimaSecuritySite(state.siteId)
+      ? "HOME-JP-TOYOSHIMA"
+      : homeSiteId,
+    actor: "customer-portal",
+    scheduleStart: String(scheduleStart || "18:00").slice(0, 5),
+    scheduleEnd: String(scheduleEnd || "06:00").slice(0, 5),
+  };
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    await requestToyoshimaApi("PUT", "/security-rules", body);
+    return;
+  }
   await fetchJson(`${HOME_API}/security-rules`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -701,8 +742,17 @@ function bindCustomerManualLights() {
   if (window.__TISLY_SF_CUST_LIGHTS) return;
   window.__TISLY_SF_CUST_LIGHTS = true;
   $("sf-customer-lights-3min")?.addEventListener("click", async () => {
-    if (isToyoshimaSecuritySite(state.siteId)) return;
     try {
+      if (isToyoshimaSecuritySite(state.siteId)) {
+        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
+          siteId: "HOME-JP-TOYOSHIMA",
+          action: "on",
+          durationSec: 180,
+          actor: "customer-portal",
+        });
+        flashStatusToast("外構ライトを3分間点灯します");
+        return;
+      }
       await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -713,12 +763,20 @@ function bindCustomerManualLights() {
         }),
       });
     } catch (err) {
-      console.warn("[security-customer] lights", err);
+      flashStatusToast(err.message || "点灯に失敗しました");
     }
   });
   $("sf-customer-lights-off")?.addEventListener("click", async () => {
-    if (isToyoshimaSecuritySite(state.siteId)) return;
     try {
+      if (isToyoshimaSecuritySite(state.siteId)) {
+        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
+          siteId: "HOME-JP-TOYOSHIMA",
+          action: "off",
+          actor: "customer-portal",
+        });
+        flashStatusToast("外構ライトを消灯しました");
+        return;
+      }
       await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -728,7 +786,7 @@ function bindCustomerManualLights() {
         }),
       });
     } catch (err) {
-      console.warn("[security-customer] lights off", err);
+      flashStatusToast(err.message || "消灯に失敗しました");
     }
   });
 }
@@ -831,6 +889,10 @@ function bind() {
   $("sf-modes")?.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-mode]");
     if (!btn) return;
+    if (isToyoshimaSecuritySite(state.siteId)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setMode(btn.getAttribute("data-mode")).catch(() => {});
   });
   bindSecurityHistoryModalV1();

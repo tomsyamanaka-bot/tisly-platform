@@ -266,6 +266,20 @@
 | OTA | `FIRMWARE_LOGIC_VERSION=1.2.15` · `OTA_VERSION=1.2.15` |
 | SW | `tisly-pwa-v2567-toyoshima-blink-mode` |
 
+### 2.2.25 社内と顧客の豊島邸操作を同じ API で双方向同期（2026-10-20 追記）
+
+既存 2.2 / 2.2.1〜2.2.24 は残す。上書きしない。端子・2STEP・はなれ・板橋は変えない。
+
+| 項目 | 値 |
+|------|------|
+| 対象 | `/app` の TiSLY Security と `/customer` の豊島邸 |
+| 共通 API | `PUT /api/home/v1/security-rules` · `POST /api/home/v1/security/mode` · `PUT /api/home/v1/toyoshima/notify-mode` · `POST /api/home/v1/toyoshima/control` · `POST /api/home/v1/toyoshima/bulk-lights` |
+| 物件 | `HOME-JP-TOYOSHIMA` / `SEC-JP-TOYOSHIMA-001` / `TOYOSHIMA001` |
+| 同期 | 1.5 秒のダッシュボード再取得と、同一ブラウザの BroadcastChannel `tisly-toyoshima-rules-v1` |
+| 編集中 | 保存完了までポーリングはスライダー・時刻・モードボタンを戻さない |
+| 失敗表示 | 権限不足・通信失敗・テストモード（実機未送信）はトーストで理由を出す |
+| SW | `tisly-pwa-v2568-toyoshima-bidir-sync` |
+
 ### 2.2.22 至近単独ではフラッシュ（DO3）を出さない（OTA 1.2.14 / 2026-09-23 追記）
 
 既存 2.2 / 2.2.1〜2.2.21 は残す。上書きしない。
@@ -666,6 +680,7 @@ USB なしで PoE LAN 経由の MicroPython 遠隔更新を標準化する。
 
 | 日付 | 内容 |
 |------|------|
+| 2026-10-20 | 豊島邸の警戒・点灯秒・昼夜・通知・手動ライトを社内画面と顧客画面で同じ API に統一。保存結果を双方の画面へ返す。既存 2STEP / はなれ / 板橋は非破壊 |
 | 2026-10-19 | 豊島邸 母屋に遠近威嚇点滅 `two_stage_blink` を追加。外周はライト1点滅+ライト2点灯、至近は全点滅、フラッシュは至近かつ連動ONのときだけ。OTA 1.2.15。既存 2STEP / はなれ / 板橋は非破壊 |
 | 2026-10-06 | 板橋自宅の点灯維持をスライダー秒（例: 130 秒）で実機消灯。`light_all_on` の約 5 秒キャンセルと DO2/DO3 の 5 秒パルス上限を外す。威嚇発報も同じ秒数。ファーム 1.6.6。豊島邸フラッシュと既存 3.1〜3.9 は非破壊 |
 | 2026-10-02 | 板橋自宅 DO2/DO3 を防犯ライトとして DI 連動（維持秒数）。点灯窓は NTP の UTC を JST+9 してから日跨ぎ判定。ファーム 1.6.5。CH1 電気錠と既存 3.1〜3.8 は非破壊 |

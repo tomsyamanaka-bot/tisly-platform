@@ -769,6 +769,18 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /two_stage_blink/);
     assert.match(toyoshimaJs, /遠近2段階（威嚇点滅）/);
     assert.match(toyoshimaJs, /外周はライト1点滅\+2点灯、至近は全点滅/);
+    assert.match(toyoshimaJs, /patchSharedSecurityControls/);
+    assert.match(toyoshimaJs, /settingsDirty/);
+    assert.match(toyoshimaJs, /requestToyoshimaApi/);
+    assert.match(toyoshimaJs, /reviewSandbox/);
+    assert.match(toyoshimaJs, /テストモードです。実機には送信していません/);
+    assert.match(toyoshimaJs, /🔔 通知ON/);
+    const authJs = fs.readFileSync(
+      path.join(publicDir, "js/customer-auth.js"),
+      "utf8"
+    );
+    assert.match(authJs, /isCustomerPortalPath/);
+    assert.match(authJs, /session\) return session/);
     assert.match(toyoshimaJs, /ts-mode-segment/);
     assert.match(toyoshimaJs, /ts-safety-card/);
     assert.match(toyoshimaJs, /ts-assure-health-card|システム安心ステータス/);
@@ -955,6 +967,8 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.match(customerJs, /requestToyoshimaApi/);
+    assert.match(customerJs, /HOME-JP-TOYOSHIMA/);
     assert.match(customerJs, /setToyoshimaCustomerPane\(state\.pane/);
     assert.match(customerJs, /__TISLY_SF_TABS_BOUND|bindCustomerPaneTabs/);
     assert.match(customerJs, /__TISLY_SF_SITE_ID/);
