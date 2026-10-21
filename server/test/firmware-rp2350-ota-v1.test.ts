@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { after, before, describe, it } from "node:test";
 import fs from "fs";
 import path from "path";
@@ -189,6 +190,7 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(hb.body.has_ota_update, true);
     assert.equal(hb.body.firmware_latest, latest);
     assert.equal(hb.body.ota.siteId, "toyoshima");
+    assert.equal(hb.body.dashboard, undefined);
     assert.notEqual(hb.body.firmware_latest, "1.0.0");
   });
 
@@ -207,6 +209,8 @@ describe("firmware-rp2350-ota-v1", () => {
     const fw = path.resolve(process.cwd(), "../rp2350/firmware");
     const ota = fs.readFileSync(path.join(fw, "lib/tisly_ota.py"), "utf8");
     assert.match(ota, /main_new\.py|main_backup\.py/);
+    assert.match(ota, /ota_engine=stream/);
+    assert.match(ota, /sock\.recv\(/);
     assert.match(ota, /compile\(/);
     assert.match(ota, /machine\.reset|recover_if_needed/);
     const boot = fs.readFileSync(path.join(fw, "boot.py"), "utf8");
@@ -370,6 +374,27 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(prod.body.has_ota_update, true);
     assert.equal(prod.body.update_required, true);
     assert.equal(prod.body.force, false);
+    assert.deepEqual(prod.body.files, ["boot.py", "lib/tisly_ota.py"]);
+    for (const item of prod.body.downloads) {
+      const script = await request(app).get(item.url);
+      assert.equal(script.status, 200, item.url);
+      const hash = crypto
+        .createHash("sha256")
+        .update(script.text, "utf8")
+        .digest("hex");
+      assert.equal(hash, prod.body.checksums[item.name]);
+    }
+    const rawLib = await request(app).get(
+      "/api/firmware/toyoshima/script?name=lib/tisly_ota.py"
+    );
+    assert.equal(rawLib.status, 200);
+    assert.match(rawLib.text, /ota_engine=stream/);
+    const stream = await request(app).get(
+      "/api/firmware/toyoshima/version?firmware_version=1.2.17&ota_engine=stream"
+    );
+    assert.equal(stream.body.update_required, true);
+    assert.ok(stream.body.files.includes("toyoshima_security.py"));
+    assert.ok(stream.body.files.includes("main.py"));
     assert.match(String(prod.body.version), new RegExp(`^${productSemver()}`));
     assert.match(String(prod.body.updateUrl), /\/api\/firmware\/toyoshima\/version/);
     assert.match(String(prod.body.scriptBaseUrl), /\/api\/firmware\/toyoshima\/script/);

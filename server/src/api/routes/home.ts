@@ -1628,6 +1628,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         String(req.body?.deviceId ?? building)
       );
       const commandJson = serializeToyoshimaDeviceCommandV1(piggyback);
+      /* 実機は応答全体をメモリに載せる。画面用の大きな JSON は付けない */
       res.json({
         ok: true,
         status: "ONLINE",
@@ -1635,14 +1636,24 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         lastHeartbeatAt: lastHb,
         lastHeartbeatLabelJst,
         onlineSummary: dashboard.commHealth?.onlineSummary,
-        ssot: buildToyoshimaStatusSsotV1(),
-        dashboard,
         has_ota_update: ota.has_ota_update,
         update_required: ota.update_required,
         firmware_latest: ota.version,
         updateUrl: ota.updateUrl,
         scriptBaseUrl: ota.scriptBaseUrl,
-        ota,
+        ota: {
+          siteId: ota.siteId,
+          version: ota.version,
+          has_ota_update: ota.has_ota_update,
+          update_required: ota.update_required,
+          force: ota.force,
+          updateUrl: ota.updateUrl,
+          scriptBaseUrl: ota.scriptBaseUrl,
+          files: ota.files,
+          checksums: ota.checksums,
+          skipFiles: ota.skipFiles,
+          downloads: ota.downloads,
+        },
         command: commandJson.command,
         channels: commandJson.channels,
         bypassSchedule: commandJson.bypassSchedule,

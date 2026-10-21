@@ -1079,6 +1079,7 @@ def send_heartbeat():
                         http_get,
                         config=config,
                         kick_wdt=lambda: kick_watchdog(_wdt),
+                        reported_version=FIRMWARE_LOGIC_VERSION,
                     )
             except Exception as ota_exc:
                 log_error("OTA from HB: {}".format(ota_exc))
@@ -1458,6 +1459,7 @@ def _safe_mode_loop(reason):
                         config=config,
                         kick_wdt=lambda: kick_watchdog(_wdt),
                         force=True,
+                        reported_version=FIRMWARE_LOGIC_VERSION,
                     )
                 except Exception as exc:
                     log_error("safe OTA: {}".format(exc))
@@ -1531,6 +1533,7 @@ async def async_main():
                 http_get,
                 config=config,
                 kick_wdt=lambda: kick_watchdog(_wdt),
+                reported_version=FIRMWARE_LOGIC_VERSION,
             )
         except Exception as ota_exc:
             log_error("boot OTA: {}".format(ota_exc))

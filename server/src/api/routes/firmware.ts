@@ -101,6 +101,7 @@ firmwareRouter.get("/:siteId/version", (req, res) => {
       String(
         req.query.firmware_version ?? req.query.version ?? ""
       ).trim() || null,
+    otaEngine: String(req.query.ota_engine ?? "").trim() || null,
   });
   res.json(payload);
 });

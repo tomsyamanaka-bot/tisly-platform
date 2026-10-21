@@ -76,6 +76,7 @@ export interface TislyOtaVersionPayloadV1 {
   checksum: string;
   checksums: Record<string, string>;
   files: string[];
+  downloads: Array<{ name: string; url: string }>;
   skipFiles: string[];
   pending: boolean;
   force: boolean;
@@ -686,6 +687,8 @@ export function getTislyOtaVersionV1(input: {
   channel?: TislyOtaChannelV1;
   deviceId?: string | null;
   reportedVersion?: string | null;
+  /** stream のとき全ファイル。未指定で版が違う豊島邸は小さい起動ファイルだけ */
+  otaEngine?: string | null;
 }): TislyOtaVersionPayloadV1 {
   const profile = getTislyOtaSiteProfileV1(input.siteKey);
   const channel = input.channel === "staging" ? "staging" : "production";
@@ -760,6 +763,34 @@ export function getTislyOtaVersionV1(input: {
     (pendingForOffer && !sameSemver && (!reported || reported !== version));
   const updateUrl = `/api/firmware/${input.siteKey}/version?channel=${channel}`;
   const scriptBaseUrl = `/api/firmware/${input.siteKey}/script?channel=${channel}`;
+  const streamEngine = String(input.otaEngine || "").trim() === "stream";
+  /* いま動いている実機は全ファイルを一度にメモリへ載せる。
+     大きいスクリプトで落ちるので、最初は起動用の小さいファイルだけ渡す */
+  const legacyBootstrap =
+    input.siteKey === "toyoshima" &&
+    !streamEngine &&
+    Boolean(reportedExact) &&
+    reportedExact !== offeredExact;
+  let offerChecksums = checksums;
+  let offerFiles = Object.keys(checksums).sort();
+  if (legacyBootstrap) {
+    offerChecksums = {};
+    offerFiles = [];
+    for (const name of ["boot.py", "lib/tisly_ota.py"]) {
+      const text = snapFiles[name];
+      if (typeof text !== "string" || !text) continue;
+      offerChecksums[name] = sha256Text(text);
+      offerFiles.push(name);
+    }
+    if (offerFiles.length === 0) {
+      offerChecksums = checksums;
+      offerFiles = Object.keys(checksums).sort();
+    }
+  }
+  const downloads = offerFiles.map((name) => ({
+    name,
+    url: `${scriptBaseUrl}&name=${encodeURIComponent(name)}`,
+  }));
   return {
     ok: true,
     siteId: input.siteKey,
@@ -767,9 +798,10 @@ export function getTislyOtaVersionV1(input: {
     homeSiteId: profile.homeSiteId,
     securitySiteId: profile.securitySiteId,
     version,
-    checksum: combinedChecksum(checksums),
-    checksums,
-    files: Object.keys(checksums).sort(),
+    checksum: combinedChecksum(offerChecksums),
+    checksums: offerChecksums,
+    files: offerFiles,
+    downloads,
     skipFiles: [...profile.skipFiles],
     pending: pendingForOffer,
     force: Boolean(site.force),
@@ -794,7 +826,13 @@ export function getTislyOtaScriptV1(input: {
 }): { name: string; body: string; checksum: string } | null {
   const profile = getTislyOtaSiteProfileV1(input.siteKey);
   const channel = input.channel === "staging" ? "staging" : "production";
-  const requested = String(input.name ?? "main.py").trim() || "main.py";
+  let requested = String(input.name ?? "main.py").trim() || "main.py";
+  try {
+    if (requested.includes("%")) requested = decodeURIComponent(requested);
+  } catch {
+    /* 不正な % はそのままファイル名として扱う */
+  }
+  requested = requested.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!(requested in profile.fileMap)) return null;
   const store = loadStore();
   const site = getOrCreateSite(store, input.siteKey);
