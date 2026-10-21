@@ -368,6 +368,7 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(prod.status, 200);
     assert.equal(prod.body.has_ota_update, true);
+    assert.equal(prod.body.update_required, true);
     assert.equal(prod.body.force, false);
     assert.match(String(prod.body.version), new RegExp(`^${productSemver()}`));
     assert.match(String(prod.body.updateUrl), /\/api\/firmware\/toyoshima\/version/);
@@ -376,6 +377,12 @@ describe("firmware-rp2350-ota-v1", () => {
       `/api/firmware/toyoshima/version?firmware_version=${productSemver()}`
     );
     assert.equal(same.body.has_ota_update, false);
+    assert.equal(same.body.update_required, false);
+    const itabashi = await request(app).get(
+      "/api/firmware/itabashi/version?firmware_version=1.6.6"
+    );
+    assert.equal(itabashi.body.siteId, "itabashi");
+    assert.equal(itabashi.body.update_required, false);
     assert.equal(same.body.version, prod.body.version);
   });
 

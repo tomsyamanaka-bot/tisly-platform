@@ -9,6 +9,7 @@ VPS イベント送信を行う。
 日中は通知のみ（ライト・フラッシュ省略）。
 夜間は force_relay_test を無視してライト連動する。
 日中だけ force_relay_test でテスト点灯する。
+母屋 2STEP: 遠は DO1 常時点灯と DO3。近は DO1 と DO2 を 0.5 秒点滅し DO3 は点灯。
 
 付帯: チップ内蔵温度（CORE_TEMP / ADC4） /
 5分 heartbeat / 物理 WDT 8 秒
@@ -21,6 +22,13 @@ try:
     import uasyncio as asyncio
 except ImportError:
     import asyncio
+
+def _coerce_bool(value):
+    """"false" や "0" を OFF とみなす。空文字も OFF。"""
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
 
 # ホスト検証用。実機 uasyncio は sleep_ms を持つ
 if not hasattr(asyncio, "sleep_ms"):
@@ -73,7 +81,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.23"
+FIRMWARE_LOGIC_VERSION = "1.2.24"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -150,7 +158,7 @@ class ToyoshimaBaseController:
         self._output_ms = DEFAULT_OUTPUT_MS
         self._flash_ms = DEFAULT_FLASH_MS
         self._flash_enabled = True
-        self._force_relay_test = True
+        self._force_relay_test = False
         self._security_mode = DEFAULT_SECURITY_MODE
         self._active_tasks = []
         self._manual_task = None
@@ -264,9 +272,9 @@ class ToyoshimaBaseController:
                 pass
         # テスト時は昼間でもリレーを動かす
         if "force_relay_test" in rules:
-            self._force_relay_test = bool(rules.get("force_relay_test"))
+            self._force_relay_test = _coerce_bool(rules.get("force_relay_test"))
         elif "forceRelayTest" in rules:
-            self._force_relay_test = bool(rules.get("forceRelayTest"))
+            self._force_relay_test = _coerce_bool(rules.get("forceRelayTest"))
         return True
 
     def log(self, msg):
@@ -317,6 +325,12 @@ class ToyoshimaBaseController:
         if self._is_in_light_schedule():
             return True
         return bool(getattr(self, "_force_relay_test", False))
+
+    def _daytime_relay_blocked(self):
+        """日中かつテストスイッチOFFなら DO1〜DO3 を出さない。"""
+        if self._is_in_light_schedule():
+            return False
+        return not bool(getattr(self, "_force_relay_test", False))
 
     def on_di_edge(self, di, prev_state, new_state):
         """ハードデバウンス後の立上りで即時リレー。
@@ -445,17 +459,19 @@ class ToyoshimaBaseController:
         """0.5 秒周期トグル点滅。世代が変わったらピンは触らない。"""
         gen = getattr(self, "_seq_gen", None)
         ms = self._hold_ms(duration_ms)
-        end_ms = time.ticks_add(time.ticks_ms(), ms)
+        end_ms = _mono_ms() + ms
         ch_on = False
         try:
             while True:
                 if not self._output_seq_current(gen):
                     return
-                if time.ticks_diff(end_ms, time.ticks_ms()) <= 0:
+                left = _mono_diff(end_ms, _mono_ms())
+                if left <= 0:
                     break
                 ch_on = not ch_on
                 self._set_ch(channel, ch_on)
-                await asyncio.sleep_ms(PATLITE_BLINK_MS)
+                step = PATLITE_BLINK_MS if left > PATLITE_BLINK_MS else left
+                await asyncio.sleep_ms(step)
         except asyncio.CancelledError:
             return
         except Exception as exc:
@@ -1104,6 +1120,8 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             mode == "DIRECT" or di == self.DI_BEAM_NEAR
         )
         light_ok = (not silent) and self._can_run_lights()
+        if self._daytime_relay_blocked():
+            light_ok = False
         flash_on = (
             light_ok
             and full
@@ -1114,6 +1132,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             msg = "⚠️ 外周で接近検知"
         else:
             msg = "🚨 建物至近で侵入検知！"
+        light_ms = int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
         plan = {
             "mode": mode,
             "message": msg,
@@ -1121,14 +1140,21 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             "do2": light_ok and full,
             "do3": flash_on,
             "near_first": near_first,
-            "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
+            "light_ms": light_ms,
             "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
         }
-        # 遠近2段階は常時点灯。点滅は two_stage_blink だけ。
+        # 母屋の遠近2段階。遠は DO1 常時点灯+DO3。近は DO1/DO2 点滅+DO3。
         if mode == "2STEP":
-            plan["do1_pattern"] = "steady" if plan["do1"] else "off"
-            plan["do2_pattern"] = "steady" if plan["do2"] else "off"
-            plan["do3_pattern"] = "steady" if flash_on else "off"
+            is_near = di == self.DI_BEAM_NEAR
+            plan["do1"] = light_ok
+            plan["do2"] = light_ok and is_near
+            plan["do3"] = light_ok
+            plan["do1_pattern"] = (
+                "blink" if is_near else "steady"
+            ) if light_ok else "off"
+            plan["do2_pattern"] = "blink" if plan["do2"] else "off"
+            plan["do3_pattern"] = "steady" if light_ok else "off"
+            plan["flash_ms"] = light_ms
         return plan
 
     def _fire_di(self, di):
@@ -1140,6 +1166,10 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self.note_perimeter_edge(di)
         force = bool(getattr(self, "_force_relay_test", False))
         plan = self.plan_main_response(di)
+        if self._daytime_relay_blocked():
+            self._notify_vps("main", di, plan["message"])
+            self.log("日中 — ライト省略（通知のみ）")
+            return
         drive = self._is_armed_now() or force
         if (
             drive
@@ -1306,6 +1336,87 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         elif plan.get("near_first"):
             self._set_ch(self.DO_FLASH, False)
 
+    async def _run_sensor_output_window(self, plan):
+        """設定ミリ秒だけ点灯・点滅し、終わりに DO1〜DO3 を消す。"""
+        gen = self._begin_output_seq()
+        self._cancel_channel_holds()
+        light_ms = self._hold_ms(plan.get("light_ms"))
+        d1 = self._output_pattern(plan, "do1_pattern", plan.get("do1"), "steady")
+        d2 = self._output_pattern(plan, "do2_pattern", plan.get("do2"), "blink")
+        d3 = self._output_pattern(plan, "do3_pattern", plan.get("do3"), "steady")
+        try:
+            if self._daytime_relay_blocked():
+                self.log("日中 — ライト省略（通知のみ）")
+                return
+            if d1 == "off":
+                self._safe_off(self.DO_LIGHT_1)
+            if d2 == "off":
+                self._safe_off(self.DO_LIGHT_2)
+            if d3 == "off":
+                self._safe_off(self.DO_FLASH)
+            tasks = []
+            if d1 == "steady":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_steady(self.DO_LIGHT_1, light_ms)
+                    )
+                )
+            elif d1 == "blink":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_blink(self.DO_LIGHT_1, light_ms)
+                    )
+                )
+            if d2 == "steady":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_steady(self.DO_LIGHT_2, light_ms)
+                    )
+                )
+            elif d2 == "blink":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_blink(self.DO_LIGHT_2, light_ms)
+                    )
+                )
+            if d3 == "steady":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_steady(self.DO_FLASH, light_ms)
+                    )
+                )
+            elif d3 == "blink":
+                tasks.append(
+                    asyncio.create_task(
+                        self._drive_blink(self.DO_FLASH, light_ms)
+                    )
+                )
+            self._seq_tasks = tasks
+            if not tasks:
+                return
+            try:
+                await asyncio.gather(*tasks)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                self.log("output seq end: {}".format(exc))
+        finally:
+            if self._output_seq_current(gen):
+                pending = list(getattr(self, "_seq_tasks", None) or [])
+                self._seq_tasks = []
+                for task in pending:
+                    cancel = getattr(task, "cancel", None)
+                    if not cancel:
+                        continue
+                    try:
+                        cancel()
+                    except Exception:
+                        pass
+                self._safe_off(self.DO_LIGHT_1)
+                self._safe_off(self.DO_LIGHT_2)
+                self._safe_off(self.DO_FLASH)
+                self._auto_off_pending = False
+
     def _output_pattern(self, plan, key, enabled, when_on):
         pat = plan.get(key)
         if pat in ("steady", "blink", "off"):
@@ -1316,11 +1427,15 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
 
     async def _main_beam_response(self, di):
         """
-        2STEP: DI1=DO1（DO2/DO3はOFF） / DI2=DO1+DO2、連動ONなら DO3
+        2STEP: 遠は DO1 常時点灯+DO3。近は DO1 と DO2 を点滅し DO3 は点灯。
         DIRECT: 至近単独は DO3 なし。外周が先のときだけフラッシュ
         点灯を始める前に、前のシーケンスのタイマーを捨てる。
-        force_relay_test 時は昼夜無視。
+        日中かつテストスイッチOFFならリレーを出さない。
         """
+        if self._daytime_relay_blocked():
+            self._auto_off_pending = False
+            self.log("日中 — ライト省略（通知のみ）")
+            return
         plan = self.plan_main_response(di)
         driving = bool(plan.get("do1") or plan.get("do2") or plan.get("do3"))
         if str(plan.get("mode")) == "2STEP":
@@ -1328,7 +1443,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
                 self._auto_off_pending = False
                 self.log("日中 — ライト省略（通知のみ）")
                 return
-            self._apply_steady_hold(plan)
+            await self._run_sensor_output_window(plan)
             return
         ticket = int(getattr(self, "_auto_off_ticket", 0)) + 1
         self._auto_off_ticket = ticket

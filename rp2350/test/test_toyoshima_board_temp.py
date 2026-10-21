@@ -90,6 +90,56 @@ def test_temperature_formula_from_voltage():
     assert abs(board_temp - target_c) < 0.2
 
 
+def test_daytime_without_test_switch_skips_relays():
+    outputs = {}
+    events = []
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on),
+        lambda building, di, message: events.append(message),
+    )
+    ctrl.apply_rules({
+        "force_relay_test": "false",
+        "security_mode": "2STEP",
+        "flash_enabled": True,
+    })
+    utc_day = 3 * 3600
+    with patch.object(ts.time, "time", return_value=utc_day):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl._fire_di(1)
+            ctrl._fire_di(2)
+    assert outputs.get(1) is not True
+    assert outputs.get(2) is not True
+    assert outputs.get(3) is not True
+    assert events
+
+
+def test_near_blink_turns_all_outputs_off():
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "2STEP",
+        "force_relay_test": True,
+        "light_duration_sec": 5,
+    })
+    ctrl._output_ms = 40
+
+    async def boom(_ms):
+        raise RuntimeError("timer died")
+
+    async def run():
+        await ctrl._main_beam_response(2)
+        await ctrl._main_beam_response(1)
+        with patch.object(ts.asyncio, "sleep_ms", boom):
+            await ctrl._main_beam_response(2)
+
+    asyncio.run(run())
+    assert outputs[1] is False
+    assert outputs[2] is False
+    assert outputs[3] is False
+
+
 def test_main_schedule_lights_vs_patlite():
     """夜間はライト可、日中は通知武装のみ（ライト不可）。"""
     outputs = {}
@@ -120,6 +170,7 @@ def test_force_relay_test_allows_daytime_relays():
         plan = ctrl.plan_main_response(1)
     assert plan["do1"] is True
     assert plan["do2"] is False
+    assert plan["do3"] is True
 
 
 def test_manual_do_bypasses_daytime_schedule():
@@ -153,7 +204,9 @@ def test_force_relay_kicks_gpio_on_daytime_di1():
         plan = ctrl.plan_main_response(1)
         ctrl._kick_relays_now(plan)
     assert plan["do1"] is True
+    assert plan["do3"] is True
     assert outputs[1] is True
+    assert outputs[3] is True
 
 
 def test_detached_event_messages():
@@ -196,7 +249,9 @@ def test_twostep_di1_only_light1_at_night():
         plan = ctrl.plan_main_response(1)
     assert plan["do1"] is True
     assert plan["do2"] is False
-    assert plan["do3"] is False
+    assert plan["do3"] is True
+    assert plan["do1_pattern"] == "steady"
+    assert plan["do3_pattern"] == "steady"
     assert plan["message"] == "⚠️ 外周で接近検知"
     assert plan["light_ms"] == 30_000
 
@@ -214,15 +269,15 @@ def test_twostep_di2_alone_flashes_at_night():
     assert plan["do1"] is True
     assert plan["do2"] is True
     assert plan["do3"] is True
-    assert plan["do1_pattern"] == "steady"
-    assert plan["do2_pattern"] == "steady"
+    assert plan["do1_pattern"] == "blink"
+    assert plan["do2_pattern"] == "blink"
     assert plan["do3_pattern"] == "steady"
     assert plan["near_first"] is True
-    assert plan["flash_ms"] == 15_000
+    assert plan["flash_ms"] == plan["light_ms"]
     assert plan["message"] == "🚨 建物至近で侵入検知！"
 
 
-def test_twostep_di2_skips_flash_when_disabled():
+def test_twostep_di2_keeps_flash_with_blink():
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
     ctrl.apply_rules({
         "securityMode": "2STEP",
@@ -233,7 +288,9 @@ def test_twostep_di2_skips_flash_when_disabled():
         plan = ctrl.plan_main_response(2)
     assert plan["do1"] is True
     assert plan["do2"] is True
-    assert plan["do3"] is False
+    assert plan["do3"] is True
+    assert plan["do1_pattern"] == "blink"
+    assert plan["do2_pattern"] == "blink"
 
 
 def test_direct_near_alone_skips_flash():
@@ -265,7 +322,7 @@ def test_twostep_far_forces_do2_and_do3_off():
         ctrl._apply_steady_hold(plan)
     assert outputs[1] is True
     assert outputs[2] is False
-    assert outputs[3] is False
+    assert outputs[3] is True
 
 
 def test_lighting_duration_sec_and_camel_case():
@@ -345,16 +402,19 @@ def test_far_then_near_keeps_do1_on():
     ctrl._flash_ms = 40
 
     async def run():
-        await ctrl._main_beam_response(1)
+        far = asyncio.create_task(ctrl._main_beam_response(1))
+        await asyncio.sleep(0.02)
         assert outputs[1] is True
         assert outputs.get(2) is not True
-        await ctrl._main_beam_response(2)
+        assert outputs.get(3) is True
+        near = asyncio.create_task(ctrl._main_beam_response(2))
+        await asyncio.sleep(0.02)
         assert outputs[1] is True
         assert outputs[2] is True
         assert outputs[3] is True
-        await asyncio.sleep(0.03)
-        assert outputs[1] is True
         assert dropped == []
+        await far
+        await near
 
     asyncio.run(run())
 
@@ -687,7 +747,7 @@ def test_on_di_edge_di1_kicks_ch1_immediately():
             ctrl.on_di_edge(1, "off", "on")
     assert outputs.get(1) is True
     assert outputs.get(2) is not True
-    assert outputs.get(3) is not True
+    assert outputs.get(3) is True
 
 
 def test_on_di_edge_di2_kicks_lights_and_flash():
@@ -1034,12 +1094,14 @@ if __name__ == "__main__":
     test_heartbeat_measured_temp_overrides_extra()
     test_read_board_temperature_prefers_core_temp()
     test_temperature_formula_from_voltage()
+    test_daytime_without_test_switch_skips_relays()
+    test_near_blink_turns_all_outputs_off()
     test_main_schedule_lights_vs_patlite()
     test_detached_event_messages()
     test_main_event_message()
     test_twostep_di1_only_light1_at_night()
     test_twostep_di2_alone_flashes_at_night()
-    test_twostep_di2_skips_flash_when_disabled()
+    test_twostep_di2_keeps_flash_with_blink()
     test_direct_near_alone_skips_flash()
     test_twostep_far_forces_do2_and_do3_off()
     test_lighting_duration_sec_and_camel_case()

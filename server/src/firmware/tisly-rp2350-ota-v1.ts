@@ -81,6 +81,8 @@ export interface TislyOtaVersionPayloadV1 {
   force: boolean;
   channel: TislyOtaChannelV1;
   has_ota_update: boolean;
+  /** この現場の実機だけが次の心拍で取り込む */
+  update_required: boolean;
   /** 実機が版確認に使うパス（ホストは現場の API 基点） */
   updateUrl: string;
   /** 実機がスクリプトを取るパスの基点 */
@@ -753,6 +755,7 @@ export function getTislyOtaVersionV1(input: {
     force: Boolean(site.force),
     channel,
     has_ota_update: hasUpdate,
+    update_required: hasUpdate,
     updateUrl,
     scriptBaseUrl,
     runningVersion: reported || null,
