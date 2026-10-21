@@ -135,17 +135,20 @@ def save_ota_state(state):
 
 
 def local_version(config=None):
-    state = load_ota_state()
-    ver = str(state.get("version") or "").strip()
-    if ver:
-        return ver
+    embedded = ""
     if config is not None:
-        ver = str(getattr(config, "OTA_VERSION", "") or "").strip()
-        if ver:
-            return ver
-        ver = str(getattr(config, "FIRMWARE_VERSION", "") or "").strip()
-        if ver:
-            return ver
+        embedded = str(getattr(config, "OTA_VERSION", "") or "").strip()
+        if not embedded:
+            embedded = str(getattr(config, "FIRMWARE_VERSION", "") or "").strip()
+    state = load_ota_state()
+    saved = str(state.get("version") or "").strip()
+    # 状態ファイルだけ新しいと、動いているスクリプトが古いまま更新が止まる
+    if embedded and saved and saved != embedded:
+        return embedded
+    if saved:
+        return saved
+    if embedded:
+        return embedded
     return "1.0.0"
 
 
@@ -178,10 +181,12 @@ def has_ota_update_from_body(body):
         return False
     if not isinstance(data, dict):
         return False
-    if data.get("has_ota_update"):
+    if data.get("has_ota_update") or data.get("update_required"):
         return True
     ota = data.get("ota")
-    if isinstance(ota, dict) and ota.get("has_ota_update"):
+    if isinstance(ota, dict) and (
+        ota.get("has_ota_update") or ota.get("update_required")
+    ):
         return True
     return False
 

@@ -378,6 +378,18 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(same.body.has_ota_update, false);
     assert.equal(same.body.update_required, false);
+    const script = await request(app).get(
+      "/api/firmware/toyoshima/script?name=toyoshima_security.py"
+    );
+    assert.match(
+      script.text,
+      new RegExp(`FIRMWARE_LOGIC_VERSION = "${prod.body.version}"`)
+    );
+    const drifted = await request(app).get(
+      `/api/firmware/toyoshima/version?firmware_version=${prod.body.version}-hold`
+    );
+    assert.equal(drifted.body.update_required, true);
+    assert.equal(drifted.body.version, prod.body.version);
     const itabashi = await request(app).get(
       "/api/firmware/itabashi/version?firmware_version=1.6.6"
     );

@@ -1638,6 +1638,7 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         ssot: buildToyoshimaStatusSsotV1(),
         dashboard,
         has_ota_update: ota.has_ota_update,
+        update_required: ota.update_required,
         firmware_latest: ota.version,
         updateUrl: ota.updateUrl,
         scriptBaseUrl: ota.scriptBaseUrl,

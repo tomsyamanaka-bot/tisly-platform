@@ -356,7 +356,13 @@ function syncLiveBundleVersionV1(
   if (!bundle) return;
   const liveChecksum = combinedChecksum(live.checksums);
   let changed = false;
-  if (compareSemverV1(bundle, site.version) > 0) {
+  /* 豊島邸は配信版をファイル内の版へ固定する。ストアだけ先に進むと実機が古い版で止まる */
+  if (siteKey === "toyoshima" && site.version !== bundle) {
+    site.version = bundle;
+    site.pending = true;
+    site.lastDeployAt = nowIso();
+    changed = true;
+  } else if (compareSemverV1(bundle, site.version) > 0) {
     site.version = bundle;
     /* 新版は本番も配信待ちにする（実機が次の HB で取りに来る） */
     site.pending = true;
@@ -728,16 +734,30 @@ export function getTislyOtaVersionV1(input: {
       saveStore(store);
     }
   }
-  const pendingNow =
-    channel === "staging" ? site.pendingStaging : site.pending;
   const sameSemver =
     Boolean(offeredSemver) &&
     Boolean(reportedSemver) &&
     compareSemverV1(reportedSemver as string, offeredSemver as string) === 0;
+  const offeredExact = String(version || "").trim();
+  const reportedExact = String(reported || "").trim();
+  /* 豊島邸は申告文字列が配信版と一致するまで毎回更新を出す。版番号は増やさない */
+  const toyoshimaMismatch =
+    input.siteKey === "toyoshima" &&
+    Boolean(reportedExact) &&
+    reportedExact !== offeredExact;
+  if (toyoshimaMismatch && channel !== "staging" && !site.pending) {
+    site.pending = true;
+    if (!site.lastDeployAt) site.lastDeployAt = nowIso();
+    store.sites[input.siteKey] = site;
+    saveStore(store);
+  }
+  const pendingForOffer =
+    channel === "staging" ? site.pendingStaging : site.pending;
   const hasUpdate =
     Boolean(site.force) ||
+    toyoshimaMismatch ||
     deviceBehind ||
-    (pendingNow && !sameSemver && (!reported || reported !== version));
+    (pendingForOffer && !sameSemver && (!reported || reported !== version));
   const updateUrl = `/api/firmware/${input.siteKey}/version?channel=${channel}`;
   const scriptBaseUrl = `/api/firmware/${input.siteKey}/script?channel=${channel}`;
   return {
@@ -751,7 +771,7 @@ export function getTislyOtaVersionV1(input: {
     checksums,
     files: Object.keys(checksums).sort(),
     skipFiles: [...profile.skipFiles],
-    pending: pendingNow,
+    pending: pendingForOffer,
     force: Boolean(site.force),
     channel,
     has_ota_update: hasUpdate,
