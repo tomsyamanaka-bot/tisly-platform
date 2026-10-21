@@ -319,6 +319,8 @@ export function listCustomerNotificationsForHomeV1(customerCode: string) {
   const merged = [...stored, ...synthetic];
   const seen = new Set<string>();
   return merged.filter((n) => {
+    if (n.kind === "invoice_issued" || n.kind === "estimate_updated") return false;
+    if (n.title === "請求書が届きました" || n.title === "見積書が届きました") return false;
     const key = `${n.kind}:${n.title}`;
     if (seen.has(key)) return false;
     seen.add(key);

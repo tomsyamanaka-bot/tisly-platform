@@ -52,8 +52,8 @@ const NOTIFY_PROFILES_V1 = {
     { id: "di2_alone", field: "notifyDi2Mode", title: "ガレージセンサー (DI2)" },
   ],
   toyoshima: [
-    { id: "main_beam_far", field: "notifyMainFarMode", title: "外周ビーム（母屋・遠）" },
-    { id: "main_beam_near", field: "notifyMainNearMode", title: "建物至近ビーム（母屋・近）" },
+    { id: "main_beam_far", field: "notifyMainFarMode", title: "遠センサー" },
+    { id: "main_beam_near", field: "notifyMainNearMode", title: "近センサー" },
     { id: "detached_road", field: "notifyDi1Mode", title: "道路側センサー（はなれ）" },
     { id: "detached_path", field: "notifyDi2Mode", title: "通路側センサー（はなれ）" },
   ],

@@ -3,10 +3,7 @@
  * 白ベース × ネイビー · スマホ視認性優先
  */
 
-import {
-  registerSecurityWebPushV1,
-  refreshSecurityPushDiagV1,
-} from "./security-floor-push-v1.js";
+import { refreshSecurityPushDiagV1 } from "./security-floor-push-v1.js";
 import {
   applyToyoshimaHardwareStatus,
   broadcastToyoshimaRulesChanged,
@@ -68,6 +65,9 @@ function syncSettingsState(dash) {
     debounceDi1Ms: dash.debounceDi1Ms ?? dash.diConfirmMs ?? 100,
     debounceDi2Ms: dash.debounceDi2Ms ?? dash.diConfirmMs ?? 100,
     debounceBeamMs: dash.debounceBeamMs ?? dash.diConfirmMs ?? 100,
+    notifyById: Object.fromEntries(
+      (dash.notifySensors || []).map((sensor) => [sensor.id, sensor.mode])
+    ),
   };
 }
 
@@ -106,28 +106,43 @@ let settingsState = {
   debounceDi1Ms: 100,
   debounceDi2Ms: 100,
   debounceBeamMs: 100,
+  notifyById: {},
 };
+
+const NOTIFY_RULE_FIELDS = {
+  main_beam_far: "notifyMainFarMode",
+  main_beam_near: "notifyMainNearMode",
+  detached_road: "notifyDi1Mode",
+  detached_path: "notifyDi2Mode",
+  main_beam: "notifyStagedMode",
+};
+
+function areaNotifyLabel(sensor) {
+  if (sensor?.id === "main_beam_far") return "遠センサー";
+  if (sensor?.id === "main_beam_near") return "近センサー";
+  return sensor?.label || "";
+}
 
 const SECURITY_MODE_OPTIONS = [
   {
     id: "2STEP",
     label: "遠近2段階",
-    desc: "外周はライト1、至近は全点灯",
+    desc: "遠はライト1、近はライト1・2とフラッシュ",
   },
   {
     id: "two_stage_blink",
     label: "遠近2段階（威嚇点滅）",
-    desc: "外周はライト1点滅+2点灯、至近は全点滅",
+    desc: "遠はライト1点滅、近はライト1・2とフラッシュが点滅",
   },
   {
     id: "DIRECT",
     label: "すぐ全点灯",
-    desc: "遠近ともライト1+2とフラッシュ",
+    desc: "遠近ともライト1・2とフラッシュ",
   },
   {
     id: "SILENT",
     label: "通知のみ",
-    desc: "ライトとフラッシュは動かさない",
+    desc: "昼夜ともライトとフラッシュは動かさない",
   },
 ];
 
@@ -724,7 +739,7 @@ function renderCustomerNotifyRows(sensors) {
     .map((s) => {
       const receive = s.mode === "critical";
       return `<div class="ts-notify-row ts-customer-notify-row">
-        <span class="ts-label">${escapeHtml(s.label)}</span>
+        <span class="ts-label">${escapeHtml(areaNotifyLabel(s))}</span>
         <div class="ts-notify-btns">
           <button type="button" class="ts-notify-btn ${receive ? "is-on" : ""}"
             data-ts-notify-sensor="${escapeHtml(s.id)}" data-ts-notify-mode="critical">
@@ -862,22 +877,15 @@ function renderCustomerDailySettings(dash) {
       </section>
 
       <section class="ts-daily-block">
-        <h4 class="ts-daily-h">④ 外構ライト手動操作</h4>
-        <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>
-        <!-- 一括ON/OFFはキック行の1組だけにする
-             外側に重ねるとボタンが二重になる -->
+        <h4 class="ts-daily-h">④ 防犯ライト手動動作</h4>
+        <p class="ts-hint">手動操作は確定を待たず、押した瞬間に実機へ届きます</p>
         ${renderManualLightKickRow(dash)}
-        <div class="ts-btn-row">
-          <button type="button" class="ts-btn ts-btn-primary" data-ts-action="manual_lights_3min">
-            💡 照明を点灯（3分間）
-          </button>
-          <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="manual_lights_off">
-            消灯
-          </button>
-        </div>
       </section>
 
-      <p class="ts-hint">変更は自動保存され、実機へ即時反映されます</p>
+      <p class="ts-hint" id="ts-settings-pending">変更は「設定変更を確定する（保存）」を押すまで反映されません</p>
+      <button type="button" class="ts-btn ts-btn-primary ts-btn-wide" data-ts-action="commit_settings">
+        設定変更を確定する（保存）
+      </button>
     </div>
   </section>`;
 }
@@ -986,22 +994,11 @@ function renderCustomerNotifyCards(dash) {
     .join("");
 }
 
-function renderCustomerPushManageBlock() {
-  return `<div class="ts-push-manage" id="ts-push-manage">
-    <h4 class="ts-daily-h">🔔 プッシュ通知</h4>
-    <p class="ts-hint">この端末を、いま開いている物件の通知先として登録します</p>
-    <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
-    <p class="ts-push-diag" id="ts-push-diag" role="status">permission: — / standalone: — / appleAPNs: —</p>
-    <button type="button" class="ts-btn" data-ts-action="test_notify">🔔 通知テスト</button>
-  </div>`;
-}
-
 function renderCustomerNotifySection(dash) {
   return `<section class="ts-card ts-customer-notify-card" id="ts-customer-notify-card">
     <div class="ts-assure-head-row">
       <h3 class="ts-card-head">🔔 豊島邸からのお知らせ</h3>
     </div>
-    ${renderCustomerPushManageBlock()}
     <div class="ts-btn-row ts-notify-toolbar">
       <button type="button" class="ts-btn ts-btn-primary" data-ts-action="refresh_notify">
         通知を最新に更新
@@ -1477,7 +1474,10 @@ function renderSettingsCard(dash) {
       label: "はなれセンサー 感応度",
       value: dash.debounceBeamMs ?? dash.diConfirmMs ?? 100,
     })}
-    <p class="ts-hint">スライダー変更は自動保存され、実機へ即時反映されます</p>
+    <p class="ts-hint" id="ts-settings-pending">変更は「設定変更を確定する（保存）」を押すまで反映されません</p>
+    <button type="button" class="ts-btn ts-btn-primary ts-btn-wide" data-ts-action="commit_settings">
+      設定変更を確定する（保存）
+    </button>
   </section>`;
 }
 
@@ -1498,7 +1498,7 @@ function renderNotifySensorRow(sensor) {
       </button>`
   ).join("");
   return `<div class="ts-notify-row">
-    <span class="ts-label">${escapeHtml(sensor.label)}</span>
+    <span class="ts-label">${escapeHtml(areaNotifyLabel(sensor))}</span>
     <div class="ts-notify-btns">${buttons}</div>
   </div>`;
 }
@@ -1519,9 +1519,6 @@ function renderOpsCard(dash) {
     <!-- 一括ON/OFFはキック行の1組だけにする
          外側の複製行は描画しない -->
     ${renderManualLightKickRow(dash)}
-    <h3 class="ts-card-head ts-section-gap">🔔 プッシュ通知管理</h3>
-    <button type="button" class="ts-btn ts-btn-wide" id="ts-push-reregister">🔔 Push通知を再登録・購読</button>
-    <p class="ts-push-diag" id="ts-push-diag" role="status">permission: —</p>
     <div class="ts-btn-row">
       <button type="button" class="ts-btn" data-ts-action="test_notify">🔔 通知テスト</button>
       <button type="button" class="ts-btn ts-btn-ghost" data-ts-action="export_report">📄 レポート出力</button>
@@ -2373,14 +2370,14 @@ function touchSettingsDraft() {
   return settingsRev;
 }
 
-async function saveSettingsDebounced() {
-  const rev = touchSettingsDraft();
+function saveSettingsDebounced() {
   clearTimeout(settingsSaveTimer);
-  settingsSaveTimer = setTimeout(() => {
-    persistSecuritySettings(rev).catch((err) => {
-      showToast(err.message || "設定の保存に失敗");
-    });
-  }, 400);
+  settingsSaveTimer = null;
+  touchSettingsDraft();
+  const hint = $("ts-settings-pending");
+  if (hint) {
+    hint.textContent = "未保存の変更があります。確定すると保存され、実機へ反映されます";
+  }
 }
 
 async function persistSecuritySettings(rev) {
@@ -2397,6 +2394,13 @@ async function persistSecuritySettings(rev) {
     flashDurationSec: settingsState.flashDurationSec ?? 15,
     forceRelayTest: settingsState.forceRelayTest !== false,
   };
+  const notifyById = settingsState.notifyById || {};
+  for (const [sensorId, field] of Object.entries(NOTIFY_RULE_FIELDS)) {
+    const mode = notifyById[sensorId];
+    if (mode === "critical" || mode === "silent" || mode === "off") {
+      payload[field] = mode;
+    }
+  }
   if (!isCustomerPortal()) {
     payload.perimeterTimeoutSec = settingsState.perimeterTimeoutSec;
     payload.diConfirmMs = settingsState.diConfirmMs ?? 100;
@@ -2420,7 +2424,11 @@ async function persistSecuritySettings(rev) {
     showToast(err.message || "実機への反映に失敗しました");
     return;
   }
-  showToast("日常設定を保存しました");
+  const hint = $("ts-settings-pending");
+  if (hint) {
+    hint.textContent = "変更は「設定変更を確定する（保存）」を押すまで反映されません";
+  }
+  showToast("設定変更を保存しました");
 }
 
 /**
@@ -2825,22 +2833,6 @@ function bindCustomerCamera() {
 function bindToyoshimaPush() {
   if (window.__TISLY_TS_PUSH_BOUND) return;
   window.__TISLY_TS_PUSH_BOUND = true;
-
-  document.addEventListener("click", async (e) => {
-    if (e.target.closest("#ts-push-reregister")) {
-      const btn = $("ts-push-reregister");
-      if (btn) btn.disabled = true;
-      try {
-        await registerSecurityWebPushV1({ forceResubscribe: true });
-        showToast("Push通知を再登録しました");
-        await refreshToyoshimaPushDiag();
-      } catch (err) {
-        showToast(err.message || String(err));
-      } finally {
-        if (btn) btn.disabled = false;
-      }
-    }
-  });
 }
 
 async function refreshToyoshimaPushDiag() {
@@ -2980,11 +2972,17 @@ function bindToyoshimaControls() {
       e.preventDefault();
       const sensorId = notifyBtn.getAttribute("data-ts-notify-sensor");
       const mode = notifyBtn.getAttribute("data-ts-notify-mode");
-      try {
-        await setNotifyMode(sensorId, mode);
-      } catch (err) {
-        showToast(err.message || "通知設定に失敗");
-      }
+      if (!settingsState.notifyById) settingsState.notifyById = {};
+      settingsState.notifyById[sensorId] = mode;
+      const row = notifyBtn.closest(".ts-notify-row");
+      row?.querySelectorAll("[data-ts-notify-sensor]").forEach((btn) => {
+        const same = btn.getAttribute("data-ts-notify-sensor") === sensorId;
+        btn.classList.toggle(
+          "is-on",
+          same && btn.getAttribute("data-ts-notify-mode") === mode
+        );
+      });
+      saveSettingsDebounced();
       return;
     }
 
@@ -3050,6 +3048,15 @@ function bindToyoshimaControls() {
           "_blank",
           "noopener"
         );
+        return;
+      }
+      if (action === "commit_settings") {
+        actionBtn.disabled = true;
+        try {
+          await persistSecuritySettings(settingsRev);
+        } finally {
+          actionBtn.disabled = false;
+        }
         return;
       }
       if (action === "sync_config") {
@@ -3201,25 +3208,6 @@ function bindToyoshimaControls() {
             ? "照明を一括ONにしました"
             : "照明を一括OFFにしました"
         );
-        return;
-      }
-      if (action === "manual_lights_3min") {
-        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
-          siteId: TOYOSHIMA_HOME_ID,
-          action: "on",
-          durationSec: 180,
-          actor: isCustomerPortal() ? "customer-portal" : "app",
-        });
-        showToast("外構ライトを3分間点灯します");
-        return;
-      }
-      if (action === "manual_lights_off") {
-        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
-          siteId: TOYOSHIMA_HOME_ID,
-          action: "off",
-          actor: isCustomerPortal() ? "customer-portal" : "app",
-        });
-        showToast("外構ライトを消灯しました");
         return;
       }
       if (action === "alarm_clear") {

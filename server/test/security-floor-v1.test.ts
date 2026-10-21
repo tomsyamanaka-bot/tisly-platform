@@ -417,8 +417,8 @@ describe("security-floor-v1", () => {
     assert.match(socTs, /TISLY_HEARTBEAT_OFFLINE_MS_V1/);
     assert.doesNotMatch(html, /sf-live-feed|sf-cam-thumbs|sf-cam-expand|ライブカメラ/);
     assert.doesNotMatch(html, /勝手口カメラ 01/);
-    assert.match(html, /sf-push-reregister/);
-    assert.match(html, /Push通知を再登録・購読/);
+    assert.doesNotMatch(html, /sf-push-reregister/);
+    assert.doesNotMatch(html, /Push通知を再登録・購読/);
     assert.doesNotMatch(html, /sf-iso3d-stack/);
     assert.doesNotMatch(html, /sf-iso3d-toolbar/);
     assert.doesNotMatch(html, /sf-iso3d-floor-switch/);
@@ -645,7 +645,10 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /夜間（ライト点灯＋通知）/);
     assert.match(customerHtml, /id="sf-floor-tabs"/);
     assert.match(customerHtml, /sf-tab--iconed/);
-    assert.match(customerHtml, /照明を点灯（3分間）/);
+    assert.match(customerHtml, /防犯ライト手動動作/);
+    assert.match(customerHtml, /ライト1点灯/);
+    assert.match(customerHtml, /設定変更を確定する（保存）/);
+    assert.doesNotMatch(customerHtml, /照明を点灯（3分間）/);
     assert.match(customerHtml, /toyoshima-security-dashboard-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-time-range-v1\.js\?v=\d+/);
     assert.match(customerHtml, /security-floor-customer-v1\.js\?v=\d+/);
@@ -670,16 +673,10 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(customerHtml, /工事写真/);
     assert.doesNotMatch(customerHtml, /結線図/);
     assert.doesNotMatch(customerHtml, /security-floor-pro-tools/);
-    assert.match(customerHtml, /sf-customer-push-card/);
-    assert.match(customerHtml, /sf-push-reregister/);
-    assert.match(customerHtml, /sf-push-diag/);
+    assert.doesNotMatch(customerHtml, /sf-customer-push-card/);
+    assert.doesNotMatch(customerHtml, /sf-push-reregister/);
+    assert.doesNotMatch(customerHtml, /Push通知を再登録・購読/);
     assert.match(customerHtml, /sf-demo-alert/);
-    assert.match(customerHtml, /Push通知を再登録・購読/);
-    assert.match(customerHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
-    assert.ok(
-      customerHtml.indexOf('data-pane="alert"') <
-        customerHtml.indexOf('id="sf-customer-push-card"')
-    );
     assert.match(customerHtml, /sf-brand-logo/);
     assert.match(customerHtml, /tisly-shield-logo-128\.png/);
     assert.doesNotMatch(customerHtml, /sf-crystal/);
@@ -743,11 +740,10 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /出荷準備完了（正常）|shippable/);
     assert.doesNotMatch(customerHtml, /sf-pro-kitting-panel/);
     assert.doesNotMatch(opHtml, /板橋自宅 \(HOME-JP-ITABASHI-LIVE\)/);
-    assert.match(opHtml, /sf-push-reregister/);
-    assert.match(opHtml, /sf-push-diag/);
-    assert.match(opHtml, /Push通知を再登録・購読/);
+    assert.doesNotMatch(opHtml, /sf-push-reregister/);
+    assert.doesNotMatch(opHtml, /Push通知を再登録・購読/);
     assert.match(opHtml, /security-floor-push-v1\.js/);
-    assert.match(opHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
+    assert.doesNotMatch(opHtml, /permission: — \/ standalone: — \/ appleAPNs: —/);
 
     const toyoshimaJs = fs.readFileSync(
       path.join(
@@ -760,7 +756,10 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /日常詳細設定|防犯・照明・通知の詳細設定/);
     assert.match(toyoshimaJs, /パトライト威嚇/);
     assert.match(toyoshimaJs, /🔔 緊急|🔔 通知ON|通知を受け取る/);
-    assert.match(toyoshimaJs, /manual_lights_3min/);
+    assert.match(toyoshimaJs, /防犯ライト手動動作/);
+    assert.match(toyoshimaJs, /設定変更を確定する（保存）/);
+    assert.doesNotMatch(toyoshimaJs, /manual_lights_3min/);
+    assert.doesNotMatch(toyoshimaJs, /照明を点灯（3分間）/);
     assert.match(toyoshimaJs, /data-ts-light-kick/);
     assert.match(toyoshimaJs, /getTislySessionHeadersV1/);
     assert.match(toyoshimaJs, /data-ts-light-kick="do1_on"/);
@@ -775,7 +774,7 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /遠近2段階/);
     assert.match(toyoshimaJs, /two_stage_blink/);
     assert.match(toyoshimaJs, /遠近2段階（威嚇点滅）/);
-    assert.match(toyoshimaJs, /外周はライト1点滅\+2点灯、至近は全点滅/);
+    assert.match(toyoshimaJs, /遠はライト1点滅、近はライト1・2とフラッシュが点滅/);
     assert.match(toyoshimaJs, /patchSharedSecurityControls/);
     assert.match(toyoshimaJs, /settingsDirty/);
     assert.match(toyoshimaJs, /requestToyoshimaApi/);
@@ -1075,15 +1074,15 @@ describe("security-floor-v1", () => {
     assert.match(pushJs, /propertyId/);
     assert.match(pushJs, /customerCode/);
     assert.match(pushJs, /readSecurityPushContextV1/);
-    const notifyStart = toyoshimaJs.indexOf("function renderCustomerPushManageBlock");
-    const notifyEnd = toyoshimaJs.indexOf("function paintCustomerNotifyList");
-    assert.ok(notifyStart >= 0 && notifyEnd > notifyStart);
-    const customerNotify = toyoshimaJs.slice(notifyStart, notifyEnd);
-    assert.match(customerNotify, /ts-push-reregister/);
-    assert.match(customerNotify, /ts-push-diag/);
-    assert.match(customerNotify, /Push通知を再登録・購読/);
-    assert.match(customerNotify, /通知テスト/);
-    assert.match(toyoshimaJs, /bindToyoshimaPush\(\);\s*refreshToyoshimaPushDiag\(\);/);
+    assert.doesNotMatch(toyoshimaJs, /ts-push-reregister/);
+    assert.doesNotMatch(toyoshimaJs, /Push通知を再登録・購読/);
+    assert.match(toyoshimaJs, /function renderCustomerNotifySection/);
+    const portalJs = fs.readFileSync(
+      path.join(publicDir, "js/customer-push-subscribe-v1.js"),
+      "utf8"
+    );
+    assert.match(portalJs, /Push通知を登録・購読する/);
+    assert.match(portalJs, /cv-push-register/);
 
     const remoteJs = fs.readFileSync(
       path.join(

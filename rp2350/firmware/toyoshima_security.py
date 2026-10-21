@@ -5,11 +5,16 @@ DI1/DI2 立上りを 100ms デバウンスで確定し、
 遠近2段階のライト／フラッシュと
 VPS イベント送信を行う。
 
-24 時間常時通知。ライト点灯は 18:00〜06:00 のみ。
+24 時間常時通知。ライト点灯は 18:00〜06:00（日跨ぎ）のみ。
 日中は通知のみ（ライト・フラッシュ省略）。
 夜間は force_relay_test を無視してライト連動する。
 日中だけ force_relay_test でテスト点灯する。
-母屋 2STEP: 遠は DO1 常時点灯と DO3。近は DO1 と DO2 を 0.5 秒点滅し DO3 は点灯。
+警戒 OFF と一時停止中はライトもフラッシュも出さない。
+母屋 2STEP: 遠は DO1 常時点灯。近（遠のあと）は DO1+DO2+DO3 常時点灯。
+威嚇点滅: 遠は DO1 点滅。近（遠のあと）は DO1+DO2+DO3 点滅。
+DIRECT: 遠も近（遠のあと）も DO1+DO2+DO3 常時点灯。
+SILENT: 昼夜ともライトとフラッシュは出さない。
+遠が無く近だけ: 通知のみ以外は DO1+DO2 を点灯維持秒だけ点灯。フラッシュは出さない。
 
 付帯: チップ内蔵温度（CORE_TEMP / ADC4） /
 5分 heartbeat / 物理 WDT 8 秒
@@ -81,7 +86,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.26"
+FIRMWARE_LOGIC_VERSION = "1.2.27"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -851,6 +856,8 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._ensure_blink_state()
         rising = new_state == "on" and prev_state != "on"
         if rising:
+            if di == self.DI_BEAM_FAR:
+                self.note_perimeter_edge(di)
             if self._event_acked.get(di):
                 self.log("DI{} already notified this hold".format(di))
                 self._di_level[di] = True
@@ -1001,6 +1008,21 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             if self._blink_gen == gen:
                 self._safe_off(channel)
 
+    def _begin_alone_timed(self):
+        """遠が無い近だけ。DO1+DO2 を点灯維持秒だけ点灯し、フラッシュは出さない。"""
+        self._ensure_blink_state()
+        self._cancel_hold()
+        self._blink_gen = self._blink_gen + 1
+        gen = self._blink_gen
+        self._blink_phase = "alone"
+        ms = self._hold_ms(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
+        self._set_ch(self.DO_LIGHT_1, True)
+        self._set_ch(self.DO_LIGHT_2, True)
+        self._set_ch(self.DO_FLASH, False)
+        self._spawn(self._steady_ms_gen(self.DO_LIGHT_1, ms, gen))
+        self._spawn(self._steady_ms_gen(self.DO_LIGHT_2, ms, gen))
+        self.log("near alone DO1+DO2 {}ms".format(ms))
+
     def _begin_phase(self, phase):
         self._ensure_blink_state()
         self._cancel_hold()
@@ -1009,27 +1031,18 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._blink_phase = phase
         if phase == "far":
             self._set_ch(self.DO_LIGHT_1, True)
-            self._set_ch(self.DO_LIGHT_2, True)
+            self._set_ch(self.DO_LIGHT_2, False)
             self._set_ch(self.DO_FLASH, False)
             self._spawn(self._blink_until_gen(self.DO_LIGHT_1, gen))
-            self._spawn(self._steady_until_gen(self.DO_LIGHT_2, gen))
             self.log("two_stage_blink far")
             return
-        flash = bool(getattr(self, "_flash_enabled", True))
         self._set_ch(self.DO_LIGHT_1, True)
         self._set_ch(self.DO_LIGHT_2, True)
-        self._set_ch(self.DO_FLASH, flash)
+        self._set_ch(self.DO_FLASH, True)
         self._spawn(self._blink_until_gen(self.DO_LIGHT_1, gen))
         self._spawn(self._blink_until_gen(self.DO_LIGHT_2, gen))
-        if flash:
-            self._spawn(
-                self._steady_ms_gen(
-                    self.DO_FLASH,
-                    int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
-                    gen,
-                )
-            )
-        self.log("two_stage_blink near flash={}".format(flash))
+        self._spawn(self._blink_until_gen(self.DO_FLASH, gen))
+        self.log("two_stage_blink near")
 
     def _apply_two_stage_blink(self):
         """DI1/DI2 の現在値から出力相を決める。"""
@@ -1039,10 +1052,17 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             return
         di1 = bool(self._di_level.get(1))
         di2 = bool(self._di_level.get(2))
+        staged = di1 or self.near_is_staged()
+        if di2 and not staged:
+            if self._blink_phase != "alone":
+                self._begin_alone_timed()
+            return
         if di2:
             self._cancel_hold()
             if self._blink_phase != "near":
                 self._begin_phase("near")
+            return
+        if self._blink_phase == "alone":
             return
         if di1:
             self._cancel_hold()
@@ -1063,98 +1083,82 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         if not self._blink_outputs_allowed():
             self.log("two_stage_blink pulse skipped")
             return
+        if di == self.DI_BEAM_NEAR and not self.near_is_staged():
+            self._begin_alone_timed()
+            return
         phase = "near" if di == self.DI_BEAM_NEAR else "far"
         self._begin_phase(phase)
         self._arm_hold()
 
     def _plan_two_stage_blink(self, di):
-        light_ok = bool(self._can_run_lights())
-        is_near = di == self.DI_BEAM_NEAR
-        flash_on = (
-            light_ok
-            and is_near
-            and bool(getattr(self, "_flash_enabled", True))
-        )
-        if is_near:
-            d1 = "blink" if light_ok else "off"
-            d2 = "blink" if light_ok else "off"
-            d3 = "steady" if flash_on else "off"
-            msg = "🚨 建物至近で侵入検知！"
-        else:
-            d1 = "blink" if light_ok else "off"
-            d2 = "steady" if light_ok else "off"
-            d3 = "off"
-            msg = "⚠️ 外周で接近検知"
-        return {
-            "mode": SECURITY_MODE_BLINK,
-            "message": msg,
-            "do1": d1 != "off",
-            "do2": d2 != "off",
-            "do3": d3 != "off",
-            "do1_pattern": d1,
-            "do2_pattern": d2,
-            "do3_pattern": d3,
-            "near_first": False,
-            "force_outputs": True,
-            "light_ms": int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS)),
-            "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
-        }
+        return self.plan_main_response(di)
 
     def plan_main_response(self, di):
         """
-        遠近2段階の出力計画を返す。
-        2STEP の至近はフラッシュ連動ONなら DO3 を出す。
-        DIRECT の至近単独だけ DO3 を出さない。
-        ホストテストから同期で検証する。
+        母屋の遠近出力計画。
+        遠のあと近はモードどおり。遠が無い近だけは DO1+DO2 を点灯維持秒。
+        SILENT と日中（テスト OFF）と警戒 OFF はリレーを出さない。
         """
-        if str(getattr(self, "_security_mode", "")) == SECURITY_MODE_BLINK:
-            return self._plan_two_stage_blink(di)
-        mode = str(getattr(self, "_security_mode", "2STEP")).upper()
+        raw = str(getattr(self, "_security_mode", "2STEP"))
+        blink = raw == SECURITY_MODE_BLINK
+        mode = SECURITY_MODE_BLINK if blink else raw.upper()
         silent = mode == "SILENT"
-        near_first = (
-            (not silent)
-            and di == self.DI_BEAM_NEAR
-            and not self.near_is_staged()
-        )
-        full = (not silent) and (
-            mode == "DIRECT" or di == self.DI_BEAM_NEAR
-        )
-        light_ok = (not silent) and self._can_run_lights()
+        is_near = di == self.DI_BEAM_NEAR
+        near_alone = (not silent) and is_near and not self.near_is_staged()
+        light_ok = (not silent) and bool(self._can_run_lights())
         if self._daytime_relay_blocked():
             light_ok = False
-        flash_on = (
-            light_ok
-            and full
-            and bool(getattr(self, "_flash_enabled", True))
-            and (mode == "2STEP" or not near_first)
-        )
-        if di == self.DI_BEAM_FAR:
-            msg = "⚠️ 外周で接近検知"
-        else:
+        if is_near:
             msg = "🚨 建物至近で侵入検知！"
+        else:
+            msg = "⚠️ 外周で接近検知"
         light_ms = int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
         plan = {
             "mode": mode,
             "message": msg,
-            "do1": light_ok,
-            "do2": light_ok and full,
-            "do3": flash_on,
-            "near_first": near_first,
+            "do1": False,
+            "do2": False,
+            "do3": False,
+            "do1_pattern": "off",
+            "do2_pattern": "off",
+            "do3_pattern": "off",
+            "near_first": near_alone,
+            "force_outputs": blink,
             "light_ms": light_ms,
-            "flash_ms": int(getattr(self, "_flash_ms", DEFAULT_FLASH_MS)),
+            "flash_ms": light_ms,
         }
-        # 母屋の遠近2段階。遠は DO1 常時点灯+DO3。近は DO1/DO2 点滅+DO3。
+        if not light_ok:
+            return plan
+        if near_alone:
+            plan["do1"] = True
+            plan["do2"] = True
+            plan["do1_pattern"] = "steady"
+            plan["do2_pattern"] = "steady"
+            return plan
+        if mode == "DIRECT" or (mode == "2STEP" and is_near):
+            plan["do1"] = True
+            plan["do2"] = True
+            plan["do3"] = True
+            plan["do1_pattern"] = "steady"
+            plan["do2_pattern"] = "steady"
+            plan["do3_pattern"] = "steady"
+            return plan
         if mode == "2STEP":
-            is_near = di == self.DI_BEAM_NEAR
-            plan["do1"] = light_ok
-            plan["do2"] = light_ok and is_near
-            plan["do3"] = light_ok
-            plan["do1_pattern"] = (
-                "blink" if is_near else "steady"
-            ) if light_ok else "off"
-            plan["do2_pattern"] = "blink" if plan["do2"] else "off"
-            plan["do3_pattern"] = "steady" if light_ok else "off"
-            plan["flash_ms"] = light_ms
+            plan["do1"] = True
+            plan["do1_pattern"] = "steady"
+            return plan
+        if blink and is_near:
+            plan["do1"] = True
+            plan["do2"] = True
+            plan["do3"] = True
+            plan["do1_pattern"] = "blink"
+            plan["do2_pattern"] = "blink"
+            plan["do3_pattern"] = "blink"
+            return plan
+        if blink:
+            plan["do1"] = True
+            plan["do1_pattern"] = "blink"
+            return plan
         return plan
 
     def _fire_di(self, di):
@@ -1427,11 +1431,14 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
 
     async def _main_beam_response(self, di):
         """
-        2STEP: 遠は DO1 常時点灯+DO3。近は DO1 と DO2 を点滅し DO3 は点灯。
-        DIRECT: 至近単独は DO3 なし。外周が先のときだけフラッシュ
+        2STEP: 遠は DO1。近（遠のあと）は DO1+DO2+DO3 常時点灯。
+        DIRECT: 遠も近（遠のあと）も DO1+DO2+DO3。
+        遠が無い近だけは DO1+DO2 を点灯維持秒。フラッシュは出さない。
         点灯を始める前に、前のシーケンスのタイマーを捨てる。
-        日中かつテストスイッチOFFならリレーを出さない。
+        日中かつテストスイッチOFF、または警戒OFFならリレーを出さない。
         """
+        if di == self.DI_BEAM_FAR:
+            self.note_perimeter_edge(di)
         if self._daytime_relay_blocked():
             self._auto_off_pending = False
             self.log("日中 — ライト省略（通知のみ）")

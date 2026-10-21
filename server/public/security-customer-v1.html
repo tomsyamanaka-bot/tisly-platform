@@ -245,17 +245,20 @@
           </div>
         </section>
         <section class="sf-daily-block">
-          <p class="sf-card-label">④ 外構ライト手動操作</p>
+          <p class="sf-card-label">④ 防犯ライト手動動作</p>
+          <p class="sf-hint">手動操作は確定を待たず、押した瞬間に実機へ届きます</p>
           <div class="sf-btn-row">
-            <button type="button" class="sf-btn" id="sf-customer-lights-3min">
-              💡 照明を点灯（3分間）
-            </button>
-            <button type="button" class="sf-btn sf-btn-ghost" id="sf-customer-lights-off">
-              消灯
-            </button>
+            <button type="button" class="sf-btn" data-sf-manual-light="do1_on">ライト1点灯</button>
+            <button type="button" class="sf-btn" data-sf-manual-light="do2_on">ライト2点灯</button>
+            <button type="button" class="sf-btn" data-sf-manual-light="bulk_lights_on">照明を一括ON</button>
+            <button type="button" class="sf-btn" data-sf-manual-light="bulk_lights_off">照明を一括OFF</button>
+            <button type="button" class="sf-btn" data-sf-manual-light="patlite_test">フラッシュ威嚇テスト</button>
           </div>
         </section>
-        <p class="sf-hint">変更は自動保存されます</p>
+        <p class="sf-hint" id="sf-customer-settings-pending">変更は「設定変更を確定する（保存）」を押すまで反映されません</p>
+        <button type="button" class="sf-btn" id="sf-customer-commit-settings">
+          設定変更を確定する（保存）
+        </button>
       </div>
     </details>
 
@@ -264,19 +267,7 @@
         <p class="sf-card-label">いまの警報</p>
         <ul class="sf-alarm-list" id="sf-alarm-list"><li>発報はありません</li></ul>
       </section>
-      <section class="sf-card sf-push-card" id="sf-customer-push-card">
-        <p class="sf-card-label">プッシュ通知</p>
-        <p class="sf-hint">この端末を、いま開いている物件の通知先として登録します</p>
-        <div class="sf-push-panel">
-          <button type="button" class="sf-push-btn" id="sf-push-reregister">
-            🔔 Push通知を再登録・購読
-          </button>
-          <p class="sf-push-diag" id="sf-push-diag" role="status">
-            permission: — / standalone: — / appleAPNs: —
-          </p>
-        </div>
-        <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
-      </section>
+      <button type="button" class="sf-demo-btn" id="sf-demo-alert">🔔 通知テスト</button>
     </section>
 
     <section class="sf-card sf-quick-card">

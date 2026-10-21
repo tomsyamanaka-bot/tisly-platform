@@ -4,7 +4,6 @@
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
-import { renderGuardViewerStoreHelpHtmlV1 } from "./features/security/open-guard-viewer-v1.js";
 import { tislySystemVersionLabel } from "./tisly-release-version-v1.js";
 
 export const CUSTOMER_JS_VERSION = "customer-v1-phase28-zone";
@@ -90,75 +89,43 @@ export function renderHomeStatus(data) {
 
 export function renderHomeCards(cards) {
   const list = cards || [];
-  // 契約機能カード（HOME / Security / デマンド等）
-  const productIds = new Set([
-    "tisly_home",
-    "home_security",
-    "radar_watch",
-    "demand_security",
-    "eco_water",
-    "gas_monitor",
-  ]);
-  // マニュアル・契約・連絡など常設
-  const coreIds = new Set([
-    "documents",
-    "maintenance",
-    "contact",
-    "camera",
-    "alerts",
-    "notifications",
-  ]);
-  const products = list.filter((c) => productIds.has(c.id));
-  const core = list.filter((c) => coreIds.has(c.id));
-  const rest = list.filter(
-    (c) => !productIds.has(c.id) && !coreIds.has(c.id)
-  );
-
-  const cardHtml = (c) => {
-    const cameraHint =
-      c.id === "camera"
-        ? `<span class="gv-cta-hint">📲 Guard Viewerアプリで確認</span>`
-        : "";
-    if (c.id === "camera") {
-      return `<div class="cv-camera-card-wrap">
-      <a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
-      <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
-      <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
-      ${cameraHint}
-    </a>
-      ${renderGuardViewerStoreHelpHtmlV1()}
-    </div>`;
-    }
-    return `<a class="cv-big-card" href="${escapeHtml(c.href)}" data-customer-nav>
-      <span class="cv-big-card-emoji">${escapeHtml(c.emoji)}</span>
-      <span class="cv-big-card-label">${escapeHtml(c.label)}</span>
-    </a>`;
+  const security = list.find((c) => c.id === "home_security") || {
+    id: "home_security",
+    emoji: "🛡️",
+    label: "TiSLY Security",
+    href: "/customer/security",
   };
-
-  const section = (title, items, extraClass = "") => {
-    if (!items.length) return "";
-    return `
-      <section class="cv-card-section" aria-label="${escapeHtml(title)}">
-        <h2 class="cv-section-title">${escapeHtml(title)}</h2>
-        <div class="cv-card-grid ${extraClass}">
-          ${items.map(cardHtml).join("")}
+  return `
+      <section class="cv-card-section" aria-label="ご契約の機能">
+        <h2 class="cv-section-title">ご契約の機能</h2>
+        <div class="cv-card-grid cv-card-grid-product">
+          <a class="cv-big-card" href="${escapeHtml(security.href)}" data-customer-nav>
+            <span class="cv-big-card-emoji">${escapeHtml(security.emoji || "🛡️")}</span>
+            <span class="cv-big-card-label">${escapeHtml(security.label || "TiSLY Security")}</span>
+          </a>
         </div>
       </section>`;
-  };
+}
 
-  return `
-    ${section("ご契約の機能", products, "cv-card-grid-product")}
-    ${section("ご利用メニュー", [...core, ...rest])}
-  `;
+function isDocumentArrivalNotice(notice) {
+  const kind = String(notice?.kind || "");
+  const title = String(notice?.title || "");
+  return (
+    kind === "invoice_issued" ||
+    kind === "estimate_updated" ||
+    title === "請求書が届きました" ||
+    title === "見積書が届きました"
+  );
 }
 
 export function renderNotifications(notifications) {
-  if (!notifications?.length) return "";
+  const visible = (notifications || []).filter((n) => !isDocumentArrivalNotice(n));
+  if (!visible.length) return "";
   return `
     <section class="cv-card cv-notifications" aria-label="お知らせ">
       <h2 class="cv-section-title">お知らせ</h2>
       <ul class="cv-notif-list">
-        ${notifications
+        ${visible
           .slice(0, 8)
           .map((n) => {
             const sev = n.severity === "danger" ? "cv-notif-danger" : n.severity === "warning" ? "cv-notif-warn" : "cv-notif-info";

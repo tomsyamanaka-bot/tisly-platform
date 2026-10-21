@@ -600,9 +600,6 @@ async function setMode(mode) {
   }
 }
 
-let customerLightSaveTimer = null;
-let customerScheduleSaveTimer = null;
-
 function bindCustomerLightSlider() {
   const slider = $("sf-customer-lighting-duration");
   if (!slider || slider.dataset.bound === "1") return;
@@ -611,12 +608,10 @@ function bindCustomerLightSlider() {
     const sec = Number(slider.value) || 45;
     const val = $("sf-customer-lighting-duration-val");
     if (val) val.innerHTML = `${sec}<span class="sf-unit">秒</span>`;
-    clearTimeout(customerLightSaveTimer);
-    customerLightSaveTimer = setTimeout(() => {
-      saveCustomerLightDuration(sec).catch((err) => {
-        flashStatusToast(err.message || "点灯時間の保存に失敗しました");
-      });
-    }, 600);
+    const hint = $("sf-customer-settings-pending");
+    if (hint) {
+      hint.textContent = "未保存の変更があります。確定すると保存されます";
+    }
   });
 }
 
@@ -626,13 +621,11 @@ function bindCustomerSchedule() {
   if (!start || start.dataset.bound === "1") return;
   start.dataset.bound = "1";
   if (end) end.dataset.bound = "1";
-  const save = () => {
-    clearTimeout(customerScheduleSaveTimer);
-    customerScheduleSaveTimer = setTimeout(() => {
-      saveCustomerSchedule(start.value, end?.value).catch((err) => {
-        flashStatusToast(err.message || "時間帯の保存に失敗しました");
-      });
-    }, 600);
+  const mark = () => {
+    const hint = $("sf-customer-settings-pending");
+    if (hint) {
+      hint.textContent = "未保存の変更があります。確定すると保存されます";
+    }
   };
   const paint = () => {
     try {
@@ -647,11 +640,11 @@ function bindCustomerSchedule() {
   };
   start.addEventListener("change", () => {
     paint();
-    save();
+    mark();
   });
   end?.addEventListener("change", () => {
     paint();
-    save();
+    mark();
   });
   paint();
 }
@@ -738,55 +731,100 @@ async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
   });
 }
 
+async function commitCustomerDailySettings() {
+  const sec = Number($("sf-customer-lighting-duration")?.value) || 45;
+  const start = $("sf-customer-schedule-start")?.value || "18:00";
+  const end = $("sf-customer-schedule-end")?.value || "06:00";
+  const homeSiteId = isToyoshimaSecuritySite(state.siteId)
+    ? "HOME-JP-TOYOSHIMA"
+    : resolveHomeSiteId(state.siteId);
+  const body = {
+    siteId: homeSiteId,
+    actor: "customer-portal",
+    lightingDurationSec: sec,
+    di1DurationSec: sec,
+    scheduleStart: String(start).slice(0, 5),
+    scheduleEnd: String(end).slice(0, 5),
+  };
+  if (isToyoshimaSecuritySite(state.siteId)) {
+    await requestToyoshimaApi("PUT", "/security-rules", body);
+  } else {
+    await fetchJson(`${HOME_API}/security-rules`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+  const hint = $("sf-customer-settings-pending");
+  if (hint) {
+    hint.textContent = "変更は「設定変更を確定する（保存）」を押すまで反映されません";
+  }
+  flashStatusToast("設定変更を保存しました");
+}
+
 function bindCustomerManualLights() {
   if (window.__TISLY_SF_CUST_LIGHTS) return;
   window.__TISLY_SF_CUST_LIGHTS = true;
-  $("sf-customer-lights-3min")?.addEventListener("click", async () => {
+  document.addEventListener("click", async (e) => {
+    const commit = e.target.closest?.("#sf-customer-commit-settings");
+    if (commit) {
+      e.preventDefault();
+      commit.disabled = true;
+      try {
+        await commitCustomerDailySettings();
+      } catch (err) {
+        flashStatusToast(err.message || "設定の保存に失敗しました");
+      } finally {
+        commit.disabled = false;
+      }
+      return;
+    }
+    const btn = e.target.closest?.("[data-sf-manual-light]");
+    if (!btn || btn.disabled) return;
+    const action = btn.getAttribute("data-sf-manual-light");
+    if (!action) return;
+    e.preventDefault();
+    btn.disabled = true;
     try {
-      if (isToyoshimaSecuritySite(state.siteId)) {
-        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
+      const toyoshima = isToyoshimaSecuritySite(state.siteId);
+      if (action === "bulk_lights_on" || action === "bulk_lights_off") {
+        const payload = {
+          siteId: toyoshima ? "HOME-JP-TOYOSHIMA" : resolveHomeSiteId(state.siteId),
+          action: action === "bulk_lights_on" ? "on" : "off",
+          actor: "customer-portal",
+        };
+        if (toyoshima) {
+          await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", payload);
+        } else {
+          await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+      } else if (toyoshima) {
+        await requestToyoshimaApi("POST", "/toyoshima/control", {
           siteId: "HOME-JP-TOYOSHIMA",
-          action: "on",
-          durationSec: 180,
+          building: "main",
+          action,
           actor: "customer-portal",
         });
-        flashStatusToast("外構ライトを3分間点灯します");
-        return;
+      } else {
+        await fetchJson(`${HOME_API}/toyoshima/control`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            building: "main",
+            action,
+            actor: "customer-portal",
+          }),
+        });
       }
-      await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "on",
-          durationSec: 180,
-          actor: "customer-portal",
-        }),
-      });
+      flashStatusToast("防犯ライトを操作しました");
     } catch (err) {
       flashStatusToast(err.message || "点灯に失敗しました");
-    }
-  });
-  $("sf-customer-lights-off")?.addEventListener("click", async () => {
-    try {
-      if (isToyoshimaSecuritySite(state.siteId)) {
-        await requestToyoshimaApi("POST", "/toyoshima/bulk-lights", {
-          siteId: "HOME-JP-TOYOSHIMA",
-          action: "off",
-          actor: "customer-portal",
-        });
-        flashStatusToast("外構ライトを消灯しました");
-        return;
-      }
-      await fetchJson(`${HOME_API}/toyoshima/bulk-lights`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "off",
-          actor: "customer-portal",
-        }),
-      });
-    } catch (err) {
-      flashStatusToast(err.message || "消灯に失敗しました");
+    } finally {
+      btn.disabled = false;
     }
   });
 }

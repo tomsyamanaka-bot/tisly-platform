@@ -18,10 +18,8 @@ import {
   markCustomerChromeAuthed,
 } from "./customer-tenant-session-v1.js";
 import {
-  bindTesterPushBar,
   filterTesterHomeCards,
   isTesterCustomerCode,
-  renderTesterPushBarHtml,
 } from "./customer-tester-push-v1.js";
 import {
   bindCustomerPushSubscribe,
@@ -196,7 +194,6 @@ function renderHome(data) {
     ${renderHomeStatus(data)}
     ${renderNotifications(data.notifications)}
     ${renderCustomerPushSubscribeHtml()}
-    ${isTesterCustomerCode(code) ? renderTesterPushBarHtml() : ""}
     ${renderHomeCards(cards)}
     <p class="cv-logout-row">
       <button type="button" id="cv-logout-btn" class="cv-logout-btn">ログアウト</button>
@@ -205,7 +202,6 @@ function renderHome(data) {
 
   bindCustomerNavLinks();
   bindCustomerPushSubscribe();
-  bindTesterPushBar(code);
   bindGuardViewerLaunchersV1();
   document.querySelectorAll(".cv-big-card").forEach((el) => {
     el.addEventListener("click", (e) => {

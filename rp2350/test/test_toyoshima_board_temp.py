@@ -170,7 +170,7 @@ def test_force_relay_test_allows_daytime_relays():
         plan = ctrl.plan_main_response(1)
     assert plan["do1"] is True
     assert plan["do2"] is False
-    assert plan["do3"] is True
+    assert plan["do3"] is False
 
 
 def test_manual_do_bypasses_daytime_schedule():
@@ -204,9 +204,9 @@ def test_force_relay_kicks_gpio_on_daytime_di1():
         plan = ctrl.plan_main_response(1)
         ctrl._kick_relays_now(plan)
     assert plan["do1"] is True
-    assert plan["do3"] is True
+    assert plan["do3"] is False
     assert outputs[1] is True
-    assert outputs[3] is True
+    assert outputs.get(3) is not True
 
 
 def test_detached_event_messages():
@@ -249,48 +249,56 @@ def test_twostep_di1_only_light1_at_night():
         plan = ctrl.plan_main_response(1)
     assert plan["do1"] is True
     assert plan["do2"] is False
-    assert plan["do3"] is True
+    assert plan["do3"] is False
     assert plan["do1_pattern"] == "steady"
-    assert plan["do3_pattern"] == "steady"
+    assert plan["do3_pattern"] == "off"
     assert plan["message"] == "⚠️ 外周で接近検知"
     assert plan["light_ms"] == 30_000
 
 
 def test_twostep_di2_alone_flashes_at_night():
+    """遠が無い近は DO1+DO2 だけ。点灯維持秒。フラッシュは出さない。"""
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
     ctrl.apply_rules({
         "securityMode": "2STEP",
         "flashEnabled": True,
         "flashDurationSec": 15,
+        "lightingDurationSec": 45,
     })
     utc_night = 12 * 3600
     with patch.object(ts.time, "time", return_value=utc_night):
         plan = ctrl.plan_main_response(2)
     assert plan["do1"] is True
     assert plan["do2"] is True
-    assert plan["do3"] is True
-    assert plan["do1_pattern"] == "blink"
-    assert plan["do2_pattern"] == "blink"
-    assert plan["do3_pattern"] == "steady"
+    assert plan["do3"] is False
+    assert plan["do1_pattern"] == "steady"
+    assert plan["do2_pattern"] == "steady"
+    assert plan["do3_pattern"] == "off"
     assert plan["near_first"] is True
+    assert plan["light_ms"] == 45_000
     assert plan["flash_ms"] == plan["light_ms"]
     assert plan["message"] == "🚨 建物至近で侵入検知！"
 
 
 def test_twostep_di2_keeps_flash_with_blink():
+    """遠のあとの近は DO1+DO2+DO3 を常時点灯する。"""
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None)
     ctrl.apply_rules({
         "securityMode": "2STEP",
         "flashEnabled": False,
+        "lightingDurationSec": 45,
     })
     utc_night = 12 * 3600
     with patch.object(ts.time, "time", return_value=utc_night):
+        ctrl.note_perimeter_edge(1)
         plan = ctrl.plan_main_response(2)
     assert plan["do1"] is True
     assert plan["do2"] is True
     assert plan["do3"] is True
-    assert plan["do1_pattern"] == "blink"
-    assert plan["do2_pattern"] == "blink"
+    assert plan["do1_pattern"] == "steady"
+    assert plan["do2_pattern"] == "steady"
+    assert plan["do3_pattern"] == "steady"
+    assert plan["near_first"] is False
 
 
 def test_direct_near_alone_skips_flash():
@@ -322,7 +330,7 @@ def test_twostep_far_forces_do2_and_do3_off():
         ctrl._apply_steady_hold(plan)
     assert outputs[1] is True
     assert outputs[2] is False
-    assert outputs[3] is True
+    assert outputs[3] is False
 
 
 def test_lighting_duration_sec_and_camel_case():
@@ -406,7 +414,7 @@ def test_far_then_near_keeps_do1_on():
         await asyncio.sleep(0.02)
         assert outputs[1] is True
         assert outputs.get(2) is not True
-        assert outputs.get(3) is True
+        assert outputs.get(3) is not True
         near = asyncio.create_task(ctrl._main_beam_response(2))
         await asyncio.sleep(0.02)
         assert outputs[1] is True
@@ -459,7 +467,7 @@ def test_twostep_near_retrigger_extends_while_lit():
         ctrl.on_di_edge(2, "off", "on")
         assert outputs.get(1) is True
         assert outputs.get(2) is True
-        assert outputs.get(3) is True
+        assert outputs.get(3) is not True
         assert ctrl._auto_off_pending is True
         first_lock = ctrl._near_lock_until_ms
         outputs[1] = False
@@ -469,7 +477,7 @@ def test_twostep_near_retrigger_extends_while_lit():
         ctrl.on_di_edge(2, "off", "on")
         assert outputs.get(1) is True
         assert outputs.get(2) is True
-        assert outputs.get(3) is True
+        assert outputs.get(3) is not True
         assert ctrl._near_lock_until_ms >= first_lock
         ctrl._auto_off_pending = False
         ctrl._near_lock_until_ms = ts._mono_ms() + 5000
@@ -504,7 +512,7 @@ def test_twostep_near_retrigger_is_ignored_until_low():
         ctrl.on_di_edge(2, "off", "on")
         assert outputs.get(1) is True
         assert outputs.get(2) is True
-        assert outputs.get(3) is True
+        assert outputs.get(3) is not True
         ctrl._auto_off_pending = False
         outputs[1] = False
         outputs[2] = False
@@ -521,7 +529,7 @@ def test_twostep_near_retrigger_is_ignored_until_low():
         ctrl.on_di_edge(2, "off", "on")
         assert outputs.get(1) is True
         assert outputs.get(2) is True
-        assert outputs.get(3) is True
+        assert outputs.get(3) is not True
 
 
 def test_bulk_off_stops_blink_and_forces_outputs_off():
@@ -747,7 +755,7 @@ def test_on_di_edge_di1_kicks_ch1_immediately():
             ctrl.on_di_edge(1, "off", "on")
     assert outputs.get(1) is True
     assert outputs.get(2) is not True
-    assert outputs.get(3) is True
+    assert outputs.get(3) is not True
 
 
 def test_on_di_edge_di2_kicks_lights_and_flash():
@@ -769,7 +777,7 @@ def test_on_di_edge_di2_kicks_lights_and_flash():
             ctrl.on_di_edge(2, "off", "on")
     assert outputs.get(1) is True
     assert outputs.get(2) is True
-    assert outputs.get(3) is True
+    assert outputs.get(3) is not True
 
 
 def test_manual_sensor_near_kicks_all_channels():
@@ -787,7 +795,7 @@ def test_manual_sensor_near_kicks_all_channels():
     assert ok is True
     assert outputs.get(1) is True
     assert outputs.get(2) is True
-    assert outputs.get(3) is True
+    assert outputs.get(3) is not True
 
 
 def test_di_edge_notifies_vps_even_in_silent_mode():
@@ -955,17 +963,24 @@ def test_two_stage_blink_plan_far_and_near():
     utc_night = 12 * 3600
     with patch.object(ts.time, "time", return_value=utc_night):
         far = ctrl.plan_main_response(1)
-        near = ctrl.plan_main_response(2)
+        alone = ctrl.plan_main_response(2)
+        ctrl.note_perimeter_edge(1)
+        staged = ctrl.plan_main_response(2)
     assert ctrl._security_mode == "two_stage_blink"
     assert far["do1_pattern"] == "blink"
-    assert far["do2_pattern"] == "steady"
+    assert far["do2_pattern"] == "off"
     assert far["do3_pattern"] == "off"
     assert far["do3"] is False
-    assert near["do1_pattern"] == "blink"
-    assert near["do2_pattern"] == "blink"
-    assert near["do3_pattern"] == "steady"
-    assert near["do3"] is True
-    assert near["near_first"] is False
+    assert alone["do1_pattern"] == "steady"
+    assert alone["do2_pattern"] == "steady"
+    assert alone["do3"] is False
+    assert alone["near_first"] is True
+    assert alone["light_ms"] == 45_000
+    assert staged["do1_pattern"] == "blink"
+    assert staged["do2_pattern"] == "blink"
+    assert staged["do3_pattern"] == "blink"
+    assert staged["do3"] is True
+    assert staged["near_first"] is False
     ctrl.apply_rules({"securityMode": "TWO_STAGE_BLINK"})
     assert ctrl._security_mode == "two_stage_blink"
 
@@ -987,16 +1002,16 @@ def test_two_stage_blink_edges_switch_phase():
         with patch.object(ts.asyncio, "create_task", MagicMock()):
             ctrl.on_di_edge(1, "off", "on")
             assert outputs.get(1) is True
-            assert outputs.get(2) is True
-            assert outputs.get(3) is False
+            assert outputs.get(2) is not True
+            assert outputs.get(3) is not True
             ctrl.on_di_edge(2, "off", "on")
             assert outputs.get(1) is True
             assert outputs.get(2) is True
             assert outputs.get(3) is True
             ctrl.on_di_edge(2, "on", "off")
             assert outputs.get(1) is True
-            assert outputs.get(2) is True
-            assert outputs.get(3) is False
+            assert outputs.get(2) is not True
+            assert outputs.get(3) is not True
 
 
 def test_two_stage_blink_near_skips_flash_when_disabled():
@@ -1035,11 +1050,10 @@ def test_two_stage_blink_off_delay_returns_to_idle():
         with patch.object(ts.time, "time", return_value=utc_day):
             ctrl.on_di_edge(1, "off", "on")
             assert outputs.get(1) is True
-            assert outputs.get(2) is True
-            assert outputs.get(3) is False
+            assert outputs.get(2) is not True
+            assert outputs.get(3) is not True
             ctrl.on_di_edge(1, "on", "off")
             assert outputs.get(1) is True
-            assert outputs.get(2) is True
             await asyncio.sleep(0.15)
         assert outputs.get(1) is False
         assert outputs.get(2) is False
@@ -1062,6 +1076,7 @@ def test_leaving_blink_mode_turns_outputs_off():
     utc_day = 3 * 3600
     with patch.object(ts.time, "time", return_value=utc_day):
         with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl.on_di_edge(1, "off", "on")
             ctrl.on_di_edge(2, "off", "on")
             assert outputs.get(3) is True
             ctrl.apply_rules({"security_mode": "2STEP"})
@@ -1069,6 +1084,53 @@ def test_leaving_blink_mode_turns_outputs_off():
     assert outputs.get(1) is False
     assert outputs.get(2) is False
     assert outputs.get(3) is False
+
+
+def test_overnight_window_and_guard_off_pause_lights():
+    """開始が終了より遅い日跨ぎでも夜間になり、警戒OFFはリレーを止める。"""
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    ctrl.apply_rules({
+        "light_schedule": {"start": "18:00", "end": "06:00"},
+        "guardMode": "scheduled",
+        "security_mode": "2STEP",
+        "force_relay_test": False,
+    })
+    with patch.object(ts.time, "time", return_value=14 * 3600 + 30 * 60):
+        assert ctrl._is_in_light_schedule() is True
+        assert ctrl._can_run_lights() is True
+    with patch.object(ts.time, "time", return_value=20 * 3600 + 30 * 60):
+        assert ctrl._is_in_light_schedule() is True
+    with patch.object(ts.time, "time", return_value=21 * 3600):
+        assert ctrl._is_in_light_schedule() is False
+    with patch.object(ts.time, "time", return_value=3 * 3600):
+        assert ctrl._is_in_light_schedule() is False
+    ctrl.apply_rules({"light_start": "09:00", "light_end": "17:00"})
+    with patch.object(ts.time, "time", return_value=3 * 3600):
+        assert ctrl._is_in_light_schedule() is True
+    with patch.object(ts.time, "time", return_value=14 * 3600 + 30 * 60):
+        assert ctrl._is_in_light_schedule() is False
+
+    outputs = {}
+    paused = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    paused.apply_rules({
+        "guardMode": "off",
+        "security_mode": "DIRECT",
+        "force_relay_test": True,
+        "light_schedule": {"start": "18:00", "end": "06:00"},
+    })
+    with patch.object(ts.time, "time", return_value=12 * 3600):
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            paused._fire_di(1)
+    assert paused._is_armed_now() is False
+    assert paused._can_run_lights() is False
+    assert outputs.get(1) is not True
+    assert outputs.get(2) is not True
+    assert outputs.get(3) is not True
+    paused.apply_rules({"securityPaused": True, "guardMode": "always"})
+    assert paused._is_armed_now() is False
+    assert paused._can_run_lights() is False
 
 
 def test_event_send_failure_does_not_raise():
@@ -1148,4 +1210,5 @@ if __name__ == "__main__":
     test_two_stage_blink_near_skips_flash_when_disabled()
     test_two_stage_blink_off_delay_returns_to_idle()
     test_leaving_blink_mode_turns_outputs_off()
+    test_overnight_window_and_guard_off_pause_lights()
     print("ok")
