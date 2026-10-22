@@ -86,7 +86,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.28"
+FIRMWARE_LOGIC_VERSION = "1.2.29"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -1109,9 +1109,9 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         if self._daytime_relay_blocked():
             light_ok = False
         if is_near:
-            msg = "🚨 建物至近で侵入検知！"
+            msg = "建物側・近センサー検知"
         else:
-            msg = "⚠️ 外周で接近検知"
+            msg = "外側・遠センサー検知"
         light_ms = int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
         plan = {
             "mode": mode,
@@ -1544,9 +1544,9 @@ class ToyoshimaDetachedController(ToyoshimaBaseController):
         force = bool(getattr(self, "_force_relay_test", False))
         drive = self._is_armed_now() or force
         if di == self.DI_ROAD:
-            msg = "はなれ 道路側検知"
+            msg = "外側・遠センサー検知"
         else:
-            msg = "はなれ 通路側検知"
+            msg = "建物側・近センサー検知"
         if drive:
             if self._can_run_lights():
                 self._set_ch(self.DO_LIGHT, True)

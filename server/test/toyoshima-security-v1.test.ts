@@ -216,14 +216,14 @@ describe("toyoshima-security-v1", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     const road = dash.notifySensors.find((s) => s.id === "detached_road");
     assert.equal(road?.mode, "silent");
-    assert.match(road?.label || "", /道路側センサー（はなれ）/);
+    assert.match(road?.label || "", /外側・遠センサー検知/);
   });
 
   it("dashboard exposes patliteThreatEnabled for customer daily settings", () => {
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(typeof dash.patliteThreatEnabled, "boolean");
     assert.ok(
-      dash.notifySensors.some((s) => s.label.includes("外周ビーム"))
+      dash.notifySensors.some((s) => s.label.includes("外側・遠センサー検知"))
     );
   });
 
@@ -508,7 +508,7 @@ describe("toyoshima-security-v1", () => {
       building: "main",
       di: 1,
     });
-    assert.equal(result.message, "⚠️ 外周で接近検知");
+    assert.equal(result.message, "外側・遠センサー検知");
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.do[0].on, true);
     assert.equal(dash.main.do[1].on, false);
@@ -528,7 +528,7 @@ describe("toyoshima-security-v1", () => {
       building: "main",
       di: 2,
     });
-    assert.equal(result.message, "🚨 建物至近で侵入検知！");
+    assert.equal(result.message, "建物側・近センサー検知");
     const dash = buildToyoshimaSecurityDashboardV1();
     assert.equal(dash.main.do[0].on, true);
     assert.equal(dash.main.do[1].on, true);

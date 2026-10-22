@@ -71,18 +71,18 @@ describe("toyoshima-sensor-push-v1", () => {
   });
 
   it("sensor labels follow the dashboard wording", () => {
-    assert.equal(toyoshimaSensorLabelV1("main", 1), "外周ビーム（母屋・遠）");
+    assert.equal(toyoshimaSensorLabelV1("main", 1), "外側・遠センサー検知");
     assert.equal(
       toyoshimaSensorLabelV1("main", 2),
-      "建物至近ビーム（母屋・近）"
+      "建物側・近センサー検知"
     );
     assert.equal(
       toyoshimaSensorLabelV1("detached", 1),
-      "道路側センサー（はなれ）"
+      "外側・遠センサー検知"
     );
     assert.equal(
       toyoshimaSensorLabelV1("detached", 2),
-      "通路側センサー（はなれ）"
+      "建物側・近センサー検知"
     );
   });
 
@@ -101,14 +101,19 @@ describe("toyoshima-sensor-push-v1", () => {
       });
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
-    assert.equal(res.body.sensorLabel, "外周ビーム（母屋・遠）");
+    assert.equal(res.body.sensorLabel, "外側・遠センサー検知");
 
-    const alerts = latestLogs("sensor_alert");
-    const row = alerts.find((r) => r.message.includes("外周ビーム（母屋・遠）"));
+    const alerts = latestLogs("sensor_alert", 80);
+    const row = alerts.find(
+      (r) =>
+        r.detail?.sensorId === "main_beam_far" &&
+        r.detail?.building === "main" &&
+        r.message.includes("外側・遠センサー検知")
+    );
     assert.ok(row, "sensor_alert に検知履歴が残る");
     assert.equal(row?.detail?.sensorId, "main_beam_far");
     assert.equal(row?.detail?.pushAllowed, true);
-    assert.equal(row?.detail?.sensorName, "外周ビーム（母屋・遠）");
+    assert.equal(row?.detail?.sensorName, "外側・遠センサー検知");
     assert.ok(row?.detail?.detectedAt);
     assert.ok(row?.detail?.detectedAtJst);
     assert.equal(row?.actor, "rp2350");
@@ -118,7 +123,7 @@ describe("toyoshima-sensor-push-v1", () => {
     armAway();
     await processToyoshimaSecurityEventV1({ building: "main", di: 1 });
     const row = latestLogs("push_notify").find((r) =>
-      r.message.includes("外周ビーム（母屋・遠）")
+      r.message.includes("外側・遠センサー検知")
     );
     assert.ok(row, "push_notify に送信結果が残る");
     assert.equal(row?.detail?.forcePush, true);
@@ -133,7 +138,7 @@ describe("toyoshima-sensor-push-v1", () => {
     await processToyoshimaSecurityEventV1({ building: "main", di: 2 });
     const pushLogs = latestLogs("push_notify");
     const row = pushLogs.find((r) =>
-      r.message.includes("建物至近ビーム（母屋・近）")
+      r.message.includes("建物側・近センサー検知")
     );
     assert.ok(row, "push_notify に送信結果が残る");
     assert.equal(row?.detail?.sensorId, "main_beam_near");
@@ -168,7 +173,7 @@ describe("toyoshima-sensor-push-v1", () => {
 
     const alerts = latestLogs("sensor_alert");
     assert.ok(
-      alerts.some((r) => r.message.includes("外周ビーム（母屋・遠）")),
+      alerts.some((r) => r.message.includes("外側・遠センサー検知")),
       "解除中でも検知履歴は残す"
     );
     const skip = latestLogs("push_notify").find((r) =>
@@ -221,10 +226,10 @@ describe("toyoshima-sensor-push-v1", () => {
       building: "detached",
       di: 2,
     });
-    assert.equal(result.sensorLabel, "通路側センサー（はなれ）");
+    assert.equal(result.sensorLabel, "建物側・近センサー検知");
     const alerts = latestLogs("sensor_alert");
     assert.ok(
-      alerts.some((r) => r.message.includes("通路側センサー（はなれ）"))
+      alerts.some((r) => r.message.includes("建物側・近センサー検知"))
     );
   });
 
@@ -267,7 +272,7 @@ describe("toyoshima-sensor-push-v1", () => {
       source: "event",
     });
     const firstAlerts = latestLogs("sensor_alert").filter((r) =>
-      r.message.includes("外周ビーム（母屋・遠）")
+      r.message.includes("外側・遠センサー検知")
     );
     releaseToyoshimaNotifyStopperForTestV1("main", 1);
     const next = await processToyoshimaSecurityEventV1({
@@ -277,7 +282,7 @@ describe("toyoshima-sensor-push-v1", () => {
     });
     assert.equal(next.ok, true);
     const alerts = latestLogs("sensor_alert").filter((r) =>
-      r.message.includes("外周ビーム（母屋・遠）")
+      r.message.includes("外側・遠センサー検知")
     );
     assert.ok(firstAlerts.length >= 1);
     assert.ok(
@@ -359,7 +364,7 @@ describe("toyoshima-sensor-push-v1", () => {
     });
     assert.equal(again.ok, true);
     const rows = latestLogs("sensor_alert").filter((r) =>
-      r.message.includes("道路側センサー（はなれ）")
+      r.message.includes("外側・遠センサー検知")
     );
     assert.ok(rows.length >= 2);
   });

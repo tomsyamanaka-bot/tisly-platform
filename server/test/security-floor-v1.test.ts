@@ -804,7 +804,10 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /customerAreaNotifySensors/);
     assert.match(toyoshimaJs, /main_beam_far", "main_beam_near/);
     assert.match(toyoshimaJs, /🔕 通知オフ/);
-    assert.doesNotMatch(toyoshimaJs, /道路側センサー（はなれ）|通路側センサー（はなれ）/);
+    assert.match(toyoshimaJs, /外側・遠センサー検知/);
+    assert.match(toyoshimaJs, /建物側・近センサー検知/);
+    assert.match(toyoshimaJs, /data-ts-action="customer_alarm_ack"/);
+    assert.match(toyoshimaJs, /確認した/);
     assert.match(toyoshimaJs, /activeCustomerPane = "alert"/);
     /* 顧客は映像・スナップを出さない */
     assert.doesNotMatch(toyoshimaJs, /ts-alarm-snaps/);

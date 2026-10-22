@@ -308,6 +308,50 @@ export function getDefaultCustomerLandingPropertyV1(): {
   };
 }
 
+const TOYOSHIMA_DI1_NOTICE_V1 = "外側・遠センサー検知";
+const TOYOSHIMA_DI2_NOTICE_V1 = "建物側・近センサー検知";
+
+/** 豊島邸のお知らせ表示だけ、保存済みの旧センサー名を現行名へ読み替える。 */
+function rewriteToyoshimaNoticeTextV1(text: string): string {
+  let raw = String(text || "");
+  if (
+    !/接近検知|侵入検知|センサー|外周ビーム|建物至近|道路側|通路側|ガレージ|駐車場|遠センサー|近センサー/.test(
+      raw
+    )
+  ) {
+    return raw;
+  }
+  raw = raw.split(TOYOSHIMA_DI1_NOTICE_V1).join("\u0001");
+  raw = raw.split(TOYOSHIMA_DI2_NOTICE_V1).join("\u0002");
+  const pairs: Array<[string, string]> = [
+    ["⚠️ 外周で接近検知", TOYOSHIMA_DI1_NOTICE_V1],
+    ["外周で接近検知", TOYOSHIMA_DI1_NOTICE_V1],
+    ["外周ビーム（母屋・遠）", TOYOSHIMA_DI1_NOTICE_V1],
+    ["道路側センサー（はなれ）", TOYOSHIMA_DI1_NOTICE_V1],
+    ["道路側センサー", TOYOSHIMA_DI1_NOTICE_V1],
+    ["駐車場センサー", TOYOSHIMA_DI1_NOTICE_V1],
+    ["遠センサー", TOYOSHIMA_DI1_NOTICE_V1],
+    ["🚨 建物至近で侵入検知！", TOYOSHIMA_DI2_NOTICE_V1],
+    ["建物至近で侵入検知！", TOYOSHIMA_DI2_NOTICE_V1],
+    ["建物至近で侵入検知", TOYOSHIMA_DI2_NOTICE_V1],
+    ["建物至近ビーム（母屋・近）", TOYOSHIMA_DI2_NOTICE_V1],
+    ["通路側センサー（はなれ）", TOYOSHIMA_DI2_NOTICE_V1],
+    ["通路側センサー", TOYOSHIMA_DI2_NOTICE_V1],
+    ["ガレージセンサー", TOYOSHIMA_DI2_NOTICE_V1],
+    ["近センサー", TOYOSHIMA_DI2_NOTICE_V1],
+  ];
+  pairs.sort((a, b) => b[0].length - a[0].length);
+  for (const [from, to] of pairs) {
+    const token = to === TOYOSHIMA_DI1_NOTICE_V1 ? "\u0001" : "\u0002";
+    if (raw.includes(from)) raw = raw.split(from).join(token);
+  }
+  return raw
+    .split("\u0001")
+    .join(TOYOSHIMA_DI1_NOTICE_V1)
+    .split("\u0002")
+    .join(TOYOSHIMA_DI2_NOTICE_V1);
+}
+
 export function listCustomerNotificationsForHomeV1(customerCode: string) {
   ensureCustomerPortalMastersV1();
   const master = getCustomerMasterV1(customerCode);
@@ -318,14 +362,24 @@ export function listCustomerNotificationsForHomeV1(customerCode: string) {
       : [];
   const merged = [...stored, ...synthetic];
   const seen = new Set<string>();
-  return merged.filter((n) => {
-    if (n.kind === "invoice_issued" || n.kind === "estimate_updated") return false;
-    if (n.title === "請求書が届きました" || n.title === "見積書が届きました") return false;
-    const key = `${n.kind}:${n.title}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const toyoshima = customerCode === "TOYOSHIMA001";
+  return merged
+    .filter((n) => {
+      if (n.kind === "invoice_issued" || n.kind === "estimate_updated") return false;
+      if (n.title === "請求書が届きました" || n.title === "見積書が届きました") return false;
+      const key = `${n.kind}:${n.title}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((n) => {
+      if (!toyoshima) return n;
+      return {
+        ...n,
+        title: rewriteToyoshimaNoticeTextV1(n.title),
+        body: rewriteToyoshimaNoticeTextV1(n.body || ""),
+      };
+    });
 }
 
 export {

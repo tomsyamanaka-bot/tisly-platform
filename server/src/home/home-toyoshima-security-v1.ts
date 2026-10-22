@@ -1145,6 +1145,41 @@ const TOYOSHIMA_SENSOR_LABELS_V1: Record<ToyoshimaSensorIdV1, string> = {
   main_beam_near: "建物至近ビーム（母屋・近）",
 };
 
+/** 履歴・Push で見せる現行名。旧称は下の対応表で読み替える。 */
+export const TOYOSHIMA_DI1_DISPLAY_V1 = "外側・遠センサー検知";
+export const TOYOSHIMA_DI2_DISPLAY_V1 = "建物側・近センサー検知";
+
+export function toyoshimaDiDisplayNameV1(di: ToyoshimaDiChannelV1): string {
+  return di === 1 ? TOYOSHIMA_DI1_DISPLAY_V1 : TOYOSHIMA_DI2_DISPLAY_V1;
+}
+
+/** 保存済みの旧名称を、履歴表示用の現行名へ読み替える。 */
+export function mapToyoshimaSensorTextV1(
+  text: string,
+  di?: number | null
+): string {
+  if (di === 1) return TOYOSHIMA_DI1_DISPLAY_V1;
+  if (di === 2) return TOYOSHIMA_DI2_DISPLAY_V1;
+  const raw = String(text || "");
+  if (!raw) return raw;
+  if (
+    raw.includes(TOYOSHIMA_DI1_DISPLAY_V1) ||
+    raw.includes(TOYOSHIMA_DI2_DISPLAY_V1)
+  ) {
+    return raw;
+  }
+  const legacy = Object.values(TOYOSHIMA_SENSOR_LABELS_V1);
+  const di2 =
+    /建物至近|近センサー|ガレージ|通路側|DI\s*2/.test(raw) ||
+    legacy.some((label) => /至近|通路/.test(label) && raw.includes(label));
+  const di1 =
+    /外周で接近|遠センサー|外周ビーム|駐車場|道路側|DI\s*1/.test(raw) ||
+    legacy.some((label) => /外周|道路/.test(label) && raw.includes(label));
+  if (di2 && !di1) return TOYOSHIMA_DI2_DISPLAY_V1;
+  if (di1 && !di2) return TOYOSHIMA_DI1_DISPLAY_V1;
+  return raw;
+}
+
 /** DI 番号からセンサー種別を決める */
 export function resolveToyoshimaSensorIdV1(
   building: ToyoshimaBuildingIdV1,
@@ -1156,12 +1191,12 @@ export function resolveToyoshimaSensorIdV1(
   return di === 1 ? "detached_road" : "detached_path";
 }
 
-/** センサー名（例: 外周ビーム（母屋・遠）） */
+/** センサー名。保存・通知は DI ごとの現行名に統一する。 */
 export function toyoshimaSensorLabelV1(
-  building: ToyoshimaBuildingIdV1,
+  _building: ToyoshimaBuildingIdV1,
   di: ToyoshimaDiChannelV1
 ): string {
-  return TOYOSHIMA_SENSOR_LABELS_V1[resolveToyoshimaSensorIdV1(building, di)];
+  return toyoshimaDiDisplayNameV1(di);
 }
 
 /** レスポンス後も Push を落とさないための inflight */
@@ -1271,12 +1306,7 @@ function toyoshimaEventTitleV1(
   building: ToyoshimaBuildingIdV1,
   di: ToyoshimaDiChannelV1
 ): string {
-  if (building === "main") {
-    return di === 1 ? "⚠️ 外周で接近検知" : "🚨 建物至近で侵入検知！";
-  }
-  return di === 1
-    ? "🚨 豊島邸 はなれ（駐車場）"
-    : "🚨 豊島邸 はなれ（ガレージ）";
+  return toyoshimaDiDisplayNameV1(di);
 }
 
 function toyoshimaEventTypeV1(
@@ -1389,7 +1419,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   detail?: Record<string, unknown>;
 }): Promise<boolean> {
   const sensorId = resolveToyoshimaSensorIdV1(input.building, input.di);
-  const sensorLabel = TOYOSHIMA_SENSOR_LABELS_V1[sensorId];
+  const sensorLabel = toyoshimaDiDisplayNameV1(input.di);
   const detectedAt = nowIso();
   const detectedAtJst = formatToyoshimaJstV1(detectedAt);
   const pushAllowed =
@@ -1686,9 +1716,7 @@ async function handleMainBeamDetect(
   const diState = findDi(runtime.main, di);
   if (diState) diState.state = "detecting";
 
-  const title = isFar
-    ? "⚠️ 外周で接近検知"
-    : "🚨 建物至近で侵入検知！";
+  const title = toyoshimaDiDisplayNameV1(di);
   const at = nowIso();
   const snapshot = captureSecurityAlarmSnapshotV1({
     eventKind: "main_beam",
@@ -1700,9 +1728,7 @@ async function handleMainBeamDetect(
     building: "main",
     kind: "main_beam",
     title,
-    detail: isFar
-      ? "母屋 DI1 遠・外周境界"
-      : "母屋 DI2 近・建物アプローチ",
+    detail: toyoshimaDiDisplayNameV1(di),
     snapshot,
   });
 
@@ -1811,9 +1837,7 @@ async function handleDetachedDi(
   if (diState) diState.state = "detecting";
 
   const isRoad = di === 1;
-  const title = isRoad
-    ? "🚨 豊島邸 はなれ（道路側）"
-    : "🚨 豊島邸 はなれ（通路側）";
+  const title = toyoshimaDiDisplayNameV1(di);
   const kind = isRoad ? "detached_road" : "detached_path";
   const at = nowIso();
   const snapshot = captureSecurityAlarmSnapshotV1({
@@ -1826,8 +1850,8 @@ async function handleDetachedDi(
     at,
     building: "detached",
     kind,
-    title: title.replace("🚨 ", ""),
-    detail: isRoad ? "道路側センサー" : "通路側センサー",
+    title,
+    detail: title,
     snapshot,
   });
 
@@ -2217,19 +2241,19 @@ function buildToyoshimaNotifySensorsV1(
   return [
     {
       id: "detached_road",
-      label: TOYOSHIMA_SENSOR_LABELS_V1.detached_road,
+      label: toyoshimaDiDisplayNameV1(1),
       mode: rules.notifyDi1Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi1Mode),
     },
     {
       id: "detached_path",
-      label: TOYOSHIMA_SENSOR_LABELS_V1.detached_path,
+      label: toyoshimaDiDisplayNameV1(2),
       mode: rules.notifyDi2Mode,
       modeLabel: toyoshimaNotifyModeLabelV1(rules.notifyDi2Mode),
     },
     {
       id: "main_beam_far",
-      label: TOYOSHIMA_SENSOR_LABELS_V1.main_beam_far,
+      label: toyoshimaDiDisplayNameV1(1),
       mode: rules.notifyMainFarMode || rules.notifyStagedMode,
       modeLabel: toyoshimaNotifyModeLabelV1(
         rules.notifyMainFarMode || rules.notifyStagedMode
@@ -2237,7 +2261,7 @@ function buildToyoshimaNotifySensorsV1(
     },
     {
       id: "main_beam_near",
-      label: TOYOSHIMA_SENSOR_LABELS_V1.main_beam_near,
+      label: toyoshimaDiDisplayNameV1(2),
       mode: rules.notifyMainNearMode || rules.notifyStagedMode,
       modeLabel: toyoshimaNotifyModeLabelV1(
         rules.notifyMainNearMode || rules.notifyStagedMode
@@ -2251,13 +2275,13 @@ function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
   if (runtime.main.di.some((d) => d.state === "detecting")) {
     const far = runtime.main.di.find((d) => d.ch === 1 && d.state === "detecting");
     items.push(
-      far ? "母屋 外周ビーム検知" : "母屋 建物至近ビーム検知"
+      far ? TOYOSHIMA_DI1_DISPLAY_V1 : TOYOSHIMA_DI2_DISPLAY_V1
     );
   }
   if (runtime.detached.di.some((d) => d.state === "detecting")) {
     const det = runtime.detached.di.find((d) => d.state === "detecting");
     items.push(
-      det?.ch === 1 ? "はなれ 道路側センサー検知" : "はなれ 通路側センサー検知"
+      det?.ch === 1 ? TOYOSHIMA_DI1_DISPLAY_V1 : TOYOSHIMA_DI2_DISPLAY_V1
     );
   }
   if (runtime.detached.do.some((d) => d.blinking)) {

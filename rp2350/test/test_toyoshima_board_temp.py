@@ -219,8 +219,8 @@ def test_detached_event_messages():
     with patch.object(ts.asyncio, "create_task", MagicMock()):
         ctrl._fire_di(1)
         ctrl._fire_di(2)
-    assert events[0] == ("detached", 1, "はなれ 道路側検知")
-    assert events[1] == ("detached", 2, "はなれ 通路側検知")
+    assert events[0] == ("detached", 1, "外側・遠センサー検知")
+    assert events[1] == ("detached", 2, "建物側・近センサー検知")
 
 
 def test_main_event_message():
@@ -232,7 +232,7 @@ def test_main_event_message():
     ctrl = ts.ToyoshimaMainHouseController(lambda c, o: None, send_event)
     with patch.object(ts.asyncio, "create_task", MagicMock()):
         ctrl._fire_di(1)
-    assert events[0][2] == "⚠️ 外周で接近検知"
+    assert events[0][2] == "外側・遠センサー検知"
 
 
 def test_twostep_di1_only_light1_at_night():
@@ -252,7 +252,7 @@ def test_twostep_di1_only_light1_at_night():
     assert plan["do3"] is False
     assert plan["do1_pattern"] == "steady"
     assert plan["do3_pattern"] == "off"
-    assert plan["message"] == "⚠️ 外周で接近検知"
+    assert plan["message"] == "外側・遠センサー検知"
     assert plan["light_ms"] == 30_000
 
 
@@ -277,7 +277,7 @@ def test_twostep_di2_alone_flashes_at_night():
     assert plan["near_first"] is True
     assert plan["light_ms"] == 45_000
     assert plan["flash_ms"] == plan["light_ms"]
-    assert plan["message"] == "🚨 建物至近で侵入検知！"
+    assert plan["message"] == "建物側・近センサー検知"
 
 
 def test_twostep_di2_keeps_flash_with_blink():
@@ -833,7 +833,7 @@ def test_di_edge_notifies_vps_even_in_silent_mode():
     ctrl.apply_rules({"security_mode": "SILENT", "force_relay_test": True})
     with patch.object(ts.asyncio, "create_task", MagicMock()):
         ctrl.on_di_edge(2, "off", "on")
-    assert events == [("main", 2, "🚨 建物至近で侵入検知！")]
+    assert events == [("main", 2, "建物側・近センサー検知")]
     assert outputs.get(1) is not True
     assert outputs.get(3) is not True
 

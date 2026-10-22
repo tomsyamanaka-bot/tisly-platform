@@ -117,10 +117,75 @@ const NOTIFY_RULE_FIELDS = {
   main_beam: "notifyStagedMode",
 };
 
+const TOYOSHIMA_DI1_NAME = "外側・遠センサー検知";
+const TOYOSHIMA_DI2_NAME = "建物側・近センサー検知";
+
+/** 長い旧称から先に置換する。現行名は一度退避して壊さない。 */
+const TOYOSHIMA_LEGACY_SENSOR_NAMES = [
+  ["⚠️ 外周で接近検知", TOYOSHIMA_DI1_NAME],
+  ["外周で接近検知", TOYOSHIMA_DI1_NAME],
+  ["外周ビーム（母屋・遠）", TOYOSHIMA_DI1_NAME],
+  ["道路側センサー（はなれ）", TOYOSHIMA_DI1_NAME],
+  ["道路側センサー", TOYOSHIMA_DI1_NAME],
+  ["駐車場センサー", TOYOSHIMA_DI1_NAME],
+  ["駐車場（DI1）", TOYOSHIMA_DI1_NAME],
+  ["母屋 外周ビーム検知", TOYOSHIMA_DI1_NAME],
+  ["はなれ 道路側センサー検知", TOYOSHIMA_DI1_NAME],
+  ["はなれ 道路側検知", TOYOSHIMA_DI1_NAME],
+  ["母屋 DI1 遠・外周境界", TOYOSHIMA_DI1_NAME],
+  ["遠センサー", TOYOSHIMA_DI1_NAME],
+  ["🚨 建物至近で侵入検知！", TOYOSHIMA_DI2_NAME],
+  ["建物至近で侵入検知！", TOYOSHIMA_DI2_NAME],
+  ["建物至近で侵入検知", TOYOSHIMA_DI2_NAME],
+  ["建物至近ビーム（母屋・近）", TOYOSHIMA_DI2_NAME],
+  ["通路側センサー（はなれ）", TOYOSHIMA_DI2_NAME],
+  ["通路側センサー", TOYOSHIMA_DI2_NAME],
+  ["ガレージセンサー", TOYOSHIMA_DI2_NAME],
+  ["ガレージ（DI2）", TOYOSHIMA_DI2_NAME],
+  ["母屋 建物至近ビーム検知", TOYOSHIMA_DI2_NAME],
+  ["はなれ 通路側センサー検知", TOYOSHIMA_DI2_NAME],
+  ["はなれ 通路側検知", TOYOSHIMA_DI2_NAME],
+  ["母屋 DI2 近・建物アプローチ", TOYOSHIMA_DI2_NAME],
+  ["近センサー", TOYOSHIMA_DI2_NAME],
+].sort((a, b) => b[0].length - a[0].length);
+
+function rewriteToyoshimaDisplayText(text) {
+  let raw = String(text || "");
+  if (!raw) return "";
+  /* 現行名を先に退避し、旧称も同じ印へ置き換える。
+     挿入後の「遠センサー」を再度置換しない。 */
+  raw = raw.split(TOYOSHIMA_DI1_NAME).join("\u0001");
+  raw = raw.split(TOYOSHIMA_DI2_NAME).join("\u0002");
+  for (const [from, to] of TOYOSHIMA_LEGACY_SENSOR_NAMES) {
+    const token = to === TOYOSHIMA_DI1_NAME ? "\u0001" : "\u0002";
+    if (raw.includes(from)) raw = raw.split(from).join(token);
+  }
+  return raw
+    .split("\u0001")
+    .join(TOYOSHIMA_DI1_NAME)
+    .split("\u0002")
+    .join(TOYOSHIMA_DI2_NAME);
+}
+
+function canonicalToyoshimaSensorName(text, di) {
+  if (di === 1) return TOYOSHIMA_DI1_NAME;
+  if (di === 2) return TOYOSHIMA_DI2_NAME;
+  const rewritten = rewriteToyoshimaDisplayText(text);
+  const has1 = rewritten.includes(TOYOSHIMA_DI1_NAME);
+  const has2 = rewritten.includes(TOYOSHIMA_DI2_NAME);
+  if (has1 && !has2) return TOYOSHIMA_DI1_NAME;
+  if (has2 && !has1) return TOYOSHIMA_DI2_NAME;
+  return "";
+}
+
 function areaNotifyLabel(sensor) {
-  if (sensor?.id === "main_beam_far") return "遠センサー";
-  if (sensor?.id === "main_beam_near") return "近センサー";
-  return sensor?.label || "";
+  if (sensor?.id === "main_beam_far" || sensor?.id === "detached_road") {
+    return TOYOSHIMA_DI1_NAME;
+  }
+  if (sensor?.id === "main_beam_near" || sensor?.id === "detached_path") {
+    return TOYOSHIMA_DI2_NAME;
+  }
+  return rewriteToyoshimaDisplayText(sensor?.label || "");
 }
 
 const SECURITY_MODE_OPTIONS = [
@@ -626,8 +691,13 @@ function renderCustomerStatusBanner(dash) {
       <div class="ts-status-copy">
         <p class="ts-status-head">${alerting ? "発報があります" : "安全確認：異常なし"}</p>
         <p class="ts-status-sub">${escapeHtml(
-          alarm.message || "すべてのセンサーが正常に動作しています"
+          rewriteToyoshimaDisplayText(
+            alarm.message || "すべてのセンサーが正常に動作しています"
+          )
         )}</p>
+        <button type="button" class="ts-btn ts-ack-btn" data-ts-action="customer_alarm_ack"${
+          alerting ? "" : " hidden"
+        }>確認した</button>
       </div>
     </div>
     <div class="ts-safety-metrics" aria-label="稼働サマリー">
@@ -945,8 +1015,8 @@ function buildCustomerNotifyItems(dash) {
     items.push({
       id: String(n.id || ""),
       at: n.createdAt,
-      title: n.title || "お知らせ",
-      body: n.body || "",
+      title: rewriteToyoshimaDisplayText(n.title || "お知らせ"),
+      body: rewriteToyoshimaDisplayText(n.body || ""),
       tone: classifyNotifyTone(n.kind, n.severity),
     });
   }
@@ -961,8 +1031,8 @@ function buildCustomerNotifyItems(dash) {
     items.push({
       id: `tl-${ev.id}`,
       at: ev.at,
-      title: ev.title || "できごと",
-      body: ev.detail || "",
+      title: rewriteToyoshimaDisplayText(ev.title || "できごと"),
+      body: rewriteToyoshimaDisplayText(ev.detail || ""),
       tone: classifyNotifyTone(ev.kind, ""),
     });
   }
@@ -1045,24 +1115,27 @@ function classifyHistoryEvent(ev) {
   if (ev.kind === "detached_road") {
     return {
       icon: "🅿️",
-      where: "駐車場（DI1）",
-      what: ev.title || "センサー発報",
+      where: TOYOSHIMA_DI1_NAME,
+      what: rewriteToyoshimaDisplayText(ev.title || "センサー発報"),
       cat: "sensor",
     };
   }
   if (ev.kind === "detached_path") {
     return {
       icon: "🚪",
-      where: "ガレージ（DI2）",
-      what: ev.title || "センサー発報",
+      where: TOYOSHIMA_DI2_NAME,
+      what: rewriteToyoshimaDisplayText(ev.title || "センサー発報"),
       cat: "sensor",
     };
   }
   if (ev.kind === "main_beam") {
+    const name =
+      canonicalToyoshimaSensorName(`${ev.title || ""} ${ev.detail || ""}`) ||
+      TOYOSHIMA_DI1_NAME;
     return {
       icon: "📡",
-      where: "母屋外周",
-      what: ev.title || "ビーム検知",
+      where: name,
+      what: rewriteToyoshimaDisplayText(ev.title || name),
       cat: "sensor",
     };
   }
@@ -1119,7 +1192,9 @@ function renderCustomerHistoryTimeline(timeline, limit = 40) {
           <p class="ts-hist-what">${escapeHtml(meta.what)}</p>
           ${
             ev.detail
-              ? `<p class="ts-hist-sub">${escapeHtml(ev.detail)}</p>`
+              ? `<p class="ts-hist-sub">${escapeHtml(
+                  rewriteToyoshimaDisplayText(ev.detail)
+                )}</p>`
               : ""
           }
         </div>
@@ -1133,7 +1208,7 @@ function renderCustomerHistoryTimeline(timeline, limit = 40) {
 function renderCustomerActivitySection(dash) {
   return `<section class="ts-card ts-activity-card">
     <h3 class="ts-card-head">📜 動作履歴</h3>
-    <p class="ts-hint">駐車場DI1・ガレージDI2・外側ライト・警戒モード</p>
+    <p class="ts-hint">${TOYOSHIMA_DI1_NAME}・${TOYOSHIMA_DI2_NAME}・外側ライト・警戒モード</p>
     <div class="ts-activity-log ts-hist-list" id="ts-activity-log">${renderCustomerHistoryTimeline(
       dash.timeline,
       40
@@ -1204,7 +1279,9 @@ function renderAlarmRows(dash) {
     .map(
       (name) => `<li class="ts-alarm-row">
         <time class="ts-alarm-time">${escapeHtml(at)}</time>
-        <span class="ts-alarm-sensor">${escapeHtml(name)}</span>
+        <span class="ts-alarm-sensor">${escapeHtml(
+          rewriteToyoshimaDisplayText(name)
+        )}</span>
       </li>`
     )
     .join("")}</ul>`;
@@ -1579,8 +1656,12 @@ function renderActivityLog(timeline, limit = 10) {
       return `<article class="ts-log-row${alertClass}">
         <span class="ts-log-ico">${ico}</span>
         <div class="ts-log-body">
-          <p class="ts-log-title">${escapeHtml(ev.title)}</p>
-          <p class="ts-log-sub">${escapeHtml(ev.detail || "")}</p>
+          <p class="ts-log-title">${escapeHtml(
+            rewriteToyoshimaDisplayText(ev.title)
+          )}</p>
+          <p class="ts-log-sub">${escapeHtml(
+            rewriteToyoshimaDisplayText(ev.detail || "")
+          )}</p>
         </div>
         <time class="ts-log-time">${formatTime(ev.at)}</time>
       </article>`;
@@ -2148,9 +2229,16 @@ function patchToyoshimaDashboard(dash) {
             : "安全確認：異常なし";
         }
         if (sub) {
-          sub.textContent =
-            dash.alarm?.message || "すべてのセンサーが正常に動作しています";
+          sub.textContent = rewriteToyoshimaDisplayText(
+            dash.alarm?.message || "すべてのセンサーが正常に動作しています"
+          );
         }
+        const emoji = banner.querySelector(".ts-status-emoji");
+        if (emoji) emoji.textContent = dash.alarm?.active ? "🚨" : "✅";
+        const ack = banner.querySelector(
+          "[data-ts-action='customer_alarm_ack']"
+        );
+        if (ack) ack.hidden = !dash.alarm?.active;
       }
     } else {
       const stack = $("ts-customer-status-stack");
@@ -3210,12 +3298,14 @@ function bindToyoshimaControls() {
         );
         return;
       }
-      if (action === "alarm_clear") {
+      if (action === "alarm_clear" || action === "customer_alarm_ack") {
         const data = await postJson("/toyoshima/alarm-clear", {
           siteId: TOYOSHIMA_HOME_ID,
         });
         if (data.dashboard) renderToyoshimaDashboard(data.dashboard);
-        showToast("アラーム対応完了");
+        showToast(
+          action === "customer_alarm_ack" ? "確認しました" : "アラーム対応完了"
+        );
         return;
       }
       if (action === "test_notify") {

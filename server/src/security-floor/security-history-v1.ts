@@ -7,7 +7,10 @@
 
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../home/home-sites-v1.js";
 import { listSystemLogsV1 } from "../home/home-system-log-v1.js";
-import { buildToyoshimaSecurityDashboardV1 } from "../home/home-toyoshima-security-v1.js";
+import {
+  buildToyoshimaSecurityDashboardV1,
+  mapToyoshimaSensorTextV1,
+} from "../home/home-toyoshima-security-v1.js";
 import {
   SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
@@ -136,10 +139,16 @@ function homeSiteIdForSecurityV1(securitySiteId: string): string {
 function cardFromAlarmLogV1(
   log: SecurityAlarmLogV1
 ): SecurityHistoryCardV1 {
-  const sensorLabel = sensorLabelForHistoryV1(
+  const rawLabel = sensorLabelForHistoryV1(
     log.deviceLabel || "",
     log.kindLabel || ""
   );
+  const sensorLabel =
+    log.siteId === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1
+      ? mapToyoshimaSensorTextV1(
+          `${log.deviceLabel || ""} ${log.kindLabel || ""}`
+        )
+      : rawLabel;
   return {
     id: String(log.id || `ALM-${log.at}`),
     at: log.at,
@@ -167,16 +176,41 @@ function cardFromSystemLogV1(
 ): SecurityHistoryCardV1 {
   const di = Number(row.detail?.di ?? row.detail?.input ?? 0);
   const extra = di === 1 ? "DI1" : di === 2 ? "DI2" : "";
+  const rawLabel = sensorLabelForHistoryV1(row.message, extra, extra);
+  const sensorLabel =
+    securitySiteId === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1
+      ? mapToyoshimaSensorTextV1(row.message, di === 1 || di === 2 ? di : null)
+      : rawLabel;
   return {
     id: `SYS-${row.id}`,
     at: row.createdAt,
     atLabel: formatSecurityHistoryAtLabelV1(row.createdAt),
-    sensorLabel: sensorLabelForHistoryV1(row.message, extra, extra),
+    sensorLabel,
     resultLabel: resultLabelForAtV1(row.createdAt, row.message),
     icon: "🚨",
     source: "live",
     siteId: securitySiteId,
   };
+}
+
+function toyoshimaTimelineLabelV1(ev: {
+  title?: string;
+  detail?: string;
+  kind?: string;
+}): string {
+  const kind = String(ev.kind || "");
+  const title = String(ev.title || "");
+  const detail = String(ev.detail || "");
+  const sensorKind =
+    kind === "main_beam" ||
+    kind === "detached_road" ||
+    kind === "detached_path";
+  const sensorText =
+    /接近検知|侵入検知|センサー検知|外周ビーム|建物至近|道路側センサー|通路側センサー|駐車場センサー|ガレージセンサー|遠センサー|近センサー/.test(
+      `${title} ${detail}`
+    );
+  if (!sensorKind && !sensorText) return title || "できごと";
+  return mapToyoshimaSensorTextV1(title || detail);
 }
 
 function toyoshimaHistoryCardsV1(): SecurityHistoryCardV1[] {
@@ -186,11 +220,7 @@ function toyoshimaHistoryCardsV1(): SecurityHistoryCardV1[] {
       id: String(ev.id || `TS-${ev.at}`),
       at: ev.at,
       atLabel: formatSecurityHistoryAtLabelV1(ev.at),
-      sensorLabel: sensorLabelForHistoryV1(
-        ev.title || "",
-        ev.kind || "",
-        ev.detail || ""
-      ),
+      sensorLabel: toyoshimaTimelineLabelV1(ev),
       resultLabel: resultLabelForAtV1(
         ev.at,
         `${ev.title || ""} ${ev.detail || ""}`
