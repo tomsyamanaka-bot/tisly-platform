@@ -86,7 +86,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.27"
+FIRMWARE_LOGIC_VERSION = "1.2.28"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -1723,6 +1723,18 @@ def build_heartbeat_payload(building, site_id=None, device_id=None, extra=None):
         payload["deviceId"] = device_id
     if extra and isinstance(extra, dict):
         payload.update(extra)
+    # 死活・温度・版・IP だけ。DI や発報フィールドは HB から落とす。
+    for banned in (
+        "inputStates",
+        "input_states",
+        "inputs",
+        "di",
+        "message",
+        "source",
+        "immediate",
+        "alert",
+    ):
+        payload.pop(banned, None)
     # extra の後に実測温度を必ず載せる
     temp = read_board_temperature_c()
     if temp is not None:

@@ -665,17 +665,7 @@ export async function recordToyoshimaHeartbeatV1(input: {
   if (temp != null) {
     await processToyoshimaBoardTempV1(input.building, temp);
   }
-  /* DI 立上りはライトと別に Push する */
-  try {
-    await ingestToyoshimaHeartbeatInputsV1({
-      siteId: input.siteId,
-      building: input.building,
-      deviceId: input.deviceId,
-      inputStates: input.inputStates,
-    });
-  } catch (err) {
-    console.error("[toyoshima] hb input ingest failed:", err);
-  }
+  /* ハートビートは死活・温度・版・IP のみ。DI では発報しない。 */
   persistToyoshimaHeartbeatV1();
 }
 
@@ -2027,66 +2017,17 @@ export async function processToyoshimaSecurityEventV1(input: {
   };
 }
 
-function readHeartbeatDiStateV1(
-  inputStates: unknown,
-  di: ToyoshimaDiChannelV1
-): string | null {
-  if (!inputStates || typeof inputStates !== "object") return null;
-  const rec = inputStates as Record<string, unknown>;
-  const raw = rec[String(di)] ?? rec[`DI${di}`] ?? rec[`di${di}`];
-  if (raw == null) return null;
-  const text = String(raw).trim().toLowerCase();
-  if (text === "on" || text === "1" || text === "true" || text === "detecting") {
-    return "on";
-  }
-  if (text === "off" || text === "0" || text === "false" || text === "normal") {
-    return "off";
-  }
-  return null;
-}
-
 /**
- * heartbeat の inputStates から DI 立上りを拾う。
- * /event 欠落時のバックアップ。同一ONの再送は捨てる。
+ * ハートビートはセンサー発報に使わない。
+ * DI の立上りは POST /event だけが通知する。
  */
-export async function ingestToyoshimaHeartbeatInputsV1(input: {
+export async function ingestToyoshimaHeartbeatInputsV1(_input: {
   siteId?: string;
   building: ToyoshimaBuildingIdV1;
   deviceId?: string;
   inputStates?: unknown;
 }): Promise<number> {
-  if (!input.inputStates) return 0;
-  let fired = 0;
-  for (const di of [1, 2] as ToyoshimaDiChannelV1[]) {
-    const next = readHeartbeatDiStateV1(input.inputStates, di);
-    if (!next) continue;
-    const prev = lastToyoshimaDiStateV1[input.building][String(di) as "1" | "2"];
-    lastToyoshimaDiStateV1[input.building][String(di) as "1" | "2"] = next;
-    /* unknown→on も発火（再起動直後の取りこぼし防止） */
-    if (!(next === "on" && prev !== "on")) continue;
-    if (isToyoshimaNotifyDuplicateV1(input.building, di)) {
-      console.log(
-        `[toyoshima] hb di rise skipped (dedup) ${input.building} DI${di}`
-      );
-      continue;
-    }
-    console.log(
-      `[toyoshima] hb di rise ${input.building} DI${di} ${prev}->${next}`
-    );
-    try {
-      await processToyoshimaSecurityEventV1({
-        siteId: input.siteId,
-        building: input.building,
-        di,
-        deviceId: input.deviceId,
-        source: "heartbeat",
-      });
-      fired += 1;
-    } catch (err) {
-      console.error("[toyoshima] hb di rise failed:", err);
-    }
-  }
-  return fired;
+  return 0;
 }
 
 /** 手動 DO 操作（PWA トグル / テスト） */

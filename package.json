@@ -1,6 +1,6 @@
 {
   "name": "tisly-home-security-demo",
-  "version": "1.2.27",
+  "version": "1.2.28",
   "private": true,
   "description": "TiSLY HOME Security DEMO — monorepo scripts + Capacitor iOS",
   "type": "module",

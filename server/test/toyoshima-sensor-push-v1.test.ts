@@ -244,8 +244,9 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.equal(gate.skipReason, "通知OFF");
   });
 
-  it("heartbeat DI rising edge records parking/garage history", async () => {
+  it("heartbeat DI rising edge does not record a sensor alert", async () => {
     armAway();
+    const before = latestLogs("sensor_alert").length;
     await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
       inputStates: { "1": "off", "2": "off" },
@@ -254,13 +255,8 @@ describe("toyoshima-sensor-push-v1", () => {
       building: "detached",
       inputStates: { "1": "on", "2": "off" },
     });
-    assert.equal(fired, 1);
-    const row = latestLogs("sensor_alert").find((r) =>
-      r.message.includes("道路側センサー（はなれ）")
-    );
-    assert.ok(row, "heartbeat 立上りでも発報履歴を残す");
-    assert.equal(row?.detail?.sensorName, "道路側センサー（はなれ）");
-    assert.ok(row?.detail?.detectedAtJst);
+    assert.equal(fired, 0);
+    assert.equal(latestLogs("sensor_alert").length, before);
   });
 
   it("stale ON state does not block a new /event", async () => {
@@ -321,8 +317,9 @@ describe("toyoshima-sensor-push-v1", () => {
     assert.equal(hb, 0, "同一ONの HB は再発報しない");
   });
 
-  it("heartbeat still-on after cooldown does not loop", async () => {
+  it("heartbeat still-on after cooldown does not alert", async () => {
     armAway();
+    const before = latestLogs("sensor_alert").length;
     await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
       inputStates: { "1": "off", "2": "off" },
@@ -331,35 +328,39 @@ describe("toyoshima-sensor-push-v1", () => {
       building: "detached",
       inputStates: { "1": "on", "2": "off" },
     });
-    assert.equal(first, 1);
+    assert.equal(first, 0);
     releaseToyoshimaNotifyStopperForTestV1("detached", 1);
     const looped = await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
       inputStates: { "1": "on", "2": "off" },
     });
-    assert.equal(looped, 0, "物理OFFなしでは HB 再送しない");
+    assert.equal(looped, 0);
+    assert.equal(latestLogs("sensor_alert").length, before);
   });
 
-  it("physical OFF then ON can notify again", async () => {
+  it("physical OFF then ON notifies only through /event", async () => {
     armAway();
-    await ingestToyoshimaHeartbeatInputsV1({
-      building: "detached",
-      inputStates: { "1": "off", "2": "off" },
-    });
-    const first = await ingestToyoshimaHeartbeatInputsV1({
+    const hb = await ingestToyoshimaHeartbeatInputsV1({
       building: "detached",
       inputStates: { "1": "on", "2": "off" },
     });
-    assert.equal(first, 1);
-    await ingestToyoshimaHeartbeatInputsV1({
+    assert.equal(hb, 0);
+    const first = await processToyoshimaSecurityEventV1({
       building: "detached",
-      inputStates: { "1": "off", "2": "off" },
+      di: 1,
+      source: "event",
     });
+    assert.equal(first.ok, true);
     releaseToyoshimaNotifyStopperForTestV1("detached", 1);
-    const again = await ingestToyoshimaHeartbeatInputsV1({
+    const again = await processToyoshimaSecurityEventV1({
       building: "detached",
-      inputStates: { "1": "on", "2": "off" },
+      di: 1,
+      source: "event",
     });
-    assert.equal(again, 1, "物理再検知なら再通知できる");
+    assert.equal(again.ok, true);
+    const rows = latestLogs("sensor_alert").filter((r) =>
+      r.message.includes("道路側センサー（はなれ）")
+    );
+    assert.ok(rows.length >= 2);
   });
 });

@@ -649,6 +649,29 @@ def test_init_watchdog_host_returns_none():
     assert wdt is None or hasattr(wdt, "feed")
 
 
+def test_heartbeat_payload_never_carries_sensor_state():
+    payload = ts.build_heartbeat_payload(
+        "main",
+        extra={
+            "inputStates": {"1": "on", "2": "on"},
+            "di": 1,
+            "message": "外周で接近検知",
+            "source": "heartbeat",
+            "ip": "192.168.1.235",
+            "firmware_version": "1.2.27",
+        },
+    )
+    assert "inputStates" not in payload
+    assert "di" not in payload
+    assert "message" not in payload
+    assert "source" not in payload
+    assert payload["ip"] == "192.168.1.235"
+    assert payload["firmware_version"] == "1.2.27"
+    text = (ROOT / "firmware" / "main_toyoshima.py").read_text(encoding="utf-8")
+    assert '"inputStates"' not in text
+    assert "Pin.PULL_UP if _di_active_low else Pin.PULL_DOWN" in text
+
+
 def test_send_heartbeat_with_retry_retries_three_times():
     calls = {"n": 0}
 
@@ -1181,6 +1204,7 @@ if __name__ == "__main__":
     test_silent_skips_outputs()
     test_kick_watchdog_none_safe()
     test_init_watchdog_host_returns_none()
+    test_heartbeat_payload_never_carries_sensor_state()
     test_send_heartbeat_with_retry_retries_three_times()
     test_send_heartbeat_with_retry_stops_on_success()
     test_send_toyoshima_heartbeat_http_exception_returns_false()

@@ -312,6 +312,9 @@ CH_GPIO_MAP = _resolve_pin_map("CH_GPIO", BOARD_CH_GPIO, "CH")
 DI_GPIO_MAP = _resolve_pin_map("DI_GPIO", BOARD_DI_GPIO, "DI")
 
 _di_active_low = bool(getattr(config, "DI_ACTIVE_LOW", True))
+# 未結線の DI は「非検知」側へ固定する。
+# アクティブLow（接点ON=GPIO LOW）なので内部プルアップ。
+# プルダウンにすると未結線が LOW になり、遠/近の誤発報になる。
 _di_pull = Pin.PULL_UP if _di_active_low else Pin.PULL_DOWN
 
 
@@ -333,13 +336,23 @@ def _init_relay_pins():
     return pins
 
 
+def _make_di_pin(gpio):
+    """DI を入力にし、内部プルを明示して未結線のフローティングを止める。"""
+    pin = Pin(gpio, Pin.IN, _di_pull)
+    try:
+        pin.init(Pin.IN, _di_pull)
+    except Exception:
+        pass
+    return pin
+
+
 def _init_di_pins():
-    """DI も 1 本ずつ保護して初期化する。"""
+    """DI も 1 本ずつ保護して初期化する。DI1/DI2 は同じプル。"""
     pins = {}
     for di in sorted(DI_GPIO_MAP.keys()):
         gpio = DI_GPIO_MAP[di]
         try:
-            pins[di] = Pin(gpio, Pin.IN, _di_pull)
+            pins[di] = _make_di_pin(gpio)
         except Exception as exc:
             _safe_print(
                 "[toyoshima] DI{} GPIO{} init failed: {}".format(
@@ -1026,11 +1039,11 @@ def send_heartbeat():
             "firmware_version": FIRMWARE_LOGIC_VERSION,
             "otaVersion": FIRMWARE_LOGIC_VERSION,
             "chStates": dict(ch_states),
-            "inputStates": dict(input_states),
             "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
             "uptime_sec": _uptime_sec(),
             "ip": get_ip(),
         }
+        # センサー検知は /event だけ。HB に DI 状態を載せない。
         if _kit:
             extra.update(_kit.payload_fields())
         payload = build_heartbeat_payload(
