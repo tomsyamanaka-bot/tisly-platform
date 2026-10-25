@@ -56,7 +56,7 @@ function respondFirmwareDeploy(
   /* 単独配信は選択中の
    * currentSiteId を path より優先する
    */
-  let siteKey: "toyoshima" | "itabashi" | "all";
+  let siteKey: "toyoshima" | "itabashi" | "ryugasaki" | "all";
   if (allSites) {
     siteKey = "all";
   } else if (bodyKey) {

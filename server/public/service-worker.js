@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2577-staff-mute-by-site";
+const SW_VERSION = "tisly-pwa-v2580-ryugasaki-ota-slug";
 /* tisly-pwa-v2576-staff-notify-mute */
 /* tisly-pwa-v2575-staff-notify-sync */
 /* tisly-pwa-v2573-operator-summary */
@@ -332,6 +332,8 @@ const SHELL_URLS = [
   "/js/features/security/use-toyoshima-status-v1.js",
   "/css/features/security/security-floor-v1.css",
   "/css/features/security/toyoshima-security-v1.css",
+  "/css/features/security/washmate-customer-settings-v1.css",
+  "/js/features/security/washmate-customer-settings-v1.js",
   // 3D Floorplan Builder（追記）
   "/builder",
   "/floorplan-builder",

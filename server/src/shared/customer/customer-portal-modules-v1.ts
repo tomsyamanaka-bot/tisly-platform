@@ -74,6 +74,11 @@ export const CUSTOMER_PORTAL_DEFAULTS_BY_CODE_V1: Record<string, string[]> = {
     "camera_preview_v1",
     "customer_portal",
   ],
+  /** 龍ヶ崎店: Security のみ（HOME・カメラなし） */
+  WASHMATE001: [
+    "security_floor_v1",
+    "customer_portal",
+  ],
 };
 
 /** 一般顧客の Security 単体既定（追記） */

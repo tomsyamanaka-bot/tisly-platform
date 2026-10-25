@@ -39,6 +39,7 @@ const LIVE_OWNER_CODES_V1 = new Set([
   "HOME001",
   "TOYOSHIMA001",
   "TOSHIMA001",
+  "WASHMATE001",
 ]);
 
 /** 全角英数・空白・ハイフンを顧客コード比較用に揃える */
@@ -56,7 +57,13 @@ export function normalizeCustomerCodeV1(raw) {
 export function isLivePropertyIdV1(id) {
   const s = String(id || "").toUpperCase();
   if (!s) return false;
-  return s.includes("ITABASHI-LIVE") || s.includes("TOYOSHIMA") || s.includes("TOSHIMA");
+  return (
+    s.includes("ITABASHI-LIVE") ||
+    s.includes("TOYOSHIMA") ||
+    s.includes("TOSHIMA") ||
+    s.includes("RYUGASAKI") ||
+    s.includes("WASHMATE")
+  );
 }
 
 /** 施主・社内トークンがあるときだけ実機物件を出す */

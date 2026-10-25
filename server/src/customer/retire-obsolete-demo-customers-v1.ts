@@ -34,6 +34,7 @@ export const OBSOLETE_DEMO_CUSTOMER_CODES_V1 = [
 export const CANONICAL_CUSTOMER_CODES_V1 = [
   "TOMS001",
   "TOYOSHIMA001",
+  "WASHMATE001",
 ] as const;
 
 /** 旧デモ汚染コード判定（正規2件以外） */

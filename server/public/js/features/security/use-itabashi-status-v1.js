@@ -34,7 +34,7 @@ function emptyStatus() {
     boardTempLevel: "normal",
     firmwareVersion: null,
     firmwareServerVersion: null,
-    firmwareLatest: false,
+    firmwareLatest: true,
     firmwareLabel: "―",
     heartbeatWatchEnabled: true,
   };
@@ -141,11 +141,12 @@ export function applyItabashiHardwareStatus(status) {
   setTxt("ib-board-temp-val", opTempText);
   setTxt("ib-assure-temp", custTempText);
   setTxt("cv-board-temp-val", custLabel);
-  setTxt("ib-assure-fw", status.firmwareLabel || "―");
-  const badge = document.getElementById("ib-assure-fw-badge");
-  if (badge) {
-    badge.hidden = !(status.firmwareLatest === true && status.firmwareLabel !== "―");
-  }
+  setTxt(
+    "ib-assure-fw",
+    status.firmwareLatest === true
+      ? "🟢 最新状態です"
+      : "🔄 更新があります（自動更新待機中）"
+  );
   const pill = document.getElementById("sf-online");
   if (pill) {
     pill.textContent = online ? "🟢 オンライン" : "🔴 オフライン";

@@ -34,6 +34,10 @@ import {
 } from "./toyoshima-security-dashboard-v1.js";
 import { fetchToyoshimaStatus } from "./use-toyoshima-status-v1.js";
 import {
+  isWashmateSecuritySite,
+  mountWashmateCustomerSettings,
+} from "./washmate-customer-settings-v1.js";
+import {
   applyItabashiHardwareStatus,
   fetchItabashiStatus,
   isItabashiSecuritySite,
@@ -320,7 +324,12 @@ function applyTenantSingleSite(sites, preferredId) {
 
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
+  const washmate = isWashmateSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
+  document.body.classList.toggle("is-washmate", washmate);
+  const daily = $("sf-customer-daily-settings");
+  if (daily) daily.hidden = washmate;
+  mountWashmateCustomerSettings(state.siteId);
   window.__TISLY_SF_SITE_ID = state.siteId;
   setSecurityHistorySiteIdV1(state.siteId);
 

@@ -612,7 +612,7 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.main.do[1].blinking, false);
     assert.equal(dash.main.do[2].on, false);
     const cmd = consumeToyoshimaDeviceCommandV1("main");
-    assert.equal(cmd?.command, "sensor_near");
+    assert.equal(cmd?.command, "work_light");
     const off = consumeToyoshimaDeviceCommandV1("main");
     assert.equal(off?.command, "bulk_off");
     assert.deepEqual(off?.channels, [1, 2, 3]);
@@ -697,7 +697,7 @@ describe("toyoshima-security-v1", () => {
     assert.deepEqual(cmd?.channels, [1, 2]);
   });
 
-  it("two_stage_blink near blinks both lights and steadies DO3", async () => {
+  it("two_stage_blink near alone is steady work light without flash", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",
       guardMode: "always",
@@ -707,6 +707,38 @@ describe("toyoshima-security-v1", () => {
       flashEnabled: true,
       flashDurationSec: 15,
     });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 2,
+    });
+    const dash = buildToyoshimaSecurityDashboardV1();
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[0].blinking, false);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[1].blinking, false);
+    assert.equal(dash.main.do[2].on, false);
+    assert.equal(dash.main.do[2].blinking, false);
+    const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(cmd?.command, "work_light");
+    assert.deepEqual(cmd?.channels, [1, 2]);
+  });
+
+  it("two_stage_blink near after far blinks both lights and steadies DO3", async () => {
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      guardMode: "always",
+      scheduleStart: "00:00",
+      scheduleEnd: "00:00",
+      securityMode: "two_stage_blink",
+      flashEnabled: true,
+      flashDurationSec: 15,
+      perimeterTimeoutSec: 120,
+    });
+    await processToyoshimaSecurityEventV1({
+      building: "main",
+      di: 1,
+    });
+    consumeToyoshimaDeviceCommandV1("main");
     await processToyoshimaSecurityEventV1({
       building: "main",
       di: 2,
@@ -735,11 +767,14 @@ describe("toyoshima-security-v1", () => {
       di: 2,
     });
     const dash = buildToyoshimaSecurityDashboardV1();
-    assert.equal(dash.main.do[0].blinking, true);
-    assert.equal(dash.main.do[1].blinking, true);
+    assert.equal(dash.main.do[0].on, true);
+    assert.equal(dash.main.do[0].blinking, false);
+    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[1].blinking, false);
     assert.equal(dash.main.do[2].on, false);
     assert.equal(dash.main.do[2].blinking, false);
     const cmd = consumeToyoshimaDeviceCommandV1("main");
+    assert.equal(cmd?.command, "work_light");
     assert.deepEqual(cmd?.channels, [1, 2]);
   });
 

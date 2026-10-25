@@ -658,7 +658,7 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /詳細を見る（もっと見る）/);
     assert.match(customerHtml, /sf-itabashi-assure-card/);
     assert.match(customerHtml, /盤内温度（実測℃）/);
-    assert.match(customerHtml, /システムバージョン/);
+    assert.match(customerHtml, /最新状態です/);
     assert.match(customerHtml, /toyoshima-security-v1\.css\?v=\d+/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=\d+/);
     assert.match(customerHtml, /sf-status-refresh|最新状態に更新/);
@@ -1041,7 +1041,7 @@ describe("security-floor-v1", () => {
       path.join(publicDir, "js/customer-shared-v1.js"),
       "utf8"
     );
-    assert.match(customerSharedJs, /cv-firmware-val|システムバージョン/);
+    assert.match(customerSharedJs, /cv-firmware-val|最新状態です/);
     assert.match(customerSharedJs, /cv-board-temp-val|盤内温度（実測℃）/);
 
     const proJs = fs.readFileSync(

@@ -4,7 +4,7 @@
  * cache: no-store と ?t= で強制再取得
  */
 
-import { tislySystemVersionLabel } from "../../tisly-release-version-v1.js";
+import { tislyCustomerUpdateStatusLabel } from "../../tisly-release-version-v1.js";
 
 export const TOYOSHIMA_STATUS_PATH =
   "/api/home/v1/toyoshima/status";
@@ -78,7 +78,7 @@ function emptyStatus() {
     boardTempLevel: "normal",
     firmwareVersion: null,
     firmwareServerVersion: null,
-    firmwareLatest: false,
+    firmwareLatest: true,
     firmwareLabel: "―",
     devices: [],
   };
@@ -93,17 +93,18 @@ export function formatFirmwareCustomerLabel(running) {
 function paintFirmwareEls(status) {
   const run =
     status.firmwareVersion || status.runningVersion || null;
-  const label = tislySystemVersionLabel(run);
-  const latest =
-    status.firmwareLatest === true && label !== "―";
+  const latest = status.firmwareLatest === true;
+  const customerText = tislyCustomerUpdateStatusLabel(latest);
   const fwEl = document.getElementById("ts-assure-fw");
-  if (fwEl) fwEl.textContent = label;
-  const badge = document.getElementById("ts-assure-fw-badge");
-  if (badge) badge.hidden = !latest;
+  if (fwEl && document.body.classList.contains("sf-customer")) {
+    fwEl.textContent = customerText;
+  }
   const cvFw = document.getElementById("cv-firmware-val");
-  if (cvFw) cvFw.textContent = label;
+  if (cvFw) cvFw.textContent = customerText;
+  const badge = document.getElementById("ts-assure-fw-badge");
+  if (badge) badge.hidden = true;
   const cvBadge = document.getElementById("cv-firmware-badge");
-  if (cvBadge) cvBadge.hidden = !latest;
+  if (cvBadge) cvBadge.hidden = true;
   /* /app OTA カードも同じ実機版を描く */
   if (run) {
     const painted = formatFirmwareCustomerLabel(run);

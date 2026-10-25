@@ -46,6 +46,12 @@ const CUSTOMER_TENANT_PROFILES_V1: Record<
     useToyoshimaDashboard: false,
   },
   TOYOSHIMA001: { ...TOYOSHIMA_PROFILE_V1 },
+  WASHMATE001: {
+    displayName: "ウォッシュメイト龍ヶ崎店",
+    securitySiteId: "SEC-JP-RYUGASAKI-001",
+    homeSiteId: "HOME-JP-RYUGASAKI",
+    useToyoshimaDashboard: false,
+  },
   // テスター専用：板橋自宅実機へ直結
   TESTER001: {
     displayName: "テスターデモ（板橋）",

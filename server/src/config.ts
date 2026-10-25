@@ -33,14 +33,14 @@ export const config = {
     return env("TISLY_PUBLIC_URL") || env("PUBLIC_BASE_URL") || "https://tisly.jp";
   },
   get dbPath() {
-    const url = env("DATABASE_URL");
-    if (url.startsWith("sqlite://")) return url.replace("sqlite://", "");
-    // テストが指定した専用 DB は .env で
-    // 上書きさせない（並列実行の衝突防止）。
+    // テストが起動前に指定した専用 DB を最優先する。
+    // .env の DATABASE_URL で本番ファイルへ落ちない。
     const preTestDb = envBeforeDotenv("TISLY_DB_PATH");
     if (preTestDb && /test[-_]/i.test(preTestDb.replace(/\\/g, "/"))) {
       return preTestDb;
     }
+    const url = env("DATABASE_URL");
+    if (url.startsWith("sqlite://")) return url.replace("sqlite://", "");
     return env("TISLY_DB_PATH", "./data/tisly_notifications.db");
   },
   defaultTenantId: env("DEFAULT_TENANT_ID", "default"),

@@ -548,6 +548,13 @@ export function listFallbackSites() {
       countryCode: "JP",
       propertyId: ITABASHI_PROPERTY_ID,
     },
+    {
+      id: "SEC-JP-RYUGASAKI-001",
+      siteId: "SEC-JP-RYUGASAKI-001",
+      displayName: "ウォッシュメイト龍ヶ崎店",
+      countryCode: "JP",
+      propertyId: "HOME-JP-RYUGASAKI",
+    },
   ];
 }
 

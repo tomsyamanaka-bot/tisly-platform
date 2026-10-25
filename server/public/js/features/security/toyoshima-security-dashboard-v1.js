@@ -15,7 +15,7 @@ import {
 } from "./use-toyoshima-status-v1.js";
 import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
 import { showViewportToast } from "./toast-viewport-v1.js";
-import { tislySystemVersionLabel } from "../../tisly-release-version-v1.js";
+import { tislyCustomerUpdateStatusLabel } from "../../tisly-release-version-v1.js";
 import {
   bindSecurityHistoryModalV1,
   openSecurityHistoryModalV1,
@@ -365,8 +365,11 @@ function buildCommHealthView(dash) {
       (!!dash?.ota?.runningVersion &&
         dash.ota.runningVersion === dash.ota.serverVersion &&
         !dash.ota.has_ota_update),
-    firmwareLabel: tislySystemVersionLabel(
-      health.firmwareVersion || dash?.ota?.runningVersion
+    firmwareLabel: tislyCustomerUpdateStatusLabel(
+      health.firmwareLatest === true ||
+        (!!dash?.ota?.runningVersion &&
+          dash.ota.runningVersion === dash.ota.serverVersion &&
+          !dash.ota.has_ota_update)
     ),
   };
 }
@@ -740,13 +743,10 @@ function renderCustomerAssureHealthCard(view) {
         <span class="ts-assure-val ts-board-temp is-${view.tempLevel}" id="ts-assure-temp">${view.tempEmoji} ${escapeHtml(view.tempLabel)}</span>
       </div>
       <div class="ts-assure-row">
-        <span class="ts-assure-key">システムバージョン</span>
-        <span class="ts-assure-val ts-assure-fw-wrap" id="ts-assure-fw-wrap">
-          <span id="ts-assure-fw">${escapeHtml(view.firmwareLabel || "―")}</span>
-          <span class="ts-fw-badge" id="ts-assure-fw-badge"${
-            view.firmwareLatest ? "" : " hidden"
-          }>🟢 最新</span>
-        </span>
+        <span class="ts-assure-key">更新状態</span>
+        <span class="ts-assure-val" id="ts-assure-fw">${escapeHtml(
+          view.firmwareLabel || "🟢 最新状態です"
+        )}</span>
       </div>
       <div class="ts-assure-row">
         <span class="ts-assure-key">最終確認時刻</span>
@@ -1394,11 +1394,11 @@ function renderOtaCard(dash) {
     <h3 class="ts-card-head">🚀 TiSLY OTAファームウェア一元管理</h3>
     <div class="ts-health-grid">
       <div class="ts-health-cell">
-        <span class="ts-health-key">現在稼働中バージョン</span>
+        <span class="ts-health-key">実機バージョン</span>
         <span class="ts-health-val" id="ts-ota-running">v${escapeHtml(running)}</span>
       </div>
       <div class="ts-health-cell">
-        <span class="ts-health-key">サーバー最新バージョン</span>
+        <span class="ts-health-key">クラウド側設定バージョン</span>
         <span class="ts-health-val" id="ts-ota-server">v${escapeHtml(server)}</span>
       </div>
     </div>

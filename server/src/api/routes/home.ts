@@ -159,6 +159,7 @@ import {
   recordItabashiHeartbeatV1,
   setItabashiHeartbeatWatchV1,
 } from "../../home/home-itabashi-comm-v1.js";
+import { registerRyugasakiSecurityRoutesV1 } from "./ryugasaki-security-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
   recordTislyOtaDeviceFirmwareV1,
@@ -1947,6 +1948,8 @@ homeRouter.get("/itabashi/config", (_req, res) => {
     status,
   });
 });
+
+registerRyugasakiSecurityRoutesV1(homeRouter);
 
 homeRouter.put("/itabashi/config", (req, res) => {
   noStoreItabashi(res);

@@ -4,7 +4,7 @@
  * 文言は server/src/shared/customer/customer-labels-v1.ts と同期
  */
 
-import { tislySystemVersionLabel } from "./tisly-release-version-v1.js";
+import { tislyCustomerUpdateStatusLabel } from "./tisly-release-version-v1.js";
 
 export const CUSTOMER_JS_VERSION = "customer-v1-phase28-zone";
 
@@ -64,15 +64,10 @@ export function renderHomeStatus(data) {
       ${
         data.liveStatusSsot
           ? `<p class="cv-firmware" id="cv-firmware-row">
-        <span class="cv-firmware-key">システムバージョン</span>
+        <span class="cv-firmware-key">更新状態</span>
         <span class="cv-firmware-val" id="cv-firmware-val">${escapeHtml(
-          data.liveStatusSite === "toyoshima"
-            ? tislySystemVersionLabel(data.firmwareLabel)
-            : data.firmwareLabel || "―"
+          tislyCustomerUpdateStatusLabel(data.firmwareLatest === true)
         )}</span>
-        <span class="cv-fw-badge" id="cv-firmware-badge"${
-          data.firmwareLatest ? "" : " hidden"
-        }>🟢 最新</span>
       </p>
       <p class="cv-firmware" id="cv-board-temp-row">
         <span class="cv-firmware-key">盤内温度（実測℃）</span>

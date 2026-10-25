@@ -52,18 +52,17 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(resolveTislyOtaSiteKeyV1("SEC-JP-TOSHIMA-001"), "toyoshima");
   });
 
-  it("GET version marks a newer live bundle as pending", async () => {
+  it("GET version keeps the site target without a global pending flag", async () => {
     resetTislyOtaStoreForTestV1();
     const res = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
     assert.equal(res.body.siteId, "toyoshima");
-    assert.equal(typeof res.body.version, "string");
+    assert.equal(res.body.version, "1.2.29");
     assert.equal(typeof res.body.checksum, "string");
     assert.equal(res.body.checksum.length, 64);
-    assert.equal(res.body.pending, true);
-    assert.equal(res.body.has_ota_update, true);
-    assert.match(String(res.body.version), /^1\.2\.\d+/);
+    assert.equal(res.body.pending, false);
+    assert.equal(res.body.has_ota_update, false);
     assert.ok(res.body.files.includes("main.py"));
     assert.ok(res.body.skipFiles.includes("config.py"));
     assert.ok(res.body.files.includes("lib/tisly_rgb.py"));
@@ -200,9 +199,9 @@ describe("firmware-rp2350-ota-v1", () => {
       .send({ channel: "staging", allSites: true });
     assert.equal(res.status, 200);
     assert.equal(res.body.channel, "staging");
-    assert.equal(res.body.sites.length, 2);
+    assert.equal(res.body.sites.length, 3);
     const keys = res.body.sites.map((s) => s.siteId).sort();
-    assert.deepEqual(keys, ["itabashi", "toyoshima"]);
+    assert.deepEqual(keys, ["itabashi", "ryugasaki", "toyoshima"]);
   });
 
   it("ships MicroPython OTA engine with A/B rollback", () => {
@@ -395,7 +394,7 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(stream.body.update_required, true);
     assert.ok(stream.body.files.includes("toyoshima_security.py"));
     assert.ok(stream.body.files.includes("main.py"));
-    assert.match(String(prod.body.version), new RegExp(`^${productSemver()}`));
+    assert.match(String(prod.body.version), /^1\.2\.29$/);
     assert.match(String(prod.body.updateUrl), /\/api\/firmware\/toyoshima\/version/);
     assert.match(String(prod.body.scriptBaseUrl), /\/api\/firmware\/toyoshima\/script/);
     const same = await request(app).get(
@@ -403,18 +402,20 @@ describe("firmware-rp2350-ota-v1", () => {
     );
     assert.equal(same.body.has_ota_update, false);
     assert.equal(same.body.update_required, false);
+    assert.equal(same.body.version, "1.2.29");
+    const currentSite = await request(app).get(
+      "/api/firmware/toyoshima/version?firmware_version=1.2.29"
+    );
+    assert.equal(currentSite.body.update_required, false);
     const script = await request(app).get(
       "/api/firmware/toyoshima/script?name=toyoshima_security.py"
     );
-    assert.match(
-      script.text,
-      new RegExp(`FIRMWARE_LOGIC_VERSION = "${prod.body.version}"`)
-    );
+    assert.doesNotMatch(script.text, /WASHMATE001|ryugasaki_security/);
     const drifted = await request(app).get(
-      `/api/firmware/toyoshima/version?firmware_version=${prod.body.version}-hold`
+      "/api/firmware/toyoshima/version?firmware_version=1.2.20"
     );
     assert.equal(drifted.body.update_required, true);
-    assert.equal(drifted.body.version, prod.body.version);
+    assert.equal(drifted.body.version, "1.2.29");
     const itabashi = await request(app).get(
       "/api/firmware/itabashi/version?firmware_version=1.6.6"
     );
@@ -427,17 +428,44 @@ describe("firmware-rp2350-ota-v1", () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);
-    assert.match(
-      String(prod.body.version),
-      new RegExp(`^${productSemver().replace(/\./g, "\\.")}`)
-    );
-    assert.equal(prod.body.pending, true);
+    assert.equal(prod.body.version, "1.2.29");
+    assert.equal(prod.body.pending, false);
     const staging = await request(app).get(
       "/api/firmware/toyoshima/version?channel=staging"
     );
     assert.equal(staging.status, 200);
-    assert.match(String(staging.body.version), /^1\.2\.\d+/);
-    assert.equal(staging.body.pending, true);
+    assert.equal(staging.body.version, "1.2.29");
+    assert.equal(staging.body.pending, false);
     assert.equal(staging.body.channel, "staging");
+  });
+
+  it("ryugasaki OTA ships only that store and keeps its own target", async () => {
+    resetTislyOtaStoreForTestV1();
+    const version = await request(app).get(
+      "/api/firmware/WASHMATE001/version?firmware_version=1.2.34"
+    );
+    assert.equal(version.status, 200);
+    assert.equal(version.body.siteId, "ryugasaki");
+    assert.equal(version.body.version, "1.2.34");
+    assert.equal(version.body.update_required, false);
+    assert.ok(version.body.files.includes("main.py"));
+    assert.ok(version.body.files.includes("ryugasaki_security.py"));
+    assert.equal(version.body.files.includes("toyoshima_security.py"), false);
+    assert.equal(version.body.files.includes("security_light.py"), false);
+    const main = await request(app).get(
+      "/api/firmware/ryugasaki/script?name=main.py"
+    );
+    assert.equal(main.status, 200);
+    assert.match(main.text, /龍ヶ崎/);
+    assert.doesNotMatch(main.text, /toyoshima_security|ToyoshimaMainHouseController/);
+    const behind = await request(app).get(
+      "/api/firmware/ryugasaki/version?firmware_version=1.2.20"
+    );
+    assert.equal(behind.body.update_required, true);
+    const toyoshima = await request(app).get(
+      "/api/firmware/toyoshima/version?firmware_version=1.2.34"
+    );
+    assert.equal(toyoshima.body.version, "1.2.29");
+    assert.equal(toyoshima.body.update_required, false);
   });
 });

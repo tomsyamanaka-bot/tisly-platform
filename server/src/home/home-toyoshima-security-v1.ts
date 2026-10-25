@@ -302,10 +302,8 @@ export function buildToyoshimaFirmwareSsotV1(): ToyoshimaFirmwareSsotV1 {
   try {
     const ota = getTislyOtaVersionV1({ siteKey: "toyoshima" });
     const running = ota.runningVersion || null;
-    const server = ota.version || "1.0.0";
-    const latest = Boolean(
-      running && running === server && !ota.has_ota_update
-    );
+    const server = ota.version || "1.2.29";
+    const latest = !ota.has_ota_update && !ota.update_required;
     return {
       runningVersion: running,
       serverVersion: server,
@@ -1622,15 +1620,17 @@ function isToyoshimaNearStagedV1(
 
 /**
  * 遠近威嚇点滅。
- * 外周: DO1 点滅 + DO2 点灯、DO3 は出さない。
- * 至近: DO1/DO2 点滅。フラッシュ連動ONのときだけ DO3 を点灯時間だけ点ける。
- * 実機側はセンサーOFF後のオフディレイで消灯する。
+ * 外周: DO1 点滅。DO2 と DO3 は出さない。
+ * 遠のあとの至近: DO1/DO2 点滅。フラッシュ連動ONのときだけ DO3 を点ける。
+ * 遠の履歴が無い至近（す抜け）: DO1 と DO2 だけ常時点灯。DO3 は出さない。
+ * 点灯維持時間が来たら実機が全 DO を消す。
  */
 function driveTwoStageBlinkMainV1(input: {
   rules: ReturnType<typeof getHomeSecurityRulesV1>;
   isFar: boolean;
   beamActive: boolean;
   flashEnabled: boolean;
+  nearAlone: boolean;
 }): void {
   const drive =
     input.beamActive &&
@@ -1662,6 +1662,25 @@ function driveTwoStageBlinkMainV1(input: {
     queueToyoshimaDeviceCommandV1({
       building: "main",
       command: "sensor_far",
+      channels: [1, 2],
+      durationMs: lightMs,
+    });
+    return;
+  }
+  if (input.nearAlone) {
+    holdSteadyOutput("main", 1, lightMs);
+    holdSteadyOutput("main", 2, lightMs);
+    releaseToyoshimaOutputV1("main", 3);
+    appendTimeline({
+      at,
+      building: "main",
+      kind: "manual",
+      title: "至近単独 作業灯（ライト1+2点灯・点滅なし）",
+      detail: "two_stage_blink · DO3なし",
+    });
+    queueToyoshimaDeviceCommandV1({
+      building: "main",
+      command: "work_light",
       channels: [1, 2],
       durationMs: lightMs,
     });
@@ -1738,12 +1757,16 @@ async function handleMainBeamDetect(
   if (isFar) {
     markToyoshimaFarBeamV1(homeId);
   }
+  const nearAlone =
+    !isFar &&
+    !isToyoshimaNearStagedV1(homeId, rules.perimeterTimeoutSec ?? 120);
   if (securityMode === "two_stage_blink") {
     driveTwoStageBlinkMainV1({
       rules,
       isFar,
       beamActive,
       flashEnabled,
+      nearAlone,
     });
     const timer = setTimeout(() => {
       if (diState) diState.state = "normal";

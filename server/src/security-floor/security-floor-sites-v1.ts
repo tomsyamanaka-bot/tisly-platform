@@ -109,6 +109,12 @@ export const SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1 =
 export const SECURITY_FLOOR_TOYOSHIMA_PROPERTY_ID_V1 =
   "HOME-JP-TOYOSHIMA";
 
+/** ウォッシュメイト龍ヶ崎店 */
+export const SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1 =
+  "SEC-JP-RYUGASAKI-001";
+export const SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1 =
+  "HOME-JP-RYUGASAKI";
+
 /** @deprecated 旧 ID 互換 */
 export const SECURITY_FLOOR_TOSHIMA_SITE_ID_V1 =
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1;
@@ -122,6 +128,7 @@ export const SECURITY_FLOOR_TOSHIMA_PROPERTY_ID_V1 =
 export const SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1 = [
   SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
+  SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1,
 ] as const;
 
 /** UI 初期選択（板橋自宅） */
@@ -834,6 +841,80 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
     energyKw: 2.35,
     energyMaxKw: 5.21,
     networkMs: 12,
+  },
+  {
+    id: SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1,
+    tenantId: "WASHMATE001",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "home",
+    displayName: "ウォッシュメイト龍ヶ崎店",
+    addressLabel: "茨城県龍ヶ崎市",
+    planCode: "home_security_std",
+    planStatus: "active",
+    monthlyFee: 0,
+    propertyId: SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1,
+    floors: [
+      { id: "1f", label: "店内", enabled: true },
+    ],
+    rooms: [
+      {
+        id: "rg-backyard",
+        floorId: "1f",
+        label: "バックヤード",
+        x: 8,
+        y: 16,
+        w: 84,
+        h: 68,
+        propertyId: SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1,
+      },
+    ],
+    sensors: [
+      {
+        id: "rg-di1",
+        floorId: "1f",
+        roomId: "rg-backyard",
+        kind: "door",
+        label: "バックヤード入口",
+        customerLabel: "バックヤード入口",
+        x: 18,
+        y: 30,
+        state: "normal",
+        deviceId: "rp2350-ryugasaki-main-01",
+        propertyId: SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1,
+      },
+      {
+        id: "rg-di2",
+        floorId: "1f",
+        roomId: "rg-backyard",
+        kind: "door",
+        label: "両替機",
+        customerLabel: "両替機",
+        x: 48,
+        y: 36,
+        state: "normal",
+        deviceId: "rp2350-ryugasaki-main-01",
+        propertyId: SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1,
+      },
+      {
+        id: "rg-di3",
+        floorId: "1f",
+        roomId: "rg-backyard",
+        kind: "mmwave",
+        label: "バックヤード人感",
+        customerLabel: "バックヤードの人感",
+        x: 72,
+        y: 28,
+        state: "normal",
+        deviceId: "rp2350-ryugasaki-main-01",
+        propertyId: SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1,
+      },
+    ],
+    guardMode: "away",
+    notes: [
+      "入力は通知専用です",
+      "回転灯とベルは確認後の遠隔操作だけです",
+    ],
   },
 ];
 

@@ -11,6 +11,7 @@ import {
   retireObsoleteDemoCustomersV1,
 } from "./retire-obsolete-demo-customers-v1.js";
 import { ensureTester001CustomerV1 } from "./seed-tester001-v1.js";
+import { ensureWashmate001CustomerV1 } from "./seed-washmate001-v1.js";
 
 /** 正規デモ顧客 — 板橋自宅 / 豊島邸 のみ */
 const DEMO_CUSTOMERS = [
@@ -201,5 +202,7 @@ export function seedProRemoteCustomers(): void {
   // テスター専用テナントは末尾追記
   // （板橋・豊島の既存行は改変しない）
   ensureTester001CustomerV1();
+  // 龍ヶ崎店は末尾追記。既存顧客の行は触らない
+  ensureWashmate001CustomerV1();
   ensureProFloorLayersSeed();
 }

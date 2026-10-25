@@ -55,6 +55,13 @@ const LOCAL_TENANT_MAP = {
     homeSiteId: "HOME-JP-ITABASHI-LIVE",
     useToyoshimaDashboard: false,
   },
+  WASHMATE001: {
+    customerCode: "WASHMATE001",
+    displayName: "ウォッシュメイト龍ヶ崎店",
+    securitySiteId: "SEC-JP-RYUGASAKI-001",
+    homeSiteId: "HOME-JP-RYUGASAKI",
+    useToyoshimaDashboard: false,
+  },
 };
 
 export function getCustomerToken() {

@@ -113,12 +113,16 @@ describe("canonical customers v1 — 豊島邸 / 板橋自宅", () => {
     const codes = (res.body.accounts as Array<{ customerCode: string }>).map(
       (a) => a.customerCode
     );
-    assert.deepEqual(codes.sort(), ["TOMS001", "TOYOSHIMA001"].sort());
+    assert.deepEqual(
+      codes.sort(),
+      ["TOMS001", "TOYOSHIMA001", "WASHMATE001"].sort()
+    );
   });
 
   it("listCustomerAccountsAdminV1 matches canonical set", () => {
     const accounts = listCustomerAccountsAdminV1();
-    assert.equal(accounts.length, 2);
+    assert.equal(accounts.length, 3);
+    assert.ok(accounts.some((row) => row.customerCode === "WASHMATE001"));
   });
 
   it("TOYOSHIMA001 owner login works", async () => {

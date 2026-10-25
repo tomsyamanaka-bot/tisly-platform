@@ -8,8 +8,12 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getDatabase } from "../db/database.js";
+import {
+  deviceNeedsSiteFirmwareUpdateV1,
+  tislySiteTargetVersionV1,
+} from "./tisly-site-target-version-v1.js";
 
-export type TislyOtaSiteKeyV1 = "toyoshima" | "itabashi";
+export type TislyOtaSiteKeyV1 = "toyoshima" | "itabashi" | "ryugasaki";
 export type TislyOtaChannelV1 = "staging" | "production";
 
 export type TislyRgbStatusV1 =
@@ -164,6 +168,29 @@ const SITE_PROFILES: SiteProfileV1[] = [
       "config.py": "config.py",
     },
   },
+  {
+    siteKey: "ryugasaki",
+    displayName: "ウォッシュメイト龍ヶ崎店",
+    homeSiteId: "HOME-JP-RYUGASAKI",
+    securitySiteId: "SEC-JP-RYUGASAKI-001",
+    customerCode: "WASHMATE001",
+    aliases: [
+      "ryugasaki",
+      "WASHMATE001",
+      "RYUGASAKI001",
+      "HOME-JP-RYUGASAKI",
+      "SEC-JP-RYUGASAKI-001",
+    ],
+    skipFiles: SKIP_CONFIG,
+    fileMap: {
+      "main.py": "main_ryugasaki.py",
+      "ryugasaki_security.py": "ryugasaki_security.py",
+      "boot.py": "boot.py",
+      "lib/tisly_ota.py": "lib/tisly_ota.py",
+      "lib/tisly_rgb.py": "lib/tisly_rgb.py",
+      "config.py": "config_ryugasaki.py",
+    },
+  },
 ];
 
 let tableReady = false;
@@ -232,6 +259,9 @@ export function resolveTislyOtaSiteKeyV1(
     }
   }
   const upper = key.toUpperCase();
+  if (upper.includes("RYUGASAKI") || upper.includes("WASHMATE")) {
+    return "ryugasaki";
+  }
   /* 豊島邸の別名は板橋へ落とさない */
   if (upper.includes("TOYOSHIMA") || upper.includes("TOSHIMA")) {
     return "toyoshima";
@@ -282,15 +312,6 @@ function readMappedFiles(
   return { files, checksums };
 }
 
-function bumpPatchVersion(current: string): string {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(current || "").trim());
-  if (!m) return "1.0.1";
-  const major = Number(m[1]);
-  const minor = Number(m[2]);
-  const patch = Number(m[3]) + 1;
-  return `${major}.${minor}.${patch}`;
-}
-
 function looseSemverV1(value: string | null | undefined): string | null {
   const match = String(value || "").match(/(\d+)\.(\d+)\.(\d+)/);
   if (!match) return null;
@@ -333,7 +354,9 @@ function liveBundleSemverV1(
   const names =
     siteKey === "toyoshima"
       ? ["toyoshima_security.py", "config.py", "main.py"]
-      : ["security_light.py", "config.py", "main.py"];
+      : siteKey === "ryugasaki"
+        ? ["ryugasaki_security.py", "config.py", "main.py"]
+        : ["security_light.py", "config.py", "main.py"];
   let best: string | null = null;
   for (const name of names) {
     const text = files[name];
@@ -352,22 +375,18 @@ function syncLiveBundleVersionV1(
   siteKey: TislyOtaSiteKeyV1,
   live: { files: Record<string, string>; checksums: Record<string, string> }
 ): void {
-  /* 豊島邸と同じく板橋自宅もライブ版が新しければ配信待ちにする */
   const bundle = liveBundleSemverV1(siteKey, live.files);
-  if (!bundle) return;
+  const target = tislySiteTargetVersionV1(siteKey) || bundle;
+  if (!target) return;
   const liveChecksum = combinedChecksum(live.checksums);
   let changed = false;
-  /* 豊島邸は配信版をファイル内の版へ固定する。ストアだけ先に進むと実機が古い版で止まる */
-  if (siteKey === "toyoshima" && site.version !== bundle) {
-    site.version = bundle;
-    site.pending = true;
-    site.lastDeployAt = nowIso();
+  /* 目標版は現場固定。リポジトリ全体の版では上げない */
+  if (site.version !== target) {
+    site.version = target;
     changed = true;
-  } else if (compareSemverV1(bundle, site.version) > 0) {
-    site.version = bundle;
-    /* 新版は本番も配信待ちにする（実機が次の HB で取りに来る） */
-    site.pending = true;
-    site.lastDeployAt = nowIso();
+  }
+  if (site.stagingVersion !== target) {
+    site.stagingVersion = target;
     changed = true;
   }
   /* ストア版がバンドルより先にバンプされてもライブ本体を配る */
@@ -389,15 +408,10 @@ function syncLiveBundleVersionV1(
     )
   );
   if (
-    compareSemverV1(bundle, site.stagingVersion) > 0 ||
+    Object.keys(site.stagingFiles).length === 0 ||
     stagingChecksum !== liveChecksum
   ) {
-    if (compareSemverV1(bundle, site.stagingVersion) > 0) {
-      site.stagingVersion = bundle;
-    }
     site.stagingFiles = { ...live.files };
-    site.pendingStaging = true;
-    site.lastStagingDeployAt = nowIso();
     changed = true;
   }
   if (!changed) return;
@@ -509,7 +523,7 @@ function loadStore(): TislyOtaStoreV1 {
         ? (parsed.sites as Record<string, unknown>)
         : parsed;
     const sites: TislyOtaStoreV1["sites"] = {};
-    for (const key of ["toyoshima", "itabashi"] as TislyOtaSiteKeyV1[]) {
+    for (const key of SITE_PROFILES.map((p) => p.siteKey)) {
       if (sitesRaw[key]) {
         sites[key] = parseSiteState(key, sitesRaw[key]);
       }
@@ -715,13 +729,18 @@ export function getTislyOtaVersionV1(input: {
     (input.deviceId && site.reported[input.deviceId]
       ? site.reported[input.deviceId].firmwareVersion
       : pickRunningVersion(site));
-  const reportedSemver = looseSemverV1(reported);
-  const offeredSemver = looseSemverV1(version);
-  const deviceBehind =
-    Boolean(offeredSemver) &&
-    Boolean(reportedSemver) &&
-    compareSemverV1(reportedSemver as string, offeredSemver as string) < 0;
-  /* 実機が配信版より古いときだけ配信待ちにする。版番号は増やさない */
+  const reportedExact = String(reported || "").trim();
+  /* 現場ターゲットより古い実機だけ更新する。新しい実機は戻さない */
+  const deviceBehind = deviceNeedsSiteFirmwareUpdateV1(
+    input.siteKey,
+    reportedExact
+  );
+  const reportedCore = looseSemverV1(reportedExact);
+  const targetCore = looseSemverV1(version);
+  const atOrAboveTarget =
+    Boolean(reportedCore) &&
+    Boolean(targetCore) &&
+    compareSemverV1(reportedCore as string, targetCore as string) >= 0;
   if (deviceBehind) {
     if (channel === "staging") {
       if (!site.pendingStaging) {
@@ -737,40 +756,20 @@ export function getTislyOtaVersionV1(input: {
       saveStore(store);
     }
   }
-  const sameSemver =
-    Boolean(offeredSemver) &&
-    Boolean(reportedSemver) &&
-    compareSemverV1(reportedSemver as string, offeredSemver as string) === 0;
-  const offeredExact = String(version || "").trim();
-  const reportedExact = String(reported || "").trim();
-  /* 豊島邸は申告文字列が配信版と一致するまで毎回更新を出す。版番号は増やさない */
-  const toyoshimaMismatch =
-    input.siteKey === "toyoshima" &&
-    Boolean(reportedExact) &&
-    reportedExact !== offeredExact;
-  if (toyoshimaMismatch && channel !== "staging" && !site.pending) {
-    site.pending = true;
-    if (!site.lastDeployAt) site.lastDeployAt = nowIso();
-    store.sites[input.siteKey] = site;
-    saveStore(store);
-  }
   const pendingForOffer =
     channel === "staging" ? site.pendingStaging : site.pending;
   const hasUpdate =
     Boolean(site.force) ||
-    toyoshimaMismatch ||
     deviceBehind ||
-    (pendingForOffer && !sameSemver && (!reported || reported !== version));
+    (pendingForOffer && !atOrAboveTarget);
   const updateUrl = `/api/firmware/${input.siteKey}/version?channel=${channel}`;
   const scriptBaseUrl = `/api/firmware/${input.siteKey}/script?channel=${channel}`;
   const streamEngine = String(input.otaEngine || "").trim() === "stream";
-  /* いま動いている実機は全ファイルを一度にメモリへ載せる。
-     大きいスクリプトで落ちるので、最初は起動用の小さいファイルだけ渡す */
+  /* 古い実機だけ、最初は小さい起動ファイルを渡す */
   const legacyBootstrap =
     input.siteKey === "toyoshima" &&
     !streamEngine &&
-    Boolean(reportedExact) &&
-    reportedExact !== offeredExact;
+    deviceBehind;
   let offerChecksums = checksums;
   let offerFiles = Object.keys(checksums).sort();
   if (legacyBootstrap) {
@@ -862,7 +861,9 @@ export function deployTislyOtaFirmwareV1(input: {
 } {
   const channel = input.channel === "staging" ? "staging" : "production";
   const keys: TislyOtaSiteKeyV1[] =
-    input.siteKey === "all" ? ["toyoshima", "itabashi"] : [input.siteKey];
+    input.siteKey === "all"
+      ? SITE_PROFILES.map((p) => p.siteKey)
+      : [input.siteKey];
   const store = loadStore();
   const at = nowIso();
   for (const key of keys) {
@@ -873,14 +874,14 @@ export function deployTislyOtaFirmwareV1(input: {
     const checksum = combinedChecksum(live.checksums);
     if (channel === "staging") {
       site.stagingFiles = { ...live.files };
-      site.stagingVersion = bumpPatchVersion(site.stagingVersion);
+      site.stagingVersion = tislySiteTargetVersionV1(key) || site.stagingVersion;
       site.pendingStaging = true;
       site.lastStagingDeployAt = at;
     } else {
       site.files = { ...live.files };
       site.checksums = { ...live.checksums };
       site.checksum = checksum;
-      site.version = bumpPatchVersion(site.version);
+      site.version = tislySiteTargetVersionV1(key) || site.version;
       site.pending = true;
       site.lastDeployAt = at;
     }
@@ -966,8 +967,8 @@ export function listTislyOtaCatalogV1(channel?: TislyOtaChannelV1): {
   return {
     ok: true,
     channel: ch,
-    sites: (["toyoshima", "itabashi"] as TislyOtaSiteKeyV1[]).map(
-      (siteKey) => getTislyOtaVersionV1({ siteKey, channel: ch })
+    sites: SITE_PROFILES.map((profile) =>
+      getTislyOtaVersionV1({ siteKey: profile.siteKey, channel: ch })
     ),
   };
 }

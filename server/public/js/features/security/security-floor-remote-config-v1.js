@@ -133,11 +133,15 @@ export function resolveHomeSiteId(securitySiteId) {
 }
 
 /**
- * OTA API 用スラッグ（toyoshima / itabashi）
+ * OTA API 用スラッグ（toyoshima / itabashi / ryugasaki）
  * ヘッダー選択 ID を動的に解決する
  */
 export function resolveOtaSiteSlugV1(rawId) {
   const id = String(rawId || "").trim();
+  const upper = id.toUpperCase();
+  if (upper.includes("RYUGASAKI") || upper.includes("WASHMATE")) {
+    return "ryugasaki";
+  }
   const home = resolveHomeSiteId(id);
   const hay = `${id} ${home}`.toUpperCase();
   if (hay.includes("TOYOSHIMA") || hay.includes("TOSHIMA")) {

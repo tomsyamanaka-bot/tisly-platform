@@ -706,6 +706,19 @@ def test_send_toyoshima_heartbeat_http_exception_returns_false():
     assert ok is False
 
 
+def test_ota_does_not_treat_older_server_as_newer():
+    import importlib.util
+
+    path = ROOT / "firmware" / "lib" / "tisly_ota.py"
+    spec = importlib.util.spec_from_file_location("tisly_ota_host", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod._version_is_newer("1.2.30", "1.2.29") is True
+    assert mod._version_is_newer("1.2.29", "1.2.30") is False
+    assert mod._version_is_newer("1.2.29", "1.2.29") is False
+    assert mod._version_is_newer("v1.2.30", "1.2.29") is True
+
+
 def test_firmware_logic_version_is_1_2_13():
     import re
 
@@ -1054,6 +1067,7 @@ def test_two_stage_blink_near_skips_flash_when_disabled():
     assert outputs.get(1) is True
     assert outputs.get(2) is True
     assert outputs.get(3) is not True
+    assert ctrl._blink_phase == "alone"
 
 
 def test_two_stage_blink_off_delay_returns_to_idle():
@@ -1082,6 +1096,78 @@ def test_two_stage_blink_off_delay_returns_to_idle():
         assert outputs.get(2) is False
         assert outputs.get(3) is False
         assert ctrl._blink_phase == "idle"
+
+    asyncio.run(run())
+
+
+def test_two_stage_blink_stops_while_input_held():
+    """点灯維持時間が来たら、センサーがONのままでも全DOを消して再開しない。"""
+    outputs = {}
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on)
+    )
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "force_relay_test": True,
+        "flash_enabled": True,
+    })
+    ctrl._output_ms = 40
+    utc_day = 3 * 3600
+
+    async def run():
+        with patch.object(ts.time, "time", return_value=utc_day):
+            ctrl.on_di_edge(1, "off", "on")
+            assert outputs.get(1) is True
+            assert ctrl._blink_phase == "far"
+            await asyncio.sleep(0.2)
+            assert outputs.get(1) is False
+            assert outputs.get(2) is False
+            assert outputs.get(3) is False
+            assert ctrl._blink_phase == "idle"
+            ctrl._apply_two_stage_blink()
+            assert outputs.get(1) is False
+            assert ctrl._blink_phase == "idle"
+
+    asyncio.run(run())
+
+
+def test_two_stage_blink_near_alone_turns_off_without_flash():
+    """遠の履歴が無い近は DO1+DO2 の常時点灯。DO3 は出さず、時間で消える。"""
+    outputs = {}
+    seen = []
+
+    def set_ch(ch, on):
+        outputs[ch] = on
+        seen.append((ch, bool(on)))
+
+    ctrl = ts.ToyoshimaMainHouseController(set_ch)
+    ctrl.apply_rules({
+        "security_mode": "two_stage_blink",
+        "force_relay_test": True,
+        "flash_enabled": True,
+    })
+    ctrl._output_ms = 40
+    utc_day = 3 * 3600
+
+    async def run():
+        with patch.object(ts.time, "time", return_value=utc_day):
+            ctrl.on_di_edge(2, "off", "on")
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            assert outputs.get(3) is not True
+            assert ctrl._blink_phase == "alone"
+            await asyncio.sleep(0.2)
+            assert outputs.get(1) is False
+            assert outputs.get(2) is False
+            assert outputs.get(3) is not True
+            assert ctrl._blink_phase == "idle"
+            ok = await ctrl.execute_manual_command("work_light", 45)
+            assert ok is True
+            assert outputs.get(1) is True
+            assert outputs.get(2) is True
+            assert outputs.get(3) is not True
+            assert ctrl._blink_phase == "alone"
+        assert all(ch != 3 or on is False for ch, on in seen)
 
     asyncio.run(run())
 
@@ -1211,6 +1297,7 @@ if __name__ == "__main__":
     test_force_relay_test_allows_daytime_relays()
     test_manual_do_bypasses_daytime_schedule()
     test_force_relay_kicks_gpio_on_daytime_di1()
+    test_ota_does_not_treat_older_server_as_newer()
     test_firmware_logic_version_is_1_2_13()
     test_fan_hysteresis_on_45_off_40()
     test_heartbeat_includes_fan_flag()
@@ -1233,6 +1320,8 @@ if __name__ == "__main__":
     test_two_stage_blink_edges_switch_phase()
     test_two_stage_blink_near_skips_flash_when_disabled()
     test_two_stage_blink_off_delay_returns_to_idle()
+    test_two_stage_blink_stops_while_input_held()
+    test_two_stage_blink_near_alone_turns_off_without_flash()
     test_leaving_blink_mode_turns_outputs_off()
     test_overnight_window_and_guard_off_pause_lights()
     print("ok")

@@ -143,6 +143,8 @@ def _running_logic_version(config=None):
         slug = ""
     if slug == "itabashi":
         names = ("security_light",)
+    elif slug == "ryugasaki":
+        names = ("ryugasaki_security",)
     else:
         names = ("toyoshima_security",)
     for mod_name in names:
@@ -181,6 +183,8 @@ def site_slug(config=None):
     if raw:
         return raw
     site = str(getattr(config, "SITE_ID", "") or "").upper()
+    if "RYUGASAKI" in site or "WASHMATE" in site:
+        return "ryugasaki"
     if "ITABASHI" in site:
         return "itabashi"
     return "toyoshima"
@@ -560,6 +564,39 @@ def _replace_from_temp(name, tmp, kick_wdt):
     return True
 
 
+def _version_parts(text):
+    """1.2.30 や v1.2.30 を数値の並びにする。壊れていれば None。"""
+    parts = []
+    raw = str(text or "").strip().lstrip("vV")
+    if not raw:
+        return None
+    for piece in raw.split("."):
+        num = ""
+        for ch in piece:
+            if ch.isdigit():
+                num += ch
+            else:
+                break
+        if not num:
+            return None
+        parts.append(int(num))
+    if not parts:
+        return None
+    return tuple(parts)
+
+
+def _version_is_newer(local, remote):
+    """手元が配信より新しいとき True。ダウングレード OTA を止める。"""
+    left = _version_parts(local)
+    right = _version_parts(remote)
+    if not left or not right:
+        return False
+    width = max(len(left), len(right))
+    left = left + (0,) * (width - len(left))
+    right = right + (0,) * (width - len(right))
+    return left > right
+
+
 def maybe_update(
     http_get,
     config=None,
@@ -604,6 +641,14 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
     if not isinstance(meta, dict):
         return False
     remote_ver = str(meta.get("version") or "").strip()
+    if (
+        remote_ver
+        and current
+        and _version_is_newer(current, remote_ver)
+        and not meta.get("force")
+    ):
+        log("local {} newer than {} — skip".format(current, remote_ver))
+        return False
     has_update = bool(meta.get("has_ota_update") or force)
     if meta.get("force") or meta.get("update_required"):
         has_update = True
