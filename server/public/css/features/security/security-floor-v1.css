@@ -521,6 +521,30 @@
   min-height: 44px;
 }
 
+.sf-notify-focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sf-notify-focus input {
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #1e3a8a;
+}
+
 .sf-online-pill {
   color: var(--sf-ok);
   border: 1px solid rgba(22, 163, 74, 0.35);

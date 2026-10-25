@@ -16,6 +16,10 @@ import {
   pushRowMatchesPropertyScopeV1,
   type PushSubscriptionScopeV1,
 } from "../push-property-scope-v1.js";
+import {
+  loadEnabledStaffFocusMapV1,
+  staffFocusAllowsPushV1,
+} from "../staff-notify-focus-v1.js";
 
 let vapidConfiguredLogged = false;
 
@@ -179,10 +183,12 @@ function loadActiveWebPushRows(
     string,
     { id: string; endpoint: string; keys_json: string }
   >();
+  const staffFocus = loadEnabledStaffFocusMapV1();
   for (const row of [...tokens, ...extras]) {
     if (!row?.endpoint || byEndpoint.has(row.endpoint)) continue;
     if (!rowMatchesAudienceV1(row.user_id, audience)) continue;
     if (!pushRowMatchesPropertyScopeV1(row, targetSiteId)) continue;
+    if (!staffFocusAllowsPushV1(row, targetSiteId, staffFocus)) continue;
     byEndpoint.set(row.endpoint, row);
   }
   return [...byEndpoint.values()];

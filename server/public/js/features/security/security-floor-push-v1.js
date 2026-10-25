@@ -178,6 +178,7 @@ async function registerSecurityWebPushV1(opts = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `登録失敗 (${res.status})`);
   const ep = describePushEndpoint(json.endpoint);
+  window.dispatchEvent(new CustomEvent("tisly-staff-push-subscribed"));
   data._debug = {
     permission,
     appleAPNs: ep.apple,

@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2573-operator-summary";
+const SW_VERSION = "tisly-pwa-v2574-staff-notify-focus";
+/* tisly-pwa-v2573-operator-summary */
 /* tisly-pwa-v2567-toyoshima-blink-mode */
 /* tisly-pwa-v2566-review-sandbox */
 /* tisly-pwa-v2565-customer-login-guard */
@@ -56,9 +57,10 @@ const SW_VERSION = "tisly-pwa-v2573-operator-summary";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2573-operator-summary";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2573-operator-summary";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2573-operator-summary";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2574-staff-notify-focus";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2574-staff-notify-focus";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2574-staff-notify-focus";
+const STAFF_FOCUS_CACHE = "tisly-staff-notify-focus";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
  * SW 側に存在するか診断するため保持 */
@@ -411,7 +413,13 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== OFFLINE_CACHE && k !== PRIORITY_CACHE && k !== FIELD_OPS_CACHE)
+          .filter(
+            (k) =>
+              k !== OFFLINE_CACHE &&
+              k !== PRIORITY_CACHE &&
+              k !== FIELD_OPS_CACHE &&
+              k !== STAFF_FOCUS_CACHE
+          )
           .map((k) => caches.delete(k))
       )
     )
@@ -663,7 +671,70 @@ async function notifyClientsFlush() {
   }
 }
 
+const STAFF_FOCUS_GROUPS = [
+  ["HOME-JP-TOYOSHIMA", "SEC-JP-TOYOSHIMA-001", "SEC-JP-TOSHIMA-001"],
+  ["HOME-JP-ITABASHI-LIVE", "SEC-JP-ITABASHI-LIVE"],
+];
+
+function expandStaffFocusId(id) {
+  const set = new Set([id]);
+  for (const group of STAFF_FOCUS_GROUPS) {
+    if (group.indexOf(id) !== -1) {
+      group.forEach((item) => set.add(item));
+    }
+  }
+  return set;
+}
+
+async function writeStaffNotifyFocus(data) {
+  const cache = await caches.open(STAFF_FOCUS_CACHE);
+  await cache.put(
+    "/__tisly/staff-notify-focus",
+    new Response(JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" },
+    })
+  );
+}
+
+async function readStaffNotifyFocus() {
+  try {
+    const cache = await caches.open(STAFF_FOCUS_CACHE);
+    const hit = await cache.match("/__tisly/staff-notify-focus");
+    if (!hit) return { enabled: false, siteIds: [] };
+    const data = await hit.json();
+    return {
+      enabled: Boolean(data.enabled),
+      siteIds: Array.isArray(data.siteIds) ? data.siteIds : [],
+    };
+  } catch {
+    return { enabled: false, siteIds: [] };
+  }
+}
+
+function staffFocusBlocksNotification(focus, data) {
+  if (!focus || !focus.enabled) return false;
+  const ids = (focus.siteIds || [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  if (!ids.length) return false;
+  const site = String(
+    (data && data.data && data.data.siteId) || (data && data.deviceId) || ""
+  ).trim();
+  if (!site) return false;
+  const target = expandStaffFocusId(site);
+  return !ids.some((id) => target.has(id) || expandStaffFocusId(id).has(site));
+}
+
 self.addEventListener("message", (event) => {
+  if (event.data?.type === "STAFF_NOTIFY_FOCUS") {
+    event.waitUntil?.(
+      writeStaffNotifyFocus({
+        enabled: Boolean(event.data.enabled),
+        siteIds: Array.isArray(event.data.siteIds) ? event.data.siteIds : [],
+      })
+    );
+    return;
+  }
   if (event.data?.type === "REGISTER_SYNC") {
     if ("sync" in self.registration) {
       self.registration.sync.register("tisly-installer-sync").catch(() => {});
@@ -690,12 +761,15 @@ self.addEventListener("push", (event) => {
   const badge = data.badge || data.icon || `/icons/icon-192.png${ICON_V}`;
   const severity = data.data?.severity || data.severity;
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon,
-      badge,
-      requireInteraction: severity === "critical",
-      data: { url: data.url, severity },
+    readStaffNotifyFocus().then((focus) => {
+      if (staffFocusBlocksNotification(focus, data)) return undefined;
+      return self.registration.showNotification(data.title, {
+        body: data.body,
+        icon,
+        badge,
+        requireInteraction: severity === "critical",
+        data: { url: data.url, severity },
+      });
     })
   );
 });

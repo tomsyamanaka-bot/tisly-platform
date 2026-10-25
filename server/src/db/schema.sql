@@ -173,6 +173,15 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- 社内画面の「選択中の現場だけ通知」。購読行は更新しない。
+CREATE TABLE IF NOT EXISTS staff_notify_focus_v1 (
+  endpoint TEXT PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  site_id TEXT,
+  property_id TEXT,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_events_device ON events(device_id);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
