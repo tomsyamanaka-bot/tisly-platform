@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2575-staff-notify-sync";
+const SW_VERSION = "tisly-pwa-v2576-staff-notify-mute";
+/* tisly-pwa-v2575-staff-notify-sync */
 /* tisly-pwa-v2573-operator-summary */
 /* tisly-pwa-v2567-toyoshima-blink-mode */
 /* tisly-pwa-v2566-review-sandbox */
@@ -57,9 +58,9 @@ const SW_VERSION = "tisly-pwa-v2575-staff-notify-sync";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2575-staff-notify-sync";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2575-staff-notify-sync";
-const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2575-staff-notify-sync";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2576-staff-notify-mute";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2576-staff-notify-mute";
+const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2576-staff-notify-mute";
 const STAFF_FOCUS_CACHE = "tisly-staff-notify-focus";
 /* お客様ゾーンの互換トークン
  * customer-cache-v1.js / route-health.js が
@@ -729,6 +730,7 @@ function staffFocusBlocksNotification(focus, data) {
     payload.siteId ||
       payload.propertyId ||
       payload.homeSiteId ||
+      payload.securitySiteId ||
       payload.customerCode ||
       (data && data.deviceId) ||
       ""

@@ -6,6 +6,7 @@
 import { getPropertyScope } from "../../shared/property-scope-v1.js";
 
 const STORAGE_KEY = "tisly.staffNotifyFocus.v1";
+const ENDPOINT_KEY = "tisly.staffNotifyFocus.endpoint.v1";
 const STAFF_PUSH_USER_ID = "toms-ops";
 
 function $(id) {
@@ -54,26 +55,60 @@ function currentSiteFocus() {
   return { siteId, propertyId };
 }
 
-async function currentPushEndpoint() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "";
+function rememberEndpoint(endpoint) {
+  const value = String(endpoint || "").trim();
+  if (!value) return "";
   try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    return String(sub?.endpoint || "");
+    localStorage.setItem(ENDPOINT_KEY, value);
+  } catch {
+    /* 保存できない端末でも配信側のユーザー設定は残る */
+  }
+  return value;
+}
+
+function rememberedEndpoint() {
+  try {
+    return String(localStorage.getItem(ENDPOINT_KEY) || "").trim();
   } catch {
     return "";
   }
 }
 
+async function currentPushEndpoint() {
+  if (!("serviceWorker" in navigator)) return rememberedEndpoint();
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      const sub = await reg.pushManager?.getSubscription();
+      if (sub?.endpoint) return rememberEndpoint(sub.endpoint);
+    }
+  } catch {
+    /* 購読を読めないときは直前のエンドポイントを使う */
+  }
+  return rememberedEndpoint();
+}
+
 function tellServiceWorker(state) {
-  const worker = navigator.serviceWorker?.controller;
-  if (!worker) return;
   const siteIds = [state.siteId, state.propertyId].filter(Boolean);
-  worker.postMessage({
+  const message = {
     type: "STAFF_NOTIFY_FOCUS",
     enabled: Boolean(state.enabled),
     siteIds,
-  });
+  };
+  const post = (worker) => {
+    try {
+      worker?.postMessage(message);
+    } catch {
+      /* 制御外のワーカー */
+    }
+  };
+  post(navigator.serviceWorker?.controller);
+  navigator.serviceWorker
+    ?.getRegistrations?.()
+    .then((regs) => {
+      for (const reg of regs) post(reg.active);
+    })
+    .catch(() => {});
 }
 
 async function syncStaffNotifyFocusV1(state) {
@@ -172,6 +207,20 @@ function mountStaffNotifyFocusToggleV1() {
   const local = readStaffNotifyFocusLocalV1();
   toggle.checked = local.enabled;
   toggle.setAttribute("aria-checked", local.enabled ? "true" : "false");
+  let hydrated = false;
+
+  function syncCurrentSite() {
+    if (!hydrated) return;
+    const site = currentSiteFocus();
+    if (!site.siteId) return;
+    syncStaffNotifyFocusV1({
+      enabled: toggle.checked,
+      siteId: site.siteId,
+      propertyId: site.propertyId,
+    }).catch((err) => {
+      console.warn("[staff-notify-focus]", err);
+    });
+  }
 
   toggle.addEventListener("change", () => {
     const site = currentSiteFocus();
@@ -184,19 +233,12 @@ function mountStaffNotifyFocusToggleV1() {
     });
   });
 
-  window.addEventListener("tisly-property-scope-change", () => {
-    if (!toggle.checked) return;
-    const site = currentSiteFocus();
-    syncStaffNotifyFocusV1({
-      enabled: true,
-      siteId: site.siteId,
-      propertyId: site.propertyId,
-    }).catch((err) => {
-      console.warn("[staff-notify-focus]", err);
-    });
-  });
+  window.addEventListener("tisly-property-scope-change", syncCurrentSite);
+  $("sf-site-select")?.addEventListener("change", syncCurrentSite);
 
-  window.addEventListener("tisly-staff-push-subscribed", () => {
+  window.addEventListener("tisly-staff-push-subscribed", (event) => {
+    const endpoint = event?.detail?.endpoint;
+    if (endpoint) rememberEndpoint(endpoint);
     const site = currentSiteFocus();
     syncStaffNotifyFocusV1({
       enabled: toggle.checked,
@@ -211,19 +253,24 @@ function mountStaffNotifyFocusToggleV1() {
     .then((state) => {
       toggle.checked = Boolean(state.enabled);
       toggle.setAttribute("aria-checked", state.enabled ? "true" : "false");
-      if (!state.enabled) return;
+      hydrated = true;
       const site = currentSiteFocus();
       if (!site.siteId) return;
-      if (site.siteId === state.siteId && site.propertyId === state.propertyId) {
+      if (
+        toggle.checked === Boolean(state.enabled) &&
+        site.siteId === state.siteId &&
+        site.propertyId === state.propertyId
+      ) {
         return;
       }
       return syncStaffNotifyFocusV1({
-        enabled: true,
+        enabled: toggle.checked,
         siteId: site.siteId,
         propertyId: site.propertyId,
       });
     })
     .catch((err) => {
+      hydrated = true;
       console.warn("[staff-notify-focus]", err);
     });
 }

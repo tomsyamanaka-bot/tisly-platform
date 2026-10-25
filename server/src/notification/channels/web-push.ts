@@ -18,7 +18,7 @@ import {
 } from "../push-property-scope-v1.js";
 import {
   loadEnabledStaffFocusMapV1,
-  staffFocusAllowsPushV1,
+  staffFocusAllowsEndpointV1,
 } from "../staff-notify-focus-v1.js";
 
 let vapidConfiguredLogged = false;
@@ -184,12 +184,31 @@ function loadActiveWebPushRows(
     { id: string; endpoint: string; keys_json: string }
   >();
   const staffFocus = loadEnabledStaffFocusMapV1();
+  const grouped = new Map<string, typeof tokens>();
   for (const row of [...tokens, ...extras]) {
-    if (!row?.endpoint || byEndpoint.has(row.endpoint)) continue;
-    if (!rowMatchesAudienceV1(row.user_id, audience)) continue;
-    if (!pushRowMatchesPropertyScopeV1(row, targetSiteId)) continue;
-    if (!staffFocusAllowsPushV1(row, targetSiteId, staffFocus)) continue;
-    byEndpoint.set(row.endpoint, row);
+    if (!row?.endpoint) continue;
+    const list = grouped.get(row.endpoint);
+    if (list) list.push(row);
+    else grouped.set(row.endpoint, [row]);
+  }
+  let muted = 0;
+  for (const [endpoint, rows] of grouped) {
+    if (!staffFocusAllowsEndpointV1(rows, targetSiteId, staffFocus)) {
+      muted += 1;
+      continue;
+    }
+    const deliverable = rows.find(
+      (row) =>
+        rowMatchesAudienceV1(row.user_id, audience) &&
+        pushRowMatchesPropertyScopeV1(row, targetSiteId)
+    );
+    if (deliverable) byEndpoint.set(endpoint, deliverable);
+  }
+  if (muted > 0) {
+    console.log(
+      `[web-push] staff focus muted ${muted} endpoint(s)` +
+        ` site=${targetSiteId || "-"}`
+    );
   }
   return [...byEndpoint.values()];
 }
