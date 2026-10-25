@@ -144,15 +144,19 @@ notificationsRouter.get("/staff-focus", (req, res) => {
   const row = readStaffNotifyPreferenceV1({
     endpoint: String(req.query.endpoint ?? ""),
     userId: String(req.query.userId ?? ""),
+    siteId: String(req.query.siteId ?? ""),
+    propertyId: String(req.query.propertyId ?? ""),
   });
   res.json({
     ok: true,
     enabled: row.enabled,
     muteOtherSites: row.enabled,
     siteId: row.siteId,
-    activeSiteId: row.siteId,
+    activeSiteId: row.activeSiteId || row.siteId,
     propertyId: row.propertyId,
     updatedAt: row.updatedAt,
+    mutedSites: row.mutedSites ?? [],
+    muteBySite: row.muteBySite ?? {},
   });
 });
 
@@ -166,12 +170,14 @@ notificationsRouter.post("/staff-focus", (req, res) => {
       siteId: req.body?.siteId,
       activeSiteId: req.body?.activeSiteId,
       propertyId: req.body?.propertyId,
+      muteBySite: req.body?.muteBySite,
+      mutedSites: req.body?.mutedSites,
     });
     res.json({
       ok: true,
       ...saved,
       muteOtherSites: saved.enabled,
-      activeSiteId: saved.siteId,
+      activeSiteId: saved.activeSiteId || saved.siteId,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

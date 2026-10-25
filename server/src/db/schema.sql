@@ -182,6 +182,16 @@ CREATE TABLE IF NOT EXISTS staff_notify_focus_v1 (
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
+-- 現場ごとのミュート。行の削除はしない。購読行は更新しない。
+CREATE TABLE IF NOT EXISTS staff_notify_mute_site_v1 (
+  user_key TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  property_id TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_key, site_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_events_device ON events(device_id);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);

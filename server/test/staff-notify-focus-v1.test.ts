@@ -11,6 +11,7 @@ import {
   sendWebPush,
 } from "../src/notification/channels/web-push.js";
 import {
+  loadEnabledStaffFocusMapV1,
   saveStaffNotifyFocusV1,
   staffFocusAllowsPushV1,
 } from "../src/notification/staff-notify-focus-v1.js";
@@ -38,6 +39,20 @@ describe("staff notify focus", () => {
       ),
       /staffFocusBlocksNotification/
     );
+    const client = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "public/js/features/security/staff-notify-focus-v1.js"
+      ),
+      "utf8"
+    );
+    const remember = client.slice(
+      client.indexOf("async function rememberActiveSiteV1"),
+      client.indexOf("async function saveMuteForCurrentSiteV1")
+    );
+    assert.match(remember, /activeSiteId/);
+    assert.doesNotMatch(remember, /muteOtherSites/);
+    assert.match(client, /showSiteMute/);
   });
 
   it("defaults to every site and mutes other sites only while enabled", () => {
@@ -437,6 +452,95 @@ describe("staff notify focus", () => {
         activeSiteId: "HOME-JP-ITABASHI-LIVE",
       });
       mock.restoreAll();
+    }
+  });
+
+  it("keeps each site's mute when the active site changes", async () => {
+    const app = createApp();
+    const userId = "toms-ops";
+    const staff = { endpoint: "https://push.example.com/mute-by-site", user_id: userId };
+    try {
+      const itabashi = await request(app).post("/api/user/preferences").send({
+        userId,
+        activeSiteId: "HOME-JP-ITABASHI-LIVE",
+        propertyId: "SEC-JP-ITABASHI-LIVE",
+        muteOtherSites: true,
+      });
+      assert.equal(itabashi.status, 200);
+      assert.equal(itabashi.body.muteOtherSites, true);
+      assert.equal(itabashi.body.mutedSites.includes("HOME-JP-ITABASHI-LIVE"), true);
+
+      const toyoshima = await request(app).post("/api/user/preferences").send({
+        userId,
+        activeSiteId: "SEC-JP-TOYOSHIMA-001",
+        propertyId: "HOME-JP-TOYOSHIMA",
+        muteOtherSites: false,
+      });
+      assert.equal(toyoshima.body.muteOtherSites, false);
+      assert.equal(toyoshima.body.activeSiteId, "SEC-JP-TOYOSHIMA-001");
+      assert.equal(toyoshima.body.muteBySite["HOME-JP-ITABASHI-LIVE"], true);
+      assert.equal(toyoshima.body.muteBySite["SEC-JP-TOYOSHIMA-001"], false);
+
+      const readItabashi = await request(app).get("/api/user/preferences").query({
+        userId,
+        siteId: "HOME-JP-ITABASHI-LIVE",
+      });
+      assert.equal(readItabashi.body.muteOtherSites, true);
+      assert.equal(readItabashi.body.activeSiteId, "SEC-JP-TOYOSHIMA-001");
+      const readToyoshima = await request(app).get("/api/user/preferences").query({
+        userId,
+        siteId: "SEC-JP-TOYOSHIMA-001",
+      });
+      assert.equal(readToyoshima.body.muteOtherSites, false);
+
+      const back = await request(app).post("/api/user/preferences").send({
+        userId,
+        activeSiteId: "HOME-JP-ITABASHI-LIVE",
+        propertyId: "SEC-JP-ITABASHI-LIVE",
+      });
+      assert.equal(back.body.muteOtherSites, true);
+      assert.equal(back.body.activeSiteId, "HOME-JP-ITABASHI-LIVE");
+      const stillToyoshima = await request(app)
+        .get("/api/user/preferences")
+        .query({ userId, siteId: "SEC-JP-TOYOSHIMA-001" });
+      assert.equal(stillToyoshima.body.muteOtherSites, false);
+
+      const muted = loadEnabledStaffFocusMapV1();
+      assert.equal(staffFocusAllowsPushV1(staff, "TOYOSHIMA001", muted), false);
+      assert.equal(
+        staffFocusAllowsPushV1(staff, "HOME-JP-ITABASHI-LIVE", muted),
+        true
+      );
+      assert.equal(
+        staffFocusAllowsPushV1(
+          { endpoint: staff.endpoint, user_id: "customer-security" },
+          "TOYOSHIMA001",
+          muted
+        ),
+        true
+      );
+
+      await request(app).post("/api/user/preferences").send({
+        userId,
+        activeSiteId: "SEC-JP-TOYOSHIMA-001",
+      });
+      const open = loadEnabledStaffFocusMapV1();
+      assert.equal(
+        staffFocusAllowsPushV1(staff, "HOME-JP-ITABASHI-LIVE", open),
+        true
+      );
+      assert.equal(staffFocusAllowsPushV1(staff, "TOYOSHIMA001", open), true);
+    } finally {
+      await request(app).post("/api/user/preferences").send({
+        userId,
+        activeSiteId: "HOME-JP-ITABASHI-LIVE",
+        muteOtherSites: false,
+      });
+      await request(app).post("/api/user/preferences").send({
+        userId,
+        activeSiteId: "SEC-JP-TOYOSHIMA-001",
+        muteOtherSites: false,
+      });
     }
   });
 });
