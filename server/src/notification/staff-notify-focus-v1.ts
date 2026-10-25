@@ -18,6 +18,25 @@ export interface StaffNotifyFocusV1 {
 export interface StaffNotifyFocusSiteV1 {
   siteId: string;
   propertyId: string;
+  /** 未指定は ON。明示の false はその端末を絞らない。 */
+  enabled?: boolean;
+}
+
+/** 社内 Push の user_id。施主の customer-security は含めない。 */
+export const STAFF_NOTIFY_FOCUS_USER_IDS_V1 = [
+  "toms-ops",
+  "home-security",
+  "admin-default",
+  "remote-test",
+] as const;
+
+export function isStaffNotifyFocusUserV1(userId: string): boolean {
+  const id = clean(userId);
+  return isTomsOpsPushUserV1(id) || id === "home-security";
+}
+
+export function staffFocusUserKeyV1(userId: string): string {
+  return `user:${clean(userId)}`;
 }
 
 const ENSURE_SQL = `
@@ -107,7 +126,10 @@ export function readStaffNotifyFocusV1(
   };
 }
 
-/** ON の社内端末だけ。OFF と未設定はマップに入れない。 */
+/**
+ * 絞り込み行を全部読む。
+ * OFF の端末行も残し、ユーザー単位の設定へ落ちないようにする。
+ */
 export function loadEnabledStaffFocusMapV1(): Map<
   string,
   StaffNotifyFocusSiteV1
@@ -115,11 +137,12 @@ export function loadEnabledStaffFocusMapV1(): Map<
   ensureStaffNotifyFocusTableV1();
   const rows = getDatabase()
     .prepare(
-      `SELECT endpoint, site_id, property_id
-       FROM staff_notify_focus_v1 WHERE enabled = 1`
+      `SELECT endpoint, enabled, site_id, property_id
+       FROM staff_notify_focus_v1`
     )
     .all() as Array<{
     endpoint: string;
+    enabled: number;
     site_id: string | null;
     property_id: string | null;
   }>;
@@ -128,6 +151,7 @@ export function loadEnabledStaffFocusMapV1(): Map<
     const endpoint = clean(row.endpoint);
     if (!endpoint) continue;
     map.set(endpoint, {
+      enabled: Number(row.enabled) === 1,
       siteId: clean(row.site_id),
       propertyId: clean(row.property_id),
     });
@@ -135,22 +159,113 @@ export function loadEnabledStaffFocusMapV1(): Map<
   return map;
 }
 
+export function saveStaffNotifyPreferenceV1(input: {
+  endpoint?: string | null;
+  userId?: string | null;
+  enabled?: boolean;
+  muteOtherSites?: boolean;
+  siteId?: string | null;
+  activeSiteId?: string | null;
+  propertyId?: string | null;
+}): StaffNotifyFocusV1 {
+  const enabled =
+    input.muteOtherSites == null
+      ? Boolean(input.enabled)
+      : Boolean(input.muteOtherSites);
+  const siteId = clean(input.activeSiteId) || clean(input.siteId);
+  const propertyId = clean(input.propertyId) || siteId;
+  const endpoint = clean(input.endpoint);
+  const userId = clean(input.userId);
+  if (!endpoint && !userId) {
+    throw new Error("endpoint required");
+  }
+  if (enabled && !siteId && !propertyId) {
+    throw new Error("siteId required");
+  }
+
+  let saved: StaffNotifyFocusV1 | null = null;
+  if (endpoint && !endpoint.startsWith("user:")) {
+    saved = saveStaffNotifyFocusV1({
+      endpoint,
+      enabled,
+      siteId,
+      propertyId,
+    });
+  }
+  const users = new Set<string>();
+  if (userId && isStaffNotifyFocusUserV1(userId)) {
+    for (const id of STAFF_NOTIFY_FOCUS_USER_IDS_V1) users.add(id);
+  }
+  for (const id of users) {
+    const row = saveStaffNotifyFocusV1({
+      endpoint: staffFocusUserKeyV1(id),
+      enabled,
+      siteId,
+      propertyId,
+    });
+    if (!saved) saved = row;
+  }
+  if (!saved) {
+    throw new Error("focus save failed");
+  }
+  return {
+    ...saved,
+    endpoint: endpoint || saved.endpoint,
+    enabled,
+    siteId,
+    propertyId,
+  };
+}
+
+export function readStaffNotifyPreferenceV1(input: {
+  endpoint?: string | null;
+  userId?: string | null;
+}): StaffNotifyFocusV1 {
+  const endpoint = clean(input.endpoint);
+  const userId = clean(input.userId);
+  const direct =
+    endpoint && !endpoint.startsWith("user:")
+      ? readStaffNotifyFocusV1(endpoint)
+      : null;
+  if (direct) return direct;
+  if (userId && isStaffNotifyFocusUserV1(userId)) {
+    const byUser = readStaffNotifyFocusV1(staffFocusUserKeyV1(userId));
+    if (byUser) {
+      return { ...byUser, endpoint: endpoint || byUser.endpoint };
+    }
+  }
+  return {
+    endpoint,
+    enabled: false,
+    siteId: "",
+    propertyId: "",
+    updatedAt: "",
+  };
+}
+
 /**
  * 社内購読で絞り込み ON のとき、対象外の現場 Push を送らない。
  * 施主購読と、現場の付かないシステム通知はそのまま。
  */
+function focusEntryEnabledV1(focus: StaffNotifyFocusSiteV1 | undefined): boolean {
+  if (!focus) return false;
+  return focus.enabled !== false;
+}
+
 export function staffFocusAllowsPushV1(
   row: { endpoint?: string | null; user_id?: string | null },
   targetSiteId: string | null | undefined,
   focusMap: Map<string, StaffNotifyFocusSiteV1>
 ): boolean {
-  if (!isTomsOpsPushUserV1(clean(row.user_id))) return true;
-  const focus = focusMap.get(clean(row.endpoint));
-  if (!focus) return true;
+  const userId = clean(row.user_id);
+  if (!isStaffNotifyFocusUserV1(userId)) return true;
+  const direct = focusMap.get(clean(row.endpoint));
+  const focus = direct || focusMap.get(staffFocusUserKeyV1(userId));
+  if (!focusEntryEnabledV1(focus)) return true;
   const target = clean(targetSiteId);
   if (!target) return true;
   return pushPropertiesOverlapV1(
     [target],
-    [focus.siteId, focus.propertyId]
+    [focus?.siteId, focus?.propertyId]
   );
 }

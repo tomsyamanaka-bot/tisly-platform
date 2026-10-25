@@ -15,6 +15,7 @@ import { devicesRouter } from "./api/routes/devices.js";
 import { eventsRouter } from "./api/routes/events.js";
 import { heartbeatRouter } from "./api/routes/heartbeat.js";
 import { notificationsRouter } from "./api/routes/notifications.js";
+import { userPreferencesRouter } from "./api/routes/user-preferences-v1.js";
 import { PWA_MANIFEST_ICONS } from "./pwa/pwa-manifest-icons.js";
 import { getMonitoringMapAssetUploadRootV1 } from "./monitoring/monitoring-map-asset-storage-adapter-v1.js";
 import { qnapRouter } from "./api/routes/qnap.js";
@@ -251,6 +252,7 @@ export function createApp(): express.Application {
 
   app.use("/api/events", opsCustomerScopeMiddleware, tenantQueryGuard, eventsRouter);
   app.use("/api/notifications", opsCustomerScopeMiddleware, tenantQueryGuard, notificationsRouter);
+  app.use("/api/user", userPreferencesRouter);
   app.use("/api/devices", opsCustomerScopeMiddleware, tenantQueryGuard, devicesRouter);
   app.use("/api/heartbeat", heartbeatRouter);
   app.use("/api/dashboard", dashboardRouter);

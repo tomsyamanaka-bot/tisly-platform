@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { mock, describe, it } from "node:test";
 import request from "supertest";
+import webpush from "web-push";
 import { createApp } from "../src/app.js";
 import { getDatabase } from "../src/db/database.js";
-import { savePushSubscription } from "../src/notification/channels/web-push.js";
+import {
+  savePushSubscription,
+  sendWebPush,
+} from "../src/notification/channels/web-push.js";
 import {
   saveStaffNotifyFocusV1,
   staffFocusAllowsPushV1,
@@ -72,6 +76,18 @@ describe("staff notify focus", () => {
         "HOME-JP-ITABASHI-LIVE",
         focused
       ),
+      true
+    );
+    assert.equal(
+      staffFocusAllowsPushV1(
+        { endpoint, user_id: "home-security" },
+        "HOME-JP-ITABASHI-LIVE",
+        focused
+      ),
+      false
+    );
+    assert.equal(
+      staffFocusAllowsPushV1(row, "TOYOSHIMA001", focused),
       true
     );
     assert.equal(
@@ -188,5 +204,95 @@ describe("staff notify focus", () => {
       ),
       true
     );
+  });
+
+  it("skips another site's push and still keeps the alert log", async () => {
+    process.env.VAPID_PUBLIC_KEY =
+      process.env.VAPID_PUBLIC_KEY || "test-public-key";
+    process.env.VAPID_PRIVATE_KEY =
+      process.env.VAPID_PRIVATE_KEY || "test-private-key";
+    const sent: string[] = [];
+    mock.method(webpush, "setVapidDetails", () => undefined);
+    mock.method(webpush, "sendNotification", async (sub: { endpoint: string }) => {
+      sent.push(sub.endpoint);
+      return { statusCode: 201 };
+    });
+    const stamp = Date.now();
+    const staffEndpoint = `https://push.example.com/mute-staff-${stamp}`;
+    const legacyEndpoint = `https://push.example.com/mute-legacy-${stamp}`;
+    const customerEndpoint = `https://push.example.com/mute-customer-${stamp}`;
+    const keys = {
+      p256dh: "BOrri7HQZ2bM0B4aWj8vN0xKpQ2mR8sT1uV3wX5yZ7aB9cD1eF3gH5iJ7kL9mN1",
+      auth: "tBHItJI5svbpez7KI4CCXg",
+    };
+    savePushSubscription("toms-ops", { endpoint: staffEndpoint, keys });
+    savePushSubscription("home-security", { endpoint: legacyEndpoint, keys });
+    savePushSubscription(
+      "customer-security",
+      { endpoint: customerEndpoint, keys },
+      undefined,
+      {
+        siteId: "HOME-JP-TOYOSHIMA",
+        propertyId: "HOME-JP-TOYOSHIMA",
+        customerCode: "TOYOSHIMA001",
+      }
+    );
+    const app = createApp();
+    const pref = await request(app).post("/api/user/preferences").send({
+      endpoint: staffEndpoint,
+      userId: "toms-ops",
+      muteOtherSites: true,
+      activeSiteId: "HOME-JP-ITABASHI-LIVE",
+      propertyId: "SEC-JP-ITABASHI-LIVE",
+    });
+    assert.equal(pref.status, 200);
+    assert.equal(pref.body.muteOtherSites, true);
+    assert.equal(pref.body.activeSiteId, "HOME-JP-ITABASHI-LIVE");
+
+    const direct = await sendWebPush({
+      title: "豊島邸テスト",
+      body: "別現場",
+      eventType: "staff_focus_mute_probe",
+      deviceId: "HOME-JP-TOYOSHIMA",
+      data: { siteId: "TOYOSHIMA001", customerCode: "TOYOSHIMA001" },
+    });
+    assert.equal(sent.includes(staffEndpoint), false);
+    assert.equal(sent.includes(legacyEndpoint), false);
+    assert.equal(sent.includes(customerEndpoint), true);
+    assert.equal((direct.sent ?? 0) >= 1, true);
+
+    const before = (
+      getDatabase()
+        .prepare(
+          `SELECT COUNT(*) AS n FROM home_system_logs_v1
+           WHERE site_id = 'HOME-JP-TOYOSHIMA' AND category = 'sensor_alert'`
+        )
+        .get() as { n: number }
+    ).n;
+    const triggered = await request(app)
+      .post("/api/home/v1/hardware/test-di-trigger")
+      .send({
+        siteId: "HOME-JP-TOYOSHIMA",
+        building: "main",
+        di: 1,
+      });
+    assert.equal(triggered.status, 200);
+    assert.equal(sent.includes(staffEndpoint), false);
+    assert.equal(sent.includes(legacyEndpoint), false);
+    const after = (
+      getDatabase()
+        .prepare(
+          `SELECT COUNT(*) AS n FROM home_system_logs_v1
+           WHERE site_id = 'HOME-JP-TOYOSHIMA' AND category = 'sensor_alert'`
+        )
+        .get() as { n: number }
+    ).n;
+    assert.equal(after > before, true);
+    await request(app).post("/api/user/preferences").send({
+      endpoint: staffEndpoint,
+      userId: "toms-ops",
+      muteOtherSites: false,
+      activeSiteId: "HOME-JP-ITABASHI-LIVE",
+    });
   });
 });

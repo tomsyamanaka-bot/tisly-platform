@@ -6,8 +6,15 @@
 import { isTomsOpsPushUserV1 } from "../home/home-board-temp-alert-v1.js";
 
 const PUSH_PROPERTY_GROUPS_V1: readonly (readonly string[])[] = [
-  ["HOME-JP-TOYOSHIMA", "SEC-JP-TOYOSHIMA-001", "SEC-JP-TOSHIMA-001"],
+  [
+    "HOME-JP-TOYOSHIMA",
+    "SEC-JP-TOYOSHIMA-001",
+    "SEC-JP-TOSHIMA-001",
+    "TOYOSHIMA001",
+    "TOSHIMA001",
+  ],
   ["HOME-JP-ITABASHI-LIVE", "SEC-JP-ITABASHI-LIVE"],
+  ["HOME-JP-TSUKUBA-001", "SEC-JP-TSUKUBA-001"],
 ];
 
 export interface PushSubscriptionScopeV1 {
@@ -87,14 +94,24 @@ export function pushRowMatchesPropertyScopeV1(
   return pushPropertiesOverlapV1([target], [rowSite, rowProperty]);
 }
 
-/** data.siteId、または HOME-/SEC- の deviceId を物件キーにする */
+/** data の現場ID、顧客コード、または HOME-/SEC- の deviceId を物件キーにする */
 export function explicitPushSiteIdV1(input: {
   deviceId?: string | null;
   data?: Record<string, unknown> | null;
 }): string {
-  const fromData = cleanId(input.data?.siteId);
+  const data = input.data ?? {};
+  const fromData = [
+    data.siteId,
+    data.propertyId,
+    data.homeSiteId,
+    data.securitySiteId,
+    data.customerCode,
+  ]
+    .map(cleanId)
+    .find(Boolean);
   if (fromData) return fromData;
   const deviceId = cleanId(input.deviceId);
   if (/^(HOME|SEC)-/.test(deviceId)) return deviceId;
+  if (deviceId === "TOYOSHIMA001" || deviceId === "TOSHIMA001") return deviceId;
   return "";
 }

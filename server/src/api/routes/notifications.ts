@@ -14,8 +14,8 @@ import { config } from "../../config.js";
 import { requireAdminAuth } from "../../auth/auth-middleware.js";
 import { resolvePushAudienceUserIdV1 } from "../../home/home-board-temp-alert-v1.js";
 import {
-  readStaffNotifyFocusV1,
-  saveStaffNotifyFocusV1,
+  readStaffNotifyPreferenceV1,
+  saveStaffNotifyPreferenceV1,
 } from "../../notification/staff-notify-focus-v1.js";
 
 export const notificationsRouter = Router();
@@ -141,26 +141,38 @@ notificationsRouter.post("/read-all", (_req, res) => {
 
 /** 社内画面の通知絞り込み。購読そのものは変えない。 */
 notificationsRouter.get("/staff-focus", (req, res) => {
-  const endpoint = String(req.query.endpoint ?? "");
-  const row = readStaffNotifyFocusV1(endpoint);
+  const row = readStaffNotifyPreferenceV1({
+    endpoint: String(req.query.endpoint ?? ""),
+    userId: String(req.query.userId ?? ""),
+  });
   res.json({
     ok: true,
-    enabled: row?.enabled ?? false,
-    siteId: row?.siteId ?? "",
-    propertyId: row?.propertyId ?? "",
-    updatedAt: row?.updatedAt ?? "",
+    enabled: row.enabled,
+    muteOtherSites: row.enabled,
+    siteId: row.siteId,
+    activeSiteId: row.siteId,
+    propertyId: row.propertyId,
+    updatedAt: row.updatedAt,
   });
 });
 
 notificationsRouter.post("/staff-focus", (req, res) => {
   try {
-    const saved = saveStaffNotifyFocusV1({
+    const saved = saveStaffNotifyPreferenceV1({
       endpoint: req.body?.endpoint,
-      enabled: Boolean(req.body?.enabled),
+      userId: req.body?.userId,
+      enabled: req.body?.enabled,
+      muteOtherSites: req.body?.muteOtherSites,
       siteId: req.body?.siteId,
+      activeSiteId: req.body?.activeSiteId,
       propertyId: req.body?.propertyId,
     });
-    res.json({ ok: true, ...saved });
+    res.json({
+      ok: true,
+      ...saved,
+      muteOtherSites: saved.enabled,
+      activeSiteId: saved.siteId,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(400).json({ ok: false, error: message });

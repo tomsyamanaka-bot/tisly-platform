@@ -6,6 +6,7 @@
 import { getPropertyScope } from "../../shared/property-scope-v1.js";
 
 const STORAGE_KEY = "tisly.staffNotifyFocus.v1";
+const STAFF_PUSH_USER_ID = "toms-ops";
 
 function $(id) {
   return document.getElementById(id);
@@ -56,8 +57,8 @@ function currentSiteFocus() {
 async function currentPushEndpoint() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "";
   try {
-    const reg = await navigator.serviceWorker.getRegistration("/");
-    const sub = await reg?.pushManager?.getSubscription();
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
     return String(sub?.endpoint || "");
   } catch {
     return "";
@@ -89,41 +90,72 @@ async function syncStaffNotifyFocusV1(state) {
     toggle.setAttribute("aria-checked", next.enabled ? "true" : "false");
   }
   const endpoint = await currentPushEndpoint();
-  if (!endpoint) return { ok: true, localOnly: true };
-  const res = await fetch("/api/notifications/staff-focus", {
+  const body = {
+    endpoint,
+    userId: STAFF_PUSH_USER_ID,
+    enabled: next.enabled,
+    muteOtherSites: next.enabled,
+    siteId: next.siteId,
+    activeSiteId: next.siteId,
+    propertyId: next.propertyId,
+  };
+  const pref = await fetch("/api/user/preferences", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      endpoint,
-      enabled: next.enabled,
-      siteId: next.siteId,
-      propertyId: next.propertyId,
-    }),
+    body: JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.ok === false) {
-    throw new Error(data.error || `通知絞り込みの保存に失敗 (${res.status})`);
+  const prefData = await pref.json().catch(() => ({}));
+  if (!pref.ok || prefData.ok === false) {
+    throw new Error(
+      prefData.error || `通知絞り込みの保存に失敗 (${pref.status})`
+    );
   }
-  return data;
+  if (endpoint) {
+    const res = await fetch("/api/notifications/staff-focus", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.error || `通知絞り込みの保存に失敗 (${res.status})`);
+    }
+  }
+  return prefData;
 }
 
 async function hydrateFromServer() {
+  const local = readStaffNotifyFocusLocalV1();
   const endpoint = await currentPushEndpoint();
-  if (!endpoint) {
-    const local = readStaffNotifyFocusLocalV1();
+  const params = new URLSearchParams({ userId: STAFF_PUSH_USER_ID });
+  if (endpoint) params.set("endpoint", endpoint);
+  const res = await fetch(`/api/user/preferences?${params.toString()}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
     tellServiceWorker(local);
+    if (local.enabled) {
+      const site = currentSiteFocus();
+      return syncStaffNotifyFocusV1({
+        enabled: true,
+        siteId: site.siteId || local.siteId,
+        propertyId: site.propertyId || local.propertyId,
+      });
+    }
     return local;
   }
-  const res = await fetch(
-    `/api/notifications/staff-focus?endpoint=${encodeURIComponent(endpoint)}`
-  );
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.ok === false) return readStaffNotifyFocusLocalV1();
   const server = {
-    enabled: Boolean(data.enabled),
-    siteId: String(data.siteId || ""),
-    propertyId: String(data.propertyId || ""),
+    enabled: Boolean(data.muteOtherSites),
+    siteId: String(data.activeSiteId || ""),
+    propertyId: String(data.propertyId || data.activeSiteId || ""),
   };
+  if (local.enabled && !server.enabled) {
+    const site = currentSiteFocus();
+    return syncStaffNotifyFocusV1({
+      enabled: true,
+      siteId: site.siteId || local.siteId,
+      propertyId: site.propertyId || local.propertyId,
+    });
+  }
   writeStaffNotifyFocusLocalV1(server);
   tellServiceWorker(server);
   return server;
