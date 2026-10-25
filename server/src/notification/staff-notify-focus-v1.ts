@@ -423,13 +423,17 @@ export function saveStaffNotifyPreferenceV1(input: {
     }
   }
   if (siteId) {
-    for (const key of keys) {
-      const legacy = readStaffNotifyFocusV1(key);
-      if (
-        legacy?.enabled &&
-        legacy.siteId &&
-        !muteDecisionV1(listMuteSitesV1(key), legacy.siteId, legacy.propertyId)
-      ) {
+    const legacy = keys
+      .map((key) => readStaffNotifyFocusV1(key))
+      .filter((row): row is StaffNotifyFocusV1 => Boolean(row))
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0];
+    const known = keys.flatMap((key) => listMuteSitesV1(key));
+    if (
+      legacy?.enabled &&
+      legacy.siteId &&
+      !muteDecisionV1(known, legacy.siteId, legacy.propertyId)
+    ) {
+      for (const key of keys) {
         saveMuteSiteV1(
           key,
           legacy.siteId,

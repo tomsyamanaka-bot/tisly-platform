@@ -543,4 +543,36 @@ describe("staff notify focus", () => {
       });
     }
   });
+
+  it("does not revive an older site mute from another staff key", async () => {
+    const app = createApp();
+    saveStaffNotifyFocusV1({
+      endpoint: "user:home-security",
+      enabled: true,
+      siteId: "SEC-JP-ITABASHI-LIVE",
+      propertyId: "HOME-JP-ITABASHI-LIVE",
+      updatedAt: "2020-01-01T00:00:00.000Z",
+    });
+    saveStaffNotifyFocusV1({
+      endpoint: "user:toms-ops",
+      enabled: false,
+      siteId: "SEC-JP-TSUKUBA-001",
+      propertyId: "SEC-JP-TSUKUBA-001",
+      updatedAt: "2026-10-25T00:00:00.000Z",
+    });
+    const saved = await request(app).post("/api/user/preferences").send({
+      userId: "toms-ops",
+      activeSiteId: "SEC-JP-MORIYA-001",
+      propertyId: "SEC-JP-MORIYA-001",
+      muteOtherSites: true,
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.muteBySite["SEC-JP-MORIYA-001"], true);
+    assert.equal(saved.body.muteBySite["SEC-JP-ITABASHI-LIVE"] ?? false, false);
+    await request(app).post("/api/user/preferences").send({
+      userId: "toms-ops",
+      activeSiteId: "SEC-JP-MORIYA-001",
+      muteOtherSites: false,
+    });
+  });
 });
