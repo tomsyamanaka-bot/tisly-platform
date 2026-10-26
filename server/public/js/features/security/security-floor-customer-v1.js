@@ -571,8 +571,11 @@ async function loadDash(opts = {}) {
     return;
   }
   try {
+    const fresh = opts.force
+      ? `&t=${Date.now()}&_fresh=${Date.now()}`
+      : "";
     const data = await fetchJson(
-      `/api/security-floor/v1/customer?siteId=${encodeURIComponent(state.siteId)}`
+      `/api/security-floor/v1/customer?siteId=${encodeURIComponent(state.siteId)}${fresh}`
     );
     if (data.dashboard) renderDash(data.dashboard, opts);
   } catch (err) {
@@ -871,7 +874,7 @@ async function refreshCustomerStatus(btn) {
       paintItabashiAssureCard(status);
       await loadDash();
     } else {
-      await loadDash();
+      await loadDash({ force: true });
     }
     flashStatusToast("最新の接続状態を取得しました");
   } catch (err) {
@@ -923,9 +926,9 @@ function bind() {
   bindCustomerManualLights();
   bindCustomerCamera();
   bindCustomerPaneTabs();
-  $("sf-status-refresh")?.addEventListener("click", () => {
-    refreshCustomerStatus($("sf-status-refresh")).catch(() => {});
-  });
+  window.__TISLY_CUSTOMER_FORCE_REDRAW = () => {
+    refreshCustomerStatus($("sf-customer-assure-refresh")).catch(() => {});
+  };
   document.addEventListener("tisly-sf-floor", (e) => {
     const id = e.detail?.id;
     if (id) state.floorId = id;

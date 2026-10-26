@@ -105,6 +105,8 @@ export function startCustomerAssureStatusV1(getSiteId) {
   const button = document.getElementById("sf-customer-assure-refresh");
   button?.addEventListener("click", () => {
     refresh();
+    const redraw = window.__TISLY_CUSTOMER_FORCE_REDRAW;
+    if (typeof redraw === "function") redraw();
   });
   refresh();
   timer = window.setInterval(refresh, 5000);

@@ -114,27 +114,47 @@ def apply_cloud(ctrl, body, now_ms):
         )
 
 
-def init_network():
-    """有線 LAN を起動する。失敗してもループは続ける。"""
-    try:
-        from ethernet_init import ethernet_init
-
-        return ethernet_init()
-    except Exception as exc:
-        print("[ryugasaki] ethernet", exc)
-        return None
+_link_online = None
 
 
-def show_shipping_led():
-    """出荷状態の緑を出す。未搭載なら無視する。"""
+def set_link_led(online):
+    """通信エラーは赤点滅、オンライン時は緑点滅を維持する。"""
+    global _link_online
+    if _link_online is online:
+        return
+    _link_online = online
     try:
         import tisly_rgb
 
         tisly_rgb.init_rgb(pin_no=cfg.RGB_LED_PIN, count=cfg.RGB_LED_COUNT)
-        tisly_rgb.set_status("shippable")
+        tisly_rgb.set_status("ok" if online else "error")
         tisly_rgb.tick()
     except Exception:
         pass
+
+
+def init_network(wdt):
+    """W5500 初期化や DHCP 失敗でも予備 IP へ戻して続ける。"""
+    static = (
+        cfg.STATIC_IP,
+        cfg.STATIC_MASK,
+        cfg.STATIC_GATEWAY,
+        cfg.STATIC_DNS,
+    )
+    timeout = int(getattr(cfg, "DHCP_TIMEOUT_SEC", 12))
+    try:
+        from ethernet_init import ethernet_init
+
+        info = ethernet_init(
+            static=static,
+            kick=lambda: logic.kick_watchdog(wdt),
+            timeout_sec=timeout,
+        )
+        print("[ryugasaki] network", info)
+        return info
+    except Exception as exc:
+        print("[ryugasaki] ethernet", exc)
+        return None
 
 
 def post_heartbeat(ctrl, outputs, wdt):
@@ -148,9 +168,12 @@ def post_heartbeat(ctrl, outputs, wdt):
         )
     except Exception as exc:
         print("[ryugasaki] heartbeat", exc)
+        set_link_led(False)
         return False
     if not isinstance(body, dict):
+        set_link_led(False)
         return False
+    set_link_led(True)
     apply_cloud(ctrl, body, now)
     write_outputs(outputs, ctrl.outputs)
     return True
@@ -178,14 +201,62 @@ def heartbeat_with_retry(ctrl, outputs, wdt):
     return False
 
 
-def main():
+def _hold(wdt):
+    """例外後も再起動せず、1秒ごとに監視タイマーだけを蹴る。"""
+    while True:
+        try:
+            logic.kick_watchdog(wdt)
+        except Exception:
+            pass
+        time.sleep(1)
+
+
+def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
+    """1周分。通信失敗は赤、成功は緑にする。"""
+    now = time.ticks_ms()
+    logic.kick_watchdog(wdt)
+    if inputs:
+        events = ctrl.poll_inputs(read_levels(inputs), now)
+        for event in events:
+            posted = http_json(
+                "POST", "/api/home/v1/ryugasaki/event", event
+            )
+            if posted is None:
+                set_link_led(False)
+    ctrl.tick_outputs(now)
+    write_outputs(outputs, ctrl.outputs)
+    if time.ticks_diff(now, next_cmd) >= 0:
+        body = http_json("GET", "/api/home/v1/ryugasaki/command")
+        if body is None:
+            set_link_led(False)
+        else:
+            set_link_led(True)
+            apply_cloud(ctrl, body, now)
+            write_outputs(outputs, ctrl.outputs)
+        next_cmd = time.ticks_add(now, cfg.COMMAND_POLL_MS)
+    if time.ticks_diff(now, next_hb) >= 0:
+        heartbeat_with_retry(ctrl, outputs, wdt)
+        next_hb = time.ticks_add(
+            time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
+        )
+    try:
+        import tisly_rgb
+
+        tisly_rgb.tick(now)
+    except Exception:
+        pass
+    time.sleep_ms(20)
+    return next_cmd, next_hb
+
+
+def _run():
     """入力監視、命令取得、心拍を繰り返す。"""
     outputs = init_output_pins()
     inputs = init_input_pins()
     ctrl = logic.RyugasakiController(cfg.DI_DEBOUNCE_MS)
     wdt = logic.init_watchdog(cfg.WDT_TIMEOUT_MS)
-    init_network()
-    show_shipping_led()
+    set_link_led(False)
+    init_network(wdt)
     now = time.ticks_ms()
     if inputs:
         ctrl.seed_inputs(read_levels(inputs), now)
@@ -196,31 +267,25 @@ def main():
         time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
     )
     while True:
-        now = time.ticks_ms()
-        logic.kick_watchdog(wdt)
-        if inputs:
-            events = ctrl.poll_inputs(read_levels(inputs), now)
-            for event in events:
-                http_json("POST", "/api/home/v1/ryugasaki/event", event)
-        ctrl.tick_outputs(now)
-        write_outputs(outputs, ctrl.outputs)
-        if time.ticks_diff(now, next_cmd) >= 0:
-            body = http_json("GET", "/api/home/v1/ryugasaki/command")
-            apply_cloud(ctrl, body, now)
-            write_outputs(outputs, ctrl.outputs)
-            next_cmd = time.ticks_add(now, cfg.COMMAND_POLL_MS)
-        if time.ticks_diff(now, next_hb) >= 0:
-            heartbeat_with_retry(ctrl, outputs, wdt)
-            next_hb = time.ticks_add(
-                time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
-            )
         try:
-            import tisly_rgb
+            next_cmd, next_hb = _service_once(
+                ctrl, inputs, outputs, wdt, next_cmd, next_hb
+            )
+        except Exception as exc:
+            print("[ryugasaki] loop", exc)
+            set_link_led(False)
+            print("[ryugasaki] retry loop in 10s")
+            wait_heartbeat_retry(wdt)
 
-            tisly_rgb.tick(now)
-        except Exception:
-            pass
-        time.sleep_ms(20)
+
+def main():
+    """起動失敗でも再起動ループに入らず、待機して監視を続ける。"""
+    try:
+        _run()
+    except Exception as exc:
+        print("[ryugasaki] boot guard", exc)
+        set_link_led(False)
+        _hold(None)
 
 
 if __name__ == "__main__":

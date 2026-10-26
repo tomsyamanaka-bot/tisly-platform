@@ -44,6 +44,14 @@ def test_test_command_holds_then_releases():
     assert ctrl.apply_remote_command("di3_on", None, 8, 1000) is False
 
 
+def test_main_keeps_running_after_network_errors():
+    text = (ROOT / "firmware" / "main_ryugasaki.py").read_text(encoding="utf-8")
+    assert "STATIC_IP" in text
+    assert "retry loop in 10s" in text
+    assert 'set_status("ok" if online else "error")' in text
+    assert "machine.reset" not in text
+
+
 def test_heartbeat_has_no_sensor_fields():
     payload = rg.build_heartbeat_payload({"board_temp": 31.0})
     assert payload["tenantId"] == "WASHMATE001"
@@ -56,5 +64,6 @@ if __name__ == "__main__":
     test_identity_and_di_never_drives_do()
     test_di3_waits_for_customer_confirm_time()
     test_test_command_holds_then_releases()
+    test_main_keeps_running_after_network_errors()
     test_heartbeat_has_no_sensor_fields()
     print("ok")

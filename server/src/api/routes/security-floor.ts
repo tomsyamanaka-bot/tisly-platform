@@ -274,7 +274,7 @@ securityFloorRouter.post("/test-notify", async (req, res) => {
   try {
     webPush = await sendWebPush({
       title: "TiSLY 通知テスト",
-      body: "Push通知が正常に届きました（フロア俯瞰）",
+      body: "Push通知が正常に届きました",
       eventType: "security_floor_test_notify",
       deviceId: siteId,
       url: `/security-v1.html?siteId=${encodeURIComponent(siteId)}`,

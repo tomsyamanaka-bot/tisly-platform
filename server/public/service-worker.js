@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2582-customer-assure";
+const SW_VERSION = "tisly-pwa-v2583-ryugasaki-failsafe";
 /* tisly-pwa-v2576-staff-notify-mute */
 /* tisly-pwa-v2575-staff-notify-sync */
 /* tisly-pwa-v2573-operator-summary */
