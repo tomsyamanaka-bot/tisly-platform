@@ -4,7 +4,7 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2580-ryugasaki-ota-slug";
+const SW_VERSION = "tisly-pwa-v2582-customer-assure";
 /* tisly-pwa-v2576-staff-notify-mute */
 /* tisly-pwa-v2575-staff-notify-sync */
 /* tisly-pwa-v2573-operator-summary */
@@ -461,6 +461,7 @@ function isCustomerFreshAsset(pathname) {
     pathname.startsWith("/css/features/home/") ||
     pathname === "/security-v1" ||
     pathname === "/security-v1.html" ||
+    pathname === "/security-customer-v1.html" ||
     pathname === "/app/security" ||
     pathname === "/app/security-v1" ||
     pathname.startsWith("/js/features/security/") ||

@@ -1610,7 +1610,10 @@ async def async_main():
     log("boot heartbeat (0 sec) — before poll loop")
     if get_ip():
         try:
-            send_heartbeat()
+            send_heartbeat_with_retry(
+                send_heartbeat,
+                kick_wdt=lambda: kick_watchdog(_wdt),
+            )
         except Exception as e:
             log_error("boot heartbeat exception: {}".format(e))
     else:

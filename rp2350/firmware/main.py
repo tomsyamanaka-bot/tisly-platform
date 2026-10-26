@@ -1209,7 +1209,13 @@ async def async_main():
 
     try:
 
-        send_heartbeat()
+        if send_heartbeat_with_retry:
+
+            send_heartbeat_with_retry(send_heartbeat)
+
+        else:
+
+            send_heartbeat()
 
     except Exception as e:
 

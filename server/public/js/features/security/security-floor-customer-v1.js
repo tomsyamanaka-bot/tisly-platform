@@ -43,6 +43,7 @@ import {
   isItabashiSecuritySite,
   useItabashiStatus,
 } from "./use-itabashi-status-v1.js";
+import { startCustomerAssureStatusV1 } from "./customer-assure-status-v1.js";
 import {
   getCustomerCode,
   getCustomerToken,
@@ -339,11 +340,11 @@ function applySiteLayout(force = false) {
     fixed.hidden = isToyoshima;
   }
 
+  ensureCustomerAssure();
   if (!force && state.layoutSiteId === state.siteId) {
     return;
   }
   state.layoutSiteId = state.siteId;
-
   if (isToyoshima) {
     stopItabashiAssurePolling();
     loadToyoshimaDashboard().catch(() => {});
@@ -371,6 +372,15 @@ function alarmSignature(dash) {
     String(open.length),
     open.map((a) => `${a.id}:${a.at}:${a.kindLabel}`).join("|"),
   ].join("::");
+}
+
+let customerAssureReady = false;
+
+function ensureCustomerAssure() {
+  if (customerAssureReady) return;
+  if (!document.getElementById("sf-customer-assure-card")) return;
+  customerAssureReady = true;
+  startCustomerAssureStatusV1(() => state.siteId);
 }
 
 function paintItabashiAssureCard(status) {

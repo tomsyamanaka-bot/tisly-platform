@@ -9,7 +9,7 @@ DI3 バックヤード人感は通知専用。
 """
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.35"
+FIRMWARE_LOGIC_VERSION = "1.2.36"
 
 DI_DEBOUNCE_MS = 100
 HEARTBEAT_INTERVAL_SEC = 300

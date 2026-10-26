@@ -105,6 +105,34 @@
     <button type="button" role="tab" data-pane="log" aria-selected="false">履歴</button>
   </nav>
 
+  <section class="ts-card ts-assure-health-card" id="sf-customer-assure-card" aria-label="システム安心ステータス">
+    <div class="ts-assure-head-row">
+      <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
+      <button type="button" class="ts-refresh-btn" id="sf-customer-assure-refresh" aria-label="最新状態に更新">
+        🔄 最新状態に更新
+      </button>
+    </div>
+    <div class="ts-assure-grid">
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">稼働ステータス</span>
+        <span class="ts-assure-val" id="sf-assure-online">🔴 通信途絶（オフライン）</span>
+      </div>
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">最新ハートビート</span>
+        <span class="ts-assure-val" id="sf-assure-hb">未受信</span>
+      </div>
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">盤内温度</span>
+        <span class="ts-assure-val" id="sf-assure-temp">取得中</span>
+      </div>
+      <div class="ts-assure-row">
+        <span class="ts-assure-key">システムバージョン</span>
+        <span class="ts-assure-val" id="sf-assure-fw">🟢 最新状態です</span>
+      </div>
+    </div>
+    <p class="ts-assure-note">TOMS が常時遠隔監視しています</p>
+  </section>
+
   <div class="sf-soc-shell">
     <section class="sf-soc-hero sf-soc-hero--compact" data-pane="map">
       <section class="sf-card sf-status">
@@ -113,30 +141,6 @@
           <p class="sf-status-label" id="sf-status-label">正常に動いています</p>
           <p id="sf-guard-label">—</p>
         </div>
-      </section>
-      <section class="ts-card ts-assure-health-card" id="sf-itabashi-assure-card" hidden aria-label="システム安心ステータス">
-        <div class="ts-assure-head-row">
-          <h3 class="ts-card-head ts-assure-head">🛡 システム安心ステータス</h3>
-        </div>
-        <div class="ts-assure-grid">
-          <div class="ts-assure-row">
-            <span class="ts-assure-key">稼働ステータス</span>
-            <span class="ts-assure-val" id="ib-assure-online">―</span>
-          </div>
-          <div class="ts-assure-row">
-            <span class="ts-assure-key">盤内温度（実測℃）</span>
-            <span class="ts-assure-val" id="ib-assure-temp">―（取得中）</span>
-          </div>
-          <div class="ts-assure-row">
-            <span class="ts-assure-key">更新状態</span>
-            <span class="ts-assure-val" id="ib-assure-fw">🟢 最新状態です</span>
-          </div>
-          <div class="ts-assure-row">
-            <span class="ts-assure-key">最終確認時刻</span>
-            <span class="ts-assure-val" id="ib-assure-confirm">—</span>
-          </div>
-        </div>
-        <p class="ts-assure-note">TOMS が常時遠隔監視しています</p>
       </section>
       <section class="sf-area-switch" aria-label="見るエリア">
         <p class="sf-area-switch-label">見るエリア</p>

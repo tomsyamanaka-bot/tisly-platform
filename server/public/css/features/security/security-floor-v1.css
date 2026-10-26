@@ -3006,6 +3006,10 @@
   cursor: wait;
 }
 
+body.sf-customer #sf-customer-assure-card {
+  margin: 12px 16px 0;
+}
+
 /* 顧客タブ: 選んだ面だけを先頭に出す（豊島邸は独自ペイン） */
 body.sf-customer:not(.is-toyoshima)[data-pane="alert"] .sf-soc-shell > :not([data-pane="alert"]),
 body.sf-customer:not(.is-toyoshima)[data-pane="log"] .sf-soc-shell > :not([data-pane="log"]) {

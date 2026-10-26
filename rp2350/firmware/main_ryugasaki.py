@@ -137,6 +137,47 @@ def show_shipping_led():
         pass
 
 
+def post_heartbeat(ctrl, outputs, wdt):
+    """心拍を1回送る。失敗しても例外は外へ出さない。"""
+    now = time.ticks_ms()
+    logic.kick_watchdog(wdt)
+    try:
+        payload = logic.build_heartbeat_payload()
+        body = http_json(
+            "POST", "/api/home/v1/ryugasaki/heartbeat", payload
+        )
+    except Exception as exc:
+        print("[ryugasaki] heartbeat", exc)
+        return False
+    if not isinstance(body, dict):
+        return False
+    apply_cloud(ctrl, body, now)
+    write_outputs(outputs, ctrl.outputs)
+    return True
+
+
+def wait_heartbeat_retry(wdt):
+    """10秒待って再送する。WDT は1秒ごとに蹴る。"""
+    left = 10
+    while left > 0:
+        logic.kick_watchdog(wdt)
+        time.sleep(1)
+        left -= 1
+
+
+def heartbeat_with_retry(ctrl, outputs, wdt):
+    """失敗したら10秒後に再試行し、ループ自体は止めない。"""
+    attempt = 0
+    while attempt < 3:
+        attempt += 1
+        if post_heartbeat(ctrl, outputs, wdt):
+            return True
+        if attempt < 3:
+            print("[ryugasaki] heartbeat retry in 10s")
+            wait_heartbeat_retry(wdt)
+    return False
+
+
 def main():
     """入力監視、命令取得、心拍を繰り返す。"""
     outputs = init_output_pins()
@@ -149,7 +190,11 @@ def main():
     if inputs:
         ctrl.seed_inputs(read_levels(inputs), now)
     next_cmd = now
-    next_hb = now
+    print("[ryugasaki] boot heartbeat 0sec")
+    heartbeat_with_retry(ctrl, outputs, wdt)
+    next_hb = time.ticks_add(
+        time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
+    )
     while True:
         now = time.ticks_ms()
         logic.kick_watchdog(wdt)
@@ -165,14 +210,9 @@ def main():
             write_outputs(outputs, ctrl.outputs)
             next_cmd = time.ticks_add(now, cfg.COMMAND_POLL_MS)
         if time.ticks_diff(now, next_hb) >= 0:
-            payload = logic.build_heartbeat_payload()
-            body = http_json(
-                "POST", "/api/home/v1/ryugasaki/heartbeat", payload
-            )
-            apply_cloud(ctrl, body, now)
-            write_outputs(outputs, ctrl.outputs)
+            heartbeat_with_retry(ctrl, outputs, wdt)
             next_hb = time.ticks_add(
-                now, cfg.HEARTBEAT_INTERVAL_SEC * 1000
+                time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
             )
         try:
             import tisly_rgb

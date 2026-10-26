@@ -17,6 +17,7 @@ import {
 } from "./home-heartbeat-standard-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
 import { durationSecForDoChannelV1 } from "./home-ryugasaki-settings-v1.js";
+import { deviceNeedsSiteFirmwareUpdateV1 } from "../firmware/tisly-site-target-version-v1.js";
 
 export const RYUGASAKI_CUSTOMER_CODE_V1 = "WASHMATE001";
 export const RYUGASAKI_DISPLAY_NAME_V1 = "ウォッシュメイト龍ヶ崎店";
@@ -79,6 +80,7 @@ interface RuntimeV1 {
   outputs: Record<DoChannelV1, boolean>;
   lastHeartbeatAt: string | null;
   boardTempC: number | null;
+  firmwareVersion: string | null;
   overheat: boolean;
   tempAlertSent: boolean;
   lossNotified: boolean;
@@ -92,6 +94,7 @@ function emptyRuntime(): RuntimeV1 {
     outputs: { 1: false, 2: false },
     lastHeartbeatAt: null,
     boardTempC: null,
+    firmwareVersion: null,
     overheat: false,
     tempAlertSent: false,
     lossNotified: false,
@@ -108,6 +111,7 @@ export function resetRyugasakiSecurityStateForTestV1(): void {
   runtime.outputs = next.outputs;
   runtime.lastHeartbeatAt = next.lastHeartbeatAt;
   runtime.boardTempC = next.boardTempC;
+  runtime.firmwareVersion = next.firmwareVersion;
   runtime.overheat = next.overheat;
   runtime.tempAlertSent = next.tempAlertSent;
   runtime.lossNotified = next.lossNotified;
@@ -414,9 +418,12 @@ function readTemp(raw: unknown): number | null {
 export async function recordRyugasakiHeartbeatV1(input: {
   deviceId?: string | null;
   boardTemp?: unknown;
+  firmwareVersion?: string | null;
 }): Promise<{ online: true; boardTempC: number | null }> {
   runtime.lastHeartbeatAt = nowIso();
   runtime.lossNotified = false;
+  const version = String(input.firmwareVersion ?? "").trim();
+  if (version) runtime.firmwareVersion = version;
   const temp = readTemp(input.boardTemp);
   if (temp != null) {
     runtime.boardTempC = temp;
@@ -503,6 +510,13 @@ export function buildRyugasakiStatusV1(nowMs: number = Date.now()) {
       ? jstLabel(runtime.lastHeartbeatAt)
       : null,
     boardTempC: runtime.boardTempC,
+    firmwareVersion: runtime.firmwareVersion,
+    firmwareLatest: runtime.firmwareVersion
+      ? !deviceNeedsSiteFirmwareUpdateV1(
+          "ryugasaki",
+          runtime.firmwareVersion
+        )
+      : true,
     overheat: runtime.overheat,
     commandPending: runtime.queue.length,
     inputs: ([1, 2, 3] as DiChannelV1[]).map((ch) => ({

@@ -656,8 +656,11 @@ describe("security-floor-v1", () => {
     assert.match(customerHtml, /センサー検知・セキュリティ履歴（直近50件）/);
     assert.match(customerHtml, /sf-sec-history-list/);
     assert.match(customerHtml, /詳細を見る（もっと見る）/);
-    assert.match(customerHtml, /sf-itabashi-assure-card/);
-    assert.match(customerHtml, /盤内温度（実測℃）/);
+    assert.match(customerHtml, /sf-customer-assure-card/);
+    assert.match(customerHtml, /最新ハートビート/);
+    assert.match(customerHtml, /盤内温度/);
+    assert.match(customerHtml, /システムバージョン/);
+    assert.match(customerHtml, /正常稼働中（オンライン）|通信途絶（オフライン）/);
     assert.match(customerHtml, /最新状態です/);
     assert.match(customerHtml, /toyoshima-security-v1\.css\?v=\d+/);
     assert.match(customerHtml, /security-floor-light-v1\.js\?v=\d+/);
@@ -994,7 +997,7 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(customerJs, /switchCustomerSite/);
     assert.match(customerJs, /fetchToyoshimaStatus/);
     assert.match(customerJs, /fetchItabashiStatus|useItabashiStatus/);
-    assert.match(customerJs, /sf-itabashi-assure-card|paintItabashiAssureCard/);
+    assert.match(customerJs, /sf-customer-assure-card|startCustomerAssureStatusV1|paintItabashiAssureCard/);
     assert.match(customerJs, /startItabashiAssurePolling/);
     assert.match(customerJs, /bindSecurityHistoryModalV1|setSecurityHistorySiteIdV1/);
 

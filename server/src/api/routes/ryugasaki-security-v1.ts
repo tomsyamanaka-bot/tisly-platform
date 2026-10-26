@@ -161,6 +161,9 @@ export function registerRyugasakiSecurityRoutesV1(router: Router): void {
       await recordRyugasakiHeartbeatV1({
         deviceId: req.body?.deviceId,
         boardTemp: req.body?.board_temp ?? req.body?.boardTemp,
+        firmwareVersion: String(
+          req.body?.firmware_version ?? req.body?.otaVersion ?? ""
+        ).trim(),
       });
       const kitting = extractTislyKittingFromHeartbeatV1(req.body);
       const ota = recordTislyOtaDeviceFirmwareV1({

@@ -684,8 +684,9 @@ function renderCustomerStatusBanner(dash) {
   const lightLabel = dash.lightsScheduleLabel || "18:00〜06:00";
   const view = buildCommHealthView(dash);
   applyHardwareStatusFromDash(dash, view);
+  const sharedAssure = document.getElementById("sf-customer-assure-card");
   return `<div id="ts-customer-status-stack">
-  ${renderCustomerAssureHealthCard(view)}
+  ${sharedAssure ? "" : renderCustomerAssureHealthCard(view)}
   <section class="ts-card ts-safety-card ${
     alerting ? "is-alert" : "is-ok"
   }" id="ts-status-banner">
