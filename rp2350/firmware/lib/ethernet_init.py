@@ -116,7 +116,7 @@ def ethernet_init(static=None, kick=None, timeout_sec=15):
         if hasattr(network, "WIZNET5K"):
             spi = SPI(
                 SPI_ID,
-                baudrate=20_000_000,
+                baudrate=2_000_000,
                 polarity=0,
                 phase=0,
                 sck=Pin(SCK),

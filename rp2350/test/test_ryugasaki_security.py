@@ -49,6 +49,7 @@ def test_main_keeps_running_after_network_errors():
     assert "STATIC_IP" in text
     assert "retry loop in 10s" in text
     assert 'set_status("ok" if online else "error")' in text
+    assert "retry boot in 10s" in text
     assert "machine.reset" not in text
 
 

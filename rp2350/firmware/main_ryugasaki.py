@@ -23,29 +23,59 @@ try:
 except ImportError:
     Pin = None
 
+_wdt_ref = None
+
+
+def _kick():
+    """通信待ちの途中でもウォッチドッグを蹴る。"""
+    try:
+        logic.kick_watchdog(_wdt_ref)
+    except Exception:
+        pass
+
+
+def open_pin(gpio, mode):
+    """不正な GPIO でも起動を止めず、その端子だけ飛ばす。"""
+    if Pin is None:
+        return None
+    try:
+        number = int(gpio)
+    except Exception:
+        print("[ryugasaki] gpio", gpio)
+        return None
+    if number < 0 or number > 47:
+        print("[ryugasaki] gpio out of range", number)
+        return None
+    try:
+        if mode == "out":
+            pin = Pin(number, Pin.OUT)
+            pin.value(0)
+            return pin
+        return Pin(number, Pin.IN, Pin.PULL_UP)
+    except Exception as exc:
+        print("[ryugasaki] pin", number, exc)
+        return None
+
 
 def init_output_pins():
     """RO1 と RO2 を消灯で初期化する。"""
     pins = {}
-    if Pin is None:
-        return pins
     for ch, gpio in cfg.CH_GPIO.items():
         if ch not in (1, 2):
             continue
-        pin = Pin(gpio, Pin.OUT)
-        pin.value(0)
-        pins[ch] = pin
+        pin = open_pin(gpio, "out")
+        if pin is not None:
+            pins[ch] = pin
     return pins
 
 
 def init_input_pins():
     """DI1 から DI3 をプルアップ入力にする。"""
     pins = {}
-    if Pin is None:
-        return pins
     for ch in (1, 2, 3):
-        gpio = cfg.DI_GPIO[ch]
-        pins[ch] = Pin(gpio, Pin.IN, Pin.PULL_UP)
+        pin = open_pin(cfg.DI_GPIO[ch], "in")
+        if pin is not None:
+            pins[ch] = pin
     return pins
 
 
@@ -74,11 +104,26 @@ def http_json(method, path, payload=None):
         "X-Remote-Test-Token": cfg.REMOTE_TEST_TOKEN,
     }
     res = None
+    _kick()
+    try:
+        import socket
+
+        socket.setdefaulttimeout(3)
+    except Exception:
+        pass
     try:
         if method == "GET":
-            res = urequests.get(url, headers=headers)
+            try:
+                res = urequests.get(url, headers=headers, timeout=3)
+            except TypeError:
+                res = urequests.get(url, headers=headers)
         else:
-            res = urequests.post(url, json=payload, headers=headers)
+            try:
+                res = urequests.post(
+                    url, json=payload, headers=headers, timeout=3
+                )
+            except TypeError:
+                res = urequests.post(url, json=payload, headers=headers)
         if res.status_code >= 400:
             return None
         return res.json()
@@ -86,6 +131,7 @@ def http_json(method, path, payload=None):
         print("[ryugasaki] http", exc)
         return None
     finally:
+        _kick()
         if res is not None:
             try:
                 res.close()
@@ -117,6 +163,22 @@ def apply_cloud(ctrl, body, now_ms):
 _link_online = None
 
 
+def show_boot_led():
+    """DHCP 中は青。通信失敗の赤とは分けて出す。"""
+    global _link_online
+    if _link_online == "boot":
+        return
+    _link_online = "boot"
+    try:
+        import tisly_rgb
+
+        tisly_rgb.init_rgb(pin_no=cfg.RGB_LED_PIN, count=cfg.RGB_LED_COUNT)
+        tisly_rgb.set_status("boot")
+        tisly_rgb.tick()
+    except Exception:
+        pass
+
+
 def set_link_led(online):
     """通信エラーは赤点滅、オンライン時は緑点滅を維持する。"""
     global _link_online
@@ -141,7 +203,9 @@ def init_network(wdt):
         cfg.STATIC_GATEWAY,
         cfg.STATIC_DNS,
     )
-    timeout = int(getattr(cfg, "DHCP_TIMEOUT_SEC", 12))
+    timeout = int(getattr(cfg, "DHCP_TIMEOUT_SEC", 5))
+    if timeout > 5:
+        timeout = 5
     try:
         from ethernet_init import ethernet_init
 
@@ -251,12 +315,14 @@ def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
 
 def _run():
     """入力監視、命令取得、心拍を繰り返す。"""
+    global _wdt_ref
     outputs = init_output_pins()
     inputs = init_input_pins()
     ctrl = logic.RyugasakiController(cfg.DI_DEBOUNCE_MS)
+    show_boot_led()
+    init_network(None)
     wdt = logic.init_watchdog(cfg.WDT_TIMEOUT_MS)
-    set_link_led(False)
-    init_network(wdt)
+    _wdt_ref = wdt
     now = time.ticks_ms()
     if inputs:
         ctrl.seed_inputs(read_levels(inputs), now)
@@ -279,13 +345,15 @@ def _run():
 
 
 def main():
-    """起動失敗でも再起動ループに入らず、待機して監視を続ける。"""
-    try:
-        _run()
-    except Exception as exc:
-        print("[ryugasaki] boot guard", exc)
-        set_link_led(False)
-        _hold(None)
+    """起動失敗でも再起動せず、10秒後に初期化からやり直す。"""
+    while True:
+        try:
+            _run()
+        except Exception as exc:
+            print("[ryugasaki] boot guard", exc)
+            set_link_led(False)
+            print("[ryugasaki] retry boot in 10s")
+            wait_heartbeat_retry(_wdt_ref)
 
 
 if __name__ == "__main__":
