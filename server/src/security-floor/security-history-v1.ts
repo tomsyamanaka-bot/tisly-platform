@@ -13,6 +13,8 @@ import {
 } from "../home/home-toyoshima-security-v1.js";
 import {
   SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
+  SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1,
+  SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1,
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
 } from "./security-floor-sites-v1.js";
 import {
@@ -130,6 +132,9 @@ function homeSiteIdForSecurityV1(securitySiteId: string): string {
   if (securitySiteId === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1) {
     return "HOME-JP-TOYOSHIMA";
   }
+  if (securitySiteId === SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1) {
+    return SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1;
+  }
   if (securitySiteId.startsWith("SEC-")) {
     return `HOME-${securitySiteId.slice("SEC-".length)}`;
   }
@@ -180,7 +185,9 @@ function cardFromSystemLogV1(
   const sensorLabel =
     securitySiteId === SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1
       ? mapToyoshimaSensorTextV1(row.message, di === 1 || di === 2 ? di : null)
-      : rawLabel;
+      : securitySiteId === SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1
+        ? String(row.message || "").trim() || "センサー"
+        : rawLabel;
   return {
     id: `SYS-${row.id}`,
     at: row.createdAt,

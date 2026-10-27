@@ -51,6 +51,11 @@ def test_main_keeps_running_after_network_errors():
     assert 'set_status("ok" if online else "error")' in text
     assert "retry boot in 10s" in text
     assert "machine.reset" not in text
+    assert "Pin.PULL_UP" in text
+    assert "Pin.PULL_DOWN" in text
+    assert "event retry" in text
+    assert "maybe_update" in text
+    assert "force=True" not in text
 
 
 def test_heartbeat_has_no_sensor_fields():

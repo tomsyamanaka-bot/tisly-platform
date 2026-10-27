@@ -16,6 +16,7 @@ import {
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
+import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import { durationSecForDoChannelV1 } from "./home-ryugasaki-settings-v1.js";
 import { deviceNeedsSiteFirmwareUpdateV1 } from "../firmware/tisly-site-target-version-v1.js";
 
@@ -288,27 +289,39 @@ export async function processRyugasakiSecurityEventV1(input: {
   const was = runtime.inputs[di];
   runtime.inputs[di] = active;
   let pushSent = false;
-  if (active && !was) {
-    const title = `⚠️ ${RYUGASAKI_DISPLAY_NAME_V1}：${label.name}が反応しました`;
+  const rising = active && !was;
+  const falling = !active && was;
+  if (rising || falling) {
+    const message = rising
+      ? `${label.name}が反応しました`
+      : `${label.name}が復帰しました`;
+    const title = rising
+      ? `⚠️ ${RYUGASAKI_DISPLAY_NAME_V1}：${message}`
+      : `${RYUGASAKI_DISPLAY_NAME_V1}：${message}`;
+    const body = rising
+      ? `${label.body}。回転灯とベルは連動しません。`
+      : message;
     pushSent = await sendRyugasakiPush({
       title,
-      body: `${label.body}。回転灯とベルは連動しません。`,
-      eventType: "ryugasaki_sensor_alert",
+      body,
+      eventType: rising
+        ? "ryugasaki_sensor_alert"
+        : "ryugasaki_sensor_clear",
     });
     pushLog({
       at: nowIso(),
-      kind: "detect",
-      message: `${label.name}が反応しました`,
+      kind: rising ? "detect" : "clear",
+      message,
       di,
       pushSent,
     });
-  } else if (!active && was) {
-    pushLog({
-      at: nowIso(),
-      kind: "clear",
-      message: `${label.name}が復帰しました`,
-      di,
-      pushSent: false,
+    recordSystemLogV1({
+      siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
+      tenantId: RYUGASAKI_CUSTOMER_CODE_V1,
+      category: "sensor_alert",
+      message,
+      detail: { di, active },
+      actor: "rp2350",
     });
   }
   return {

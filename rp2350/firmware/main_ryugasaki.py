@@ -24,6 +24,7 @@ except ImportError:
     Pin = None
 
 _wdt_ref = None
+_event_queue = []
 
 
 def _kick():
@@ -51,7 +52,16 @@ def open_pin(gpio, mode):
             pin = Pin(number, Pin.OUT)
             pin.value(0)
             return pin
-        return Pin(number, Pin.IN, Pin.PULL_UP)
+        # オープンは High、ショートは Low
+        pull = Pin.PULL_UP
+        if not bool(getattr(cfg, "DI_ACTIVE_LOW", True)):
+            pull = Pin.PULL_DOWN
+        pin = Pin(number, Pin.IN, pull)
+        try:
+            pin.init(Pin.IN, pull)
+        except Exception:
+            pass
+        return pin
     except Exception as exc:
         print("[ryugasaki] pin", number, exc)
         return None
@@ -70,7 +80,7 @@ def init_output_pins():
 
 
 def init_input_pins():
-    """DI1 から DI3 をプルアップ入力にする。"""
+    """DI1〜DI3。アクティブLowならプルアップ。"""
     pins = {}
     for ch in (1, 2, 3):
         pin = open_pin(cfg.DI_GPIO[ch], "in")
@@ -240,7 +250,73 @@ def post_heartbeat(ctrl, outputs, wdt):
     set_link_led(True)
     apply_cloud(ctrl, body, now)
     write_outputs(outputs, ctrl.outputs)
+    offer_ota(body)
     return True
+
+
+def ota_http_get(path):
+    """OTA 用の GET。本文と番号を返す。"""
+    if urequests is None:
+        return None, 0
+    url = "{}{}".format(cfg.API_BASE, path)
+    headers = {"X-Remote-Test-Token": cfg.REMOTE_TEST_TOKEN}
+    res = None
+    _kick()
+    try:
+        import socket
+
+        socket.setdefaulttimeout(4)
+    except Exception:
+        pass
+    try:
+        try:
+            res = urequests.get(url, headers=headers, timeout=4)
+        except TypeError:
+            res = urequests.get(url, headers=headers)
+        return res.text, res.status_code
+    except Exception as exc:
+        print("[ryugasaki] ota http", exc)
+        return None, 0
+    finally:
+        _kick()
+        if res is not None:
+            try:
+                res.close()
+            except Exception:
+                pass
+
+
+def offer_ota(body):
+    """予約があるときだけ受け取る。強制はしない。"""
+    if not isinstance(body, dict):
+        return
+    try:
+        from tisly_ota import has_ota_update_from_body, maybe_update
+    except ImportError:
+        try:
+            from lib.tisly_ota import (
+                has_ota_update_from_body,
+                maybe_update,
+            )
+        except ImportError:
+            return
+    try:
+        import json
+
+        raw = json.dumps(body)
+    except Exception:
+        return
+    if not has_ota_update_from_body(raw):
+        return
+    try:
+        maybe_update(
+            ota_http_get,
+            config=cfg,
+            kick_wdt=_kick,
+            reported_version=logic.FIRMWARE_LOGIC_VERSION,
+        )
+    except Exception as exc:
+        print("[ryugasaki] ota", exc)
 
 
 def wait_heartbeat_retry(wdt):
@@ -275,18 +351,46 @@ def _hold(wdt):
         time.sleep(1)
 
 
+def enqueue_events(events):
+    """変化を捨てず、送信できるまで残す。"""
+    for event in events:
+        print(
+            "[ryugasaki] di",
+            event.get("di"),
+            "active",
+            event.get("active"),
+        )
+        _event_queue.append(event)
+    if len(_event_queue) > 16:
+        del _event_queue[:-16]
+
+
+def flush_one_event():
+    """先頭の DI 変化をすぐ POST する。失敗は残す。"""
+    if not _event_queue:
+        return
+    posted = http_json(
+        "POST",
+        "/api/home/v1/ryugasaki/event",
+        _event_queue[0],
+    )
+    if posted is None:
+        set_link_led(False)
+        print("[ryugasaki] event retry")
+        return
+    _event_queue.pop(0)
+    set_link_led(True)
+
+
 def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
     """1周分。通信失敗は赤、成功は緑にする。"""
     now = time.ticks_ms()
     logic.kick_watchdog(wdt)
     if inputs:
         events = ctrl.poll_inputs(read_levels(inputs), now)
-        for event in events:
-            posted = http_json(
-                "POST", "/api/home/v1/ryugasaki/event", event
-            )
-            if posted is None:
-                set_link_led(False)
+        if events:
+            enqueue_events(events)
+        flush_one_event()
     ctrl.tick_outputs(now)
     write_outputs(outputs, ctrl.outputs)
     if time.ticks_diff(now, next_cmd) >= 0:
