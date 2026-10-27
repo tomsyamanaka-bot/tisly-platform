@@ -442,14 +442,14 @@ describe("firmware-rp2350-ota-v1", () => {
   it("ryugasaki OTA ships only that store and keeps its own target", async () => {
     resetTislyOtaStoreForTestV1();
     const version = await request(app).get(
-      "/api/firmware/WASHMATE001/version?firmware_version=1.2.41"
+      "/api/firmware/WASHMATE001/version?firmware_version=1.2.42"
     );
     assert.equal(version.status, 200);
     assert.equal(version.body.siteId, "ryugasaki");
-    assert.equal(version.body.version, "1.2.41");
+    assert.equal(version.body.version, "1.2.42");
     assert.equal(version.body.update_required, false);
     const behind = await request(app).get(
-      "/api/firmware/ryugasaki/version?firmware_version=1.2.40"
+      "/api/firmware/ryugasaki/version?firmware_version=1.2.41"
     );
     assert.equal(behind.body.update_required, true);
     assert.ok(version.body.files.includes("main.py"));

@@ -805,9 +805,22 @@ def _json_dumps_safe(payload):
 
 
 def http_post(path, payload):
-    """/event は生ソケット。他は urequests。例外は握る。"""
+    """心拍と同じ経路で送り、/event だけ生ソケットへ落とす。"""
+    text, status = _http_post_requests(path, payload)
+    if status == 200:
+        return text, status
     if str(path).find("/event") >= 0:
-        return http_post_timed(path, payload)
+        raw, timed = http_post_timed(path, payload)
+        if timed == 200:
+            return raw, timed
+        if status:
+            return text, status
+        return raw, timed
+    return text, status
+
+
+def _http_post_requests(path, payload):
+    """urequests の POST。例外は握って status 0 を返す。"""
     if urequests is None:
         log_error("urequests 未インストール")
         return None, 0
@@ -924,13 +937,7 @@ def handle_security_di_edges(edges):
                     _security.clear_event_ack(di)
                 except Exception:
                     pass
-            _pending_events = [
-                ev
-                for ev in _pending_events
-                if not (
-                    ev.get("building") == building and ev.get("di") == di
-                )
-            ]
+            # 未送信の立上りは、接点が戻っても残す
         _security.on_di_edge(di, prev, new)
 
 

@@ -9,8 +9,8 @@ export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   toyoshima: "1.2.29",
   /** 板橋自宅。1.6 系の別ライン */
   itabashi: "1.6.6",
-  /** ウォッシュメイト龍ヶ崎店。DHCP と予備 IP、DI 50ms */
-  ryugasaki: "1.2.41",
+  /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
+  ryugasaki: "1.2.42",
 } as const;
 
 export type TislySiteTargetKeyV1 = keyof typeof TISLY_SITE_TARGET_VERSIONS_V1;

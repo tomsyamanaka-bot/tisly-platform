@@ -136,7 +136,10 @@ def http_json(method, path, payload=None):
                 res = urequests.post(url, json=payload, headers=headers)
         if res.status_code >= 400:
             return None
-        return res.json()
+        try:
+            return res.json()
+        except Exception:
+            return {"ok": True}
     except Exception as exc:
         print("[ryugasaki] http", exc)
         return None
@@ -368,15 +371,60 @@ def enqueue_events(events):
         del _event_queue[:-16]
 
 
+def post_di_event(event):
+    """DI 変化を ASCII で1回送る。解析失敗でも 2xx は成功。"""
+    try:
+        di = int(event.get("di") or 0)
+    except Exception:
+        di = 0
+    active = 1 if event.get("active") else 0
+    body = (
+        '{"di":%d,"active":%d,"tenantId":"%s",'
+        '"siteId":"%s","deviceId":"%s","source":"di_edge"}'
+        % (di, active, cfg.TENANT_ID, cfg.SITE_ID, cfg.DEVICE_ID)
+    )
+    if urequests is None:
+        return None
+    url = "{}{}".format(cfg.API_BASE, "/api/home/v1/ryugasaki/event")
+    headers = {
+        "Content-Type": "application/json",
+        "X-Remote-Test-Token": cfg.REMOTE_TEST_TOKEN,
+    }
+    res = None
+    _kick()
+    try:
+        import socket
+
+        socket.setdefaulttimeout(3)
+    except Exception:
+        pass
+    try:
+        try:
+            res = urequests.post(
+                url, data=body, headers=headers, timeout=3
+            )
+        except TypeError:
+            res = urequests.post(url, data=body, headers=headers)
+        if res.status_code >= 400:
+            return None
+        return {"ok": True}
+    except Exception as exc:
+        print("[ryugasaki] event http", exc)
+        return None
+    finally:
+        _kick()
+        if res is not None:
+            try:
+                res.close()
+            except Exception:
+                pass
+
+
 def flush_one_event():
     """先頭の DI 変化をすぐ POST する。失敗は残す。"""
     if not _event_queue:
         return
-    posted = http_json(
-        "POST",
-        "/api/home/v1/ryugasaki/event",
-        _event_queue[0],
-    )
+    posted = post_di_event(_event_queue[0])
     if posted is None:
         set_link_led(False)
         print("[ryugasaki] event retry")
@@ -384,15 +432,52 @@ def flush_one_event():
     _event_queue.pop(0)
 
 
+def confirm_input_events(ctrl, inputs, now):
+    """変化を 50ms 見てから、命令取得より先に確定する。"""
+    events = ctrl.poll_inputs(read_levels(inputs), now)
+    if events:
+        return events
+    levels = read_levels(inputs)
+    pending = False
+    for ch in (1, 2, 3):
+        if ch not in levels:
+            continue
+        if bool(levels[ch]) != bool(ctrl.inputs.get(ch, False)):
+            pending = True
+    if not pending:
+        return []
+    left = 50
+    while left > 0:
+        _kick()
+        try:
+            time.sleep_ms(10)
+        except Exception:
+            break
+        left -= 10
+    try:
+        now = time.ticks_ms()
+    except Exception:
+        now = 0
+    return ctrl.poll_inputs(read_levels(inputs), now)
+
+
 def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
     """1周分。通信失敗は赤、成功は緑にする。"""
     now = time.ticks_ms()
     logic.kick_watchdog(wdt)
     if inputs:
-        events = ctrl.poll_inputs(read_levels(inputs), now)
+        try:
+            events = confirm_input_events(ctrl, inputs, now)
+        except Exception as exc:
+            print("[ryugasaki] di", exc)
+            events = []
         if events:
             enqueue_events(events)
-        flush_one_event()
+        try:
+            flush_one_event()
+        except Exception as exc:
+            print("[ryugasaki] event", exc)
+            set_link_led(False)
     ctrl.tick_outputs(now)
     write_outputs(outputs, ctrl.outputs)
     if time.ticks_diff(now, next_cmd) >= 0:

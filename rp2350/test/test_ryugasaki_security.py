@@ -57,6 +57,11 @@ def test_main_keeps_running_after_network_errors():
     assert "maybe_update" in text
     assert "force=True" not in text
     assert "time.sleep(2)" in text
+    assert "di_edge" in text
+    toyoshima = (ROOT / "firmware" / "main_toyoshima.py").read_text(
+        encoding="utf-8"
+    )
+    assert "未送信の立上り" in toyoshima
     assert text.count("set_link_led(True)") == 1
     cfg = (ROOT / "firmware" / "config_ryugasaki.py").read_text(encoding="utf-8")
     assert 'STATIC_IP = "192.168.1.200"' in cfg
