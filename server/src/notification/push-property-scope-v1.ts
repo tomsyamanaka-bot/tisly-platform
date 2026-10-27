@@ -32,6 +32,7 @@ export interface PushScopeRowV1 {
   user_id?: string | null;
   site_id?: string | null;
   property_id?: string | null;
+  customer_code?: string | null;
 }
 
 function cleanId(value: unknown): string {
@@ -95,8 +96,12 @@ export function pushRowMatchesPropertyScopeV1(
   if (!target) return true;
   const rowSite = cleanId(row.site_id);
   const rowProperty = cleanId(row.property_id);
-  if (!rowSite && !rowProperty) return true;
-  return pushPropertiesOverlapV1([target], [rowSite, rowProperty]);
+  const rowCustomer = cleanId(row.customer_code);
+  if (!rowSite && !rowProperty && !rowCustomer) return true;
+  return pushPropertiesOverlapV1(
+    [target],
+    [rowSite, rowProperty, rowCustomer]
+  );
 }
 
 /** data の現場ID、顧客コード、または HOME-/SEC- の deviceId を物件キーにする */

@@ -206,16 +206,18 @@ def set_link_led(online):
 
 
 def init_network(wdt):
-    """W5500 初期化や DHCP 失敗でも予備 IP へ戻して続ける。"""
+    """DHCP を 10 秒試し、失敗したら予備 IP へ戻す。"""
+    try:
+        time.sleep(2)
+    except Exception:
+        pass
     static = (
         cfg.STATIC_IP,
         cfg.STATIC_MASK,
         cfg.STATIC_GATEWAY,
         cfg.STATIC_DNS,
     )
-    timeout = int(getattr(cfg, "DHCP_TIMEOUT_SEC", 5))
-    if timeout > 5:
-        timeout = 5
+    timeout = 10
     try:
         from ethernet_init import ethernet_init
 
@@ -223,6 +225,7 @@ def init_network(wdt):
             static=static,
             kick=lambda: logic.kick_watchdog(wdt),
             timeout_sec=timeout,
+            wait_for_ip=True,
         )
         print("[ryugasaki] network", info)
         return info
@@ -379,7 +382,6 @@ def flush_one_event():
         print("[ryugasaki] event retry")
         return
     _event_queue.pop(0)
-    set_link_led(True)
 
 
 def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
@@ -398,7 +400,6 @@ def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
         if body is None:
             set_link_led(False)
         else:
-            set_link_led(True)
             apply_cloud(ctrl, body, now)
             write_outputs(outputs, ctrl.outputs)
         next_cmd = time.ticks_add(now, cfg.COMMAND_POLL_MS)

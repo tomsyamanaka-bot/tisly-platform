@@ -5,13 +5,13 @@ DI1 バックヤード入口MS、DI2 両替機MS、
 DI3 バックヤード人感は通知専用。
 検知しても DO1 回転灯と DO2 ベルは動かさない。
 出力は PWA の確認後コマンドだけが変える。
-付帯は 5 分心拍、内蔵温度、WDT、100ms デバウンス。
+付帯は 5 分心拍、内蔵温度、WDT、50ms デバウンス。
 """
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.40"
+FIRMWARE_LOGIC_VERSION = "1.2.41"
 
-DI_DEBOUNCE_MS = 100
+DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300
 WDT_TIMEOUT_MS = 8000
 TENANT_ID = "WASHMATE001"
@@ -53,7 +53,7 @@ def raw_pin_is_active(value, active_low=True):
 
 
 class DiDebouncer:
-    """100ms 安定するまで立上り・立下りを出さない。"""
+    """50ms 安定するまで立上り・立下りを出さない。"""
 
     def __init__(self, confirm_ms=DI_DEBOUNCE_MS):
         self.confirm_ms = int(confirm_ms)
@@ -76,8 +76,8 @@ class DiDebouncer:
         active = bool(active)
         now_ms = int(now_ms)
         need = self.confirm_ms if confirm_ms is None else int(confirm_ms)
-        if need < 100:
-            need = 100
+        if need < 50:
+            need = 50
         if not self.seeded.get(ch):
             self.seed(ch, active, now_ms)
             return None

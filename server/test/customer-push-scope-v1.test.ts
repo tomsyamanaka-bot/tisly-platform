@@ -84,6 +84,30 @@ describe("customer push property scope", () => {
       ),
       true
     );
+    assert.equal(
+      pushRowMatchesPropertyScopeV1(
+        {
+          user_id: "customer-security",
+          site_id: null,
+          property_id: null,
+          customer_code: "WASHMATE001",
+        },
+        "SEC-JP-RYUGASAKI-001"
+      ),
+      true
+    );
+    assert.equal(
+      pushRowMatchesPropertyScopeV1(
+        {
+          user_id: "customer-security",
+          site_id: null,
+          property_id: null,
+          customer_code: "WASHMATE001",
+        },
+        "HOME-JP-TOYOSHIMA"
+      ),
+      false
+    );
   });
 
   it("stores the open property on subscribe", async () => {

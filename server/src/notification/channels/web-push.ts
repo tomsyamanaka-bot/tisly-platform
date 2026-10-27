@@ -132,7 +132,7 @@ function loadActiveWebPushRows(
   audience?: NotificationPayload["audience"],
   targetSiteId?: string
 ): Array<{ id: string; endpoint: string; keys_json: string }> {
-  const tokenSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id
+  const tokenSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id, customer_code
      FROM notification_tokens
      WHERE channel = 'web_push' AND active = 1`;
   const tokens = (
@@ -146,6 +146,7 @@ function loadActiveWebPushRows(
     user_id?: string;
     site_id?: string | null;
     property_id?: string | null;
+    customer_code?: string | null;
   }>;
 
   let extras: Array<{
@@ -155,9 +156,10 @@ function loadActiveWebPushRows(
     user_id?: string;
     site_id?: string | null;
     property_id?: string | null;
+    customer_code?: string | null;
   }> = [];
   try {
-    const extraSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id
+    const extraSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id, customer_code
        FROM pwa_subscriptions
        WHERE active = 1`;
     extras = (
@@ -171,6 +173,7 @@ function loadActiveWebPushRows(
       user_id?: string;
       site_id?: string | null;
       property_id?: string | null;
+      customer_code?: string | null;
     }>;
   } catch (err) {
     console.warn(

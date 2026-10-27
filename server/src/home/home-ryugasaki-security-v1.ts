@@ -25,7 +25,7 @@ export const RYUGASAKI_DISPLAY_NAME_V1 = "ウォッシュメイト龍ヶ崎店";
 export const SEC_JP_RYUGASAKI_SITE_ID_V1 = "SEC-JP-RYUGASAKI-001";
 export const HOME_JP_RYUGASAKI_SITE_ID_V1 = "HOME-JP-RYUGASAKI";
 export const RYUGASAKI_DEVICE_ID_V1 = "rp2350-ryugasaki-main-01";
-export const RYUGASAKI_DI_DEBOUNCE_MS_V1 = 100;
+export const RYUGASAKI_DI_DEBOUNCE_MS_V1 = 50;
 export const RYUGASAKI_HEARTBEAT_INTERVAL_SEC_V1 =
   TISLY_HEARTBEAT_INTERVAL_SEC_V1;
 export const RYUGASAKI_HEARTBEAT_OFFLINE_MS_V1 =
@@ -211,7 +211,7 @@ async function sendRyugasakiPush(input: {
       eventType: input.eventType,
       deviceId: SEC_JP_RYUGASAKI_SITE_ID_V1,
       url: "/customer/security",
-      audience: "all",
+      audience: "customer",
       icon: "/icons/icon-192.png?v=2003",
       badge: "/icons/icon-192.png?v=2003",
       data: {
@@ -220,7 +220,7 @@ async function sendRyugasakiPush(input: {
         homeSiteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
         securitySiteId: SEC_JP_RYUGASAKI_SITE_ID_V1,
         customerCode: RYUGASAKI_CUSTOMER_CODE_V1,
-        audience: "all",
+        audience: "customer",
       },
     });
     persistNotifyLog({

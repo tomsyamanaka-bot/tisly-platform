@@ -77,7 +77,30 @@ def _activate_dhcp(nic):
         nic.ifconfig(["0.0.0.0", "255.255.255.0", "0.0.0.0", "8.8.8.8"])
 
 
-def ethernet_init(static=None, kick=None, timeout_sec=15):
+def _wait_usable(nic, timeout_sec=15, kick=None):
+    """IP が付くまで待つ。タイムアウトは None。"""
+    deadline = time.ticks_add(time.ticks_ms(), int(timeout_sec * 1000))
+    while time.ticks_diff(deadline, time.ticks_ms()) > 0:
+        _kick(kick)
+        try:
+            if nic.isconnected():
+                info = nic.ifconfig()
+                if _usable(info):
+                    return info
+        except Exception:
+            return None
+        time.sleep_ms(200)
+    try:
+        if nic.isconnected():
+            info = nic.ifconfig()
+            if _usable(info):
+                return info
+    except Exception:
+        return None
+    return None
+
+
+def ethernet_init(static=None, kick=None, timeout_sec=15, wait_for_ip=False):
     """
     W5500 を初期化し ifconfig を返す。
     DHCP が失敗したら static の予備 IP を入れる。
@@ -94,14 +117,21 @@ def ethernet_init(static=None, kick=None, timeout_sec=15):
             try:
                 if not lan.isconnected():
                     lan.active(True)
-                    _wait_connected(lan, timeout_sec, kick)
+                    if not wait_for_ip:
+                        _wait_connected(lan, timeout_sec, kick)
             except Exception as exc:
                 print("[ethernet_init] LAN active:", exc)
-            if lan.isconnected():
+            if wait_for_ip:
+                info = _wait_usable(lan, timeout_sec, kick)
+            elif lan.isconnected():
                 info = lan.ifconfig()
-                if _usable(info):
-                    _nic = lan
-                    return info
+                if not _usable(info):
+                    info = None
+            else:
+                info = None
+            if info:
+                _nic = lan
+                return info
             info = _apply_static(lan, static, kick)
             if info:
                 _nic = lan
@@ -129,12 +159,16 @@ def ethernet_init(static=None, kick=None, timeout_sec=15):
                 nic = network.WIZNET5K(spi, Pin(CS), Pin(RST))
             nic.active(True)
             _activate_dhcp(nic)
-            _wait_connected(nic, timeout_sec, kick)
-            if nic.isconnected():
-                info = nic.ifconfig()
-                if _usable(info):
-                    _nic = nic
-                    return info
+            if wait_for_ip:
+                info = _wait_usable(nic, timeout_sec, kick)
+            else:
+                _wait_connected(nic, timeout_sec, kick)
+                info = nic.ifconfig() if nic.isconnected() else None
+                if not _usable(info):
+                    info = None
+            if info:
+                _nic = nic
+                return info
             info = _apply_static(nic, static, kick)
             if info:
                 _nic = nic

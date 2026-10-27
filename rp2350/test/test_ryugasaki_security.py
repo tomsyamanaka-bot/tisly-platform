@@ -56,6 +56,22 @@ def test_main_keeps_running_after_network_errors():
     assert "event retry" in text
     assert "maybe_update" in text
     assert "force=True" not in text
+    assert "time.sleep(2)" in text
+    assert text.count("set_link_led(True)") == 1
+    cfg = (ROOT / "firmware" / "config_ryugasaki.py").read_text(encoding="utf-8")
+    assert 'STATIC_IP = "192.168.1.200"' in cfg
+    assert rg.DI_DEBOUNCE_MS == 50
+
+
+def test_di1_confirms_in_50ms():
+    ctrl = rg.RyugasakiController()
+    ctrl.seed_inputs({1: False, 2: False, 3: False}, 0)
+    assert ctrl.poll_inputs({1: True}, 0) == []
+    assert ctrl.poll_inputs({1: True}, 49) == []
+    events = ctrl.poll_inputs({1: True}, 50)
+    assert len(events) == 1
+    assert events[0]["di"] == 1
+    assert ctrl.outputs == {1: False, 2: False}
 
 
 def test_heartbeat_has_no_sensor_fields():
@@ -72,4 +88,5 @@ if __name__ == "__main__":
     test_test_command_holds_then_releases()
     test_main_keeps_running_after_network_errors()
     test_heartbeat_has_no_sensor_fields()
+    test_di1_confirms_in_50ms()
     print("ok")
