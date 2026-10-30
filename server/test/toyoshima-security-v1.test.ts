@@ -12,6 +12,7 @@ import {
   recordToyoshimaHeartbeatV1,
   recordToyoshimaModeChangeV1,
   shouldToyoshimaDriveSensorLightsV1,
+  setToyoshimaNowForTestV1,
   setToyoshimaHeartbeatAtForTestV1,
   resetToyoshimaSecurityStateForTestV1,
   runToyoshimaHeartbeatWatchdogV1,
@@ -935,6 +936,99 @@ describe("toyoshima-security-v1", () => {
       consumeToyoshimaDeviceCommandV1("main"),
       null
     );
+  });
+
+  it("daytime sensor with forceRelayTest off keeps the event and skips the relay", async () => {
+    const before = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      ...(before.customerSecurityMode === "disarmed"
+        ? { customerSecurityMode: "away" as const }
+        : {}),
+      guardMode: "always",
+      forceRelayTest: false,
+      scheduleStart: "18:00",
+      scheduleEnd: "06:00",
+      securityMode: "2STEP",
+    });
+    setToyoshimaNowForTestV1(new Date("2026-10-30T02:30:00.000Z"));
+    try {
+      const result = await processToyoshimaSecurityEventV1({
+        siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        building: "main",
+        di: 1,
+      });
+      assert.equal(result.ok, true);
+      assert.equal(result.message.length > 0, true);
+      const row = consumeToyoshimaDeviceCommandV1(
+        "rp2350-toyoshima-main-01"
+      );
+      assert.equal(row, null);
+      const dash = buildToyoshimaSecurityDashboardV1(
+        HOME_JP_TOYOSHIMA_SITE_ID_V1
+      );
+      assert.equal(
+        dash.timeline.some((ev) => ev.kind === "main_beam"),
+        true
+      );
+      const fw = buildHomeSecurityFirmwareRulesV1(
+        HOME_JP_TOYOSHIMA_SITE_ID_V1
+      );
+      assert.equal(fw.force_relay_test, false);
+      assert.equal(typeof fw.jstMinutes, "number");
+      assert.ok(fw.jstMinutes >= 0 && fw.jstMinutes <= 1439);
+      assert.equal(typeof fw.lightScheduleActive, "boolean");
+    } finally {
+      setToyoshimaNowForTestV1(null);
+      updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+        ...(before.customerSecurityMode
+          ? { customerSecurityMode: before.customerSecurityMode }
+          : {}),
+        guardMode: before.guardMode,
+        forceRelayTest: before.forceRelayTest,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
+        securityMode: before.securityMode,
+      });
+    }
+  });
+
+  it("night sensor with forceRelayTest off still queues the relay", async () => {
+    const before = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      ...(before.customerSecurityMode === "disarmed"
+        ? { customerSecurityMode: "away" as const }
+        : {}),
+      guardMode: "always",
+      forceRelayTest: false,
+      scheduleStart: "18:00",
+      scheduleEnd: "06:00",
+      securityMode: "2STEP",
+    });
+    setToyoshimaNowForTestV1(new Date("2026-10-30T12:00:00.000Z"));
+    try {
+      await processToyoshimaSecurityEventV1({
+        siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        building: "main",
+        di: 1,
+      });
+      const row = consumeToyoshimaDeviceCommandV1(
+        "rp2350-toyoshima-main-01"
+      );
+      assert.equal(row?.command, "sensor_far");
+      assert.deepEqual(row?.channels, [1]);
+    } finally {
+      setToyoshimaNowForTestV1(null);
+      updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+        ...(before.customerSecurityMode
+          ? { customerSecurityMode: before.customerSecurityMode }
+          : {}),
+        guardMode: before.guardMode,
+        forceRelayTest: before.forceRelayTest,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
+        securityMode: before.securityMode,
+      });
+    }
   });
 
   it("night schedule drives lights even when daytime forceRelayTest is off", () => {

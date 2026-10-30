@@ -7,6 +7,9 @@ VPS イベント送信を行う。
 
 24 時間常時通知。ライト点灯は 18:00〜06:00（日跨ぎ）のみ。
 日中は通知のみ（ライト・フラッシュ省略）。
+昼夜は VPS が渡す JST の分を正とする。
+実機 RTC が UTC のまま、または現地時刻へ +9 時間を重ねても、
+日中にリレーを出さない。
 夜間は force_relay_test を無視してライト連動する。
 日中だけ force_relay_test でテスト点灯する。
 警戒 OFF と一時停止中はライトもフラッシュも出さない。
@@ -68,6 +71,8 @@ SECURITY_MODE_BLINK = "two_stage_blink"
 # 夜間スケジュール既定（JST）
 DEFAULT_LIGHT_START = "18:00"
 DEFAULT_LIGHT_END = "06:00"
+# NTP の time.time() は UTC。VPS 時刻が無いときだけ足す。
+JST_OFFSET_SEC = 9 * 3600
 # 5 分 heartbeat — VPS と同期
 HEARTBEAT_INTERVAL_SEC = 300
 # HTTP失敗時の再試行（最大3回）
@@ -86,7 +91,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.42"
+FIRMWARE_LOGIC_VERSION = "1.2.43"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -165,6 +170,9 @@ class ToyoshimaBaseController:
         self._flash_enabled = True
         self._force_relay_test = False
         self._security_mode = DEFAULT_SECURITY_MODE
+        self._vps_jst_minutes = 0
+        self._vps_jst_ticks = 0
+        self._vps_jst_valid = False
         self._active_tasks = []
         self._manual_task = None
         self._far_seen_ms = None
@@ -178,6 +186,7 @@ class ToyoshimaBaseController:
         """VPS ルール JSON を反映。"""
         if not rules or not isinstance(rules, dict):
             return False
+        self._sync_vps_clock(rules)
         mode = str(rules.get("guardMode", "scheduled"))
         if mode in ("always", "night_only", "scheduled", "off"):
             self._guard_mode = mode
@@ -292,9 +301,53 @@ class ToyoshimaBaseController:
             except Exception:
                 pass
 
+    def _sync_vps_clock(self, rules):
+        """VPS の JST 分を毎回同期する。RTC は上書きしない。"""
+        if "jstMinutes" in rules or "jst_minutes" in rules:
+            raw = rules.get("jstMinutes", rules.get("jst_minutes"))
+            try:
+                jm = int(raw)
+            except Exception:
+                jm = -1
+            if 0 <= jm <= 1439:
+                self._vps_jst_minutes = jm
+                self._vps_jst_valid = True
+                self._vps_jst_ticks = _mono_ms()
+
+    def _jst_label(self):
+        now = self._jst_minutes()
+        return "{:02d}:{:02d}".format(now // 60, now % 60)
+
     def _jst_minutes(self):
-        utc_sec = int(time.time())
-        jst_sec = utc_sec + 9 * 3600
+        """点灯判定の分（0-1439）。必ず JST。
+
+        豊島邸の実機は NTP で RTC を合わせていない。
+        time.time() を UTC とみなして +9 すると、
+        基板時刻が既に現地寄り、または未設定のとき
+        11 時台が 20 時扱いになり日中に点灯する。
+        VPS が渡した jstMinutes を正とし、経過分だけ足す。
+        VPS が無いときだけ time.time() を UTC とみなして +9 時間する。
+        """
+        if getattr(self, "_vps_jst_valid", False):
+            extra = 0
+            try:
+                elapsed = _mono_diff(
+                    _mono_ms(), int(getattr(self, "_vps_jst_ticks", 0))
+                )
+                if elapsed < 0:
+                    elapsed = 0
+                extra = int(elapsed) // 60000
+            except Exception:
+                extra = 0
+            base = int(getattr(self, "_vps_jst_minutes", 0))
+            return (base + extra) % (24 * 60)
+        try:
+            utc_sec = int(time.time())
+        except Exception:
+            utc_sec = 0
+        if utc_sec < 0:
+            utc_sec = 0
+        jst_sec = utc_sec + JST_OFFSET_SEC
         return (jst_sec // 60) % (24 * 60)
 
     def _is_in_light_schedule(self):
@@ -735,6 +788,22 @@ class ToyoshimaBaseController:
             self._set_ch(flash_ch, True)
             self._manual_task = asyncio.create_task(
                 self._drive_blink(flash_ch, ms)
+            )
+            return True
+
+        if cmd in (
+            "work_light",
+            "near_alone",
+            "worklight",
+            "sensor_far",
+            "di1_alarm",
+            "sensor_near",
+            "di2_alarm",
+        ) and self._daytime_relay_blocked():
+            self.log(
+                "日中 — センサー命令のリレーを出さない jst={}".format(
+                    self._jst_label()
+                )
             )
             return True
 
@@ -1259,7 +1328,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         plan = self.plan_main_response(di)
         if self._daytime_relay_blocked():
             self._notify_vps("main", di, plan["message"])
-            self.log("日中 — ライト省略（通知のみ）")
+            self.log(
+                "日中 — ライト省略（通知のみ） jst={}".format(
+                    self._jst_label()
+                )
+            )
             return
         drive = self._is_armed_now() or force
         if (

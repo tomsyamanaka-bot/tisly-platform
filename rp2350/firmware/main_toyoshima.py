@@ -1218,7 +1218,9 @@ def _take_pending_hb_command():
 
 
 async def apply_manual_payload(payload):
-    """昼夜を無視して対象 DO を即時 ON する。"""
+    """手動の ON/OFF は昼夜を無視して即時に出す。
+    センサー連動（sensor_far / sensor_near）は昼夜判定に従う。
+    """
     if not payload:
         return
     cmd = str(payload.get("command") or payload.get("cmd") or "").strip()
@@ -1246,6 +1248,14 @@ async def apply_manual_payload(payload):
             handled = False
         if handled:
             log("sensor timer cmd={} ms={}".format(cmd, duration_ms))
+            return
+        blocked = False
+        try:
+            blocked = bool(_security._daytime_relay_blocked())
+        except Exception:
+            blocked = False
+        if blocked:
+            log("日中 — センサー命令のリレーを出さない")
             return
         await _fallback_sensor_hold(cmd, duration_ms)
         return

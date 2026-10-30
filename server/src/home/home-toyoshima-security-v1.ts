@@ -1268,9 +1268,28 @@ export function resolveToyoshimaNotifyGateV1(input: {
   };
 }
 
+/** テストから現在時刻を固定する。null で実時刻に戻す */
+let toyoshimaNowOverrideMsV1: number | null = null;
+
+export function setToyoshimaNowForTestV1(at: Date | string | null): void {
+  if (at == null) {
+    toyoshimaNowOverrideMsV1 = null;
+    return;
+  }
+  const ms = at instanceof Date ? at.getTime() : Date.parse(String(at));
+  toyoshimaNowOverrideMsV1 = Number.isFinite(ms) ? ms : null;
+}
+
+function toyoshimaNowV1(): Date {
+  return toyoshimaNowOverrideMsV1 == null
+    ? new Date()
+    : new Date(toyoshimaNowOverrideMsV1);
+}
+
 /**
  * 夜間は昼間テストを無視してライト連動する。
  * 日中だけ forceRelayTest を見る。
+ * 時刻は JST（UTC+9、日本は夏時間なし）。
  */
 export function shouldToyoshimaDriveSensorLightsV1(
   rules: ReturnType<typeof getHomeSecurityRulesV1>,
@@ -1558,7 +1577,8 @@ function reserveToyoshima2StepNearOutputV1(
   const customerMode = deriveCustomerSecurityModeV1(rules);
   const beamActive = customerMode === "away" || customerMode === "home";
   const drive =
-    beamActive && shouldToyoshimaDriveSensorLightsV1(rules);
+    beamActive &&
+    shouldToyoshimaDriveSensorLightsV1(rules, toyoshimaNowV1());
   if (!drive) return "open";
   const lightMs = (rules.lightingDurationSec ?? 45) * 1000;
   const flashMs =
@@ -1579,6 +1599,9 @@ function extendToyoshima2StepNearHoldV1(
   siteId: string,
   rules: ReturnType<typeof getHomeSecurityRulesV1>
 ): void {
+  if (!shouldToyoshimaDriveSensorLightsV1(rules, toyoshimaNowV1())) {
+    return;
+  }
   const id = resolveHomeSiteId(siteId);
   const durationMs = (rules.lightingDurationSec ?? 45) * 1000;
   const flashOn = rules.flashEnabled !== false;
@@ -1634,7 +1657,7 @@ function driveTwoStageBlinkMainV1(input: {
 }): void {
   const drive =
     input.beamActive &&
-    shouldToyoshimaDriveSensorLightsV1(input.rules);
+    shouldToyoshimaDriveSensorLightsV1(input.rules, toyoshimaNowV1());
   const lightMs = (input.rules.lightingDurationSec ?? 45) * 1000;
   const flashMs = (input.rules.flashDurationSec ?? 15) * 1000;
   const at = nowIso();
@@ -1784,7 +1807,7 @@ async function handleMainBeamDetect(
   const driveRelays =
     Boolean(beamActive) &&
     !silent &&
-    shouldToyoshimaDriveSensorLightsV1(rules);
+    shouldToyoshimaDriveSensorLightsV1(rules, toyoshimaNowV1());
   const flashOn =
     driveRelays &&
     full &&
@@ -1884,7 +1907,7 @@ async function handleDetachedDi(
   const light = findDo(runtime.detached, 1);
   if (
     perimeterActive &&
-    shouldToyoshimaDriveSensorLightsV1(rules) &&
+    shouldToyoshimaDriveSensorLightsV1(rules, toyoshimaNowV1()) &&
     light
   ) {
     light.on = true;
@@ -2849,6 +2872,7 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
     detached: defaultDeviceComm(),
   };
   runtime.alarmLatch = false;
+  setToyoshimaNowForTestV1(null);
   lastToyoshimaNotifyAtV1.clear();
   toyoshimaFarBeamAtMsV1.clear();
   nearOutputLockUntilMsV1.clear();

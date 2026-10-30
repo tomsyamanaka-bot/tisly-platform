@@ -1242,6 +1242,144 @@ def test_overnight_window_and_guard_off_pause_lights():
     assert paused._can_run_lights() is False
 
 
+def test_vps_jst_blocks_daytime_when_rtc_looks_like_night():
+    """11時台。RTC を UTC とみなして +9 すると 20時になり点灯していた。"""
+    from datetime import datetime, timezone
+
+    outputs = {}
+    events = []
+    ctrl = ts.ToyoshimaMainHouseController(
+        lambda ch, on: outputs.__setitem__(ch, on),
+        lambda building, di, message: events.append(message),
+    )
+    # 時分が 11:00 の epoch。+9 時間すると 20:00（夜間窓）になる。
+    rtc = int(datetime(2026, 10, 30, 11, 0, tzinfo=timezone.utc).timestamp())
+    with patch.object(ts.time, "time", return_value=rtc):
+        ctrl.apply_rules({
+            "force_relay_test": "false",
+            "security_mode": "2STEP",
+            "flash_enabled": True,
+            "jstMinutes": 11 * 60,
+            "lightScheduleActive": False,
+            "light_schedule": {"start": "18:00", "end": "06:00"},
+        })
+        assert ctrl._jst_minutes() == 11 * 60
+        assert ctrl._is_in_light_schedule() is False
+        assert ctrl._daytime_relay_blocked() is True
+        with patch.object(ts.asyncio, "create_task", MagicMock()):
+            ctrl._fire_di(1)
+            ok = asyncio.run(ctrl.execute_manual_command("sensor_far", 45000))
+    assert ok is True
+    assert outputs.get(1) is not True
+    assert outputs.get(2) is not True
+    assert outputs.get(3) is not True
+    assert events
+
+
+def test_vps_jst_night_lights_when_rtc_looks_like_day():
+    """JST 21:00 は、RTC が昼に見えても点灯する。"""
+    from datetime import datetime, timezone
+
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    rtc = int(datetime(2026, 10, 30, 7, 0, tzinfo=timezone.utc).timestamp())
+    with patch.object(ts.time, "time", return_value=rtc):
+        ctrl.apply_rules({
+            "force_relay_test": False,
+            "security_mode": "2STEP",
+            "jstMinutes": 21 * 60,
+            "light_schedule": {"start": "18:00", "end": "06:00"},
+        })
+        assert ctrl._jst_minutes() == 21 * 60
+        assert ctrl._can_run_lights() is True
+        plan = ctrl.plan_main_response(1)
+    assert plan["do1"] is True
+    assert plan["do2"] is False
+
+
+def test_vps_jst_daytime_test_switch_still_lights():
+    """昼間テストが ON の 11時は、リレーを出す。"""
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    ctrl.apply_rules({
+        "force_relay_test": True,
+        "security_mode": "2STEP",
+        "jstMinutes": 11 * 60,
+        "light_schedule": {"start": "18:00", "end": "06:00"},
+    })
+    assert ctrl._daytime_relay_blocked() is False
+    assert ctrl._can_run_lights() is True
+    plan = ctrl.plan_main_response(1)
+    assert plan["do1"] is True
+
+
+def test_vps_overnight_edges_use_jst_minutes():
+    """日跨ぎ。05:30 と 18:00 は窓内、06:00 と 11:00 は窓外。"""
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    sched = {"start": "18:00", "end": "06:00"}
+    ctrl.apply_rules({
+        "force_relay_test": False,
+        "jstMinutes": 5 * 60 + 30,
+        "light_schedule": sched,
+    })
+    assert ctrl._is_in_light_schedule() is True
+    ctrl.apply_rules({"jstMinutes": 6 * 60, "light_schedule": sched})
+    assert ctrl._is_in_light_schedule() is False
+    ctrl.apply_rules({"jstMinutes": 18 * 60, "light_schedule": sched})
+    assert ctrl._is_in_light_schedule() is True
+    ctrl.apply_rules({"jstMinutes": 11 * 60, "light_schedule": sched})
+    assert ctrl._is_in_light_schedule() is False
+
+
+def test_vps_jst_advances_until_next_sync():
+    """同期から 11 分後は、夜間開始を跨いでも点灯側になる。"""
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    ticks = {"ms": 1_000_000}
+
+    def fake_ticks():
+        return ticks["ms"]
+
+    with patch.object(ts.time, "ticks_ms", fake_ticks, create=True):
+        with patch.object(ts.time, "ticks_diff", lambda a, b: a - b, create=True):
+            ctrl.apply_rules({
+                "force_relay_test": False,
+                "jstMinutes": 17 * 60 + 50,
+                "light_schedule": {"start": "18:00", "end": "06:00"},
+            })
+            assert ctrl._is_in_light_schedule() is False
+            ticks["ms"] += 11 * 60 * 1000
+            assert ctrl._jst_minutes() == 18 * 60 + 1
+            assert ctrl._is_in_light_schedule() is True
+
+
+def test_utc_epoch_without_vps_is_shifted_to_jst():
+    """VPS 時刻が無いときは time.time() を UTC とみなし +9 する。"""
+    from datetime import datetime, timezone
+
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    ctrl._force_relay_test = False
+    utc = int(datetime(2026, 10, 30, 2, 0, tzinfo=timezone.utc).timestamp())
+    with patch.object(ts.time, "time", return_value=utc):
+        assert ctrl._jst_minutes() == 11 * 60
+        assert ctrl._can_run_lights() is False
+
+
+def test_detached_daytime_skips_light_but_notifies():
+    outputs = {}
+    events = []
+    ctrl = ts.ToyoshimaDetachedController(
+        lambda ch, on: outputs.__setitem__(ch, on),
+        lambda building, di, message: events.append(message),
+    )
+    ctrl.apply_rules({
+        "force_relay_test": False,
+        "jstMinutes": 11 * 60,
+        "light_schedule": {"start": "18:00", "end": "06:00"},
+    })
+    with patch.object(ts.asyncio, "create_task", MagicMock()):
+        ctrl._fire_di(1)
+    assert outputs.get(1) is not True
+    assert events
+
+
 def test_event_send_failure_does_not_raise():
     """通知失敗でリレー処理を止めない。"""
     outputs = {}
@@ -1315,6 +1453,13 @@ if __name__ == "__main__":
     test_di_edge_notifies_vps_even_in_silent_mode()
     test_di_edge_notifies_when_disarmed_without_force()
     test_di_edge_notifies_when_disarmed_with_force_relay_test()
+    test_vps_jst_blocks_daytime_when_rtc_looks_like_night()
+    test_vps_jst_night_lights_when_rtc_looks_like_day()
+    test_vps_jst_daytime_test_switch_still_lights()
+    test_vps_overnight_edges_use_jst_minutes()
+    test_vps_jst_advances_until_next_sync()
+    test_utc_epoch_without_vps_is_shifted_to_jst()
+    test_detached_daytime_skips_light_but_notifies()
     test_event_send_failure_does_not_raise()
     test_two_stage_blink_plan_far_and_near()
     test_two_stage_blink_edges_switch_phase()
