@@ -34,6 +34,10 @@ describe("customer push property scope", () => {
     assert.match(card, /ブロック中/);
     assert.match(card, /registerTislyWebPushV1/);
     assert.match(shared, /\/api\/notifications\/subscribe/);
+    assert.match(shared, /\/api\/notifications\/subscription-status/);
+    assert.match(shared, /Notification\.permission/);
+    assert.match(shared, /tisly-staff-push-subscribed/);
+    assert.equal(shared.includes("/api/notifications/staff-focus"), false);
     assert.match(shared, /siteId: ctx\.siteId/);
     assert.match(shared, /customerCode: ctx\.customerCode/);
   });
@@ -147,6 +151,25 @@ describe("customer push property scope", () => {
     assert.equal(row.site_id, "SEC-JP-TOYOSHIMA-001");
     assert.equal(row.property_id, "HOME-JP-TOYOSHIMA");
     assert.equal(row.customer_code, "TOYOSHIMA001");
+    const status = await request(app)
+      .get("/api/notifications/subscription-status")
+      .query({ endpoint });
+    assert.equal(status.status, 200);
+    assert.equal(status.body.ok, true);
+    assert.equal(status.body.registered, true);
+    assert.equal(status.body.active, true);
+    const missing = await request(app)
+      .get("/api/notifications/subscription-status")
+      .query({ endpoint: `${endpoint}-absent` });
+    assert.equal(missing.body.registered, false);
+    assert.equal(missing.body.active, false);
+    const kept = getDatabase()
+      .prepare(
+        `SELECT user_id, customer_code FROM notification_tokens WHERE endpoint = ?`
+      )
+      .get(endpoint) as { user_id: string; customer_code: string };
+    assert.equal(kept.user_id, "customer-security");
+    assert.equal(kept.customer_code, "TOYOSHIMA001");
   });
 
   it("savePushSubscription keeps a later property overwrite", () => {

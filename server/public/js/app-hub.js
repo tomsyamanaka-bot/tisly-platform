@@ -3,7 +3,7 @@ import { navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { friendlyLoginError } from "./tisly-friendly-errors.js";
 import { normalizeCustomerCodeV1 } from "./customer-auth.js";
 import { syncHubSnapshot, renderHubFromCache } from "./hub-offline-snapshot.js";
-import { bindTislyPushBarV1 } from "./tisly-pwa-push-bar-v1.js";
+import { bindTislyPushBarV1 } from "./tisly-pwa-push-bar-v1.js?v=2545";
 import { bindAttendancePunchCardV1 } from "./attendance-punch-v1.js";
 
 const TOKEN_KEY = "tisly_token";
@@ -813,6 +813,8 @@ document.getElementById("btn-hub-login")?.addEventListener("click", async () => 
 document.getElementById("btn-hub-sync-inline")?.addEventListener("click", () => {
   syncHubSnapshot().then(() => loadHubApps());
 });
+
+bindHubPushBarV1();
 
 if (sessionStorage.getItem(TOKEN_KEY)) {
   if (!navigator.onLine) {

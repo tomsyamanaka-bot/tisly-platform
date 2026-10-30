@@ -448,7 +448,13 @@ describe("Phase 461-480 multi PWA app hub", () => {
     assert.ok(hub.text.includes(`manifest.webmanifest?v=${APP_ICON_VERSION}`));
     assert.ok(hub.text.includes('id="hub-push-register"'));
     assert.ok(hub.text.includes("プッシュ通知を有効化する"));
+    assert.ok(hub.text.includes("通知受信中（登録済み）"));
     assert.ok(hub.text.includes('id="hub-push-test"'));
+    const header = hub.text.slice(0, hub.text.indexOf('id="login-panel"'));
+    assert.ok(header.includes('id="hub-page-header"'));
+    assert.ok(header.includes('id="hub-push-register"'));
+    assert.ok(header.includes("🔕 プッシュ通知を有効化する"));
+    assert.ok(header.includes("🔔 通知受信中（登録済み）"));
   });
 
   it("app-hub JS binds inline push bar on login", () => {
@@ -471,6 +477,9 @@ describe("Phase 461-480 multi PWA app hub", () => {
       "utf-8"
     );
     assert.match(hubCss, /hub-attendance-card\[hidden\]/);
+    assert.match(hubCss, /hub-push-registered\[hidden\]/);
+    assert.ok(js.includes("bindHubPushBarV1();"));
+    assert.equal(js.includes("/api/notifications/staff-focus"), false);
   });
 
   it("serves RC2 push and notification PWA pages", async () => {

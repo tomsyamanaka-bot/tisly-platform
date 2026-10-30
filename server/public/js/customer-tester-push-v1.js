@@ -8,7 +8,7 @@
 import {
   registerTislyWebPushV1,
   sendTislySecurityTestPushV1,
-} from "./tisly-pwa-push-bar-v1.js";
+} from "./tisly-pwa-push-bar-v1.js?v=2545";
 
 const TESTER_CODE = "TESTER001";
 const ITABASHI_HOME_ID = "HOME-JP-ITABASHI-LIVE";

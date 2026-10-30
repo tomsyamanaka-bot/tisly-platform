@@ -6,7 +6,7 @@
  * すべて null ガードする。
  */
 
-import { bindTislyPushBarV1 } from "../../tisly-pwa-push-bar-v1.js";
+import { bindTislyPushBarV1 } from "../../tisly-pwa-push-bar-v1.js?v=2545";
 import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 
 export const HOME_API_V1 = "/api/home/v1";

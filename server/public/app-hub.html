@@ -14,13 +14,32 @@
   <link rel="stylesheet" href="/css/tisly-friendly-ui.css" />
   <link rel="stylesheet" href="/css/tisly-neon-dark-v1.css" />
   <link rel="stylesheet" href="/css/tisly-practical-nav.css" />
-  <link rel="stylesheet" href="/css/app-hub.css?v=2534" />
+  <link rel="stylesheet" href="/css/app-hub.css?v=2545" />
 </head>
 <body class="app-hub-body tisly-friendly tisly-neon-dark">
   <!-- TiSLY App Hub -->
   <header class="app-hub-header friendly-header" id="hub-page-header">
     <h1>🏠 今日使うアプリ</h1>
     <p class="hint">ログインして、お仕事に使うアプリを選びます</p>
+    <!-- PWA Web Push 購読（ヘッダー。ログイン前から状態を表示する） -->
+    <section class="hub-push-bar" id="hub-push-bar" aria-label="プッシュ通知">
+      <button
+        type="button"
+        class="hub-push-btn is-outline"
+        id="hub-push-register"
+      >
+        🔕 プッシュ通知を有効化する
+      </button>
+      <div class="hub-push-registered" id="hub-push-registered" hidden>
+        <button type="button" class="hub-push-badge is-ok" id="hub-push-badge">
+          🔔 通知受信中（登録済み）
+        </button>
+        <button type="button" class="hub-push-btn is-test" id="hub-push-test">
+          テスト通知を送る
+        </button>
+      </div>
+      <p class="hub-push-status" id="hub-push-status" role="status"></p>
+    </section>
   </header>
   <section id="login-panel" class="card login-card-friendly">
     <h2>ログイン</h2>
@@ -37,25 +56,6 @@
     <p class="practical-subtitle">
       3Dフロア・Security・HOME・現場ツールをワンタップで開けます
     </p>
-    <!-- PWA Web Push 購読（カード一覧ヘッダー） -->
-    <section class="hub-push-bar" id="hub-push-bar" aria-label="プッシュ通知">
-      <button
-        type="button"
-        class="hub-push-btn is-outline"
-        id="hub-push-register"
-      >
-        🔕 プッシュ通知を有効化する
-      </button>
-      <div class="hub-push-registered" id="hub-push-registered" hidden>
-        <span class="hub-push-badge is-ok" id="hub-push-badge">
-          🔔 通知受信中（登録済み）
-        </span>
-        <button type="button" class="hub-push-btn is-test" id="hub-push-test">
-          テスト通知を送る
-        </button>
-      </div>
-      <p class="hub-push-status" id="hub-push-status" role="status"></p>
-    </section>
     <!-- 勤怠・入退室打刻（社内 /app）
          コードは残し、一覧では非表示にする -->
     <section
@@ -189,7 +189,7 @@
     <span id="version-date">Date —</span>
   </footer>
   <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="/js/app-hub.js?v=2534"></script>
+  <script type="module" src="/js/app-hub.js?v=2545"></script>
   <!-- TiSLY HOME クイック切り替え（追記） -->
   <script type="module" src="/js/features/home/home-quick-switch-v1.js?v=2457"></script>
 </body>

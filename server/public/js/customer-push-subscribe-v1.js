@@ -7,7 +7,7 @@ import {
   readTislyPushPropertyContextV1,
   registerTislyWebPushV1,
   sendTislySecurityTestPushV1,
-} from "./tisly-pwa-push-bar-v1.js";
+} from "./tisly-pwa-push-bar-v1.js?v=2545";
 
 export function renderCustomerPushSubscribeHtml() {
   return `

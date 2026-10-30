@@ -945,7 +945,13 @@
   align-items: center;
   gap: 8px;
 }
-.hub-push-badge.is-ok {
+/* display:flex が hidden 属性を打ち消さないようにする */
+#hub-push-register[hidden],
+.hub-push-registered[hidden] {
+  display: none !important;
+}
+.hub-push-badge.is-ok,
+button.hub-push-badge.is-ok {
   display: inline-flex;
   align-items: center;
   min-height: 36px;
@@ -956,6 +962,8 @@
   border: 1px solid rgba(22, 163, 74, 0.45);
   font-size: 0.84rem;
   font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
 }
 .hub-push-status {
   flex: 1 1 100%;

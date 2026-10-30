@@ -209,6 +209,24 @@ notificationsRouter.get("/vapid-public-key", (_req, res) => {
   res.json({ publicKey: config.vapid.publicKey });
 });
 
+/** 購読の有無だけ返す。既存トークンは更新しない。 */
+notificationsRouter.get("/subscription-status", (req, res) => {
+  const endpoint = String(req.query.endpoint ?? "").trim();
+  if (!endpoint || endpoint.length > 4096) {
+    res.json({ ok: true, registered: false, active: false });
+    return;
+  }
+  const row = getDatabase()
+    .prepare(
+      `SELECT active FROM notification_tokens
+       WHERE channel = 'web_push' AND endpoint = ?
+       LIMIT 1`
+    )
+    .get(endpoint) as { active: number | null } | undefined;
+  const active = !!row && Number(row.active) !== 0;
+  res.json({ ok: true, registered: !!row, active });
+});
+
 notificationsRouter.post("/test", async (req, res) => {
   const channel = (req.body?.channel ?? "web_push") as NotificationChannel;
   const result = await getNotificationService().sendTest(channel);

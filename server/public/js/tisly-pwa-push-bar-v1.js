@@ -70,8 +70,30 @@ function setPushStatus(prefix, text, ok) {
 function setPushRegisteredUi(prefix, registered) {
   const registerBtn = byPrefix(prefix, "push-register");
   const registeredWrap = byPrefix(prefix, "push-registered");
-  if (registerBtn) registerBtn.hidden = !!registered;
-  if (registeredWrap) registeredWrap.hidden = !registered;
+  if (registerBtn) {
+    registerBtn.hidden = !!registered;
+    registerBtn.style.display = registered ? "none" : "";
+  }
+  if (registeredWrap) {
+    registeredWrap.hidden = !registered;
+    registeredWrap.style.display = registered ? "flex" : "none";
+  }
+}
+
+/** この端末の endpoint がサーバーに有効登録されているか。読み取りのみ。 */
+async function readServerPushActiveV1(endpoint) {
+  if (!endpoint) return "missing";
+  try {
+    const res = await fetch(
+      `/api/notifications/subscription-status?endpoint=${encodeURIComponent(endpoint)}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return "unknown";
+    const data = await res.json().catch(() => ({}));
+    return data.active === true ? "active" : "missing";
+  } catch {
+    return "unknown";
+  }
 }
 
 /**
@@ -103,19 +125,33 @@ export async function refreshTislyPushBarUiV1(prefix = "hm") {
       return;
     }
     const sub = await reg.pushManager.getSubscription();
-    if (!sub) {
+    if (!sub || perm !== "granted") {
       setPushRegisteredUi(prefix, false);
-      setPushStatus(prefix, "プッシュ通知は未登録です", false);
+      setPushStatus(
+        prefix,
+        perm === "denied"
+          ? "ブラウザで通知がブロックされています。設定から許可してください"
+          : "プッシュ通知は未登録です",
+        false
+      );
+      return;
+    }
+    const serverState = await readServerPushActiveV1(sub.endpoint || "");
+    if (serverState === "missing") {
+      setPushRegisteredUi(prefix, false);
+      setPushStatus(
+        prefix,
+        "ブラウザは許可済みです。ボタンからサーバーへ登録してください",
+        false
+      );
       return;
     }
     const ep = describePushEndpoint(sub.endpoint || "");
     setPushRegisteredUi(prefix, true);
     setPushStatus(
       prefix,
-      perm === "granted"
-        ? `通知受信中（登録済み）${ep.apple ? " · APNs" : ""}`
-        : `登録済み · 許可=${perm}`,
-      perm === "granted"
+      `通知受信中（登録済み）${ep.apple ? " · APNs" : ""}`,
+      true
     );
     void standalone;
   } catch (err) {
@@ -166,17 +202,18 @@ export async function registerTislyWebPushV1(opts = {}) {
     throw new Error("購読エンドポイント取得失敗（keys/endpoint なし）");
   }
   const ctx = readTislyPushPropertyContextV1();
+  const audience =
+    String(location.pathname || "").includes("/customer") ||
+    document.body?.classList?.contains("sf-customer") ||
+    document.body?.classList?.contains("customer-v1")
+      ? "customer"
+      : "toms";
   const res = await fetch("/api/notifications/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       userId,
-      audience:
-        String(location.pathname || "").includes("/customer") ||
-        document.body?.classList?.contains("sf-customer") ||
-        document.body?.classList?.contains("customer-v1")
-          ? "customer"
-          : "toms",
+      audience,
       siteId: ctx.siteId || undefined,
       propertyId: ctx.propertyId || undefined,
       customerCode: ctx.customerCode || undefined,
@@ -185,6 +222,13 @@ export async function registerTislyWebPushV1(opts = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `登録失敗 (${res.status})`);
+  if (audience === "toms") {
+    window.dispatchEvent(
+      new CustomEvent("tisly-staff-push-subscribed", {
+        detail: { endpoint: json.endpoint },
+      })
+    );
+  }
   return data;
 }
 
@@ -268,9 +312,11 @@ export function bindTislyPushBarV1(options = {}) {
     }
   });
 
-  byPrefix(prefix, "push-test")?.addEventListener("click", async () => {
+  const onTestClick = async () => {
     const btn = byPrefix(prefix, "push-test");
+    const badge = byPrefix(prefix, "push-badge");
     if (btn) btn.disabled = true;
+    if (badge && badge.tagName === "BUTTON") badge.disabled = true;
     try {
       const data = await sendTislySecurityTestPushV1(getSiteId());
       const sent = data.push?.sent;
@@ -284,8 +330,14 @@ export function bindTislyPushBarV1(options = {}) {
       showToast(err.message || String(err));
     } finally {
       if (btn) btn.disabled = false;
+      if (badge && badge.tagName === "BUTTON") badge.disabled = false;
     }
-  });
+  };
+  byPrefix(prefix, "push-test")?.addEventListener("click", onTestClick);
+  const badgeBtn = byPrefix(prefix, "push-badge");
+  if (badgeBtn?.tagName === "BUTTON") {
+    badgeBtn.addEventListener("click", onTestClick);
+  }
 
   void refreshTislyPushBarUiV1(prefix);
 }
