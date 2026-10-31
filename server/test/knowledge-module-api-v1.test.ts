@@ -179,6 +179,10 @@ const {
   LEAKAGE_CURRENT_STANDARD_MODULE_SEED_IDS,
   seedLeakageCurrentStandardKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-leakage-current-standard-seed-v1.js");
+const {
+  UIUX_DESIGN_STANDARD_MODULE_SEED_IDS,
+  seedUiuxDesignStandardKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-uiux-design-standard-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1651,6 +1655,47 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card!.tags.includes("#電技解釈"));
     assert.ok(card!.tags.includes("#TiSLY_Core"));
     assert.match(card!.body ?? "", /Ior vs Ioc/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends uiux design standard seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of UIUX_DESIGN_STANDARD_MODULE_SEED_IDS) {
+      assert.ok(
+        listed.some((x) => x.id === id),
+        `missing seed ${id}`
+      );
+    }
+    const card = listed.find(
+      (x) => x.id === "kn-seed-uiux-design-standard-001"
+    );
+    assert.ok(card);
+    assert.match(card!.title, /プロフェッショナルデザインガイドライン/);
+    assert.match(card!.summary, /白ベース×Navy/);
+    assert.ok(card!.tags.includes("#UIUX"));
+    assert.ok(card!.tags.includes("#デザイン標準"));
+    assert.ok(card!.tags.includes("#デグレ防止"));
+    assert.ok(card!.tags.includes("#白ベースNavy"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+    assert.equal(card!.genre, "IOT関連");
+    const leak = listed.find(
+      (x) => x.id === "kn-seed-leakage-current-1ma-001"
+    );
+    assert.ok(leak);
+    assert.ok(
+      new Date(card!.createdAt).getTime() >
+        new Date(leak!.createdAt).getTime()
+    );
+  });
+
+  it("seedUiuxDesignStandardKnowledgeCardsV1 upserts searchable cards", () => {
+    seedUiuxDesignStandardKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-UIUX-DESIGN-STANDARD-001");
+    assert.ok(card);
+    assert.match(card!.title, /デグレ防止ルール/);
+    assert.ok(card!.tags.includes("#UIUX"));
+    assert.ok(card!.tags.includes("#白ベースNavy"));
+    assert.match(card!.body ?? "", /#1E3A8A/);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

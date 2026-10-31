@@ -162,6 +162,12 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /#リーククランプ/);
     assert.match(mockSrc, /#活線測定/);
     assert.match(mockSrc, /#絶縁管理/);
+    assert.match(mockSrc, /MOCK_UIUX_DESIGN_STANDARD_ITEMS/);
+    assert.match(mockSrc, /プロフェッショナルデザインガイドラインとデグレ防止ルール/);
+    assert.match(mockSrc, /#UIUX/);
+    assert.match(mockSrc, /#デザイン標準/);
+    assert.match(mockSrc, /#デグレ防止/);
+    assert.match(mockSrc, /#白ベースNavy/);
   });
 
   it("nav script requires login before loading bundle", () => {

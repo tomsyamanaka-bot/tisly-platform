@@ -2224,3 +2224,45 @@ export const MOCK_LEAKAGE_CURRENT_STANDARD_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const UIUX_DESIGN_STANDARD_KNOWLEDGE_TITLES = [
+  "【UI/UX標準】TiSLY プロフェッショナルデザインガイドラインとデグレ防止ルール",
+] as const;
+
+const UIUX_DESIGN_STANDARD_CREATED_AT = "2026-11-01T00:00:00.000Z";
+
+/** UI/UX 標準（末尾追記） */
+export const MOCK_UIUX_DESIGN_STANDARD_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-uiux-design-standard-001",
+    title:
+      "【UI/UX標準】TiSLY プロフェッショナルデザインガイドラインとデグレ防止ルール",
+    summary: [
+      "現場の職人や高齢の施主でも直感的に操作できるよう、UIは「白ベース×Navy（紺色）アクセント」を厳守。",
+      "ボタンは角丸（Rounded）で大きく押しやすいフルカラーデザインとし、",
+      "フラットすぎる無色ボタンやショボいUIへの先祖返り（デグレ）を固く禁じる。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: [
+      "#UIUX",
+      "#デザイン標準",
+      "#デグレ防止",
+      "#白ベースNavy",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: UIUX_DESIGN_STANDARD_CREATED_AT,
+    body: [
+      "【配色】",
+      "背景は白（#ffffff〜#F8FAFC）。アクセントはネイビー #1E3A8A。",
+      "",
+      "【ボタン】",
+      "大きく押しやすく、主要操作はフルカラー。",
+      "ON・点灯は緑、消灯はグレー、警告・威嚇は赤またはオレンジ。",
+      "",
+      "【デグレ防止】",
+      "物件セレクトや既存の色を、指示がない限り消さない。",
+      "社内は /app、お客様は /customer。",
+    ].join("\n"),
+  },
+];

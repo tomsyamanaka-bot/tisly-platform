@@ -46,6 +46,7 @@ import { seedRp2350OtaStandardKnowledgeCardsV1 } from "./knowledge-rp2350-ota-st
 import { seedRp2350RgbKittingKnowledgeCardsV1 } from "./knowledge-rp2350-rgb-kitting-seed-v1.js";
 import { seedHwKittingSurgeKnowledgeCardsV1 } from "./knowledge-hw-kitting-surge-seed-v1.js";
 import { seedLeakageCurrentStandardKnowledgeCardsV1 } from "./knowledge-leakage-current-standard-seed-v1.js";
+import { seedUiuxDesignStandardKnowledgeCardsV1 } from "./knowledge-uiux-design-standard-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -208,6 +209,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   rp2350RgbKittingCreated: number;
   hwKittingSurgeCreated: number;
   leakageCurrentStandardCreated: number;
+  uiuxDesignStandardCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -247,6 +249,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const rp2350RgbKitting = seedRp2350RgbKittingKnowledgeCardsV1();
   const hwKittingSurge = seedHwKittingSurgeKnowledgeCardsV1();
   const leakageCurrentStandard = seedLeakageCurrentStandardKnowledgeCardsV1();
+  const uiuxDesignStandard = seedUiuxDesignStandardKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -286,5 +289,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     rp2350RgbKittingCreated: rp2350RgbKitting.length,
     hwKittingSurgeCreated: hwKittingSurge.length,
     leakageCurrentStandardCreated: leakageCurrentStandard.length,
+    uiuxDesignStandardCreated: uiuxDesignStandard.length,
   };
 }

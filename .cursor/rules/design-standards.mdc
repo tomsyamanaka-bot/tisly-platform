@@ -1,0 +1,19 @@
+---
+description: TiSLY UI/UX design standards. Prevent flat, colorless, or regressed screens.
+alwaysApply: true
+---
+
+# TiSLY UI/UX Design Standards (MUST OBEY)
+
+When generating or modifying UI, follow these TiSLY design standards. Do not degrade the UI to basic, unstyled HTML buttons or simplistic layouts. This repository is HTML, CSS, and browser JavaScript. Apply the same look with the existing navy and white styles. Do not introduce a new React, Next.js, or Tailwind app.
+
+1. **Color Palette**: Use a white base with a navy accent. Background `#ffffff` to `#F8FAFC`. Accent `#1E3A8A`. Text `#0F172A`.
+2. **Buttons (Call to Action)**:
+   - Make them large and tap-friendly for mobile and field use (about 56px tall or more).
+   - Use full background colors. Navy for primary actions, green `#16a34a` for ON, safe, or lights on, gray for OFF or idle, red or orange for warning and threat flash. Text on those fills is white.
+   - Use moderate rounded corners, about 12px to 16px.
+   - Do not use plain, colorless, or outline-only buttons for primary actions unless explicitly instructed.
+3. **Layout and Cards**:
+   - Group related information into white cards with a navy border, a light shadow, rounded corners, and enough padding.
+4. **No Degradation (Anti-Regression)**: When modifying a screen, do not remove existing dropdowns, navigation, or styling classes unless explicitly told to do so. Keep the professional IoT dashboard look.
+5. **Entrances**: Customer entry stays `/customer`. Staff entry stays `/app`.
