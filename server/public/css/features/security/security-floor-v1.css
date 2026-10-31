@@ -3312,3 +3312,112 @@ body.is-resolving-tenant .sf-mobile-tabs {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* 社内ヘッダーの物件切替。白地にネイビーのセレクト */
+.sf-soc .sf-soc-meta .sf-select.sf-select-inline {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  min-width: 220px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 42px 0 14px;
+  border: 2px solid #1e3a8a;
+  border-radius: 12px;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%231e3a8a' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  color: #1e3a8a;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(30, 58, 138, 0.08);
+}
+
+.sf-soc .sf-card {
+  padding: 18px 16px;
+  border: 1.5px solid rgba(30, 58, 138, 0.35);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.sf-soc .sf-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sf-soc .sf-quick .sf-mode,
+.sf-soc .sf-mode {
+  min-height: 64px;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.sf-soc .sf-quick .sf-mode[data-mode="away"],
+.sf-soc .sf-mode[data-mode="away"] {
+  border: 2px solid #16a34a;
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.sf-soc .sf-quick .sf-mode[data-mode="away"].is-on,
+.sf-soc .sf-mode[data-mode="away"].is-on {
+  border-color: #15803d;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.sf-soc .sf-quick .sf-mode[data-mode="disarmed"],
+.sf-soc .sf-mode[data-mode="disarmed"] {
+  border: 2px solid #94a3b8;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.sf-soc .sf-quick .sf-mode[data-mode="disarmed"].is-on,
+.sf-soc .sf-mode[data-mode="disarmed"].is-on {
+  border-color: #475569;
+  background: #64748b;
+  color: #ffffff;
+}
+
+.sf-manual-light-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sf-soc .sf-manual-light-btn,
+.sf-manual-light-btn {
+  min-height: 56px;
+  min-width: 120px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.sf-soc .sf-manual-light-btn.is-on,
+.sf-manual-light-btn.is-on {
+  border: 2px solid #15803d;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.sf-soc .sf-manual-light-btn.is-off,
+.sf-manual-light-btn.is-off {
+  border: 2px solid #94a3b8;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.sf-soc .sf-manual-light-btn.is-warn,
+.sf-manual-light-btn.is-warn {
+  border: 2px solid #c2410c;
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
+  color: #ffffff;
+}

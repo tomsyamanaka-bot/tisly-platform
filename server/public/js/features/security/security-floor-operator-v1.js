@@ -6,12 +6,8 @@
 
 import { showViewportToast } from "./toast-viewport-v1.js";
 import {
-  isLivePropertyIdV1,
-  viewerMayUseLiveHardwareV1,
-} from "../../customer-auth.js";
-import {
   formatAlarmTime,
-  renderGuardModes,
+  renderOperatorGuardModes,
   renderIsoStack,
   renderSocLayerButtons,
   socFloorLabel,
@@ -199,37 +195,45 @@ function publishOperatorScope() {
   });
 }
 
+const STAFF_DEMO_SITE_IDS = new Set([
+  "SEC-JP-MORIYA-001",
+  "SEC-JP-TSUKUBA-001",
+  "SEC-AU-SYDNEY-001",
+]);
+
+function isStaffSwitchSite(site) {
+  const id = String(site?.siteId || "");
+  if (!id || STAFF_DEMO_SITE_IDS.has(id)) return false;
+  if (String(site?.countryCode || "").toUpperCase() === "AU") return false;
+  if (id.includes("-AU-")) return false;
+  return true;
+}
+
 function fillSiteSelect(sites) {
   const sel = $("sf-site-select");
   if (!sel) return;
-  let list = sortSitesForSelect(
-    (sites?.length ? sites : listFallbackSites()).map(normalizeSiteOption)
-  ).filter((s) => s.siteId);
-  const reviewer = !viewerMayUseLiveHardwareV1();
-  if (reviewer) {
-    list = list.filter(
-      (s) =>
-        !isLivePropertyIdV1(s.siteId) && !isLivePropertyIdV1(s.propertyId)
-    );
+  const incoming = (sites?.length ? sites : listFallbackSites()).map(
+    normalizeSiteOption
+  );
+  const merged = [...incoming];
+  for (const row of listFallbackSites()) {
+    const normalized = normalizeSiteOption(row);
+    if (!merged.some((s) => s.siteId === normalized.siteId)) {
+      merged.push(normalized);
+    }
   }
+  let list = sortSitesForSelect(merged).filter(
+    (s) => s.siteId && isStaffSwitchSite(s)
+  );
   if (!list.length) {
     list.push(
-      normalizeSiteOption(
-        reviewer
-          ? {
-              id: "SEC-JP-MORIYA-001",
-              siteId: "SEC-JP-MORIYA-001",
-              displayName: "平屋デモ宅",
-              countryCode: "JP",
-            }
-          : {
-              id: "SEC-JP-ITABASHI-LIVE",
-              siteId: "SEC-JP-ITABASHI-LIVE",
-              displayName: "板橋自宅",
-              propertyId: "HOME-JP-ITABASHI-LIVE",
-              countryCode: "JP",
-            }
-      )
+      normalizeSiteOption({
+        id: "SEC-JP-ITABASHI-LIVE",
+        siteId: "SEC-JP-ITABASHI-LIVE",
+        displayName: "板橋自宅",
+        propertyId: "HOME-JP-ITABASHI-LIVE",
+        countryCode: "JP",
+      })
     );
   }
   state.siteOptions = list;
@@ -268,7 +272,7 @@ function fillSiteSelect(sites) {
 function syncHeaderTitle(site) {
   const row = currentSiteOption();
   const title = row?.displayName || siteOptionLabel(site) || "TiSLY Security";
-  setText("sf-title", title);
+  setText("sf-title", "TiSLY Security");
   if (document.title) document.title = `TiSLY · ${title}`;
   const remoteLabel = isToyoshimaSecuritySite(state.siteId)
     ? "実機: 豊島邸（主装置・子機）"
@@ -793,7 +797,7 @@ function renderSite(site, dash) {
       applySecurityOrbit();
       setSecurityDrumFloor(state.floorId);
     }
-    setHtml("sf-modes", renderGuardModes(site.guardMode));
+    setHtml("sf-modes", renderOperatorGuardModes(site.guardMode));
     setHtml(
       "sf-notes",
       (site.notes || []).map((n) => `<li>${n}</li>`).join("")

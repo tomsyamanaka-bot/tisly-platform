@@ -115,6 +115,25 @@ export function renderFloorTabs(floors, activeId) {
     .join("");
 }
 
+/** 社内クイック操作。在宅/外出/解除の3択は使わない */
+export function renderOperatorGuardModes(mode) {
+  const armed = mode !== "disarmed";
+  const items = [
+    { id: "away", label: "🛡️ 警戒 ON", on: armed },
+    { id: "disarmed", label: "⏸️ 警戒 OFF", on: !armed },
+  ];
+  return items
+    .map(
+      (it) => `
+        <button
+          type="button"
+          class="sf-mode${it.on ? " is-on" : ""}"
+          data-mode="${it.id}"
+        >${it.label}</button>`
+    )
+    .join("");
+}
+
 export function renderGuardModes(mode) {
   const items = [
     { id: "home", label: "🛡️ 在宅警備" },

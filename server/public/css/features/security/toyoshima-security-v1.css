@@ -579,6 +579,36 @@
   cursor: pointer;
 }
 
+.ts-btn.ts-btn-on,
+.ts-manual-light-kicks .ts-btn-on {
+  min-height: 56px;
+  padding: 0 18px;
+  border: 2px solid #15803d;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.ts-btn.ts-btn-off,
+.ts-manual-light-kicks .ts-btn-off {
+  min-height: 56px;
+  padding: 0 18px;
+  border: 2px solid #94a3b8;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 1rem;
+}
+
+.ts-btn.ts-btn-warn,
+.ts-manual-light-kicks .ts-btn-warn {
+  min-height: 56px;
+  padding: 0 18px;
+  border: 2px solid #c2410c;
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
+  color: #ffffff;
+  font-size: 1rem;
+}
+
 .ts-timeline {
   display: grid;
   gap: 8px;
@@ -2051,14 +2081,19 @@
   display: grid;
   gap: 4px;
   text-align: left;
-  min-height: 56px;
-  padding: 12px 14px;
-  border: 1.5px solid #bfdbfe;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #0f172a;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 2px solid #15803d;
+  border-radius: 16px;
+  background: #16a34a;
+  color: #ffffff;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+.ts-do-pulse-btn.is-warn {
+  border-color: #c2410c;
+  background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
 }
 
 .ts-do-pulse-btn:hover,
@@ -2069,15 +2104,15 @@
 }
 
 .ts-do-pulse-label {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  color: #1e3a8a;
+  color: #ffffff;
 }
 
 .ts-do-pulse-sub {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 

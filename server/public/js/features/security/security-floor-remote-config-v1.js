@@ -317,7 +317,7 @@ function renderNotifyPolicy(notifyPolicy) {
   if (hint) {
     hint.textContent =
       profile === "toyoshima"
-        ? "豊島邸：センサーごとに緊急 / サイレント / OFF（タップで切替・即時保存）"
+        ? "センサーごとに緊急 / サイレント / OFF（タップで切替・即時保存）"
         : notifyPolicy?.perimeterTimeoutSec != null
           ? `駐車場センサー検知後 ${notifyPolicy.perimeterTimeoutSec} 秒以内のガレージセンサーで段階侵入（タップで緊急/サイレント/OFF切替）`
           : "タップで 緊急 → サイレント → OFF（即時保存）";

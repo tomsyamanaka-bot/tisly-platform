@@ -718,6 +718,14 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(opJs, /単一物件のため切替不可表示/);
     assert.match(opHtml, /sf-site-select/);
     assert.match(opHtml, /value="SEC-JP-ITABASHI-LIVE"[^>]*>板橋自宅/);
+    assert.match(opHtml, /value="SEC-JP-TOYOSHIMA-001"/);
+    assert.match(opHtml, /value="SEC-JP-RYUGASAKI-001"/);
+    assert.match(opHtml, /🛡️ 警戒 ON/);
+    assert.match(opHtml, /⏸️ 警戒 OFF/);
+    assert.doesNotMatch(opHtml, /在宅警備/);
+    assert.match(opJs, /renderOperatorGuardModes/);
+    assert.match(opJs, /STAFF_DEMO_SITE_IDS/);
+    assert.doesNotMatch(opHtml, /豊島邸ではセンサー別に/);
     assert.match(opJs, /resolveOperatorSiteIdV1/);
     assert.match(opJs, /await import\("\.\/security-floor-iso3d-v1\.js"\)/);
     assert.doesNotMatch(opJs, /import \{ updateSecurityIso3d \} from/);

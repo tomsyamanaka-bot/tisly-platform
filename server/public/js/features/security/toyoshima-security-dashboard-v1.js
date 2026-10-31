@@ -402,15 +402,15 @@ function renderManualLightKickRow(dash) {
   /* document capture で必ず拾う
    * soft patch で DOM が壊れても再結線不要 */
   return `<div class="ts-btn-row ts-manual-light-kicks">
-      <button type="button" class="ts-btn" data-ts-light-kick="do1_on"
+      <button type="button" class="ts-btn ts-btn-on" data-ts-light-kick="do1_on"
         data-ts-building="main" data-ts-action="do1_on">💡 ライト1点灯</button>
-      <button type="button" class="ts-btn" data-ts-light-kick="do2_on"
+      <button type="button" class="ts-btn ts-btn-on" data-ts-light-kick="do2_on"
         data-ts-building="main" data-ts-action="do2_on">💡 ライト2点灯</button>
-      <button type="button" class="ts-btn ts-btn-primary" data-ts-light-kick="bulk_lights_on"
+      <button type="button" class="ts-btn ts-btn-on" data-ts-light-kick="bulk_lights_on"
         data-ts-building="main" data-ts-action="bulk_lights_on">💡 照明を一括ON</button>
-      <button type="button" class="ts-btn ts-btn-ghost" data-ts-light-kick="bulk_lights_off"
+      <button type="button" class="ts-btn ts-btn-off" data-ts-light-kick="bulk_lights_off"
         data-ts-building="main" data-ts-action="bulk_lights_off">💡 照明を一括OFF</button>
-      <button type="button" class="ts-btn" data-ts-light-kick="patlite_test"
+      <button type="button" class="ts-btn ts-btn-warn" data-ts-light-kick="patlite_test"
         data-ts-building="main" data-ts-action="patlite_test">⚡ フラッシュ威嚇テスト</button>
     </div>
     <p class="ts-hint" data-ts-light-status>${manualLightStatusText(dash)}</p>`;
@@ -1485,7 +1485,9 @@ function renderDoForceTestCard() {
     <h3 class="ts-card-head">⚡ 接点強制テスト（1秒ワンショット）</h3>
     <p class="ts-hint">盤・照明から離れた位置でも配線導通を安全に確認できます。押して約1秒だけONします。</p>
     <div class="ts-do-grid" id="ts-do-grid">${TOYOSHIMA_FORCE_TEST_OUTPUTS.map(
-      (o) => `<button type="button" class="ts-do-pulse-btn" data-ts-do-pulse="${escapeHtml(
+      (o) => `<button type="button" class="ts-do-pulse-btn${
+        o.id === "main-do3" || o.id === "det-do2" ? " is-warn" : " is-on"
+      }" data-ts-do-pulse="${escapeHtml(
         o.id
       )}" data-ts-do-building="${escapeHtml(o.building)}">
         <span class="ts-do-pulse-label">${escapeHtml(o.label)}</span>

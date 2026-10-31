@@ -15,7 +15,7 @@ const LIGHT_ACTIONS = [
     label: "💡 外側100V 防犯ライト (DO2 / GPIO18)",
     buttons: [
       { action: "light_24v_on", label: "点灯", style: "is-on" },
-      { action: "light_24v_off", label: "消灯", style: "" },
+      { action: "light_24v_off", label: "消灯", style: "is-off" },
       { action: "light_24v_strobe", label: "威嚇点滅", style: "is-warn" },
     ],
   },
@@ -24,7 +24,7 @@ const LIGHT_ACTIONS = [
     label: "💡 100V 投光器ライト (DO3 / GPIO19)",
     buttons: [
       { action: "light_100v_on", label: "点灯", style: "is-on" },
-      { action: "light_100v_off", label: "消灯", style: "" },
+      { action: "light_100v_off", label: "消灯", style: "is-off" },
     ],
   },
 ];
