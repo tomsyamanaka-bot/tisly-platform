@@ -589,6 +589,8 @@ describe("tisly-home-v1", () => {
     assert.doesNotMatch(customerHtml, /NFC\s*\/\s*RFID/);
     assert.doesNotMatch(customerHtml, /LOCKED/);
     assert.match(customerHtml, /カギの履歴/);
+    assert.doesNotMatch(customerHtml, /id="hm-push-register"/);
+    assert.doesNotMatch(customerHtml, /プッシュ通知を有効化する/);
 
     const customerViewHtml = fs.readFileSync(
       path.join(publicDir, "customer-view-v1.html"),
@@ -728,8 +730,13 @@ describe("tisly-home-v1", () => {
       assert.match(html, /hm-bath-pulse-status/, page);
       assert.match(html, /id="hm-aircon-list"/, page);
       assert.match(html, /id="hm-lock-toggle"/, page);
-      assert.match(html, /id="hm-push-register"/, page);
-      assert.match(html, /id="hm-push-test"/, page);
+      if (page === "home-v1.html") {
+        assert.match(html, /id="hm-push-register"/, page);
+        assert.match(html, /id="hm-push-test"/, page);
+      } else {
+        assert.doesNotMatch(html, /id="hm-push-register"/, page);
+        assert.doesNotMatch(html, /プッシュ通知を有効化する/, page);
+      }
       assert.match(html, /id="hm-intercom-visitors"/, page);
     }
 

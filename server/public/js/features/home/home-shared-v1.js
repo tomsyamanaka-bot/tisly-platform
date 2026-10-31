@@ -1576,6 +1576,11 @@ export function bindHomeSecurityUiV1(getSiteId, getActor, onSceneDone) {
 }
 
 function bindHomeWebPushUiV1() {
+  const customerScreen =
+    document.body?.classList?.contains("hm-customer") ||
+    document.body?.dataset?.hqsMode === "customer" ||
+    String(location.pathname || "").startsWith("/customer");
+  if (customerScreen) return;
   bindTislyPushBarV1({
     prefix: "hm",
     userId: "home-security",

@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2584-hub-push-bar";
+const SW_VERSION = "tisly-pwa-v2585-hub-push-staff-only";
+/* tisly-pwa-v2584-hub-push-bar */
 /* tisly-pwa-v2583-ryugasaki-failsafe */
 /* tisly-pwa-v2576-staff-notify-mute */
 /* tisly-pwa-v2575-staff-notify-sync */
@@ -60,8 +61,8 @@ const SW_VERSION = "tisly-pwa-v2584-hub-push-bar";
  * tisly-pwa-shell-v2489-outer-100v-light-label
  * tisly-pwa-priority-v2489-outer-100v-light-label
  * tisly-pwa-fieldops-v2489-outer-100v-light-label */
-const OFFLINE_CACHE = "tisly-pwa-shell-v2584-hub-push-bar";
-const PRIORITY_CACHE = "tisly-pwa-priority-v2584-hub-push-bar";
+const OFFLINE_CACHE = "tisly-pwa-shell-v2585-hub-push-staff-only";
+const PRIORITY_CACHE = "tisly-pwa-priority-v2585-hub-push-staff-only";
 const FIELD_OPS_CACHE = "tisly-pwa-fieldops-v2577-staff-mute-by-site";
 const STAFF_FOCUS_CACHE = "tisly-staff-notify-focus";
 /* お客様ゾーンの互換トークン
