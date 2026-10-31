@@ -150,21 +150,21 @@ async function loadSiteOptions() {
       .join("");
     currentSiteId = tenantHomeId || filtered[0].id;
     select.value = currentSiteId;
-    if (filtered.length <= 1) {
-      select.disabled = true;
-      select.hidden = true;
-      select.setAttribute("aria-hidden", "true");
-      let fixed = document.getElementById("hm-site-fixed-label");
-      if (!fixed && select.parentElement) {
-        fixed = document.createElement("span");
-        fixed.id = "hm-site-fixed-label";
-        fixed.className = "hm-site-fixed-label";
-        select.parentElement.insertBefore(fixed, select);
-      }
-      if (fixed) {
-        fixed.textContent = filtered[0].displayName;
-        fixed.hidden = false;
-      }
+    select.disabled = true;
+    select.hidden = true;
+    select.setAttribute("aria-hidden", "true");
+    const pickerLabel = select.parentElement?.querySelector(".hm-card-label");
+    if (pickerLabel) pickerLabel.hidden = true;
+    let fixed = document.getElementById("hm-site-fixed-label");
+    if (!fixed && select.parentElement) {
+      fixed = document.createElement("span");
+      fixed.id = "hm-site-fixed-label";
+      fixed.className = "hm-site-fixed-label";
+      select.parentElement.insertBefore(fixed, select);
+    }
+    if (fixed) {
+      fixed.textContent = filtered[0].displayName;
+      fixed.hidden = false;
     }
     try {
       const { setPropertyScope } = await import(

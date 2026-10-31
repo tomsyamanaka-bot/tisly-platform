@@ -1002,6 +1002,13 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /forceRefreshOnDeployedCommit|ensureSecurityServiceWorker/);
     assert.match(customerJs, /SKIP_WAITING|tisly-security-customer-commit/);
     assert.match(customerJs, /sf-tenant-fixed|lockSiteSelectorUi/);
+    assert.match(customerJs, /sel\.hidden = true/);
+    assert.match(
+      floorCss,
+      /body\.sf-soc:not\(\.sf-customer\) \.sf-soc-meta \.sf-select\.sf-select-inline/
+    );
+    assert.match(floorCss, /body\.sf-customer #sf-site-select/);
+    assert.match(customerHtml, /id="sf-site-select"[^>]*hidden/);
     assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
     assert.doesNotMatch(customerJs, /switchCustomerSite/);
     assert.match(customerJs, /fetchToyoshimaStatus/);

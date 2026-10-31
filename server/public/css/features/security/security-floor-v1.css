@@ -3313,8 +3313,8 @@ body.is-resolving-tenant .sf-mobile-tabs {
   pointer-events: none;
 }
 
-/* 社内ヘッダーの物件切替。白地にネイビーのセレクト */
-.sf-soc .sf-soc-meta .sf-select.sf-select-inline {
+/* 社内ヘッダーの物件切替。お客様画面には出さない */
+body.sf-soc:not(.sf-customer) .sf-soc-meta .sf-select.sf-select-inline {
   appearance: none;
   -webkit-appearance: none;
   display: block;
@@ -3334,6 +3334,15 @@ body.is-resolving-tenant .sf-mobile-tabs {
   font-size: 0.95rem;
   cursor: pointer;
   box-shadow: 0 1px 0 rgba(30, 58, 138, 0.08);
+}
+
+body.sf-customer #sf-site-select,
+body.sf-customer .sf-soc-meta .sf-select,
+body.sf-customer .sf-soc-meta .sf-select-inline,
+.sf-soc-meta.sf-tenant-fixed .sf-select,
+.sf-soc-meta.sf-tenant-fixed .sf-select-inline,
+#sf-site-select[hidden] {
+  display: none !important;
 }
 
 .sf-soc .sf-card {

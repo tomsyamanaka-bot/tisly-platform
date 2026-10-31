@@ -271,8 +271,7 @@ function syncCustomerHeaderTitle() {
   const fixed = $("sf-site-fixed-label");
   if (fixed) {
     fixed.textContent = title;
-    /* 豊島邸はタイトルと重複するためカプセル非表示 */
-    fixed.hidden = isToyoshimaSecuritySite(state.siteId);
+    fixed.hidden = false;
   }
 }
 
@@ -335,9 +334,8 @@ function applySiteLayout(force = false) {
   setSecurityHistorySiteIdV1(state.siteId);
 
   const fixed = $("sf-site-fixed-label");
-  if (fixed) {
-    /* 物件名と重複するカプセルを豊島邸では非表示 */
-    fixed.hidden = isToyoshima;
+  if (fixed && state.tenantReady) {
+    fixed.hidden = false;
   }
 
   ensureCustomerAssure();

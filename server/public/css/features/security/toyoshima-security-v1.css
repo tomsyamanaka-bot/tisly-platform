@@ -1134,8 +1134,12 @@
   display: none;
 }
 
-/* 豊島邸: タイトルと重複するカプセルを非表示 */
-.sf-body.is-toyoshima.sf-customer .sf-site-fixed-label {
+/* お客様は物件名を固定テキストで出す。セレクトは出さない */
+.sf-body.sf-customer .sf-site-fixed-label {
+  display: inline-flex !important;
+}
+
+.sf-body.sf-customer .sf-site-fixed-label[hidden] {
   display: none !important;
 }
 

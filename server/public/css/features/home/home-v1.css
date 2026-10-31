@@ -144,6 +144,11 @@
 
 /* ---------- 物件セレクタ ---------- */
 
+body.hm-customer #hm-site-select,
+body.hm-customer #hm-site-select[hidden] {
+  display: none !important;
+}
+
 .hm-select {
   width: 100%;
   min-height: var(--hm-tap);

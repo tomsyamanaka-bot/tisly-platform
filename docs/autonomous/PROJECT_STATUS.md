@@ -15,7 +15,7 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 | 背景 | `#ffffff` 〜 `#F8FAFC` |
 | テキスト | `#0F172A` / `#333333` |
 | メイン／アクセント | 紺色 `#1E3A8A` / `#0F172A` / `#1E293B` |
-| SW | `tisly-pwa-v2587-staff-security-ui` |
+| SW | `tisly-pwa-v2588-customer-site-fixed` |
 
 ---
 
@@ -34,6 +34,10 @@ Cursor が長時間自走する際の **「壊してはいけない完成仕様�
 ## UI/UX デザイン標準（2026-11-01）
 
 ナレッジへ「【UI/UX標準】TiSLY プロフェッショナルデザインガイドラインとデグレ防止ルール」を末尾追加した。既存カードは消していない。画面は白ベースにネイビー `#1E3A8A`。主要ボタンは大きく、塗りつぶしで、角を丸くする。ON・点灯は緑、消灯はグレー、警告は赤かオレンジ。物件セレクトや既存の色は、指示がない限り残す。社内は `/app`、お客様は `/customer`。同じ基準は `.cursor/rules/design-standards.mdc` にも置く。
+
+## お客様画面の物件名（2026-11-01）
+
+`/customer` の警備と HOME では、ログインした顧客の物件名だけを固定テキストで出す。物件のセレクトは出さない。社内の `/app/security` は板橋自宅、豊島邸、ウォッシュメイト龍ヶ崎店をセレクトで切り替える。保存済みの設定は変えない。
 
 ## インフラ・デプロイ
 
@@ -1810,7 +1814,7 @@ p2350-relay-v1.ts �E firmware main.py |
 | 施主 | TOMS001 / TOYOSHIMA001 / 社内トークン付き操作は従来どおり実機へ届く |
 | ログイン | 全角 `ＴＥＳＴＥＲ００１` とユーザー名 `tester.user` でも TESTER001 |
 | Android | `appVersionCode` 6 / `1.1.4`。起動は `StartActivity` → アプリ内 WebView |
-| SW | `tisly-pwa-v2587-staff-security-ui` |
+| SW | `tisly-pwa-v2588-customer-site-fixed` |
 
 ---
 
