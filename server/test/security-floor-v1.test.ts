@@ -725,6 +725,7 @@ describe("security-floor-v1", () => {
     assert.doesNotMatch(opHtml, /在宅警備/);
     assert.match(opJs, /renderOperatorGuardModes/);
     assert.match(opJs, /STAFF_DEMO_SITE_IDS/);
+    assert.match(opJs, /manualLight\.hidden = !itabashi/);
     assert.doesNotMatch(opHtml, /豊島邸ではセンサー別に/);
     assert.match(opJs, /resolveOperatorSiteIdV1/);
     assert.match(opJs, /await import\("\.\/security-floor-iso3d-v1\.js"\)/);

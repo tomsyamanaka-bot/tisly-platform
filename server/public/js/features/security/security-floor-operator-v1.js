@@ -322,6 +322,15 @@ function applySiteLayout(force = false) {
       kpi.removeAttribute("aria-hidden");
     }
   }
+  const manualLight = $("sf-manual-light");
+  const itabashi = isItabashiSecuritySite(state.siteId);
+  if (manualLight) {
+    manualLight.hidden = !itabashi;
+    manualLight.setAttribute("aria-hidden", itabashi ? "false" : "true");
+  }
+  if (itabashi) {
+    setText("sf-manual-light-note", "RP2350 実機へ即時命令（板橋自宅）");
+  }
   if (!force && state.layoutSiteId === state.siteId) return;
   state.layoutSiteId = state.siteId;
   if (isToyoshima) {

@@ -3385,6 +3385,10 @@ body.is-resolving-tenant .sf-mobile-tabs {
   color: #ffffff;
 }
 
+body.sf-soc #sf-manual-light[hidden] {
+  display: none !important;
+}
+
 .sf-manual-light-actions {
   display: flex;
   flex-wrap: wrap;
