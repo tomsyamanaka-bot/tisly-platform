@@ -19,7 +19,7 @@ import {
 import {
   getHomeSecurityRulesV1,
   getJstMinutesOfDayV1,
-  isHomeGuardActiveV1,
+  isHomeScheduleWindowActiveV1,
   isHomeSecurityArmedV1,
   isWithinTimeRange,
   type HomeSecurityRulesV1,
@@ -166,6 +166,28 @@ export interface HomeSensorLinkedLightResultV1 {
   mocked?: boolean;
 }
 
+/**
+ * 夜間窓では昼間テストを見ない。
+ * 窓の外は daytime_test_mode / forceRelayTest が true のときだけ DO を出す。
+ * 時刻は JST（UTC+9）。
+ */
+export function shouldItabashiDriveSensorLightsV1(
+  rules: HomeSecurityRulesV1,
+  at: Date = new Date()
+): boolean {
+  if (!isHomeSecurityArmedV1(rules, at)) return false;
+  if (
+    isHomeScheduleWindowActiveV1(
+      rules.scheduleStart,
+      rules.scheduleEnd,
+      at
+    )
+  ) {
+    return true;
+  }
+  return rules.forceRelayTest === true;
+}
+
 /** JST 点灯窓と警戒状態を同じ関数で評価する */
 export function evaluateHomeSensorLightWindowV1(
   rules: HomeSecurityRulesV1,
@@ -178,7 +200,7 @@ export function evaluateHomeSensorLightWindowV1(
     at
   );
   const armed = isHomeSecurityArmedV1(rules, at);
-  const lightsActive = isHomeGuardActiveV1(rules, at);
+  const lightsActive = shouldItabashiDriveSensorLightsV1(rules, at);
   return {
     jstMinutes,
     isWithinTimeRange: within,
@@ -281,7 +303,7 @@ export function queueHomeSensorLinkedLightsV1(input: {
         pattern: letter,
         command,
         durationMs,
-        isWithinTimeRange: true,
+        isWithinTimeRange: windowEval.isWithinTimeRange,
         lightsActive: true,
         jstMinutes: windowEval.jstMinutes,
       },
@@ -291,7 +313,7 @@ export function queueHomeSensorLinkedLightsV1(input: {
 
   return {
     queued: true,
-    isWithinTimeRange: true,
+    isWithinTimeRange: windowEval.isWithinTimeRange,
     lightsActive: true,
     armed: windowEval.armed,
     command,
@@ -419,7 +441,7 @@ export function armItabashiLiveDiSensorLightsV1(input: {
   }
   return {
     queued: true,
-    isWithinTimeRange: true,
+    isWithinTimeRange: windowEval.isWithinTimeRange,
     lightsActive: true,
     armed: windowEval.armed,
     command: armed.command,

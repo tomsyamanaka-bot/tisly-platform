@@ -24,7 +24,7 @@ function jstDate(hour: number, minute: number): Date {
   return new Date(Date.UTC(2026, 8, 20, hour - 9, minute, 0));
 }
 
-describe("Itabashi DI trigger sensor lights", () => {
+describe("Itabashi DI trigger sensor lights", { concurrency: false }, () => {
   afterEach(() => {
     resetItabashiLiveSensorLightArmForTestV1();
     resetRemoteTestState();
@@ -36,6 +36,7 @@ describe("Itabashi DI trigger sensor lights", () => {
       scheduleStart: "18:00",
       scheduleEnd: "06:00",
       securityPausedUntil: null,
+      forceRelayTest: false,
     });
   }
 
@@ -199,5 +200,116 @@ describe("Itabashi DI trigger sensor lights", () => {
     assert.ok(fw.version >= now - 60_000);
     assert.ok(fw.version <= now);
     assert.equal(fw.lightScheduleActive, fw.guardActive);
+  });
+
+  it("blocks daytime relays when the daytime test switch is off", () => {
+    ensureNightRulesV1();
+    const before = getHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+      forceRelayTest: false,
+      scheduleStart: "17:00",
+      scheduleEnd: "06:00",
+    });
+    resetRemoteTestState();
+    try {
+      const armed = armItabashiLiveDiSensorLightsV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        di: 1,
+        pattern: "pattern_a",
+        at: jstDate(11, 0),
+      });
+      assert.equal(armed.queued, false);
+      assert.equal(armed.isWithinTimeRange, false);
+      assert.equal(armed.lightsActive, false);
+      assert.equal(armed.skippedReason, "outside_schedule");
+      assert.equal(getRemoteTestStatus().pendingCommand, null);
+      const fw = buildHomeSecurityFirmwareRulesV1(
+        HOME_ITABASHI_LIVE_SITE_ID_V1
+      );
+      assert.equal(fw.force_relay_test, false);
+      assert.equal(fw.daytime_test_mode, false);
+    } finally {
+      updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+        forceRelayTest: before.forceRelayTest,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
+      });
+    }
+  });
+
+  it("still queues a night relay when the daytime test switch is off", () => {
+    ensureNightRulesV1();
+    resetRemoteTestState();
+    const armed = armItabashiLiveDiSensorLightsV1({
+      siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      di: 1,
+      pattern: "pattern_a",
+      at: jstDate(19, 0),
+    });
+    assert.equal(armed.queued, true);
+    assert.equal(armed.lightsActive, true);
+    assert.match(String(armed.command), /^sensor_pulse_A_/);
+  });
+
+  it("allows a daytime relay only while the daytime test switch is on", () => {
+    ensureNightRulesV1();
+    const before = getHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+      daytime_test_mode: true,
+      scheduleStart: "17:00",
+      scheduleEnd: "06:00",
+    });
+    resetRemoteTestState();
+    try {
+      const armed = armItabashiLiveDiSensorLightsV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        di: 1,
+        pattern: "pattern_a",
+        at: jstDate(11, 0),
+      });
+      assert.equal(armed.queued, true);
+      assert.equal(armed.isWithinTimeRange, false);
+      assert.equal(armed.lightsActive, true);
+    } finally {
+      updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+        forceRelayTest: before.forceRelayTest === true,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
+      });
+    }
+  });
+
+  it("queues a 7 second sensor pulse that the board turns off at 7 seconds", () => {
+    ensureNightRulesV1();
+    const before = getHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+      lightingDurationSec: 7,
+      di1DurationSec: 7,
+      flashDurationSec: 99,
+    });
+    resetRemoteTestState();
+    try {
+      const armed = armItabashiLiveDiSensorLightsV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        di: 1,
+        pattern: "pattern_a",
+        at: jstDate(19, 0),
+      });
+      assert.equal(armed.queued, true);
+      assert.equal(armed.durationSec, 7);
+      assert.equal(armed.command, "sensor_pulse_A_7000");
+      const fw = buildHomeSecurityFirmwareRulesV1(
+        HOME_ITABASHI_LIVE_SITE_ID_V1
+      );
+      assert.equal(fw.lighting_duration_sec, 7);
+      assert.equal(fw.light_duration_sec, 7);
+      assert.notEqual(fw.lighting_duration_sec, fw.flash_duration_sec);
+    } finally {
+      updateHomeSecurityRulesV1(HOME_ITABASHI_LIVE_SITE_ID_V1, {
+        lightingDurationSec: before.lightingDurationSec,
+        di1DurationSec: before.di1DurationSec,
+        flashDurationSec: before.flashDurationSec,
+      });
+    }
   });
 });

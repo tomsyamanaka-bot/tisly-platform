@@ -332,14 +332,20 @@ def test_parse_vps_sensor_pulse_66s():
 
 
 def test_vps_sensor_pulse_ignores_daytime_rtc():
-    """VPS 擬似発報は実機 RTC が昼でも序列を起動する。"""
+    """昼間テスト OFF の日中は、VPS 擬似発報でも DO を出さない。"""
     import asyncio
 
     utc = 3 * 3600
     started = []
     with patch("security_light.time.time", return_value=utc):
         ctrl = SecurityLightController(lambda ch, on: None)
-        ctrl.apply_rules({"version": 40, "guardMode": "always"})
+        ctrl.apply_rules(
+            {
+                "version": 40,
+                "guardMode": "always",
+                "daytime_test_mode": False,
+            }
+        )
         assert ctrl._can_run_lights() is False
         ctrl._start_sequence = lambda pattern, duration_ms=None: started.append(
             (pattern, duration_ms)
@@ -347,8 +353,8 @@ def test_vps_sensor_pulse_ignores_daytime_rtc():
         ok = asyncio.run(
             ctrl.execute_vps_sensor_command("sensor_pulse_A_66000")
         )
-        assert ok is True
-    assert started == [("A", 66000)]
+        assert ok is False
+    assert started == []
 
 
 def _stub_ticks():
@@ -379,8 +385,6 @@ def test_ntp_utc_is_converted_before_17_window():
                 "scheduleStart": "17:00",
                 "scheduleEnd": "06:00",
                 "lighting_duration_sec": 45,
-                "jstMinutes": 10 * 60,
-                "lightScheduleActive": False,
             }
         )
         assert ctrl._jst_minutes() == 19 * 60
@@ -488,6 +492,133 @@ def test_physical_di1_lights_when_vps_jst_is_1900():
         assert ctrl._can_run_lights() is True
 
 
+def test_vps_noon_blocks_when_daytime_test_off():
+    """盤時計が夜でも、VPS が昼かつテスト OFF なら DO を出さない。"""
+    from datetime import datetime, timezone
+
+    _stub_ticks()
+    utc = int(datetime(2026, 10, 2, 11, 0, tzinfo=timezone.utc).timestamp())
+    lights = []
+    with patch("security_light.time.time", return_value=utc):
+        ctrl = SecurityLightController(
+            lambda ch, on: lights.append((ch, on)),
+            send_heartbeat=lambda: None,
+        )
+        ctrl.apply_rules(
+            {
+                "version": 71,
+                "guardMode": "always",
+                "scheduleStart": "17:00",
+                "scheduleEnd": "06:00",
+                "jstMinutes": 12 * 60,
+                "daytime_test_mode": False,
+            }
+        )
+        assert ctrl._jst_minutes() == 12 * 60
+        assert ctrl._can_run_lights() is False
+        ctrl._on_di1_detected()
+    assert lights == []
+
+
+def test_daytime_test_on_allows_sensor_lights():
+    """昼間テスト ON のときだけ、窓の外でもセンサー点灯する。"""
+    _stub_ticks()
+    lights = []
+    ctrl = SecurityLightController(
+        lambda ch, on: lights.append((ch, on))
+    )
+    ctrl.apply_rules(
+        {
+            "version": 72,
+            "guardMode": "always",
+            "scheduleStart": "17:00",
+            "scheduleEnd": "06:00",
+            "jstMinutes": 11 * 60,
+            "force_relay_test": True,
+        }
+    )
+    assert ctrl._can_run_lights() is True
+    ctrl._start_sequence = lambda *args, **kwargs: None
+    ctrl._on_di1_detected()
+    assert (2, True) in lights
+    assert (3, True) in lights
+
+
+def test_seven_second_hold_turns_outputs_off():
+    """点灯維持 7 秒は、7 秒の時点で DO2/DO3 を消す。"""
+    import asyncio
+    import security_light as sl
+
+    clock = {"ms": 0}
+    sl.time.ticks_ms = lambda: clock["ms"]
+    sl.time.ticks_add = lambda a, b: a + b
+    sl.time.ticks_diff = lambda a, b: a - b
+    lights = []
+    ctrl = SecurityLightController(
+        lambda ch, on: lights.append((clock["ms"], ch, on))
+    )
+    ctrl.apply_rules(
+        {
+            "version": 73,
+            "guardMode": "always",
+            "lighting_duration_sec": 7,
+            "flash_duration_sec": 99,
+            "jstMinutes": 21 * 60,
+            "scheduleStart": "17:00",
+            "scheduleEnd": "06:00",
+            "daytime_test_mode": False,
+        }
+    )
+    assert ctrl._di1_duration_ms == 7000
+    again = ctrl.apply_rules(
+        {
+            "version": 73,
+            "lighting_duration_sec": 7,
+            "jstMinutes": 21 * 60,
+        }
+    )
+    assert again is False
+    assert ctrl._di1_duration_ms == 7000
+
+    async def fast_sleep(ms):
+        clock["ms"] += int(ms)
+
+    sl.asyncio.sleep_ms = fast_sleep
+    ctrl._seq_id = 1
+    asyncio.run(ctrl._drive_channel(1, 2, 7000, "steady"))
+    assert lights[0] == (0, 2, True)
+    assert lights[-1] == (7000, 2, False)
+
+
+def test_manual_still_bypasses_daytime_test_off():
+    """手動点灯は昼間テスト OFF でもリレーを動かす。"""
+    import asyncio
+
+    lights = []
+    ctrl = SecurityLightController(
+        lambda ch, on: lights.append((ch, on))
+    )
+    ctrl.apply_rules(
+        {
+            "version": 74,
+            "guardMode": "always",
+            "jstMinutes": 12 * 60,
+            "scheduleStart": "17:00",
+            "scheduleEnd": "06:00",
+            "daytime_test_mode": False,
+        }
+    )
+    assert ctrl._can_run_lights() is False
+    ok = asyncio.run(ctrl.execute_manual_command("light_all_on"))
+    assert ok is True
+    assert (2, True) in lights
+    assert (3, True) in lights
+    ok_off = asyncio.run(ctrl.execute_manual_command("light_all_off"))
+    assert ok_off is True
+    assert (2, False) in lights
+    assert (3, False) in lights
+
+
 if __name__ == "__main__":
     test_always_guard_active_at_night()
     test_always_daytime_lights_off()
@@ -515,4 +646,8 @@ if __name__ == "__main__":
     test_overnight_window_includes_0530_excludes_0600()
     test_jst_1700_boundary_is_inside()
     test_physical_di1_lights_when_vps_jst_is_1900()
+    test_vps_noon_blocks_when_daytime_test_off()
+    test_daytime_test_on_allows_sensor_lights()
+    test_seven_second_hold_turns_outputs_off()
+    test_manual_still_bypasses_daytime_test_off()
     print("ok")

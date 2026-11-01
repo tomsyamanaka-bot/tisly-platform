@@ -16,7 +16,6 @@ import type { DeliveryResult } from "../notification/types.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "./home-sites-v1.js";
 import {
   getHomeSecurityRulesV1,
-  isHomeGuardActiveV1,
   isHomeNotifyPushEnabledV1,
   isHomeSecurityArmedV1,
   isHomeSecurityPausedV1,
@@ -24,7 +23,10 @@ import {
   type HomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
-import { armItabashiLiveDiSensorLightsV1 } from "./home-security-light-v1.js";
+import {
+  armItabashiLiveDiSensorLightsV1,
+  shouldItabashiDriveSensorLightsV1,
+} from "./home-security-light-v1.js";
 import { recordHomeDiSecurityAlarmV1 } from "../security-floor/security-floor-soc-v1.js";
 
 const HOME_PUSH_USER_ID = "home-security";
@@ -500,7 +502,7 @@ export async function processHomeSecurityInputChangesV1(
   const sid = String(siteId ?? HOME_ITABASHI_LIVE_SITE_ID_V1).trim();
   const rules = getHomeSecurityRulesV1(sid);
   const armed = isHomeSecurityArmedV1(rules);
-  const lightsActive = isHomeGuardActiveV1(rules);
+  const lightsActive = shouldItabashiDriveSensorLightsV1(rules);
 
   for (const change of changes) {
     if (change.to !== "on" || change.from === "on") continue;
@@ -539,7 +541,7 @@ export async function processHomeSecurityEventV1(input: {
 
   const rules = getHomeSecurityRulesV1(sid);
   const armed = isHomeSecurityArmedV1(rules);
-  const lightsActive = isHomeGuardActiveV1(rules);
+  const lightsActive = shouldItabashiDriveSensorLightsV1(rules);
 
   return handleDiRisingEdgeV1(sid, di as 1 | 2, rules, armed, lightsActive);
 }

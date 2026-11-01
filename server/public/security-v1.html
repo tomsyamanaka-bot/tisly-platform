@@ -115,7 +115,7 @@
                 <span class="ts-dn-emoji">☀️</span>
               </span>
               <span class="ts-dn-head">日中（通知のみ）</span>
-              <span class="ts-dn-desc">通知のみ・ライトは消灯のまま</span>
+              <span class="ts-dn-desc" id="sf-day-tile-desc">通知のみ・ライトは消灯のまま</span>
             </div>
             <div class="ts-dn-tile ts-dn-night">
               <span class="ts-dn-ico" aria-hidden="true">
@@ -151,6 +151,14 @@
           <p class="sf-hint" id="sf-schedule-window-hint">
             日またぎ（例 18:00〜06:00）対応
           </p>
+          <label class="ts-switch-row" for="sf-daytime-test">
+            <span class="ts-label">昼間でもセンサー連動リレー（テスト）</span>
+            <span class="ts-switch">
+              <input type="checkbox" id="sf-daytime-test" />
+              <span class="ts-switch-ui" aria-hidden="true"></span>
+            </span>
+            <span class="ts-switch-text" id="sf-daytime-test-label">OFF</span>
+          </label>
           <label class="sf-slider-field sf-slider-rich sf-slider-sec" for="sf-lighting-duration">
             <span class="sf-slider-head">
               <span class="sf-slider-label">💡 点灯維持時間</span>
@@ -680,7 +688,7 @@
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2564"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2564"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2589"></script>
   <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>

@@ -185,6 +185,9 @@ export interface HomeSecurityRulesPatchV1 {
   debounceBeamMs?: number;
   /** テスト時は昼間でもリレー作動 */
   forceRelayTest?: boolean;
+  /** 同じ意味。OFF の日中はセンサーでリレーを出さない */
+  daytime_test_mode?: boolean;
+  daytimeTestMode?: boolean;
 }
 
 /** RP2350 向けファームウェア JSON */
@@ -235,6 +238,8 @@ export interface HomeSecurityFirmwareRulesV1 {
   flash_enabled: boolean;
   /** 昼間でもセンサー連動リレー */
   force_relay_test: boolean;
+  /** 同じフラグ。PWA の昼間テスト OFF は false */
+  daytime_test_mode: boolean;
   /** おでかけ警戒時のパトライト威嚇 */
   patlite_threat_enabled: boolean;
   /** VPS 算出の JST 分（0〜1439） */
@@ -437,6 +442,24 @@ function ensureSecurityRulesTableV1(): void {
   }
 }
 
+function readDaytimeSensorTestV1(
+  parsed: Record<string, unknown>
+): boolean {
+  if (parsed.forceRelayTest !== undefined) {
+    return Boolean(parsed.forceRelayTest);
+  }
+  if (parsed.force_relay_test !== undefined) {
+    return Boolean(parsed.force_relay_test);
+  }
+  if (parsed.daytime_test_mode !== undefined) {
+    return Boolean(parsed.daytime_test_mode);
+  }
+  if (parsed.daytimeTestMode !== undefined) {
+    return Boolean(parsed.daytimeTestMode);
+  }
+  return DEFAULT_RULES.forceRelayTest !== false;
+}
+
 function parseRulesJson(
   siteId: string,
   raw: unknown
@@ -585,13 +608,7 @@ function parseRulesJson(
         : Boolean(
             parsed.flashEnabled ?? parsed.flash_enabled
           ),
-    forceRelayTest:
-      parsed.forceRelayTest === undefined &&
-      parsed.force_relay_test === undefined
-        ? DEFAULT_RULES.forceRelayTest !== false
-        : Boolean(
-            parsed.forceRelayTest ?? parsed.force_relay_test
-          ),
+    forceRelayTest: readDaytimeSensorTestV1(parsed),
     notifyMainFarMode: parseNotifyMode(
       parsed.notifyMainFarMode,
       DEFAULT_RULES.notifyMainFarMode ?? "critical"
@@ -850,7 +867,11 @@ export function updateHomeSecurityRulesV1(
     forceRelayTest:
       patch.forceRelayTest !== undefined
         ? Boolean(patch.forceRelayTest)
-        : current.forceRelayTest !== false,
+        : patch.daytime_test_mode !== undefined
+          ? Boolean(patch.daytime_test_mode)
+          : patch.daytimeTestMode !== undefined
+            ? Boolean(patch.daytimeTestMode)
+            : current.forceRelayTest === true,
     notifyMainFarMode: isHomeNotifyModeV1(patch.notifyMainFarMode)
       ? patch.notifyMainFarMode
       : current.notifyMainFarMode ?? "critical",
@@ -997,7 +1018,8 @@ export function buildHomeSecurityFirmwareRulesV1(
     },
     flash_duration_sec: rules.flashDurationSec ?? 15,
     flash_enabled: rules.flashEnabled !== false,
-    force_relay_test: rules.forceRelayTest !== false,
+    force_relay_test: rules.forceRelayTest === true,
+    daytime_test_mode: rules.forceRelayTest === true,
     patlite_threat_enabled: rules.patliteThreatEnabled !== false,
     /* RP2350 RTC 未設定でも
      * VPS の JST 判定を正とする */

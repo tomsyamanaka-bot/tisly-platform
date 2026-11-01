@@ -9,19 +9,21 @@ CH1 は電気錠ワンショット専用。防犯ライトでは駆動しない�
 サーバーから動的同期したルールで動作。
 DI1/DI2 検知時は DO2+DO3 を維持秒数（既定 45 秒）点灯する。
 
-点灯時間帯は NTP の UTC を必ず JST（UTC+9）へ変換してから判定する。
+点灯時間帯は JST（UTC+9）で判定する。
+VPS が渡した jstMinutes を正とし、無いときだけ NTP の UTC に +9 時間する。
 17:00〜06:00 のような日跨ぎも同じ関数で扱う。
+日中かつ daytime_test_mode / force_relay_test が OFF のとき、
+センサーでは DO2/DO3 を出さない。通知は続ける。手動点灯は時間帯を見ない。
 """
 
 import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
-FIRMWARE_LOGIC_VERSION = "1.6.6"
+# 1.6 系のまま。製品全体の 1.2 系には合わせない。
+FIRMWARE_LOGIC_VERSION = "1.6.7"
 
-# NTP の time.time() は UTC。窓判定の前に必ず足す。
+# NTP の time.time() は UTC。VPS 時刻が無いときだけ窓判定の前に足す。
 JST_OFFSET_SEC = 9 * 3600
-# これ未満は NTP 未同期（テスト用の小さい epoch を含む）
-_NTP_EPOCH_MIN = 1700000000
 
 try:
     import uasyncio as asyncio
@@ -163,6 +165,18 @@ def _hm_to_minutes(h, m):
     return h * 60 + m
 
 
+def _coerce_bool(value):
+    """JSON の真偽。文字列の false は OFF。"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    text = str(value or "").strip().lower()
+    if text in ("1", "true", "yes", "on"):
+        return True
+    return False
+
+
 def utc_epoch_to_jst_minutes(utc_sec):
     """UTC epoch を JST の分（0-1439）にする。
 
@@ -201,6 +215,8 @@ class SecurityLightController:
         self._vps_jst_valid = False
         self._vps_light_active = True
         self._vps_light_active_set = False
+        # 未受信のあいだは日中のセンサー点灯を出さない
+        self._force_relay_test = False
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
         self._di2_duration_ms = _DEFAULT_DURATION_MS
@@ -245,11 +261,99 @@ class SecurityLightController:
             )
             self._vps_light_active_set = True
 
+    def _sync_daytime_test(self, rules):
+        """昼間テスト。false の日中はセンサーで DO を出さない。"""
+        if "daytime_test_mode" in rules:
+            self._force_relay_test = _coerce_bool(
+                rules.get("daytime_test_mode")
+            )
+        elif "daytimeTestMode" in rules:
+            self._force_relay_test = _coerce_bool(
+                rules.get("daytimeTestMode")
+            )
+        elif "force_relay_test" in rules:
+            self._force_relay_test = _coerce_bool(
+                rules.get("force_relay_test")
+            )
+        elif "forceRelayTest" in rules:
+            self._force_relay_test = _coerce_bool(
+                rules.get("forceRelayTest")
+            )
+
+    def _sync_live_light_settings(self, rules):
+        """点灯窓と維持秒は version が同じでも毎回反映する。"""
+        self._sync_daytime_test(rules)
+        if (
+            "scheduleStart" in rules
+            or "light_start" in rules
+            or "lightStart" in rules
+        ):
+            self._schedule_start = str(
+                rules.get("scheduleStart", self._schedule_start)
+            )
+            self._light_start = str(
+                rules.get(
+                    "light_start",
+                    rules.get("lightStart", self._schedule_start),
+                )
+            )
+        if (
+            "scheduleEnd" in rules
+            or "light_end" in rules
+            or "lightEnd" in rules
+        ):
+            self._schedule_end = str(
+                rules.get("scheduleEnd", self._schedule_end)
+            )
+            self._light_end = str(
+                rules.get(
+                    "light_end",
+                    rules.get("lightEnd", self._schedule_end),
+                )
+            )
+        light_raw = rules.get("lighting_duration_sec")
+        if light_raw is None:
+            light_raw = rules.get("light_duration_sec")
+        master_ms = (
+            _hold_ms(light_raw, self._di1_duration_ms)
+            if light_raw is not None
+            else None
+        )
+        di1_raw = rules.get("di1DurationMs")
+        if master_ms is not None:
+            di1_ms = (
+                _hold_ms(di1_raw, master_ms)
+                if di1_raw is not None
+                else master_ms
+            )
+            if di1_ms < master_ms:
+                di1_ms = master_ms
+            self._di1_duration_ms = di1_ms
+        elif di1_raw is not None:
+            self._di1_duration_ms = _hold_ms(
+                di1_raw, self._di1_duration_ms
+            )
+        alert_raw = rules.get("di2AlertDurationMs")
+        if alert_raw is not None:
+            self._di2_duration_ms = _hold_ms(
+                alert_raw, self._di1_duration_ms
+            )
+        elif master_ms is not None:
+            self._di2_duration_ms = master_ms
+        solo_raw = rules.get("di2StandaloneDurationMs")
+        if solo_raw is not None:
+            self._di2_standalone_ms = _hold_ms(
+                solo_raw, self._di2_duration_ms
+            )
+        elif master_ms is not None:
+            self._di2_standalone_ms = self._di2_duration_ms
+
     def apply_rules(self, rules):
         """VPS から最新防犯ルール JSON を反映。"""
         if not rules or not isinstance(rules, dict):
             return False
         self._sync_vps_clock(rules)
+        self._sync_live_light_settings(rules)
         ver = int(rules.get("version", 0))
         if ver <= self._rules_version and ver > 0:
             return False
@@ -373,27 +477,29 @@ class SecurityLightController:
     def _jst_minutes(self):
         """点灯窓判定用の JST 分（0-1439）。
 
-        NTP 同期済みの time.time() は UTC。必ず +9h してから
-        時分を取る。日跨ぎ（17:00〜06:00 等）もこの分で判定する。
-        NTP 未同期のときだけ VPS が渡した JST 分を使う。
+        VPS の jstMinutes を正とする。盤の time.time() が
+        すでに JST だと +9 で昼が夜に見える。
+        VPS 時刻が無いときだけ NTP の UTC に +9 時間する。
         """
-        utc_sec = 0
-        try:
-            utc_sec = int(time.time())
-        except Exception:
-            utc_sec = 0
-        if utc_sec >= _NTP_EPOCH_MIN:
-            return utc_epoch_to_jst_minutes(utc_sec)
         if self._vps_jst_valid:
             extra = 0
             try:
                 elapsed = time.ticks_diff(
                     time.ticks_ms(), self._vps_jst_ticks
                 )
+                if elapsed < 0:
+                    elapsed = 0
                 extra = int(elapsed) // 60000
             except Exception:
                 extra = 0
-            return (self._vps_jst_minutes + extra) % (24 * 60)
+            return (int(self._vps_jst_minutes) + extra) % (24 * 60)
+        utc_sec = 0
+        try:
+            utc_sec = int(time.time())
+        except Exception:
+            utc_sec = 0
+        if utc_sec < 0:
+            utc_sec = 0
         return utc_epoch_to_jst_minutes(utc_sec)
 
     def _is_in_light_schedule(self):
@@ -427,8 +533,9 @@ class SecurityLightController:
 
     def _can_run_lights(self):
         """センサー連動の点灯可否。
-        手動命令は execute_manual 側でバイパス。
-        時間帯は JST 変換後のローカル判定だけを使う。
+        夜間は昼間テストを見ずに点灯する。
+        日中かつテスト OFF のときだけ DO2/DO3 を出さない。
+        手動命令は execute_manual 側でバイパスする。
         """
         if self._security_paused:
             self.log("security paused - lights off")
@@ -436,19 +543,22 @@ class SecurityLightController:
         if self._guard_mode == "off":
             self.log("guard off (DISARMED) - lights off")
             return False
-        if not self._is_in_light_schedule():
-            now = self._jst_minutes()
-            self.log(
-                "outside light schedule (%s~%s) jst=%02d:%02d - DO2/DO3 off"
-                % (
-                    self._light_start,
-                    self._light_end,
-                    now // 60,
-                    now % 60,
-                )
+        if self._is_in_light_schedule():
+            return True
+        if self._force_relay_test:
+            self.log("daytime test ON - sensor lights allowed")
+            return True
+        now = self._jst_minutes()
+        self.log(
+            "outside light schedule (%s~%s) jst=%02d:%02d daytime test OFF - DO2/DO3 blocked"
+            % (
+                self._light_start,
+                self._light_end,
+                now // 60,
+                now % 60,
             )
-            return False
-        return True
+        )
+        return False
 
     def _arm_do2_do3(self, mode_do2, mode_do3, duration_ms):
         """DI 検知の瞬間に DO2/DO3 を ON する。CH1 は触らない。"""
@@ -780,6 +890,11 @@ class SecurityLightController:
             self.log("unknown sensor pulse: {}".format(cmd))
             return False
         pattern, duration_ms = parsed
+        if not self._can_run_lights():
+            self.log(
+                "daytime test OFF - skip sensor pulse {}".format(cmd)
+            )
+            return False
         self._manual_hold = False
         self.log(
             "VPS sensor pulse {} {}s DO2+DO3".format(

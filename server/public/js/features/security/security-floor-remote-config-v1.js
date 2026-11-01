@@ -464,6 +464,16 @@ function renderRules(rules, notifyPolicy) {
     rules.scheduleStart || "18:00",
     rules.scheduleEnd || "06:00"
   );
+  const daytimeTest = rules.forceRelayTest === true;
+  const daytimeBox = $("sf-daytime-test");
+  if (daytimeBox) daytimeBox.checked = daytimeTest;
+  setText("sf-daytime-test-label", daytimeTest ? "ON" : "OFF");
+  setText(
+    "sf-day-tile-desc",
+    daytimeTest
+      ? "昼間テスト ON · センサーでもライトが点灯"
+      : "通知のみ・ライトは消灯のまま"
+  );
 
   if (state.paused || state.guardMode === "off") {
     setSegValue("sf-guard-seg", "off");
@@ -555,6 +565,8 @@ function collectPayload(homeSiteId) {
     notifyDi2InstantPush: notifyDi2Mode === "critical",
     scheduleStart: times.scheduleStart,
     scheduleEnd: times.scheduleEnd,
+    forceRelayTest: Boolean($("sf-daytime-test")?.checked),
+    daytime_test_mode: Boolean($("sf-daytime-test")?.checked),
     guardMode: guardSeg === "off" ? "off" : "always",
     securityPausedUntil: null,
     diConfirmMs: readSlider("sf-di-confirm-ms", 100),
@@ -764,6 +776,28 @@ function bindRemoteConfigUi() {
   };
   $("sf-schedule-start")?.addEventListener("change", onScheduleChange);
   $("sf-schedule-end")?.addEventListener("change", onScheduleChange);
+  $("sf-daytime-test")?.addEventListener("change", () => {
+    const on = Boolean($("sf-daytime-test")?.checked);
+    setText("sf-daytime-test-label", on ? "ON" : "OFF");
+    setText(
+      "sf-day-tile-desc",
+      on
+        ? "昼間テスト ON · センサーでもライトが点灯"
+        : "通知のみ・ライトは消灯のまま"
+    );
+    applyToDevice(state.homeSiteId)
+      .then((data) => {
+        showToast(
+          data.message ||
+            (on
+              ? "昼間のセンサー点灯テストをオンにしました"
+              : "昼間は通知のみにしました")
+        );
+      })
+      .catch((err) => {
+        showToast(err.message || "昼間テストの反映に失敗しました");
+      });
+  });
   syncSchedulePanelVisibility();
 
   bindSegGroup("sf-di1-24v-seg");
