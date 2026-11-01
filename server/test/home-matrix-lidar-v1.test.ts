@@ -88,4 +88,23 @@ describe("matrix lidar", () => {
       .send({ siteId: "TOYOSHIMA001", matrix });
     assert.equal(other.status, 400);
   });
+
+  it("keeps all 64 raw millimeters, including far cells", async () => {
+    const matrix = farGrid();
+    matrix[0] = 0;
+    matrix[1] = 9000;
+    matrix[2] = 350;
+    const posted = await request(app)
+      .post("/api/home/v1/itabashi/lidar")
+      .send({
+        siteId,
+        deviceId: "rp2350-itabashi-main-01",
+        matrix,
+      });
+    assert.equal(posted.status, 200);
+    assert.equal(posted.body.snapshot.matrix.length, 64);
+    assert.equal(posted.body.snapshot.matrix[0], 0);
+    assert.equal(posted.body.snapshot.matrix[1], 9000);
+    assert.equal(posted.body.snapshot.matrix[2], 350);
+  });
 });

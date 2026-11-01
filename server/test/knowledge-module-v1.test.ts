@@ -168,6 +168,11 @@ describe("knowledge-module-v1 PWA", () => {
     assert.match(mockSrc, /#デザイン標準/);
     assert.match(mockSrc, /#デグレ防止/);
     assert.match(mockSrc, /#白ベースNavy/);
+    assert.match(mockSrc, /MOCK_MATRIX_LIDAR_HEATMAP_ITEMS/);
+    assert.match(mockSrc, /8x8 Matrix LiDAR（VL53L5CX）のPWAヒートマップ化と物理エリア調整/);
+    assert.match(mockSrc, /#LiDAR/);
+    assert.match(mockSrc, /#ヒートマップ/);
+    assert.match(mockSrc, /#エリア調整/);
   });
 
   it("nav script requires login before loading bundle", () => {

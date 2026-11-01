@@ -2266,3 +2266,38 @@ export const MOCK_UIUX_DESIGN_STANDARD_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const MATRIX_LIDAR_HEATMAP_KNOWLEDGE_TITLES = [
+  "【センサーハック】8x8 Matrix LiDAR（VL53L5CX）のPWAヒートマップ化と物理エリア調整",
+] as const;
+
+const MATRIX_LIDAR_HEATMAP_CREATED_AT = "2026-11-01T09:10:00.000Z";
+
+/** 8x8 LiDAR ヒートマップ（末尾追記） */
+export const MOCK_MATRIX_LIDAR_HEATMAP_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-matrix-lidar-heatmap-001",
+    title:
+      "【センサーハック】8x8 Matrix LiDAR（VL53L5CX）のPWAヒートマップ化と物理エリア調整",
+    summary: [
+      "空間を8x8（64分割）で見る LiDAR は、UART の TX/RX を交差してつなぐ。",
+      "アルミテープは乱反射で誤報になるため使わず、つや消し黒で画角を物理的に絞る。",
+      "PWA のヒートマップを見ながら、反応しているマスへテープを足す。",
+    ].join(""),
+    genre: "IOT関連",
+    tags: ["#LiDAR", "#UART", "#ヒートマップ", "#エリア調整", "#RP2350"],
+    pdf_url: null,
+    createdAt: MATRIX_LIDAR_HEATMAP_CREATED_AT,
+    body: [
+      "【UART】",
+      "ボーレート 115200。センサーの R はホスト TX、T はホスト RX。",
+      "",
+      "【ヒートマップ】",
+      "64マスは切らない。近いほどネイビーかオレンジ、遠いほど白。",
+      "社内は /app、お客様は /customer。",
+      "",
+      "【物理エリア調整】",
+      "アルミテープは使わない。つや消し黒（パーマセルテープなど）で画角を絞る。",
+    ].join("\n"),
+  },
+];

@@ -74,7 +74,7 @@ def extract_packet(buf, expect_cmd):
 
 
 def payload_to_cells(payload):
-    """128 バイトを 64 点のミリメートルにする。"""
+    """128 バイトを 64 点のミリメートルにする。値は切らない。"""
     raw = bytes(payload or b"")
     if len(raw) < CELL_COUNT * 2:
         return None
@@ -84,6 +84,21 @@ def payload_to_cells(payload):
         hi = raw[i * 2 + 1]
         cells.append(lo | (hi << 8))
     return cells
+
+
+def raw_matrix(cells):
+    """64 点をそのまま返す。無効化も、距離の上限クリップもしない。"""
+    out = []
+    src = list(cells or [])
+    for i in range(CELL_COUNT):
+        if i >= len(src):
+            out.append(0)
+            continue
+        try:
+            out.append(int(src[i]))
+        except Exception:
+            out.append(0)
+    return out
 
 
 def _centroid(points):
@@ -256,16 +271,14 @@ def poll_and_post(http_post, config, now_ms=None):
         _mark_retry(now_ms)
         return False
     _retry_after_ms = 0
-    current = analyze_matrix(cells, _previous)
-    if not should_publish(_previous, current, now_ms, _last_post_ms):
-        _previous = current
-        return False
+    matrix = raw_matrix(cells)
+    current = analyze_matrix(matrix, _previous)
     site_id = getattr(config, "SITE_ID", "HOME-JP-ITABASHI-LIVE")
     device_id = getattr(config, "DEVICE_ID", "rp2350-itabashi-main-01")
     body = {
         "siteId": site_id,
         "deviceId": device_id,
-        "matrix": cells,
+        "matrix": matrix,
         "present": current["present"],
         "direction": current["direction"],
         "centroid": current["centroid"],

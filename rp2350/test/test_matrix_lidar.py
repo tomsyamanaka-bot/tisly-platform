@@ -58,7 +58,17 @@ def test_parse_and_move():
     assert matrix_lidar.should_publish(first, first, 20000, 1000, 15000) is True
 
 
+def test_raw_matrix_keeps_every_cell():
+    cells = [0, 9000] + [2500] * 62
+    raw = matrix_lidar.raw_matrix(cells)
+    assert len(raw) == 64
+    assert raw[0] == 0
+    assert raw[1] == 9000
+    assert raw[63] == 2500
+
+
 if __name__ == "__main__":
     test_packets()
     test_parse_and_move()
+    test_raw_matrix_keeps_every_cell()
     print("matrix lidar ok")

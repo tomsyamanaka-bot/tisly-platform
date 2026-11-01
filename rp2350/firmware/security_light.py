@@ -20,7 +20,7 @@ import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
 # 1.6 系のまま。製品全体の 1.2 系には合わせない。
-FIRMWARE_LOGIC_VERSION = "1.6.8"
+FIRMWARE_LOGIC_VERSION = "1.6.9"
 
 # NTP の time.time() は UTC。VPS 時刻が無いときだけ窓判定の前に足す。
 JST_OFFSET_SEC = 9 * 3600

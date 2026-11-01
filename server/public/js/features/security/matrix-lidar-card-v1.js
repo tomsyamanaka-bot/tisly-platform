@@ -6,13 +6,15 @@
 const SITE_ID = "HOME-JP-ITABASHI-LIVE";
 let timer = 0;
 
-function colorForMm(mm) {
-  if (!mm || mm < 20 || mm > 4000) return "#e2e8f0";
-  if (mm <= 400) return "#ea580c";
-  if (mm <= 800) return "#1e3a8a";
-  if (mm <= 1200) return "#3b82f6";
-  if (mm <= 2000) return "#93c5fd";
-  return "#dbeafe";
+/** 近い＝オレンジ／ネイビー、遠い＝白。マスは無効化しない。 */
+export function heatmapColorForMm(mm) {
+  const n = Number(mm);
+  if (!Number.isFinite(n) || n <= 0) return "#ffffff";
+  if (n <= 400) return "#ea580c";
+  if (n <= 900) return "#1e3a8a";
+  if (n <= 1600) return "#60a5fa";
+  if (n <= 2800) return "#e2e8f0";
+  return "#f8fafc";
 }
 
 function paint(snap) {
@@ -44,11 +46,16 @@ function paint(snap) {
   const cy = snap.centroid ? Math.round(Number(snap.centroid.y)) : -1;
   for (let i = 0; i < 64; i += 1) {
     const el = grid.children[i];
-    const mm = Number(cells[i]) || 0;
-    el.style.background = colorForMm(mm);
+    const mm = Number(cells[i]);
+    const shown = Number.isFinite(mm) ? mm : 0;
+    el.style.background = heatmapColorForMm(shown);
+    el.textContent = shown > 0 ? String(shown) : "";
+    el.title = `${shown} mm`;
     const x = i % 8;
     const y = Math.floor(i / 8);
     el.classList.toggle("is-person", detected && x === cx && y === cy);
+    const ink = shown > 0 && shown <= 900 ? "#ffffff" : "#0f172a";
+    el.style.color = ink;
   }
 }
 
@@ -69,7 +76,7 @@ async function refresh() {
 function start() {
   if (timer) return;
   refresh();
-  timer = window.setInterval(refresh, 3000);
+  timer = window.setInterval(refresh, 1500);
 }
 
 function stop() {

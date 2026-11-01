@@ -183,6 +183,10 @@ const {
   UIUX_DESIGN_STANDARD_MODULE_SEED_IDS,
   seedUiuxDesignStandardKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-uiux-design-standard-seed-v1.js");
+const {
+  MATRIX_LIDAR_HEATMAP_MODULE_SEED_IDS,
+  seedMatrixLidarHeatmapKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-matrix-lidar-heatmap-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1696,6 +1700,39 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(card!.tags.includes("#UIUX"));
     assert.ok(card!.tags.includes("#白ベースNavy"));
     assert.match(card!.body ?? "", /#1E3A8A/);
+  });
+
+  it("listKnowledgeModuleItemsV1 appends matrix lidar heatmap seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of MATRIX_LIDAR_HEATMAP_MODULE_SEED_IDS) {
+      assert.ok(listed.some((x) => x.id === id), `missing seed ${id}`);
+    }
+    const card = listed.find((x) => x.id === "kn-seed-matrix-lidar-heatmap-001");
+    assert.ok(card);
+    assert.match(card!.title, /PWAヒートマップ化と物理エリア調整/);
+    assert.ok(card!.tags.includes("#LiDAR"));
+    assert.ok(card!.tags.includes("#UART"));
+    assert.ok(card!.tags.includes("#ヒートマップ"));
+    assert.ok(card!.tags.includes("#エリア調整"));
+    assert.ok(card!.tags.includes("#RP2350"));
+    const uiux = listed.find((x) => x.id === "kn-seed-uiux-design-standard-001");
+    assert.ok(uiux);
+    assert.ok(
+      new Date(card!.createdAt).getTime() > new Date(uiux!.createdAt).getTime()
+    );
+  });
+
+  it("seedMatrixLidarHeatmapKnowledgeCardsV1 upserts searchable cards", () => {
+    seedUiuxDesignStandardKnowledgeCardsV1();
+    seedMatrixLidarHeatmapKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-MATRIX-LIDAR-HEATMAP-001");
+    assert.ok(card);
+    assert.match(card!.title, /VL53L5CX/);
+    assert.match(card!.body ?? "", /パーマセル/);
+    assert.match(card!.body ?? "", /アルミテープ/);
+    const uiux = getKnowledgeCardV1("OPS-UIUX-DESIGN-STANDARD-001");
+    assert.ok(uiux);
   });
 
   it("seedFabFinishKnowledgeCardsV1 upserts searchable cards", () => {

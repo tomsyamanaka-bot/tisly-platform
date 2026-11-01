@@ -161,6 +161,10 @@ import {
   UIUX_DESIGN_STANDARD_MODULE_SEED_IDS,
   getUiuxDesignStandardModuleSeedItemsV1,
 } from "./knowledge-uiux-design-standard-seed-v1.js";
+import {
+  MATRIX_LIDAR_HEATMAP_MODULE_SEED_IDS,
+  getMatrixLidarHeatmapModuleSeedItemsV1,
+} from "./knowledge-matrix-lidar-heatmap-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -2007,6 +2011,48 @@ function mergeUiuxDesignStandardSeed(
   return { items: next, changed };
 }
 
+/**
+ * Matrix LiDAR ヒートマップの調整手順を末尾追記。
+ */
+function mergeMatrixLidarHeatmapSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(MATRIX_LIDAR_HEATMAP_MODULE_SEED_IDS);
+  const seeds = getMatrixLidarHeatmapModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -2101,7 +2147,10 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedUiuxDesign = mergeUiuxDesignStandardSeed(
     mergedLeakageCurrent.items
   );
-  const mergedGenre = mergeUnifiedGenreBindings(mergedUiuxDesign.items);
+  const mergedLidarHeatmap = mergeMatrixLidarHeatmapSeed(
+    mergedUiuxDesign.items
+  );
+  const mergedGenre = mergeUnifiedGenreBindings(mergedLidarHeatmap.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -2142,6 +2191,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedHwKittingSurge.changed ||
     mergedLeakageCurrent.changed ||
     mergedUiuxDesign.changed ||
+    mergedLidarHeatmap.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

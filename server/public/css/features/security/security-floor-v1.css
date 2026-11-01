@@ -3473,18 +3473,33 @@ body.sf-customer #sf-matrix-lidar:not([hidden]) {
   font-weight: 700;
 }
 
+.sf-lidar-legend {
+  margin: 0 0 12px;
+  color: #334155;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 .sf-lidar-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-  max-width: 280px;
+  gap: 3px;
+  width: min(100%, 360px);
 }
 
 .sf-lidar-cell {
   aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
-  background: #e2e8f0;
-  border: 1px solid rgba(30, 58, 138, 0.18);
+  background: #ffffff;
+  border: 1px solid rgba(30, 58, 138, 0.22);
+  color: #0f172a;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
 }
 
 .sf-lidar-cell.is-person {
