@@ -197,3 +197,24 @@ CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
 CREATE INDEX IF NOT EXISTS idx_events_event_id ON events(event_id);
 CREATE INDEX IF NOT EXISTS idx_events_tenant ON events(tenant_id);
+
+CREATE TABLE IF NOT EXISTS home_matrix_lidar_latest_v1 (
+  site_id TEXT PRIMARY KEY,
+  device_id TEXT,
+  matrix_json TEXT NOT NULL,
+  present INTEGER NOT NULL,
+  direction TEXT NOT NULL,
+  centroid_json TEXT,
+  min_mm INTEGER,
+  near_count INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS home_matrix_lidar_event_v1 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  site_id TEXT NOT NULL,
+  present INTEGER NOT NULL,
+  direction TEXT NOT NULL,
+  min_mm INTEGER,
+  created_at TEXT NOT NULL
+);

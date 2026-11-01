@@ -1299,7 +1299,11 @@ async def async_main():
 
             next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
 
-
+        try:
+            import matrix_lidar
+            matrix_lidar.poll_and_post(http_post, config)
+        except Exception as e:
+            log_error("matrix lidar: {}".format(e))
 
         await asyncio.sleep(poll_interval_sec)
 

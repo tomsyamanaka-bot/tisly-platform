@@ -837,6 +837,22 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | 維持秒 | `lightingDurationSec` を約 3 秒のルール取得で実機へ反映する。7 秒なら `sensor_pulse_*_7000` で 7 秒後に消灯する |
 | OTA | `force: true` は使わない。1.6.6 の実機は次の心拍で 1.6.7 を取る |
 
+### 3.12 Matrix LiDAR（SEN0628）（2026-11-01 追記）
+
+既存 3.1〜3.11 は残す。上書きしない。DI/DO の端子と、保存済みの点灯時刻・維持秒・感応度・昼間テストは書き換えない。
+
+| 項目 | 値 |
+|------|-----|
+| ロジック版 | `FIRMWARE_LOGIC_VERSION=1.6.8` · 目標版 `1.6.8`。1.2 系には合わせない |
+| センサー | DFRobot SEN0628。8×8。距離は mm。UART ボーレート 115200 |
+| UART | UART1。TX GPIO4、RX GPIO5。センサーの R はホスト TX、センサーの T はホスト RX |
+| 使わないピン | DI GPIO9–16、DO GPIO17–24、RGB GPIO2、ブザー GPIO3 |
+| 人 | 20〜1200 mm の点が 3 つ以上で検知中。少なければクリア |
+| 方向 | 近い点の中心が前の中心からずれたとき、左・右・奥・手前 |
+| 送信 | 検知か方向が変わったときと、約 15 秒ごと。`POST /api/home/v1/itabashi/lidar` |
+| 画面 | 社内 `/app/security` とお客様 `/customer` の警備。板橋のときだけ |
+| OTA | `matrix_lidar.py` と `main.py` を次の心拍で渡す。`config.py` は上書きしない。`force: true` は使わない |
+
 ---
 
 ## 3.6 テスター専用テナント（TESTER001）

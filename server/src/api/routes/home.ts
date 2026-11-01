@@ -159,6 +159,10 @@ import {
   recordItabashiHeartbeatV1,
   setItabashiHeartbeatWatchV1,
 } from "../../home/home-itabashi-comm-v1.js";
+import {
+  getMatrixLidarSnapshotV1,
+  ingestMatrixLidarFrameV1,
+} from "../../home/home-matrix-lidar-v1.js";
 import { registerRyugasakiSecurityRoutesV1 } from "./ryugasaki-security-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
@@ -1921,6 +1925,39 @@ homeRouter.get("/itabashi/status", (_req, res) => {
  * 疑似 / 実機ハートビート
  * 既存の板橋 DI/DO は触らない
  */
+homeRouter.post("/itabashi/lidar", (req, res) => {
+  noStoreItabashi(res);
+  const token = String(req.headers["x-remote-test-token"] ?? "").trim();
+  const expected = String(process.env.REMOTE_TEST_TOKEN ?? "").trim();
+  if (expected && token !== expected) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return;
+  }
+  const result = ingestMatrixLidarFrameV1({
+    siteId: req.body?.siteId,
+    deviceId: req.body?.deviceId,
+    matrix: req.body?.matrix,
+  });
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json({
+    ok: true,
+    changed: result.changed,
+    snapshot: result.snapshot,
+  });
+});
+
+homeRouter.get("/itabashi/lidar", (req, res) => {
+  noStoreItabashi(res);
+  const siteId = String(req.query.siteId ?? "HOME-JP-ITABASHI-LIVE").trim();
+  res.json({
+    ok: true,
+    snapshot: getMatrixLidarSnapshotV1(siteId),
+  });
+});
+
 homeRouter.post("/itabashi/heartbeat", (req, res) => {
   noStoreItabashi(res);
   const status = recordItabashiHeartbeatV1({

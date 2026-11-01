@@ -43,6 +43,7 @@ import {
   isItabashiSecuritySite,
   useItabashiStatus,
 } from "./use-itabashi-status-v1.js";
+import { syncMatrixLidarCard } from "./matrix-lidar-card-v1.js";
 import { startCustomerAssureStatusV1 } from "./customer-assure-status-v1.js";
 import {
   getCustomerCode,
@@ -339,6 +340,7 @@ function applySiteLayout(force = false) {
   }
 
   ensureCustomerAssure();
+  syncMatrixLidarCard(isItabashiSecuritySite(state.siteId));
   if (!force && state.layoutSiteId === state.siteId) {
     return;
   }

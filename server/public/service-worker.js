@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2588-customer-site-fixed";
+const SW_VERSION = "tisly-pwa-v2590-matrix-lidar";
+/* tisly-pwa-v2588-customer-site-fixed */
 /* tisly-pwa-v2587-staff-security-ui */
 /* tisly-pwa-v2586-staff-security-ui */
 /* tisly-pwa-v2585-hub-push-staff-only */

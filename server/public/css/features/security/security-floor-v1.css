@@ -3434,3 +3434,60 @@ body.sf-soc #sf-manual-light[hidden] {
   background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
   color: #ffffff;
 }
+
+#sf-matrix-lidar[hidden] {
+  display: none !important;
+}
+
+/* お客様のタブ切替は直接の子を隠す。板橋の測距カードは残す。 */
+body.sf-customer #sf-matrix-lidar:not([hidden]) {
+  display: block !important;
+}
+
+.sf-lidar-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+
+.sf-lidar-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 96px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: #64748b;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.sf-lidar-pill.is-hot {
+  background: #ea580c;
+}
+
+.sf-lidar-dir {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.sf-lidar-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  max-width: 280px;
+}
+
+.sf-lidar-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: #e2e8f0;
+  border: 1px solid rgba(30, 58, 138, 0.18);
+}
+
+.sf-lidar-cell.is-person {
+  outline: 2px solid #1e3a8a;
+  outline-offset: 1px;
+}

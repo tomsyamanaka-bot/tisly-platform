@@ -160,6 +160,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
     skipFiles: SKIP_CONFIG,
     fileMap: {
       "main.py": "main.py",
+      "matrix_lidar.py": "matrix_lidar.py",
       "security_light.py": "security_light.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",

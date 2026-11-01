@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2588" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2591" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2588" />
   <link rel="stylesheet" href="/css/features/security/washmate-customer-settings-v1.css?v=2578" />
   <link rel="stylesheet" href="/css/camera-webrtc-viewer-v1.css" />
@@ -156,6 +156,17 @@
           </button>
         </div>
       </section>
+    </section>
+
+    <section class="sf-card sf-matrix-lidar" id="sf-matrix-lidar" hidden>
+      <p class="sf-card-label">◎ Matrix LiDAR 空間測距</p>
+      <p class="sf-remote-target" id="sf-matrix-lidar-note">板橋自宅 · 8×8</p>
+      <div class="sf-lidar-status">
+        <span class="sf-lidar-pill" id="sf-matrix-lidar-pill">クリア</span>
+        <span class="sf-lidar-dir" id="sf-matrix-lidar-dir">人はいません</span>
+      </div>
+      <div class="sf-lidar-grid" id="sf-matrix-lidar-grid" role="img" aria-label="8×8 の距離"></div>
+      <p class="sf-hint" id="sf-matrix-lidar-meta">測距を待っています</p>
     </section>
 
     <details class="sf-card sf-customer-daily-settings" id="sf-customer-daily-settings" open>
@@ -311,6 +322,6 @@
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2569"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2588"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2590"></script>
 </body>
 </html>

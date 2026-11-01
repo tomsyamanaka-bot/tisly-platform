@@ -7,8 +7,8 @@
 export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   /** 豊島邸。他現場の追加では上げない */
   toyoshima: "1.2.29",
-  /** 板橋自宅。1.6 系の別ライン。昼のセンサー点灯ブロック */
-  itabashi: "1.6.7",
+  /** 板橋自宅。1.6 系の別ライン。Matrix LiDAR UART */
+  itabashi: "1.6.8",
   /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
   ryugasaki: "1.2.42",
 } as const;
