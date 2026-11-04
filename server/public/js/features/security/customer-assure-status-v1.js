@@ -8,8 +8,10 @@ import { isItabashiSecuritySite, fetchItabashiStatus } from "./use-itabashi-stat
 import { fetchToyoshimaStatus, isHardwareOnline } from "./use-toyoshima-status-v1.js";
 import { isToyoshimaSecuritySite } from "./toyoshima-security-dashboard-v1.js";
 import { isWashmateSecuritySite } from "./washmate-customer-settings-v1.js";
+import { isKeepRisingSecuritySite } from "./keeprising-customer-settings-v1.js";
 
 const RYUGASAKI_STATUS_PATH = "/api/home/v1/ryugasaki/status";
+const KEEPRISING_STATUS_PATH = "/api/home/v1/keeprising/status";
 
 function setText(id, text) {
   const el = document.getElementById(id);
@@ -69,6 +71,20 @@ export function paintCustomerAssureCardV1(status) {
 }
 
 async function loadStatus(siteId) {
+  if (isKeepRisingSecuritySite(siteId)) {
+    const res = await fetch(
+      `${KEEPRISING_STATUS_PATH}?t=${Date.now()}&_fresh=${Date.now()}`,
+      {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-store", Pragma: "no-cache" },
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+    return {
+      ...data,
+      isHardwareOnline: data.online === true || data.isHardwareOnline === true,
+    };
+  }
   if (isWashmateSecuritySite(siteId)) {
     const res = await fetch(
       `${RYUGASAKI_STATUS_PATH}?t=${Date.now()}&_fresh=${Date.now()}`,

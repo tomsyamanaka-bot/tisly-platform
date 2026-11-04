@@ -1,0 +1,155 @@
+/* Keep Rising の設定。白地に紺の大きなボタン。 */
+
+.kr-settings {
+  margin: 12px 16px 20px;
+  background: #ffffff;
+  border: 1px solid #1e3a8a;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.kr-settings > summary {
+  min-height: 56px;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e3a8a;
+  cursor: pointer;
+  list-style: none;
+}
+
+.kr-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.kr-settings-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+}
+
+.kr-card {
+  background: #f8fafc;
+  border: 1px solid #dbe3f0;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.kr-card h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #1e3a8a;
+}
+
+.kr-card p,
+.kr-note {
+  margin: 0 0 10px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.kr-times,
+.kr-select {
+  display: grid;
+  gap: 10px;
+}
+
+.kr-times label,
+.kr-select {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kr-times input,
+.kr-select select {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 6px;
+  border: 1px solid #1e3a8a;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 18px;
+  padding: 0 12px;
+}
+
+.kr-slider {
+  display: grid;
+  gap: 8px;
+}
+
+.kr-slider strong {
+  font-size: 28px;
+  color: #1e3a8a;
+}
+
+.kr-slider input[type="range"] {
+  width: 100%;
+  accent-color: #1e3a8a;
+  min-height: 44px;
+}
+
+.kr-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.kr-seg-btn,
+.kr-commit,
+.kr-test,
+.kr-dialog button {
+  min-height: 56px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.kr-seg-btn {
+  background: #64748b;
+}
+
+.kr-seg-btn.is-on[data-kr-mode="steady"] {
+  background: #16a34a;
+}
+
+.kr-seg-btn.is-on[data-kr-mode="blink"] {
+  background: #ea580c;
+}
+
+.kr-commit {
+  background: #1e3a8a;
+}
+
+.kr-test,
+.kr-dialog .kr-yes {
+  width: 100%;
+  margin-top: 10px;
+  background: #ea580c;
+}
+
+.kr-dialog {
+  border: 1px solid #1e3a8a;
+  border-radius: 16px;
+  padding: 18px;
+  color: #0f172a;
+  max-width: 420px;
+}
+
+.kr-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.kr-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.kr-dialog .kr-no {
+  background: #64748b;
+}

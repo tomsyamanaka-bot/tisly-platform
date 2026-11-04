@@ -12,6 +12,7 @@ import {
 } from "./retire-obsolete-demo-customers-v1.js";
 import { ensureTester001CustomerV1 } from "./seed-tester001-v1.js";
 import { ensureWashmate001CustomerV1 } from "./seed-washmate001-v1.js";
+import { ensureKeepRising001CustomerV1 } from "./seed-keeprising001-v1.js";
 
 /** 正規デモ顧客 — 板橋自宅 / 豊島邸 のみ */
 const DEMO_CUSTOMERS = [
@@ -204,5 +205,7 @@ export function seedProRemoteCustomers(): void {
   ensureTester001CustomerV1();
   // 龍ヶ崎店は末尾追記。既存顧客の行は触らない
   ensureWashmate001CustomerV1();
+  // Keep Rising は末尾追記。既存顧客の行は触らない
+  ensureKeepRising001CustomerV1();
   ensureProFloorLayersSeed();
 }

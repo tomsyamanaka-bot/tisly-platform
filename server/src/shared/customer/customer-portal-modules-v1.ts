@@ -79,6 +79,11 @@ export const CUSTOMER_PORTAL_DEFAULTS_BY_CODE_V1: Record<string, string[]> = {
     "security_floor_v1",
     "customer_portal",
   ],
+  /** Keep Rising: Security のみ */
+  KEEPRISING001: [
+    "security_floor_v1",
+    "customer_portal",
+  ],
 };
 
 /** 一般顧客の Security 単体既定（追記） */

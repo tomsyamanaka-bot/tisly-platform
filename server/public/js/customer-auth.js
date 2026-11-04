@@ -40,6 +40,7 @@ const LIVE_OWNER_CODES_V1 = new Set([
   "TOYOSHIMA001",
   "TOSHIMA001",
   "WASHMATE001",
+  "KEEPRISING001",
 ]);
 
 /** 全角英数・空白・ハイフンを顧客コード比較用に揃える */
@@ -62,7 +63,8 @@ export function isLivePropertyIdV1(id) {
     s.includes("TOYOSHIMA") ||
     s.includes("TOSHIMA") ||
     s.includes("RYUGASAKI") ||
-    s.includes("WASHMATE")
+    s.includes("WASHMATE") ||
+    s.includes("KEEPRISING")
   );
 }
 

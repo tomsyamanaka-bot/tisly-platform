@@ -115,6 +115,12 @@ export const SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1 =
 export const SECURITY_FLOOR_RYUGASAKI_PROPERTY_ID_V1 =
   "HOME-JP-RYUGASAKI";
 
+/** Keep Rising */
+export const SECURITY_FLOOR_KEEPRISING_SITE_ID_V1 =
+  "SEC-JP-KEEPRISING-001";
+export const SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1 =
+  "HOME-JP-KEEPRISING";
+
 /** @deprecated 旧 ID 互換 */
 export const SECURITY_FLOOR_TOSHIMA_SITE_ID_V1 =
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1;
@@ -129,6 +135,7 @@ export const SECURITY_FLOOR_UI_VISIBLE_SITE_IDS_V1 = [
   SECURITY_FLOOR_ITABASHI_LIVE_SITE_ID_V1,
   SECURITY_FLOOR_TOYOSHIMA_SITE_ID_V1,
   SECURITY_FLOOR_RYUGASAKI_SITE_ID_V1,
+  SECURITY_FLOOR_KEEPRISING_SITE_ID_V1,
 ] as const;
 
 /** UI 初期選択（板橋自宅） */
@@ -914,6 +921,91 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
     notes: [
       "入力は通知専用です",
       "回転灯とベルは確認後の遠隔操作だけです",
+    ],
+  },
+  {
+    id: SECURITY_FLOOR_KEEPRISING_SITE_ID_V1,
+    tenantId: "KEEPRISING001",
+    countryCode: "JP",
+    currency: "JPY",
+    kind: "home",
+    displayName: "Keep Rising",
+    addressLabel: "Keep Rising",
+    planCode: "home_security_std",
+    planStatus: "active",
+    monthlyFee: 0,
+    propertyId: SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1,
+    floors: [{ id: "1f", label: "敷地", enabled: true }],
+    rooms: [
+      {
+        id: "kr-yard",
+        floorId: "1f",
+        label: "敷地",
+        x: 8,
+        y: 16,
+        w: 84,
+        h: 68,
+        propertyId: SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1,
+      },
+    ],
+    sensors: [
+      {
+        id: "kr-di1",
+        floorId: "1f",
+        roomId: "kr-yard",
+        kind: "window",
+        label: "センサー1（赤外線ビーム）",
+        customerLabel: "センサー1",
+        x: 18,
+        y: 24,
+        state: "normal",
+        deviceId: "rp2350-keeprising-main-01",
+        propertyId: SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1,
+      },
+      {
+        id: "kr-di2",
+        floorId: "1f",
+        roomId: "kr-yard",
+        kind: "door",
+        label: "門マグネットセンサー",
+        customerLabel: "門マグネット",
+        x: 40,
+        y: 30,
+        state: "normal",
+        deviceId: "rp2350-keeprising-main-01",
+        propertyId: SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1,
+      },
+      {
+        id: "kr-di3",
+        floorId: "1f",
+        roomId: "kr-yard",
+        kind: "window",
+        label: "センサー2（赤外線ビーム）",
+        customerLabel: "センサー2",
+        x: 62,
+        y: 28,
+        state: "normal",
+        deviceId: "rp2350-keeprising-main-01",
+        propertyId: SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1,
+      },
+      {
+        id: "kr-di4",
+        floorId: "1f",
+        roomId: "kr-yard",
+        kind: "window",
+        label: "センサー3（赤外線ビーム）",
+        customerLabel: "センサー3",
+        x: 78,
+        y: 48,
+        state: "normal",
+        deviceId: "rp2350-keeprising-main-01",
+        propertyId: SECURITY_FLOOR_KEEPRISING_PROPERTY_ID_V1,
+      },
+    ],
+    guardMode: "away",
+    notes: [
+      "夜間 20:00〜06:00 だけ自動連動します",
+      "日中は通知のみ。テストは日中テスト発報です",
     ],
   },
 ];

@@ -15,6 +15,7 @@ import {
   listTislyOtaCatalogV1,
   resolveTislyOtaSiteKeyV1,
   type TislyOtaChannelV1,
+  type TislyOtaSiteKeyV1,
 } from "../../firmware/tisly-rp2350-ota-v1.js";
 
 export const firmwareRouter = Router();
@@ -56,7 +57,7 @@ function respondFirmwareDeploy(
   /* 単独配信は選択中の
    * currentSiteId を path より優先する
    */
-  let siteKey: "toyoshima" | "itabashi" | "ryugasaki" | "all";
+  let siteKey: TislyOtaSiteKeyV1 | "all";
   if (allSites) {
     siteKey = "all";
   } else if (bodyKey) {

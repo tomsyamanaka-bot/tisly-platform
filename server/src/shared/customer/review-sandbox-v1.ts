@@ -20,6 +20,7 @@ const LIVE_OWNER_CODES_V1 = new Set([
   "TOYOSHIMA001",
   "TOSHIMA001",
   "WASHMATE001",
+  "KEEPRISING001",
 ]);
 
 const LIVE_SITE_IDS_V1 = new Set([
@@ -31,6 +32,8 @@ const LIVE_SITE_IDS_V1 = new Set([
   "SEC-JP-TOSHIMA-001",
   "SEC-JP-RYUGASAKI-001",
   "HOME-JP-RYUGASAKI",
+  "SEC-JP-KEEPRISING-001",
+  "HOME-JP-KEEPRISING",
 ]);
 
 /** 本番、または TISLY_REVIEW_SANDBOX=1 のとき有効 */
@@ -102,6 +105,7 @@ function isInherentlyLiveCommandPathV1(path: string): boolean {
   if (path.includes("/api/home/v1/toyoshima/")) return true;
   if (path.includes("/api/home/v1/itabashi/")) return true;
   if (path.includes("/api/home/v1/ryugasaki/")) return true;
+  if (path.includes("/api/home/v1/keeprising/")) return true;
   return false;
 }
 

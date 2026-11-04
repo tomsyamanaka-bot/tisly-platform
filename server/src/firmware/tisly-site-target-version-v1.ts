@@ -11,6 +11,8 @@ export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   itabashi: "1.6.9",
   /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
   ryugasaki: "1.2.42",
+  /** Keep Rising。夜間の現地連動 */
+  keeprising: "1.2.52",
 } as const;
 
 export type TislySiteTargetKeyV1 = keyof typeof TISLY_SITE_TARGET_VERSIONS_V1;
@@ -31,6 +33,12 @@ export function tislySiteTargetVersionV1(
     key === "ryugasaki001"
   ) {
     return TISLY_SITE_TARGET_VERSIONS_V1.ryugasaki;
+  }
+  if (
+    key === "keeprising" ||
+    key === "keeprising001"
+  ) {
+    return TISLY_SITE_TARGET_VERSIONS_V1.keeprising;
   }
   return null;
 }

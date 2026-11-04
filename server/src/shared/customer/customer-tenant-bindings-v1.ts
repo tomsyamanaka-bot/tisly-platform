@@ -65,6 +65,13 @@ const DEFAULT_BINDINGS_V1: Record<
     shareUrl: null,
     nvrAppOpenUrl: null,
   },
+  KEEPRISING001: {
+    rp2350MainId: "rp2350-keeprising-main-01",
+    rp2350DetachedId: null,
+    nvrHost: null,
+    nvrLabel: null,
+    nvrRtspBase: null,
+  },
 };
 
 /** 共有プレビュー URL を正規化（cloud / share 統合） */

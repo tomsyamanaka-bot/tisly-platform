@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2592-lidar-heatmap";
+const SW_VERSION = "tisly-pwa-v2593-keeprising";
+/* tisly-pwa-v2592-lidar-heatmap */
 /* tisly-pwa-v2590-matrix-lidar */
 /* tisly-pwa-v2588-customer-site-fixed */
 /* tisly-pwa-v2587-staff-security-ui */
@@ -341,6 +342,8 @@ const SHELL_URLS = [
   "/css/features/security/toyoshima-security-v1.css",
   "/css/features/security/washmate-customer-settings-v1.css",
   "/js/features/security/washmate-customer-settings-v1.js",
+  "/css/features/security/keeprising-customer-settings-v1.css",
+  "/js/features/security/keeprising-customer-settings-v1.js",
   // 3D Floorplan Builder（追記）
   "/builder",
   "/floorplan-builder",

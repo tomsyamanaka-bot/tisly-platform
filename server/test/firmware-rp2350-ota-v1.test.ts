@@ -199,9 +199,9 @@ describe("firmware-rp2350-ota-v1", () => {
       .send({ channel: "staging", allSites: true });
     assert.equal(res.status, 200);
     assert.equal(res.body.channel, "staging");
-    assert.equal(res.body.sites.length, 3);
+    assert.equal(res.body.sites.length, 4);
     const keys = res.body.sites.map((s) => s.siteId).sort();
-    assert.deepEqual(keys, ["itabashi", "ryugasaki", "toyoshima"]);
+    assert.deepEqual(keys, ["itabashi", "keeprising", "ryugasaki", "toyoshima"]);
   });
 
   it("ships MicroPython OTA engine with A/B rollback", () => {

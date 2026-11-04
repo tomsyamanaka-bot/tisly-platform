@@ -38,6 +38,10 @@ import {
   mountWashmateCustomerSettings,
 } from "./washmate-customer-settings-v1.js";
 import {
+  isKeepRisingSecuritySite,
+  mountKeepRisingSettings,
+} from "./keeprising-customer-settings-v1.js";
+import {
   applyItabashiHardwareStatus,
   fetchItabashiStatus,
   isItabashiSecuritySite,
@@ -326,11 +330,14 @@ function applyTenantSingleSite(sites, preferredId) {
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   const washmate = isWashmateSecuritySite(state.siteId);
+  const keepRising = isKeepRisingSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
   document.body.classList.toggle("is-washmate", washmate);
+  document.body.classList.toggle("is-keeprising", keepRising);
   const daily = $("sf-customer-daily-settings");
-  if (daily) daily.hidden = washmate;
+  if (daily) daily.hidden = washmate || keepRising;
   mountWashmateCustomerSettings(state.siteId);
+  mountKeepRisingSettings(state.siteId);
   window.__TISLY_SF_SITE_ID = state.siteId;
   setSecurityHistorySiteIdV1(state.siteId);
 
@@ -672,6 +679,7 @@ function bindCustomerSchedule() {
 }
 
 async function loadCustomerLightDuration() {
+  if (isKeepRisingSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
   try {
     const data = await fetchJson(
@@ -705,6 +713,7 @@ async function loadCustomerLightDuration() {
 }
 
 async function saveCustomerLightDuration(sec) {
+  if (isKeepRisingSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
   if (isToyoshimaSecuritySite(state.siteId)) {
     await requestToyoshimaApi("PUT", "/security-rules", {
@@ -728,6 +737,7 @@ async function saveCustomerLightDuration(sec) {
 }
 
 async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
+  if (isKeepRisingSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
   const body = {
     siteId: isToyoshimaSecuritySite(state.siteId)
@@ -754,6 +764,7 @@ async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
 }
 
 async function commitCustomerDailySettings() {
+  if (isKeepRisingSecuritySite(state.siteId)) return;
   const sec = Number($("sf-customer-lighting-duration")?.value) || 45;
   const start = $("sf-customer-schedule-start")?.value || "18:00";
   const end = $("sf-customer-schedule-end")?.value || "06:00";

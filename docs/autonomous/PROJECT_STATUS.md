@@ -2300,6 +2300,10 @@ p2350-relay-v1.ts �E firmware main.py |
 | SW | `tisly-pwa-v2555-toyoshima-do-bind`（PWA 変更なし） |
 | 確認 | `/app` · `/customer` · https://tisly.jp/api/health |
 
+## Keep Rising（2026-11-04 追記）
+
+社内 `/app/security` の物件セレクトは、板橋自宅、豊島邸、ウォッシュメイト龍ヶ崎店に Keep Rising（`SEC-JP-KEEPRISING-001`）を足す。お客様の `/customer` は、ログインした `KEEPRISING001` の機器と設定だけを出す。稼働時間の初期値は 20:00〜06:00。点灯秒数と投光器の点灯／点滅は「設定を決定する」まで保存しない。日中は通知のみ。「日中テスト発報」は確認後だけ時間外に同じ連動を一度出す。夜間のセンサーとリレーは実機が回線なしでも続ける。保存済みの他物件の設定 JSON は書き換えていない。SW は `tisly-pwa-v2593-keeprising`。先頭の表にある `v2592` はそれ以前の値。
+
 
 
 

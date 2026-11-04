@@ -23,6 +23,10 @@ const SF_HOME_SITE_MAP = {
   TOMS001: DEFAULT_HOME_SITE,
   HOME001: DEFAULT_HOME_SITE,
   itabashi: DEFAULT_HOME_SITE,
+  "SEC-JP-KEEPRISING-001": "HOME-JP-KEEPRISING",
+  "HOME-JP-KEEPRISING": "HOME-JP-KEEPRISING",
+  KEEPRISING001: "HOME-JP-KEEPRISING",
+  keeprising: "HOME-JP-KEEPRISING",
 };
 
 /** 実機ラベル（内部 ID 非表示） */
@@ -30,6 +34,7 @@ const SF_HOME_SITE_LABEL = {
   "HOME-JP-ITABASHI-LIVE": "板橋自宅",
   "HOME-JP-TOYOSHIMA": "豊島邸",
   "HOME-JP-TSUKUBA-001": "つくばモデルハウス",
+  "HOME-JP-KEEPRISING": "Keep Rising",
 };
 
 /** Web Push 条件トグル：緊急 → サイレント → OFF → 緊急… */
@@ -141,6 +146,9 @@ export function resolveOtaSiteSlugV1(rawId) {
   const upper = id.toUpperCase();
   if (upper.includes("RYUGASAKI") || upper.includes("WASHMATE")) {
     return "ryugasaki";
+  }
+  if (upper.includes("KEEPRISING")) {
+    return "keeprising";
   }
   const home = resolveHomeSiteId(id);
   const hay = `${id} ${home}`.toUpperCase();

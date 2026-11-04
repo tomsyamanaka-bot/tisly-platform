@@ -164,6 +164,7 @@ import {
   ingestMatrixLidarFrameV1,
 } from "../../home/home-matrix-lidar-v1.js";
 import { registerRyugasakiSecurityRoutesV1 } from "./ryugasaki-security-v1.js";
+import { registerKeepRisingSecurityRoutesV1 } from "./keeprising-security-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
   recordTislyOtaDeviceFirmwareV1,
@@ -1987,6 +1988,7 @@ homeRouter.get("/itabashi/config", (_req, res) => {
 });
 
 registerRyugasakiSecurityRoutesV1(homeRouter);
+registerKeepRisingSecurityRoutesV1(homeRouter);
 
 homeRouter.put("/itabashi/config", (req, res) => {
   noStoreItabashi(res);

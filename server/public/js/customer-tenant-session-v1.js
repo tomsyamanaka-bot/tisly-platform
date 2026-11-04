@@ -62,6 +62,13 @@ const LOCAL_TENANT_MAP = {
     homeSiteId: "HOME-JP-RYUGASAKI",
     useToyoshimaDashboard: false,
   },
+  KEEPRISING001: {
+    customerCode: "KEEPRISING001",
+    displayName: "Keep Rising",
+    securitySiteId: "SEC-JP-KEEPRISING-001",
+    homeSiteId: "HOME-JP-KEEPRISING",
+    useToyoshimaDashboard: false,
+  },
 };
 
 export function getCustomerToken() {

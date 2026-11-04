@@ -19,6 +19,11 @@ const PUSH_PROPERTY_GROUPS_V1: readonly (readonly string[])[] = [
     "SEC-JP-RYUGASAKI-001",
     "WASHMATE001",
   ],
+  [
+    "HOME-JP-KEEPRISING",
+    "SEC-JP-KEEPRISING-001",
+    "KEEPRISING001",
+  ],
   ["HOME-JP-TSUKUBA-001", "SEC-JP-TSUKUBA-001"],
 ];
 

@@ -555,6 +555,13 @@ export function listFallbackSites() {
       countryCode: "JP",
       propertyId: "HOME-JP-RYUGASAKI",
     },
+    {
+      id: "SEC-JP-KEEPRISING-001",
+      siteId: "SEC-JP-KEEPRISING-001",
+      displayName: "Keep Rising",
+      countryCode: "JP",
+      propertyId: "HOME-JP-KEEPRISING",
+    },
   ];
 }
 

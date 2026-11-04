@@ -13,7 +13,11 @@ import {
   tislySiteTargetVersionV1,
 } from "./tisly-site-target-version-v1.js";
 
-export type TislyOtaSiteKeyV1 = "toyoshima" | "itabashi" | "ryugasaki";
+export type TislyOtaSiteKeyV1 =
+  | "toyoshima"
+  | "itabashi"
+  | "ryugasaki"
+  | "keeprising";
 export type TislyOtaChannelV1 = "staging" | "production";
 
 export type TislyRgbStatusV1 =
@@ -192,6 +196,28 @@ const SITE_PROFILES: SiteProfileV1[] = [
       "config.py": "config_ryugasaki.py",
     },
   },
+  {
+    siteKey: "keeprising",
+    displayName: "Keep Rising",
+    homeSiteId: "HOME-JP-KEEPRISING",
+    securitySiteId: "SEC-JP-KEEPRISING-001",
+    customerCode: "KEEPRISING001",
+    aliases: [
+      "keeprising",
+      "KEEPRISING001",
+      "HOME-JP-KEEPRISING",
+      "SEC-JP-KEEPRISING-001",
+    ],
+    skipFiles: SKIP_CONFIG,
+    fileMap: {
+      "main.py": "main_keeprising.py",
+      "keeprising_security.py": "keeprising_security.py",
+      "boot.py": "boot.py",
+      "lib/tisly_ota.py": "lib/tisly_ota.py",
+      "lib/tisly_rgb.py": "lib/tisly_rgb.py",
+      "config.py": "config_keeprising.py",
+    },
+  },
 ];
 
 let tableReady = false;
@@ -262,6 +288,9 @@ export function resolveTislyOtaSiteKeyV1(
   const upper = key.toUpperCase();
   if (upper.includes("RYUGASAKI") || upper.includes("WASHMATE")) {
     return "ryugasaki";
+  }
+  if (upper.includes("KEEPRISING")) {
+    return "keeprising";
   }
   /* 豊島邸の別名は板橋へ落とさない */
   if (upper.includes("TOYOSHIMA") || upper.includes("TOSHIMA")) {
@@ -357,7 +386,9 @@ function liveBundleSemverV1(
       ? ["toyoshima_security.py", "config.py", "main.py"]
       : siteKey === "ryugasaki"
         ? ["ryugasaki_security.py", "config.py", "main.py"]
-        : ["security_light.py", "config.py", "main.py"];
+        : siteKey === "keeprising"
+          ? ["keeprising_security.py", "config.py", "main.py"]
+          : ["security_light.py", "config.py", "main.py"];
   let best: string | null = null;
   for (const name of names) {
     const text = files[name];

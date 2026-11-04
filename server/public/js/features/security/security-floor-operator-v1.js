@@ -62,6 +62,7 @@ import {
   paintTenantSettingSummary,
 } from "./tenant-setting-summary-v1.js";
 import { syncMatrixLidarCard } from "./matrix-lidar-card-v1.js";
+import { mountKeepRisingSettings } from "./keeprising-customer-settings-v1.js";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -330,6 +331,7 @@ function applySiteLayout(force = false) {
     manualLight.setAttribute("aria-hidden", itabashi ? "false" : "true");
   }
   syncMatrixLidarCard(itabashi);
+  mountKeepRisingSettings(state.siteId);
   if (itabashi) {
     setText("sf-manual-light-note", "RP2350 実機へ即時命令（板橋自宅）");
   }

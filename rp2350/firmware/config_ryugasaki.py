@@ -60,7 +60,7 @@ RO_ACTIVE_LOW = False
 DI_DEBOUNCE_MS = 50
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_VERSION = "1.2.52"
+FIRMWARE_VERSION = "1.2.53"
 OTA_SITE = "ryugasaki"
-OTA_VERSION = "1.2.52"
+OTA_VERSION = "1.2.53"
 OTA_CHANNEL = "production"
