@@ -27,6 +27,7 @@ import {
   listTenantScopedSecuritySitesV1,
 } from "../../shared/customer/customer-security-sites-v1.js";
 import { viewerMayUseLiveHardwareV1 } from "../../shared/customer/review-sandbox-v1.js";
+import { customerTenantFromTokenV1 } from "../../auth/customer-auth.js";
 import { requireAuth, type AuthedRequest } from "../../auth/auth-middleware.js";
 import {
   ackSecurityAlarmsV1,
@@ -60,10 +61,20 @@ securityFloorRouter.get("/sites", (_req, res) => {
  * 顧客 Security 物件（ログイン必須・自邸 1 件固定）
  * 他物件の選択肢はサーバ側で遮断する。
  */
+function bearerTokenV1(req: { header: (name: string) => string | undefined }): string {
+  const auth = req.header("authorization") || "";
+  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+}
+
+function noStoreCustomerV1(res: { setHeader: (k: string, v: string) => void }): void {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+}
+
 securityFloorRouter.get(
   "/customer-sites",
   requireAuth("viewer"),
   (req: AuthedRequest, res) => {
+    noStoreCustomerV1(res);
     const code = String(req.admin?.customerCode ?? "").trim();
     const sites = listTenantScopedSecuritySitesV1(code);
     const defaultSiteId =
@@ -97,17 +108,26 @@ securityFloorRouter.get("/operator-sites", (req, res) => {
 });
 
 securityFloorRouter.get("/customer", (req, res) => {
-  const siteId = String(req.query.siteId ?? "").trim() || null;
+  noStoreCustomerV1(res);
+  const requested = String(req.query.siteId ?? "").trim() || null;
+  const profile = customerTenantFromTokenV1(bearerTokenV1(req));
+  const siteId = profile ? profile.securitySiteId : requested;
   const dashboard = buildSecurityFloorCustomerDashboardV1(
     siteId
   );
-  res.json({ ok: true, dashboard });
+  res.json({ ok: true, dashboard, locked: Boolean(profile) });
 });
 
 /** 最近のできごと · センサー検知履歴（直近50件） */
 securityFloorRouter.get("/history", (req, res) => {
-  const siteId = String(req.query.siteId ?? "").trim();
-  const homeSiteId = String(req.query.homeSiteId ?? "").trim();
+  noStoreCustomerV1(res);
+  const profile = customerTenantFromTokenV1(bearerTokenV1(req));
+  const siteId = profile
+    ? profile.securitySiteId
+    : String(req.query.siteId ?? "").trim();
+  const homeSiteId = profile
+    ? profile.homeSiteId
+    : String(req.query.homeSiteId ?? "").trim();
   const customerCode = String(
     req.query.customerCode ??
       (req as AuthedRequest).admin?.customerCode ??

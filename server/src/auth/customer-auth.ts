@@ -22,7 +22,10 @@ import {
   TESTER_STATIC_TOKEN_V1,
   TESTER_USERNAME_V1,
 } from "../shared/customer/tester-tenant-v1.js";
-import { normalizeCustomerTenantCodeV1 } from "../shared/customer/customer-tenant-profile-v1.js";
+import {
+  normalizeCustomerTenantCodeV1,
+  resolveCustomerTenantProfileV1,
+} from "../shared/customer/customer-tenant-profile-v1.js";
 
 export interface CustomerSession {
   userId: string;
@@ -199,6 +202,13 @@ export function resolveCustomerSession(token: string | undefined): CustomerSessi
     tokenId: payload.jti,
     scope: "customer",
   };
+}
+
+/** 施主トークンなら自邸プロファイルだけ返す */
+export function customerTenantFromTokenV1(token: string | undefined) {
+  const session = resolveAnySession(token);
+  if (!session || session.scope !== "customer") return null;
+  return resolveCustomerTenantProfileV1(session.customerCode);
 }
 
 export function resolveAnySession(

@@ -235,6 +235,11 @@ export const DEFAULT_ENABLED_MODULES_BY_CODE_V1: Record<
     "security_floor_v1",
     "customer_portal",
   ],
+  // 施主 Rising001: Security のみ
+  RISING001: [
+    "security_floor_v1",
+    "customer_portal",
+  ],
 };
 
 /** 未知顧客向けの安全な既定（IoT 最小セット） */

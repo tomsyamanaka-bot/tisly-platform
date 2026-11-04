@@ -22,6 +22,7 @@ import {
 import {
   buildHomeCustomerFacingDashboardV1,
   buildHomeCustomerSiteOptionsV1,
+  customerFacingDashboardOrQuietV1,
   sanitizeHomeCustomerDashboardV1,
 } from "../../home/home-customer-facing-v1.js";
 import { buildHomeCustomerMgmtViewV1 } from "../../home/home-customer-mgmt-v1.js";
@@ -29,6 +30,7 @@ import {
   isLiveControlledSiteIdV1,
   viewerMayUseLiveHardwareV1,
 } from "../../shared/customer/review-sandbox-v1.js";
+import { customerTenantFromTokenV1 } from "../../auth/customer-auth.js";
 import {
   registerHomeSiteV1,
   updateHomeSiteRegistryV1,
@@ -210,22 +212,50 @@ homeRouter.get("/sites", (_req, res) => {
   res.json({ ok: true, sites, saasRows: listHomeSiteRowsV1() });
 });
 
-/** お客様（住まい）向け — 物件選択（シンプル） */
+function homeBearerV1(req: { header: (name: string) => string | undefined }): string {
+  const auth = req.header("authorization") || "";
+  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+}
+
+function noStoreHomeCustomerV1(res: { setHeader: (k: string, v: string) => void }): void {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+}
+
+/** お客様（住まい）向け — 自邸1件に固定 */
 homeRouter.get("/customer-sites", (req, res) => {
+  noStoreHomeCustomerV1(res);
   const includeLive = viewerMayUseLiveHardwareV1(req);
-  const sites = buildHomeCustomerSiteOptionsV1().filter(
+  let sites = buildHomeCustomerSiteOptionsV1().filter(
     (site) => includeLive || !isLiveControlledSiteIdV1(site.id)
   );
+  const profile = customerTenantFromTokenV1(homeBearerV1(req));
+  if (profile) {
+    const own = sites.filter((site) => site.id === profile.homeSiteId);
+    sites = own.length
+      ? own
+      : [
+          {
+            id: profile.homeSiteId,
+            displayName: profile.displayName,
+            statusEmoji: "🏠",
+            statusLabel: "ご契約",
+          },
+        ];
+  }
   res.json({
     ok: true,
     sites,
     reviewSandbox: !includeLive,
+    locked: Boolean(profile),
   });
 });
 
 /** お客様（住まい）向け — 内部情報を除外したダッシュボード */
 homeRouter.get("/customer", async (req, res) => {
-  const requested = String(req.query.siteId ?? "").trim() || null;
+  noStoreHomeCustomerV1(res);
+  const profile = customerTenantFromTokenV1(homeBearerV1(req));
+  const requestedRaw = String(req.query.siteId ?? "").trim() || null;
+  const requested = profile ? profile.homeSiteId : requestedRaw;
   const includeLive = viewerMayUseLiveHardwareV1(req);
   const blockedLive =
     Boolean(requested) &&
@@ -237,7 +267,9 @@ homeRouter.get("/customer", async (req, res) => {
   } catch {
     // モック継続
   }
-  const dashboard = buildHomeCustomerFacingDashboardV1(siteId);
+  const dashboard = profile
+    ? customerFacingDashboardOrQuietV1(siteId, profile.displayName)
+    : buildHomeCustomerFacingDashboardV1(siteId);
   res.json({
     ok: true,
     dashboard,

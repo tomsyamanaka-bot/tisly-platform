@@ -16,15 +16,11 @@ import {
 
   byId,
 
-  escapeHtml,
-
   fetchHomeCustomer,
 
   fetchHomeCustomerSites,
 
   hideRingPopup,
-
-  readSiteIdFromUrl,
 
   renderAircons,
 
@@ -68,7 +64,10 @@ import {
 
 } from "./home-tiles-v1.js";
 
-import { requireCustomerSession } from "../../customer-tenant-session-v1.js";
+import {
+  requireCustomerSession,
+  loadTenantProfile,
+} from "../../customer-tenant-session-v1.js";
 import {
   isLivePropertyIdV1,
   viewerMayUseLiveHardwareV1,
@@ -92,79 +91,61 @@ let dashCache = null;
 
 
 
+function paintHomeSiteLabel(name, loading) {
+  const skeleton = document.getElementById("hm-site-skeleton");
+  const fixed = document.getElementById("hm-site-fixed-label");
+  const card = document.getElementById("hm-site-card");
+  if (card) card.setAttribute("aria-busy", loading ? "true" : "false");
+  if (skeleton) {
+    skeleton.hidden = !loading;
+    if (loading && name) skeleton.textContent = name;
+  }
+  if (fixed) {
+    fixed.hidden = loading;
+    if (!loading) fixed.textContent = name || "ご契約のおうち";
+  }
+}
+
 async function loadSiteOptions() {
-  const select = byId("hm-site-select");
-  if (!select) return;
+  document.getElementById("hm-site-select")?.remove();
+  paintHomeSiteLabel("おうちを確認しています", true);
   try {
-    // 顧客は自邸1件のみ（他物件を遮断）
     let tenantHomeId = "";
     let tenantName = "";
-    try {
-      const { loadTenantProfile, isLoggedIn, refreshTenantProfile } =
-        await import("../../customer-tenant-session-v1.js");
-      if (isLoggedIn()) {
-        await refreshTenantProfile();
-        const profile = loadTenantProfile();
-        tenantHomeId = profile?.homeSiteId || "";
-        tenantName = profile?.displayName || "";
-        if (
-          tenantHomeId &&
-          isLivePropertyIdV1(tenantHomeId) &&
-          !viewerMayUseLiveHardwareV1()
-        ) {
-          tenantHomeId = "";
-          tenantName = "";
-        }
-      }
-    } catch {
-      /* テナント未使用ページでも継続 */
-    }
-
-    const sites = await fetchHomeCustomerSites();
-    let filtered = sites;
-    if (tenantHomeId) {
-      filtered = sites.filter((s) => s.id === tenantHomeId);
-      if (!filtered.length && tenantHomeId && !isLivePropertyIdV1(tenantHomeId)) {
-        filtered = [
-          {
-            id: tenantHomeId,
-            displayName: tenantName || "ご契約のおうち",
-            statusEmoji: "🏠",
-            statusLabel: "ご契約",
-          },
-        ];
+    const { isLoggedIn, refreshTenantProfile } = await import(
+      "../../customer-tenant-session-v1.js"
+    );
+    if (isLoggedIn()) {
+      await refreshTenantProfile();
+      const profile = loadTenantProfile();
+      tenantHomeId = profile?.homeSiteId || "";
+      tenantName = profile?.displayName || "";
+      if (
+        tenantHomeId &&
+        isLivePropertyIdV1(tenantHomeId) &&
+        !viewerMayUseLiveHardwareV1()
+      ) {
+        tenantHomeId = "";
+        tenantName = "";
       }
     }
-    if (!filtered.length) {
-      select.innerHTML = '<option value="">おうちがありません</option>';
+    if (!tenantHomeId) {
+      paintHomeSiteLabel("おうちがありません", true);
       return;
     }
-    select.innerHTML = filtered
-      .map(
-        (s) => `
-        <option value="${escapeHtml(s.id)}">
-          ${escapeHtml(s.statusEmoji)} ${escapeHtml(s.displayName)}
-          — ${escapeHtml(s.statusLabel)}
-        </option>`
-      )
-      .join("");
-    currentSiteId = tenantHomeId || filtered[0].id;
-    select.value = currentSiteId;
-    select.disabled = true;
-    select.hidden = true;
-    select.setAttribute("aria-hidden", "true");
-    const pickerLabel = select.parentElement?.querySelector(".hm-card-label");
-    if (pickerLabel) pickerLabel.hidden = true;
-    let fixed = document.getElementById("hm-site-fixed-label");
-    if (!fixed && select.parentElement) {
-      fixed = document.createElement("span");
-      fixed.id = "hm-site-fixed-label";
-      fixed.className = "hm-site-fixed-label";
-      select.parentElement.insertBefore(fixed, select);
-    }
-    if (fixed) {
-      fixed.textContent = filtered[0].displayName;
-      fixed.hidden = false;
+    const sites = await fetchHomeCustomerSites();
+    const mine = (sites || []).filter((row) => row.id === tenantHomeId);
+    const row = mine[0] || {
+      id: tenantHomeId,
+      displayName: tenantName || "ご契約のおうち",
+    };
+    currentSiteId = row.id;
+    window.__TISLY_HM_SITE_ID = row.id;
+    replaceSiteIdInUrl(currentSiteId);
+    paintHomeSiteLabel(row.displayName || tenantName, false);
+    const linkNote = document.getElementById("hm-intercom-link-note");
+    if (linkNote) {
+      linkNote.textContent = row.displayName || tenantName || "ご契約のおうち";
     }
     try {
       const { setPropertyScope } = await import(
@@ -173,16 +154,16 @@ async function loadSiteOptions() {
       setPropertyScope({
         siteId: currentSiteId,
         propertyId: currentSiteId,
-        displayName: filtered[0].displayName,
+        displayName: row.displayName || tenantName,
         locked: true,
         source: "home-customer",
         persist: false,
       });
     } catch {
-      /* ignore */
+      /* スコープ保存に失敗しても表示は残す */
     }
   } catch {
-    select.innerHTML = '<option value="">読み込めませんでした</option>';
+    paintHomeSiteLabel("読み込めませんでした", true);
   }
 }
 
@@ -460,7 +441,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!customerSessionOk) return;
 
-  currentSiteId = readSiteIdFromUrl();
+  document.getElementById("hm-site-select")?.remove();
+  const earlyHome = loadTenantProfile();
+  currentSiteId = earlyHome?.homeSiteId || "";
+  if (currentSiteId) window.__TISLY_HM_SITE_ID = currentSiteId;
 
   bindControlDelegation();
 
@@ -493,36 +477,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindSystemLogModalV1();
 
   await loadSiteOptions();
-
-
-
-  const select = byId("hm-site-select");
-
-  if (select) {
-
-    select.addEventListener("change", async () => {
-
-      currentSiteId = select.value;
-
-      replaceSiteIdInUrl(currentSiteId);
-
-      try {
-
-        await refresh();
-
-      } catch (err) {
-
-        console.error(err);
-
-        showToast("読み込めませんでした");
-
-      }
-
-    });
-
-  }
-
-
 
   refresh().catch((err) => {
 

@@ -58,6 +58,13 @@ const CUSTOMER_TENANT_PROFILES_V1: Record<
     homeSiteId: "HOME-JP-KEEPRISING",
     useToyoshimaDashboard: false,
   },
+  /* 施主ログイン Rising001 */
+  RISING001: {
+    displayName: "Keep Rising",
+    securitySiteId: "SEC-JP-KEEPRISING-001",
+    homeSiteId: "HOME-JP-KEEPRISING",
+    useToyoshimaDashboard: false,
+  },
   // テスター専用：板橋自宅実機へ直結
   TESTER001: {
     displayName: "テスターデモ（板橋）",

@@ -41,6 +41,7 @@ async function readSettings() {
 async function saveSettings(patch) {
   const res = await fetch(`${API}/settings`, {
     method: "PUT",
+    cache: "no-store",
     headers: authHeaders(),
     body: JSON.stringify({ siteId: SITE_ID, ...patch }),
   });
@@ -213,6 +214,7 @@ function bind(root) {
     try {
       const res = await fetch(`${API}/day-test`, {
         method: "POST",
+        cache: "no-store",
         headers: authHeaders(),
         body: JSON.stringify({
           siteId: SITE_ID,

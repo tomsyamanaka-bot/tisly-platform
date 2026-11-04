@@ -17,7 +17,6 @@ import {
   setSecurityDrumFloor,
 } from "./security-floor-orbit-v1.js";
 import {
-  FALLBACK_DEFAULT_SITE_ID,
   applyLocalGuardMode,
   getFallbackCustomerDash,
   listFallbackSites,
@@ -135,7 +134,7 @@ async function ensureSecurityServiceWorker() {
 }
 
 const state = {
-  siteId: FALLBACK_DEFAULT_SITE_ID,
+  siteId: "",
   siteOptions: [],
   propertyId: null,
   layoutSiteId: null,
@@ -228,17 +227,17 @@ function ensureFixedSiteLabel() {
   return fixed;
 }
 
-/** セレクタ非表示 · 自邸名のみ表示 */
+/** 物件セレクトを DOM から外す */
+function dropCustomerSiteSelect() {
+  document
+    .querySelectorAll("#sf-site-select, .sf-soc-meta select")
+    .forEach((node) => node.remove());
+}
+
+/** 自邸名だけを固定表示する */
 function lockSiteSelectorUi(displayName) {
-  const sel = $("sf-site-select");
+  dropCustomerSiteSelect();
   const title = customerSiteTitle(displayName) || "ご契約のおうち";
-  if (sel) {
-    sel.innerHTML = `<option value="${escapeHtml(state.siteId)}">${escapeHtml(title)}</option>`;
-    sel.value = state.siteId;
-    sel.hidden = true;
-    sel.disabled = true;
-    sel.setAttribute("aria-hidden", "true");
-  }
   $("sf-soc-meta")?.classList.add("sf-tenant-fixed");
   const fixed = ensureFixedSiteLabel();
   if (fixed) {
@@ -289,9 +288,15 @@ function applyTenantSingleSite(sites, preferredId) {
     preferredId ||
     state.tenantSiteId ||
     resolveSecuritySiteId() ||
-    FALLBACK_DEFAULT_SITE_ID;
+    profile?.securitySiteId ||
+    "";
+  if (!tenantId) {
+    dropCustomerSiteSelect();
+    return;
+  }
 
-  const fromApi = (sites || []).find((s) => s.siteId === tenantId);
+  const scoped = (sites || []).filter((row) => row?.siteId === tenantId);
+  const fromApi = scoped[0];
   const fallback = listFallbackSites().find(
     (s) => (s.siteId || s.id) === tenantId
   );
@@ -548,14 +553,21 @@ function renderDash(dash, opts = {}) {
 
 function bootFallback() {
   const profile = loadTenantProfile();
+  const siteId = profile?.securitySiteId || resolveSecuritySiteId();
+  if (!siteId) {
+    dropCustomerSiteSelect();
+    return;
+  }
   applyTenantSingleSite(
-    listFallbackSites().map((s) => ({
-      siteId: s.siteId || s.id,
-      displayName: s.displayName,
-      propertyId: s.propertyId || null,
-      useToyoshimaDashboard: isToyoshimaSecuritySite(s.siteId || s.id),
-    })),
-    profile?.securitySiteId || resolveSecuritySiteId()
+    [
+      {
+        siteId,
+        displayName: profile?.displayName || "ご契約のおうち",
+        propertyId: profile?.homeSiteId || null,
+        useToyoshimaDashboard: Boolean(profile?.useToyoshimaDashboard),
+      },
+    ],
+    siteId
   );
   applySiteLayout(true);
   if (!isToyoshimaSecuritySite(state.siteId)) {
@@ -944,10 +956,7 @@ function bind() {
     const id = e.detail?.id;
     if (id) state.floorId = id;
   });
-  // 顧客は物件切替不可（選択変更を無視）
-  $("sf-site-select")?.addEventListener("change", (e) => {
-    e.target.value = state.siteId;
-  });
+  dropCustomerSiteSelect();
 
   if (window.__TISLY_SF_CTRL_BOUND) return;
   window.__TISLY_SF_CTRL_BOUND = true;
@@ -1010,6 +1019,7 @@ async function initTenantSecurity() {
 }
 
 async function boot() {
+  dropCustomerSiteSelect();
   setTenantResolving(true);
   await forceRefreshOnDeployedCommit();
   await ensureSecurityServiceWorker();

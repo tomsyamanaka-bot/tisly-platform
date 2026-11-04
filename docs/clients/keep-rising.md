@@ -56,3 +56,9 @@ Waveshare RP2350-POE-ETH-8DI-8RO。DI1〜DI8 は GPIO9〜16、DO1〜DO8 は GPIO
 お客様のログインでは `KEEPRISING001` の物件だけを出す。社内の `/app/security` のセレクトには、従来の板橋自宅・豊島邸・龍ヶ崎店に加えて Keep Rising を足している。
 
 DHCP が失敗したときの予備 IP は `192.168.1.210`。現場の実アドレスが決まるまでは、この値を確定配線とは扱わない。
+
+## 施主ログイン（2026-11-04 追記）
+
+お客様がログインする顧客コードは `Rising001` です。システム内の正規コードは大文字の `RISING001` で、同じ Keep Rising（`SEC-JP-KEEPRISING-001`）だけを開きます。ログイン ID は `kp-Rising001` です。パスワードの平文は書きません。ハッシュだけを初回作成と再起動時の更新に使います。以前の `KEEPRISING001` の行は残しています。
+
+`/customer` と `/customer/security`、`/customer/home` には物件のドロップダウンを置きません。画面には契約中の物件名だけを出します。読み込み中はスケルトンを出し、物件一覧とダッシュボードは `cache: no-store` で取り直します。他物件の siteId を付けても、施主トークンでは Keep Rising に戻します。社内の `/app/security` のセレクトはそのままです。

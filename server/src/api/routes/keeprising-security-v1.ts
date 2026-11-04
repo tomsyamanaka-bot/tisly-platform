@@ -43,7 +43,7 @@ function deviceTokenOk(req: { headers: Record<string, unknown> }): boolean {
 function actorMayEdit(req: AuthedRequest): boolean {
   if (req.admin?.scope === "platform") return true;
   const code = String(req.admin?.customerCode ?? "").trim().toUpperCase();
-  return code === KEEPRISING_CUSTOMER_CODE_V1;
+  return code === KEEPRISING_CUSTOMER_CODE_V1 || code === "RISING001";
 }
 
 export function registerKeepRisingSecurityRoutesV1(router: Router): void {

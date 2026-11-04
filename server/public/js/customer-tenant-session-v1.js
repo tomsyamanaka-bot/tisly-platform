@@ -69,6 +69,13 @@ const LOCAL_TENANT_MAP = {
     homeSiteId: "HOME-JP-KEEPRISING",
     useToyoshimaDashboard: false,
   },
+  RISING001: {
+    customerCode: "RISING001",
+    displayName: "Keep Rising",
+    securitySiteId: "SEC-JP-KEEPRISING-001",
+    homeSiteId: "HOME-JP-KEEPRISING",
+    useToyoshimaDashboard: false,
+  },
 };
 
 export function getCustomerToken() {
@@ -85,7 +92,8 @@ export function getCustomerCode() {
     localStorage.getItem(CUSTOMER_CODE_KEY) ||
     "";
   const code = raw.toUpperCase();
-  return code === "TOSHIMA001" ? "TOYOSHIMA001" : code;
+  if (code === "TOSHIMA001") return "TOYOSHIMA001";
+  return code;
 }
 
 export function getCustomerUsername() {

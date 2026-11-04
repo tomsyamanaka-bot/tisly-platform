@@ -184,4 +184,58 @@ describe("keeprising security", () => {
     assert.ok(inputAt > 0 && saveAt > inputAt);
     assert.equal(js.slice(inputAt, saveAt).includes("saveSettings"), false);
   });
+
+  it("logs in Rising001 and keeps a single site without a selector", async () => {
+    const login = await request(app)
+      .post("/api/auth/customer/login")
+      .send({
+        customerCode: "Rising001",
+        username: "kp-Rising001",
+        password: "jdgmgwda3195",
+      });
+    assert.equal(login.status, 200, login.body?.error);
+    assert.equal(
+      String(login.body.user.customerCode).toUpperCase(),
+      "RISING001"
+    );
+    const sites = await request(app)
+      .get("/api/security-floor/v1/customer-sites")
+      .set("Authorization", `Bearer ${login.body.token}`);
+    assert.equal(sites.status, 200);
+    assert.equal(sites.headers["cache-control"]?.includes("no-store"), true);
+    assert.equal(sites.body.sites.length, 1);
+    assert.equal(sites.body.sites[0].siteId, "SEC-JP-KEEPRISING-001");
+    assert.equal(sites.body.sites[0].displayName, "Keep Rising");
+    const dash = await request(app)
+      .get("/api/security-floor/v1/customer?siteId=SEC-JP-TOYOSHIMA-001")
+      .set("Authorization", `Bearer ${login.body.token}`);
+    assert.equal(dash.body.dashboard.siteId, "SEC-JP-KEEPRISING-001");
+    const home = await request(app)
+      .get("/api/home/v1/customer?siteId=HOME-JP-TSUKUBA-001")
+      .set("Authorization", `Bearer ${login.body.token}`);
+    assert.equal(home.body.dashboard.siteId, "HOME-JP-KEEPRISING");
+    assert.equal(home.body.dashboard.displayName, "Keep Rising");
+    assert.equal(home.body.dashboard.ct.mainCurrentA, 0);
+    assert.equal(
+      JSON.stringify(home.body.dashboard).includes("つくば"),
+      false
+    );
+    const saved = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${login.body.token}`)
+      .send({ durationSec: 40 });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.settings.durationSec, 40);
+    const securityHtml = readFileSync(
+      new URL("../public/security-customer-v1.html", import.meta.url),
+      "utf8"
+    );
+    const homeHtml = readFileSync(
+      new URL("../public/home-customer-v1.html", import.meta.url),
+      "utf8"
+    );
+    assert.equal(securityHtml.includes('id="sf-site-select"'), false);
+    assert.equal(homeHtml.includes('id="hm-site-select"'), false);
+    assert.match(securityHtml, /sf-tenant-skeleton/);
+  });
 });

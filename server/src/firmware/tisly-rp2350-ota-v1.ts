@@ -205,6 +205,8 @@ const SITE_PROFILES: SiteProfileV1[] = [
     aliases: [
       "keeprising",
       "KEEPRISING001",
+      "RISING001",
+      "Rising001",
       "HOME-JP-KEEPRISING",
       "SEC-JP-KEEPRISING-001",
     ],

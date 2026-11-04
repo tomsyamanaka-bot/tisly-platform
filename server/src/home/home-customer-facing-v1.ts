@@ -246,3 +246,79 @@ export function buildHomeCustomerFacingDashboardV1(
     buildHomeSiteDashboardV1(findHomeSiteV1(siteId))
   );
 }
+
+/**
+ * 未登録の自邸 ID は他物件へ落とさない。
+ * 登録済みの自邸だけ実データを返す。
+ */
+export function customerFacingDashboardOrQuietV1(
+  siteId: string | null,
+  displayName?: string
+): HomeCustomerFacingDashboardV1 {
+  const requested = String(siteId || "").trim();
+  const dash = buildHomeCustomerFacingDashboardV1(requested || null);
+  if (!requested || dash.siteId === requested) {
+    if (displayName && dash.siteId === requested) {
+      return { ...dash, displayName };
+    }
+    return dash;
+  }
+  const name = displayName || "ご契約のおうち";
+  return {
+    ...dash,
+    siteId: requested,
+    displayName: name,
+    addressLabel: "",
+    status: "normal",
+    statusEmoji: "🟢",
+    statusLabel: "設備の接続待ち",
+    ct: {
+      ...dash.ct,
+      mainCurrentA: 0,
+      loadPercent: 0,
+      powerW: 0,
+      powerKw: 0,
+      demandPercent: 0,
+      level: "normal",
+      levelLabel: "待機",
+      peakCutActive: false,
+      solarGenerationW: 0,
+      hasSolar: false,
+      hourlyCurrentA: [],
+      circuits: [],
+    },
+    bath: {
+      ...dash.bath,
+      label: "未接続",
+      setTempC: 0,
+      currentTempC: 0,
+      fillState: "idle",
+      fillStateLabel: "待機",
+      fillPercent: 0,
+      autoFill: false,
+      reheating: false,
+      keepWarm: false,
+      lastPulseMessage: null,
+      linkStateLabel: "未接続",
+    },
+    aircons: [],
+    lock: {
+      ...dash.lock,
+      doorOpen: false,
+      accessLog: [],
+      lastAccessLabel: "直近の操作: なし",
+    },
+    intercom: {
+      ...dash.intercom,
+      ringing: false,
+      lastVisitLabel: "—",
+      snapshotUrl: "",
+      hasLiveStream: false,
+      visitors: [],
+    },
+    iotSwitches: [],
+    meter: null,
+    activeAirconCount: 0,
+    intercomRinging: false,
+  };
+}

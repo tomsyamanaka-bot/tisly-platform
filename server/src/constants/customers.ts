@@ -10,6 +10,7 @@ export const CANONICAL_LIVE_CUSTOMER_CODES_V1 = [
   "TOYOSHIMA001",
   "WASHMATE001",
   "KEEPRISING001",
+  "RISING001",
 ] as const;
 
 export const TESTER_CUSTOMER_CODE_CONST_V1 = "TESTER001";
@@ -62,6 +63,13 @@ export const CUSTOMER_DIRECTORY_V1: Record<
   },
   KEEPRISING001: {
     customerCode: "KEEPRISING001",
+    displayName: "Keep Rising",
+    homeSiteId: "HOME-JP-KEEPRISING",
+    securitySiteId: "SEC-JP-KEEPRISING-001",
+    role: "live",
+  },
+  RISING001: {
+    customerCode: "RISING001",
     displayName: "Keep Rising",
     homeSiteId: "HOME-JP-KEEPRISING",
     securitySiteId: "SEC-JP-KEEPRISING-001",

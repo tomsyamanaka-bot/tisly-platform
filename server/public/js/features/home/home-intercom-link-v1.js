@@ -29,6 +29,7 @@ function $(id) {
 function resolveSiteId() {
   const sel = $("hm-site-select");
   if (sel?.value) return sel.value;
+  if (window.__TISLY_HM_SITE_ID) return window.__TISLY_HM_SITE_ID;
   try {
     const q = new URLSearchParams(location.search).get("siteId");
     if (q) return q;

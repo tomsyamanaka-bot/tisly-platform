@@ -41,6 +41,7 @@ const LIVE_OWNER_CODES_V1 = new Set([
   "TOSHIMA001",
   "WASHMATE001",
   "KEEPRISING001",
+  "RISING001",
 ]);
 
 /** 全角英数・空白・ハイフンを顧客コード比較用に揃える */

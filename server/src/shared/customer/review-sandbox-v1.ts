@@ -21,6 +21,7 @@ const LIVE_OWNER_CODES_V1 = new Set([
   "TOSHIMA001",
   "WASHMATE001",
   "KEEPRISING001",
+  "RISING001",
 ]);
 
 const LIVE_SITE_IDS_V1 = new Set([

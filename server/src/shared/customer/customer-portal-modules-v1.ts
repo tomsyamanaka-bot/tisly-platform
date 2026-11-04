@@ -84,6 +84,11 @@ export const CUSTOMER_PORTAL_DEFAULTS_BY_CODE_V1: Record<string, string[]> = {
     "security_floor_v1",
     "customer_portal",
   ],
+  /** 施主 Rising001: Security のみ */
+  RISING001: [
+    "security_floor_v1",
+    "customer_portal",
+  ],
 };
 
 /** 一般顧客の Security 単体既定（追記） */
