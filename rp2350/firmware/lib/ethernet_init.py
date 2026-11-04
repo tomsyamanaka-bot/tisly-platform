@@ -16,6 +16,14 @@ from w5500_pins import CS, INT, MISO, MOSI, RST, SCK, SPI_ID
 _nic = None
 
 
+def _log(*parts):
+    """USB が無いときの print 失敗で初期化を止めない。"""
+    try:
+        print(*parts)
+    except Exception:
+        return
+
+
 def _kick(kick):
     """待ち時間の途中でもウォッチドッグを蹴る。"""
     if kick is None:
@@ -62,11 +70,11 @@ def _apply_static(nic, static, kick=None):
         time.sleep_ms(300)
         _kick(kick)
         info = nic.ifconfig()
-        print("[ethernet_init] static", info)
+        _log("[ethernet_init] static", info)
         if _usable(info):
             return info
     except Exception as exc:
-        print("[ethernet_init] static:", exc)
+        _log("[ethernet_init] static:", exc)
     return None
 
 
@@ -120,7 +128,7 @@ def ethernet_init(static=None, kick=None, timeout_sec=15, wait_for_ip=False):
                     if not wait_for_ip:
                         _wait_connected(lan, timeout_sec, kick)
             except Exception as exc:
-                print("[ethernet_init] LAN active:", exc)
+                _log("[ethernet_init] LAN active:", exc)
             if wait_for_ip:
                 info = _wait_usable(lan, timeout_sec, kick)
             elif lan.isconnected():
@@ -137,7 +145,7 @@ def ethernet_init(static=None, kick=None, timeout_sec=15, wait_for_ip=False):
                 _nic = lan
                 return info
     except Exception as e:
-        print("[ethernet_init] network.LAN:", e)
+        _log("[ethernet_init] network.LAN:", e)
 
     # 2) MicroPython network.WIZNET5K + SPI
     try:
@@ -174,7 +182,7 @@ def ethernet_init(static=None, kick=None, timeout_sec=15, wait_for_ip=False):
                 _nic = nic
                 return info
     except Exception as e:
-        print("[ethernet_init] network.WIZNET5K:", e)
+        _log("[ethernet_init] network.WIZNET5K:", e)
 
     return None
 

@@ -2306,6 +2306,10 @@ p2350-relay-v1.ts �E firmware main.py |
 
 2026-11-04 追記。施主ログインは `Rising001` / `kp-Rising001`。正規コードは `RISING001` で、Keep Rising の同じ現場だけを開く。`/customer` の物件ドロップダウンは DOM に置かない。読み込み中はスケルトン、取得は `no-store`。社内のセレクトは残す。SW は `tisly-pwa-v2594-customer-single-site`。
 
+## PoE 単独起動（2026-11-04 追記）
+
+USB を外した RP2350（Waveshare PoE-ETH-8DI-8RO）が、RGB 混色のまま起動しない件。`boot.py` の `print` をやめ、USB ホストが無いログは捨てる。ランプは赤（起動・回線なし）、青点滅（設定後の疎通待ち）、緑点滅（ハートビート成功）。DHCP と HTTP の失敗ではローカルの DI/DO を止めない。豊島邸の橙のセーフモードは残す。板橋の `1.6.x` は書き換えていない。止まっている実機は、この版が入るまで OTA できない。
+
 
 
 

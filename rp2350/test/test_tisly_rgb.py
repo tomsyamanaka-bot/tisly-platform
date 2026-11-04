@@ -33,6 +33,19 @@ class TislyRgbHostTest(unittest.TestCase):
         led.tick(now_ms=1000)
         self.assertEqual(led.status, rgb.STATUS_SHIPPABLE)
 
+    def test_red_stays_on_and_green_blinks(self) -> None:
+        led = rgb.TislyRgb(pin_no=2, count=1)
+        led.set_status("red")
+        led.tick(now_ms=1000)
+        led.tick(now_ms=2000)
+        self.assertTrue(led._on)
+        led.set_status("green")
+        led._last_ms = 0
+        led.tick(now_ms=3000)
+        first = led._on
+        led.tick(now_ms=4000)
+        self.assertNotEqual(led._on, first)
+
 
 if __name__ == "__main__":
     unittest.main()

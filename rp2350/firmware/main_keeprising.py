@@ -26,6 +26,56 @@ except ImportError:
 _wdt_ref = None
 _event_queue = []
 _scan_ref = None
+_net_ok = False
+_link_kind = None
+
+
+def _arm_usb():
+    """USB 初期化後に、ホストが無いときだけログを捨てる。"""
+    try:
+        import tisly_usb_safe
+    except ImportError:
+        try:
+            from lib import tisly_usb_safe
+        except Exception:
+            return
+    try:
+        tisly_usb_safe.arm()
+    except Exception:
+        pass
+
+
+def _paint(kind):
+    """赤=未接続、青=疎通待ち、緑=心拍 OK。同じ色は書き直さない。"""
+    global _link_kind
+    if kind == _link_kind:
+        return
+    _link_kind = kind
+    try:
+        import tisly_rgb
+    except ImportError:
+        try:
+            from lib import tisly_rgb
+        except Exception:
+            return
+    try:
+        tisly_rgb.init_rgb(
+            pin_no=getattr(cfg, "RGB_LED_PIN", 2),
+            count=getattr(cfg, "RGB_LED_COUNT", 1),
+        )
+        tisly_rgb.set_status(kind)
+    except Exception:
+        pass
+
+
+def _paint_tick(now):
+    """点滅の更新。失敗してもリレーは止めない。"""
+    try:
+        import tisly_rgb
+
+        tisly_rgb.tick(now)
+    except Exception:
+        pass
 
 
 def _kick():
@@ -368,15 +418,29 @@ def _service_once(ctrl, inputs, outputs, next_cmd, next_hb):
             "POST", "/api/home/v1/keeprising/heartbeat", payload
         )
         if isinstance(body, dict):
+            _paint("green")
             apply_cloud(ctrl, body, now)
             offer_ota(body)
+            try:
+                next_hb = time.ticks_add(
+                    time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
+                )
+            except Exception:
+                next_hb = now + cfg.HEARTBEAT_INTERVAL_SEC * 1000
+        else:
+            if _net_ok:
+                _paint("blue")
+            else:
+                _paint("red")
+            try:
+                next_hb = time.ticks_add(now, 5000)
+            except Exception:
+                next_hb = now + 5000
         poll_and_drive(ctrl, inputs, outputs)
-        try:
-            next_hb = time.ticks_add(
-                time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
-            )
-        except Exception:
-            next_hb = now + cfg.HEARTBEAT_INTERVAL_SEC * 1000
+    try:
+        _paint_tick(now)
+    except Exception:
+        pass
     try:
         time.sleep_ms(20)
     except Exception:
@@ -386,11 +450,14 @@ def _service_once(ctrl, inputs, outputs, next_cmd, next_hb):
 
 def _run():
     """入力監視を通信より先に始める。"""
-    global _wdt_ref, _scan_ref
+    global _wdt_ref, _scan_ref, _net_ok
+    _arm_usb()
+    _paint("red")
     outputs = init_output_pins()
     inputs = init_input_pins()
     ctrl = logic.KeepRisingController(cfg.DI_DEBOUNCE_MS)
     ctrl.apply_rules(load_cached_rules())
+    _paint("blue")
     wdt = logic.init_watchdog(cfg.WDT_TIMEOUT_MS)
     _wdt_ref = wdt
 
@@ -405,7 +472,14 @@ def _run():
     if inputs:
         ctrl.seed_inputs(read_levels(inputs), now)
     poll_and_drive(ctrl, inputs, outputs)
-    init_network(wdt)
+    info = None
+    try:
+        info = init_network(wdt)
+    except Exception as exc:
+        print("[keeprising] ethernet", exc)
+        info = None
+    _net_ok = bool(info)
+    _paint("blue" if _net_ok else "red")
     poll_and_drive(ctrl, inputs, outputs)
     next_cmd = now
     next_hb = now

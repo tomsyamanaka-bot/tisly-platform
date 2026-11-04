@@ -113,10 +113,8 @@ class TislyRgb:
         return self.status
 
     def tick(self, now_ms=None):
-        """点滅/呼吸。メインループから定期呼出。"""
+        """赤は点灯のまま。青と緑は点滅。メインループから呼ぶ。"""
         interval = 420
-        if self.status == STATUS_SHIPPABLE:
-            interval = 80
         current = now_ms
         if current is None and time is not None:
             try:
@@ -134,17 +132,9 @@ class TislyRgb:
         if elapsed < interval and self._last_ms:
             return self.status
         self._last_ms = current
-        if self.status == STATUS_SHIPPABLE:
-            self._breath += self._breath_dir
-            if self._breath >= 48:
-                self._breath = 48
-                self._breath_dir = -4
-            elif self._breath <= 6:
-                self._breath = 6
-                self._breath_dir = 4
-            self._write(
-                color_for_status(self.status, True, self._breath)
-            )
+        if self.status in (STATUS_UNCONFIGURED, STATUS_FAULT):
+            self._on = True
+            self._write(color_for_status(self.status, True, 0))
             return self.status
         self._on = not self._on
         self._write(color_for_status(self.status, self._on, 0))

@@ -65,7 +65,7 @@ SCHEDULE_END = "06:00"
 DURATION_SEC = 30
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_VERSION = "1.2.54"
+FIRMWARE_VERSION = "1.2.55"
 OTA_SITE = "keeprising"
-OTA_VERSION = "1.2.54"
+OTA_VERSION = "1.2.55"
 OTA_CHANNEL = "production"

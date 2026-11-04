@@ -25,12 +25,21 @@ except ImportError:
 
 _wdt_ref = None
 _event_queue = []
+_net_ok = False
+_scan_ref = None
 
 
 def _kick():
-    """通信待ちの途中でもウォッチドッグを蹴る。"""
+    """通信待ちの途中でもウォッチドッグとリレーを進める。"""
     try:
         logic.kick_watchdog(_wdt_ref)
+    except Exception:
+        pass
+    scan = _scan_ref
+    if scan is None:
+        return
+    try:
+        scan()
     except Exception:
         pass
 
@@ -176,44 +185,53 @@ def apply_cloud(ctrl, body, now_ms):
 _link_online = None
 
 
-def show_boot_led():
-    """DHCP 中は青。通信失敗の赤とは分けて出す。"""
+def _arm_usb():
+    """USB 初期化後に、ホストが無いときだけログを捨てる。"""
+    try:
+        import tisly_usb_safe
+    except ImportError:
+        try:
+            from lib import tisly_usb_safe
+        except Exception:
+            return
+    try:
+        tisly_usb_safe.arm()
+    except Exception:
+        pass
+
+
+def paint_link(kind):
+    """赤=未接続、青点滅=疎通待ち、緑点滅=心拍 OK。"""
     global _link_online
-    if _link_online == "boot":
+    if _link_online == kind:
         return
-    _link_online = "boot"
+    _link_online = kind
     try:
         import tisly_rgb
 
         tisly_rgb.init_rgb(pin_no=cfg.RGB_LED_PIN, count=cfg.RGB_LED_COUNT)
-        tisly_rgb.set_status("boot")
-        tisly_rgb.tick()
+        tisly_rgb.set_status(kind)
     except Exception:
         pass
+
+
+def show_boot_led():
+    """設定を読むまでは赤。読んだあとの待ちは青。"""
+    paint_link("red")
 
 
 def set_link_led(online):
-    """通信エラーは赤点滅、オンライン時は緑点滅を維持する。"""
-    global _link_online
-    if _link_online is online:
-        return
-    _link_online = online
-    try:
-        import tisly_rgb
-
-        tisly_rgb.init_rgb(pin_no=cfg.RGB_LED_PIN, count=cfg.RGB_LED_COUNT)
-        tisly_rgb.set_status("ok" if online else "error")
-        tisly_rgb.tick()
-    except Exception:
-        pass
+    """心拍 OK は緑。IP がある待ちは青。回線なしは赤。"""
+    if online:
+        paint_link("ok")
+    elif _net_ok:
+        paint_link("boot")
+    else:
+        paint_link("red")
 
 
 def init_network(wdt):
     """DHCP を 10 秒試し、失敗したら予備 IP へ戻す。"""
-    try:
-        time.sleep(2)
-    except Exception:
-        pass
     static = (
         cfg.STATIC_IP,
         cfg.STATIC_MASK,
@@ -226,7 +244,7 @@ def init_network(wdt):
 
         info = ethernet_init(
             static=static,
-            kick=lambda: logic.kick_watchdog(wdt),
+            kick=_kick,
             timeout_sec=timeout,
             wait_for_ip=True,
         )
@@ -489,10 +507,19 @@ def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
             write_outputs(outputs, ctrl.outputs)
         next_cmd = time.ticks_add(now, cfg.COMMAND_POLL_MS)
     if time.ticks_diff(now, next_hb) >= 0:
-        heartbeat_with_retry(ctrl, outputs, wdt)
-        next_hb = time.ticks_add(
-            time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
-        )
+        ok = False
+        try:
+            ok = bool(post_heartbeat(ctrl, outputs, wdt))
+        except Exception as exc:
+            print("[ryugasaki] heartbeat", exc)
+            set_link_led(False)
+            ok = False
+        if ok:
+            next_hb = time.ticks_add(
+                time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
+            )
+        else:
+            next_hb = time.ticks_add(now, 5000)
     try:
         import tisly_rgb
 
@@ -505,23 +532,54 @@ def _service_once(ctrl, inputs, outputs, wdt, next_cmd, next_hb):
 
 def _run():
     """入力監視、命令取得、心拍を繰り返す。"""
-    global _wdt_ref
+    global _wdt_ref, _net_ok
+    _arm_usb()
+    show_boot_led()
     outputs = init_output_pins()
     inputs = init_input_pins()
     ctrl = logic.RyugasakiController(cfg.DI_DEBOUNCE_MS)
-    show_boot_led()
-    init_network(None)
+    paint_link("boot")
     wdt = logic.init_watchdog(cfg.WDT_TIMEOUT_MS)
     _wdt_ref = wdt
+
+    def scan():
+        try:
+            moment = time.ticks_ms()
+        except Exception:
+            moment = 0
+        if inputs:
+            try:
+                events = ctrl.poll_inputs(read_levels(inputs), moment)
+                if events:
+                    enqueue_events(events)
+            except Exception:
+                pass
+        try:
+            ctrl.tick_outputs(moment)
+            write_outputs(outputs, ctrl.outputs)
+        except Exception:
+            pass
+
+    global _scan_ref
+    _scan_ref = scan
     now = time.ticks_ms()
     if inputs:
         ctrl.seed_inputs(read_levels(inputs), now)
+    scan()
+    info = None
+    try:
+        info = init_network(wdt)
+    except Exception as exc:
+        print("[ryugasaki] ethernet", exc)
+        info = None
+    _net_ok = bool(info)
+    set_link_led(False)
+    try:
+        now = time.ticks_ms()
+    except Exception:
+        now = 0
     next_cmd = now
-    print("[ryugasaki] boot heartbeat 0sec")
-    heartbeat_with_retry(ctrl, outputs, wdt)
-    next_hb = time.ticks_add(
-        time.ticks_ms(), cfg.HEARTBEAT_INTERVAL_SEC * 1000
-    )
+    next_hb = now
     while True:
         try:
             next_cmd, next_hb = _service_once(
@@ -530,8 +588,10 @@ def _run():
         except Exception as exc:
             print("[ryugasaki] loop", exc)
             set_link_led(False)
-            print("[ryugasaki] retry loop in 10s")
-            wait_heartbeat_retry(wdt)
+            try:
+                time.sleep_ms(20)
+            except Exception:
+                pass
 
 
 def main():
@@ -542,8 +602,10 @@ def main():
         except Exception as exc:
             print("[ryugasaki] boot guard", exc)
             set_link_led(False)
-            print("[ryugasaki] retry boot in 10s")
-            wait_heartbeat_retry(_wdt_ref)
+            try:
+                time.sleep_ms(200)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

@@ -1061,9 +1061,56 @@ async def exec_command(cmd):
         log_error("unknown command: {}".format(cmd))
 
 
+_link_kind = None
+
+
+def _arm_usb():
+    """USB が無いときはログを捨て、起動を止めない。"""
+    try:
+        import tisly_usb_safe
+    except ImportError:
+        try:
+            from lib import tisly_usb_safe
+        except Exception:
+            return
+    try:
+        tisly_usb_safe.arm()
+    except Exception:
+        pass
+
+
+def _paint(kind):
+    """赤=未接続、青点滅=疎通待ち、緑点滅=心拍 OK。"""
+    global _link_kind
+    if _kit:
+        return
+    try:
+        import tisly_rgb
+    except ImportError:
+        try:
+            from lib import tisly_rgb
+        except Exception:
+            return
+    try:
+        if _link_kind is None:
+            tisly_rgb.init_rgb(
+                pin_no=getattr(config, "RGB_LED_PIN", 2),
+                count=getattr(config, "RGB_LED_COUNT", 1),
+            )
+        if kind != _link_kind:
+            tisly_rgb.set_status(kind)
+            _link_kind = kind
+        tisly_rgb.tick()
+    except Exception:
+        pass
+
+
 async def async_main():
 
     global _security
+
+    _arm_usb()
+    _paint("red")
 
     log("device: {}  fw: {}".format(config.DEVICE_ID, config.FIRMWARE_VERSION))
     global _kit
@@ -1103,9 +1150,14 @@ async def async_main():
 
         log("DI{} GPIO{} → {}".format(di, config.DI_GPIO[di], input_states[str(di)].upper()))
 
+    _paint("blue")
 
-
-    ifconfig = init_ethernet()
+    try:
+        ifconfig = init_ethernet()
+    except Exception as eth_exc:
+        ifconfig = None
+        log_error("ethernet: {}".format(eth_exc))
+    _paint("blue" if get_ip() else "red")
 
     if _kit:
         try:
@@ -1209,17 +1261,15 @@ async def async_main():
 
     try:
 
-        if send_heartbeat_with_retry:
-
-            send_heartbeat_with_retry(send_heartbeat)
-
-        else:
-
-            send_heartbeat()
+        hb_ok = bool(send_heartbeat())
 
     except Exception as e:
 
+        hb_ok = False
+
         log_error("boot heartbeat exception: {}".format(e))
+
+    _paint("green" if hb_ok else ("blue" if get_ip() else "red"))
 
     next_heartbeat_ms = time.ticks_add(
 
@@ -1283,27 +1333,34 @@ async def async_main():
 
             # 5分周期: 失敗しても次周期まで待つ
 
+            hb_ok = False
+
             try:
 
-                if send_heartbeat_with_retry:
-
-                    send_heartbeat_with_retry(send_heartbeat)
-
-                else:
-
-                    send_heartbeat()
+                hb_ok = bool(send_heartbeat())
 
             except Exception as e:
 
                 log_error("heartbeat exception: {}".format(e))
 
-            next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
+            _paint("green" if hb_ok else ("blue" if get_ip() else "red"))
+
+            if hb_ok:
+
+                next_heartbeat_ms = time.ticks_add(now, heartbeat_interval_ms)
+
+            else:
+
+                next_heartbeat_ms = time.ticks_add(now, 5000)
 
         try:
             import matrix_lidar
             matrix_lidar.poll_and_post(http_post, config)
         except Exception as e:
             log_error("matrix lidar: {}".format(e))
+
+        if not _kit:
+            _paint(_link_kind or "red")
 
         await asyncio.sleep(poll_interval_sec)
 

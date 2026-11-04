@@ -47,16 +47,19 @@ def test_test_command_holds_then_releases():
 def test_main_keeps_running_after_network_errors():
     text = (ROOT / "firmware" / "main_ryugasaki.py").read_text(encoding="utf-8")
     assert "STATIC_IP" in text
-    assert "retry loop in 10s" in text
-    assert 'set_status("ok" if online else "error")' in text
-    assert "retry boot in 10s" in text
+    assert "paint_link" in text
+    assert 'tisly_rgb.set_status(kind)' in text
+    assert "retry loop in 10s" not in text
+    assert "retry boot in 10s" not in text
     assert "machine.reset" not in text
     assert "Pin.PULL_UP" in text
     assert "Pin.PULL_DOWN" in text
     assert "event retry" in text
     assert "maybe_update" in text
     assert "force=True" not in text
-    assert "time.sleep(2)" in text
+    assert "time.sleep(2)" not in text
+    run = text.split("def _run", 1)[1]
+    assert run.index("scan()") < run.index("init_network")
     assert "di_edge" in text
     toyoshima = (ROOT / "firmware" / "main_toyoshima.py").read_text(
         encoding="utf-8"

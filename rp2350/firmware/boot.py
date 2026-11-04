@@ -4,19 +4,32 @@ TiSLY Remote Test — boot.py
 PoE / USB 起動時に MicroPython が最初に実行します。
 続けて同じ階層の main.py が自動実行されます。
 OTA 失敗時はバックアップから自動復帰する。
+
+print はここでは出さない。
+RP2350 は boot.py のあいだ USB が未初期化で、
+print すると送信待ちで固まり、RGB が混色のままになる。
 """
+
+try:
+    import tisly_usb_safe as _usb_safe
+except ImportError:
+    try:
+        from lib import tisly_usb_safe as _usb_safe
+    except Exception:
+        _usb_safe = None
+
+if _usb_safe is not None:
+    try:
+        _usb_safe.install()
+        _usb_safe.show_status_red()
+    except Exception:
+        pass
 
 import gc
 
 gc.collect()
 
-print("")
-print("=" * 40)
-print("           TISLY BOOT")
-print("=" * 40)
-print("")
-
-# OTA A/B ロールバック（文鎮化防止）
+# OTA A/B ロールバック（文鎮化防止）。失敗しても例外は外へ出さない。
 try:
     from tisly_ota import recover_if_needed
 
@@ -28,8 +41,7 @@ except ImportError:
         recover_if_needed()
     except Exception:
         pass
-except Exception as exc:
-    print("[BOOT] OTA recover:", exc)
+except Exception:
     try:
         import os
 
@@ -49,6 +61,5 @@ except Exception as exc:
                 os.remove("ota_pending.txt")
             except Exception:
                 pass
-            print("[BOOT] restored main_backup.py")
     except Exception:
         pass

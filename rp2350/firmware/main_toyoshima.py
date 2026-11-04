@@ -444,7 +444,7 @@ def init_rgb_led():
         import neopixel
 
         _rgb = neopixel.NeoPixel(Pin(pin_no), count)
-        set_rgb(0, 0, 40)
+        set_rgb(48, 0, 0)
         log("RGB LED GPIO{} 初期化".format(pin_no))
     except Exception as e:
         _rgb = None
@@ -477,7 +477,11 @@ def set_rgb_status(kind):
             _kit.apply_rgb()
         return
     if kind == "boot":
-        set_rgb(0, 0, 48)
+        _rgb_blink_on = not _rgb_blink_on
+        if _rgb_blink_on:
+            set_rgb(0, 0, 48)
+        else:
+            set_rgb(0, 0, 0)
     elif kind == "ok":
         _rgb_blink_on = not _rgb_blink_on
         if _rgb_blink_on:
@@ -1722,21 +1726,36 @@ async def async_main():
             if not _last_hb_ok:
                 if _kit:
                     _kit.note_heartbeat(False)
-                else:
-                    set_rgb_status("error")
             next_heartbeat_ms = time.ticks_add(
                 now, heartbeat_interval_ms
             )
         if _kit:
             _kit.tick()
+        elif not get_ip():
+            set_rgb_status("error")
         elif _last_hb_ok:
             set_rgb_status("ok")
+        else:
+            set_rgb_status("boot")
 
         await asyncio.sleep_ms(LOOP_IDLE_MS)
 
 
 def run():
     """どんな例外でも赤固定にせずセーフモードへ退避する。"""
+    try:
+        import tisly_usb_safe
+
+        tisly_usb_safe.arm()
+    except ImportError:
+        try:
+            from lib import tisly_usb_safe
+
+            tisly_usb_safe.arm()
+        except Exception:
+            pass
+    except Exception:
+        pass
     if SAFE_MODE or ToyoshimaMainHouseController is None:
         _safe_mode_loop(SAFE_MODE_REASON or "起動時ガード")
         return
