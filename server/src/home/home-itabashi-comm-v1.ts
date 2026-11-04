@@ -251,7 +251,7 @@ function buildFirmwareSsotV1(): {
   try {
     const ota = getTislyOtaVersionV1({ siteKey: "itabashi" });
     const running = ota.runningVersion || null;
-    const server = ota.version || "1.6.9";
+    const server = ota.version || "1.6.10";
     const latest = !ota.has_ota_update && !ota.update_required;
     return {
       firmwareVersion: running,

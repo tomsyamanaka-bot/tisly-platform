@@ -106,6 +106,10 @@ npx tsx --test test/practical-pwa-v2.test.ts
 
 ---
 
+## 11. RP2350 セルフ回復（Watchdog）
+
+RP2350 は外付けの電源断に頼らず、`machine.WDT`（8000ms）で自ら再起動する。標準は `rp2350/firmware/lib/tisly_wdt.py` と `main.py`。メインループが1周して戻るたびに給餌し、通信が戻らないあいだは給餌しない。以降のファーム改修でこの給餌を外さない。`force: true` の OTA は使わない。板橋は `1.6.x` のまま進める。
+
 ## 関連
 
 - プロンプト雛形: [templates/NEXT_CURSOR_PROMPT.md](./templates/NEXT_CURSOR_PROMPT.md)

@@ -78,6 +78,42 @@ try:
 except ImportError:
     get_kitting_runner = None
 
+# 11番ルール: 物理 WDT。lib が無い実機でも同じ動きにする。
+try:
+    from tisly_wdt import arm_socket_timeout
+    from tisly_wdt import init_watchdog
+    from tisly_wdt import kick_watchdog
+except ImportError:
+    try:
+        from lib.tisly_wdt import arm_socket_timeout
+        from lib.tisly_wdt import init_watchdog
+        from lib.tisly_wdt import kick_watchdog
+    except ImportError:
+        def init_watchdog(timeout_ms=None):
+            ms = int(8000 if timeout_ms is None else timeout_ms)
+            if ms > 8000:
+                ms = 8000
+            try:
+                from machine import WDT
+                return WDT(timeout=ms)
+            except Exception:
+                return None
+
+        def kick_watchdog(wdt):
+            if wdt is None:
+                return
+            try:
+                wdt.feed()
+            except Exception:
+                pass
+
+        def arm_socket_timeout(seconds=None):
+            try:
+                import socket
+                socket.setdefaulttimeout(1 if seconds is None else seconds)
+            except Exception:
+                pass
+
 
 
 # --- W5500 SPI ピン（Waveshare 02_MQTT サンプル準拠・要 lib/） ---
@@ -170,6 +206,13 @@ _security = None
 
 _kit = None
 
+_wdt = None
+
+
+def _kick_wdt():
+    """ループが生存しているときだけ番犬を給餌する。"""
+    kick_watchdog(_wdt)
+
 
 def log(msg):
 
@@ -196,6 +239,8 @@ def _wait_lan(lan, timeout_sec=15):
         if lan.isconnected():
 
             return True
+
+        _kick_wdt()
 
         time.sleep_ms(200)
 
@@ -311,7 +356,7 @@ def init_ethernet():
 
 
 
-        ifconfig = ethernet_init()
+        ifconfig = ethernet_init(kick=_kick_wdt)
 
         if ifconfig and ifconfig[0] and ifconfig[0] != "0.0.0.0":
 
@@ -411,6 +456,8 @@ def http_get(path):
 
     url = config.API_BASE.rstrip("/") + path
 
+    arm_socket_timeout(1)
+
     try:
 
         res = urequests.get(url, headers=_http_headers())
@@ -450,6 +497,8 @@ def http_post(path, payload):
 
 
     url = config.API_BASE.rstrip("/") + path
+
+    arm_socket_timeout(1)
 
     try:
 
@@ -743,7 +792,9 @@ def _send_heartbeat_once():
     if has_ota_update_from_body and ota_maybe_update:
         try:
             if has_ota_update_from_body(body):
-                ota_maybe_update(http_get, config=config)
+                ota_maybe_update(
+                    http_get, config=config, kick_wdt=_kick_wdt
+                )
         except Exception as ota_exc:
             log_error("OTA from HB: {}".format(ota_exc))
 
@@ -1105,12 +1156,30 @@ def _paint(kind):
         pass
 
 
+async def _fed_sleep(seconds):
+    """待ちを 0.4 秒に割り、正常時は WDT 8 秒を越えない。"""
+    left_ms = int(float(seconds) * 1000)
+    if left_ms < 0:
+        left_ms = 0
+    while left_ms > 0:
+        _kick_wdt()
+        step = 400 if left_ms > 400 else left_ms
+        await asyncio.sleep(step / 1000)
+        left_ms -= step
+    _kick_wdt()
+
+
 async def async_main():
 
-    global _security
+    global _security, _wdt
 
     _arm_usb()
     _paint("red")
+    wdt_ms = int(getattr(config, "WDT_TIMEOUT_MS", 8000))
+    _wdt = init_watchdog(wdt_ms)
+    arm_socket_timeout(1)
+    _kick_wdt()
+    log("WDT armed {}ms".format(wdt_ms if _wdt is not None else 0))
 
     log("device: {}  fw: {}".format(config.DEVICE_ID, config.FIRMWARE_VERSION))
     global _kit
@@ -1170,7 +1239,9 @@ async def async_main():
 
     if ota_maybe_update:
         try:
-            ota_maybe_update(http_get, config=config)
+            ota_maybe_update(
+                http_get, config=config, kick_wdt=_kick_wdt
+            )
         except Exception as ota_exc:
             log_error("boot OTA: {}".format(ota_exc))
 
@@ -1280,6 +1351,7 @@ async def async_main():
 
 
     while True:
+        _kick_wdt()
         if _kit:
             _kit.tick()
         try:
@@ -1362,7 +1434,7 @@ async def async_main():
         if not _kit:
             _paint(_link_kind or "red")
 
-        await asyncio.sleep(poll_interval_sec)
+        await _fed_sleep(poll_interval_sec)
 
 
 def run():

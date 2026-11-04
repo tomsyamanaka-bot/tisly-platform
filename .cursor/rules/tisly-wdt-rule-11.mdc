@@ -1,0 +1,16 @@
+---
+description: TiSLY 11番ルール。RP2350 は Watchdog で自ら再起動する
+alwaysApply: true
+---
+
+# TiSLY 11番ルール — RP2350 セルフ回復
+
+RP2350 のファームは、Shelly など外からの電源断に頼らず、基板自身の
+Watchdog でフリーズと通信スタックから戻る。以降の改修でこの給餌を外さない。
+
+- 標準実装は `rp2350/firmware/lib/tisly_wdt.py`。タイムアウトは 8000ms。
+- `main.py` の初期化で `init_watchdog` し、メインループが1周して戻るたびに `kick_watchdog` する。
+- HTTP とセンサー読み取りは、戻らないあいだ給餌しない。待ちはソケットタイムアウトで WDT より短く切る。
+- DHCP や OTA など、意図して長い処理は細切れに給餌する。`time.sleep` の長時間一括は足さない。
+- 豊島邸・龍ヶ崎店・Keep Rising の既存 `init_watchdog` / `kick_watchdog` も残す。
+- `force: true` の OTA は使わない。板橋の版は `1.6.x` のまま進める。

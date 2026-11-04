@@ -140,6 +140,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
     skipFiles: SKIP_CONFIG,
     fileMap: {
       "main.py": "main_toyoshima.py",
+      "lib/tisly_wdt.py": "lib/tisly_wdt.py",
       "toyoshima_security.py": "toyoshima_security.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",
@@ -165,6 +166,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
     skipFiles: SKIP_CONFIG,
     fileMap: {
       "main.py": "main.py",
+      "lib/tisly_wdt.py": "lib/tisly_wdt.py",
       "matrix_lidar.py": "matrix_lidar.py",
       "security_light.py": "security_light.py",
       "boot.py": "boot.py",
@@ -191,6 +193,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
     skipFiles: SKIP_CONFIG,
     fileMap: {
       "main.py": "main_ryugasaki.py",
+      "lib/tisly_wdt.py": "lib/tisly_wdt.py",
       "ryugasaki_security.py": "ryugasaki_security.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",
@@ -216,6 +219,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
     skipFiles: SKIP_CONFIG,
     fileMap: {
       "main.py": "main_keeprising.py",
+      "lib/tisly_wdt.py": "lib/tisly_wdt.py",
       "keeprising_security.py": "keeprising_security.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",

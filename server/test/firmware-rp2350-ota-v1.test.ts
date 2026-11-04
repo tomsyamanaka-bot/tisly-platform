@@ -420,11 +420,16 @@ describe("firmware-rp2350-ota-v1", () => {
       "/api/firmware/itabashi/version?firmware_version=1.6.6"
     );
     assert.equal(itabashi.body.siteId, "itabashi");
-    assert.equal(itabashi.body.version, "1.6.9");
+    assert.equal(itabashi.body.version, "1.6.10");
     assert.equal(itabashi.body.update_required, true);
     assert.equal(itabashi.body.files.includes("matrix_lidar.py"), true);
-    const itabashiCurrent = await request(app).get(
+    assert.equal(itabashi.body.files.includes("lib/tisly_wdt.py"), true);
+    const itabashiPrev = await request(app).get(
       "/api/firmware/itabashi/version?firmware_version=1.6.9"
+    );
+    assert.equal(itabashiPrev.body.update_required, true);
+    const itabashiCurrent = await request(app).get(
+      "/api/firmware/itabashi/version?firmware_version=1.6.10"
     );
     assert.equal(itabashiCurrent.body.update_required, false);
     assert.equal(same.body.version, prod.body.version);

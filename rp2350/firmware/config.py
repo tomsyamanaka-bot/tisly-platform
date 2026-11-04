@@ -76,7 +76,10 @@ RGB_LED_PIN = 2
 RGB_LED_COUNT = 1
 
 # ファームウェア版（PWA「RP2350接続時刻」画面に表示）
-FIRMWARE_VERSION = "1.6.9-lidar-heatmap"
+FIRMWARE_VERSION = "1.6.10-wdt"
+
+# 物理 WDT（ms）。ループがこの時間戻らないと基板が自ら再起動する。
+WDT_TIMEOUT_MS = 8000
 
 # 全現場共通 OTA（config.py 自体は遠隔上書きしない）
 OTA_SITE = "itabashi"
