@@ -107,8 +107,17 @@ export function paintCustomerAssureCardV1(status) {
     )
   );
   setText("sf-assure-temp", tempLabel(status));
-  const latest = status?.firmwareLatest !== false;
-  setText("sf-assure-fw", tislyCustomerUpdateStatusLabel(latest));
+  if (keepRising) {
+    if (typeof status?.firmwareLatest === "boolean") {
+      setText(
+        "sf-assure-fw",
+        tislyCustomerUpdateStatusLabel(status.firmwareLatest === true)
+      );
+    }
+  } else {
+    const latest = status?.firmwareLatest !== false;
+    setText("sf-assure-fw", tislyCustomerUpdateStatusLabel(latest));
+  }
 }
 
 async function loadStatus(siteId) {

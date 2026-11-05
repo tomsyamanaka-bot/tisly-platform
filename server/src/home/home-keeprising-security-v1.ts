@@ -16,7 +16,12 @@ import {
   getKeepRisingCustomerSettingsV1,
   type KeepRisingCustomerSettingsV1,
 } from "./home-keeprising-settings-v1.js";
-import { deviceNeedsSiteFirmwareUpdateV1 } from "../firmware/tisly-site-target-version-v1.js";
+import {
+  compareSemverCoreV1,
+  deviceNeedsSiteFirmwareUpdateV1,
+  looseSemverCoreV1,
+} from "../firmware/tisly-site-target-version-v1.js";
+import { readTislyOtaReportedFirmwareV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 
 export const KEEPRISING_CUSTOMER_CODE_V1 = "KEEPRISING001";
 export const KEEPRISING_DISPLAY_NAME_V1 = "Keep Rising";
@@ -363,12 +368,26 @@ export async function recordKeepRisingHeartbeatV1(input: {
   return { online: true, boardTempC: runtime.boardTempC };
 }
 
+function newerFirmwareV1(a: string, b: string): string {
+  if (!a) return b;
+  if (!b) return a;
+  const left = looseSemverCoreV1(a);
+  const right = looseSemverCoreV1(b);
+  if (!left) return b;
+  if (!right) return a;
+  return compareSemverCoreV1(left, right) >= 0 ? a : b;
+}
+
 export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
   const settings = getKeepRisingCustomerSettingsV1();
   const online = isHeartbeatOnlineV1(
     runtime.lastHeartbeatAt,
     nowMs,
     KEEPRISING_HEARTBEAT_OFFLINE_MS_V1
+  );
+  const firmwareVersion = newerFirmwareV1(
+    String(runtime.firmwareVersion || "").trim(),
+    readTislyOtaReportedFirmwareV1("keeprising", KEEPRISING_DEVICE_ID_V1)
   );
   return {
     ok: true as const,
@@ -387,12 +406,9 @@ export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
     boardTempC: runtime.boardTempC,
     cabinetTemp: runtime.boardTempC,
     boardTemp: runtime.boardTempC,
-    firmwareVersion: runtime.firmwareVersion,
-    firmwareLatest: runtime.firmwareVersion
-      ? !deviceNeedsSiteFirmwareUpdateV1(
-          "keeprising",
-          runtime.firmwareVersion
-        )
+    firmwareVersion: firmwareVersion || null,
+    firmwareLatest: firmwareVersion
+      ? !deviceNeedsSiteFirmwareUpdateV1("keeprising", firmwareVersion)
       : true,
     commandPending: runtime.queue.length,
     settings,

@@ -49,7 +49,10 @@ import {
   useItabashiStatus,
 } from "./use-itabashi-status-v1.js";
 import { syncMatrixLidarCard } from "./matrix-lidar-card-v1.js";
-import { startCustomerAssureStatusV1 } from "./customer-assure-status-v1.js";
+import {
+  paintCustomerAssureCardV1,
+  startCustomerAssureStatusV1,
+} from "./customer-assure-status-v1.js";
 import {
   getCustomerCode,
   getCustomerToken,
@@ -964,6 +967,21 @@ async function refreshCustomerStatus(btn) {
       const status = await fetchItabashiStatus({ force: true });
       paintItabashiAssureCard(status);
       await loadDash();
+    } else if (isKeepRisingSecuritySite(state.siteId)) {
+      const res = await fetch(
+        `/api/home/v1/keeprising/status?t=${Date.now()}&_fresh=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-store", Pragma: "no-cache" },
+        }
+      );
+      const status = await res.json().catch(() => ({}));
+      paintCustomerAssureCardV1({
+        ...status,
+        isHardwareOnline:
+          status.online === true || status.isHardwareOnline === true,
+      });
+      await loadDash({ force: true });
     } else {
       await loadDash({ force: true });
     }

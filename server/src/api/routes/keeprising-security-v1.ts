@@ -178,7 +178,10 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
           req.body?.cabinetTemp ??
           req.body?.boardTempC,
         firmwareVersion: String(
-          req.body?.firmware_version ?? req.body?.otaVersion ?? ""
+          req.body?.firmware_version ??
+            req.body?.firmwareVersion ??
+            req.body?.otaVersion ??
+            ""
         ).trim(),
       });
       const kitting = extractTislyKittingFromHeartbeatV1(req.body);
@@ -186,7 +189,10 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         siteKey: "keeprising",
         deviceId: String(req.body?.deviceId ?? KEEPRISING_DEVICE_ID_V1),
         firmwareVersion: String(
-          req.body?.firmware_version ?? req.body?.otaVersion ?? ""
+          req.body?.firmware_version ??
+            req.body?.firmwareVersion ??
+            req.body?.otaVersion ??
+            ""
         ).trim() || null,
         shippable: kitting.shippable,
         rgbStatus: kitting.rgbStatus,

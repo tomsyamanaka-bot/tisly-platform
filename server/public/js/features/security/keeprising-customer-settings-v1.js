@@ -1,11 +1,14 @@
 /**
  * Keep Rising の稼働設定と日中テスト。
- * スライダーは表示だけ変え、
+ * 点灯秒はボタンで選び、
  * 決定ボタンまで保存しない。
  */
 
+import { showViewportToast } from "./toast-viewport-v1.js";
+
 const SITE_ID = "SEC-JP-KEEPRISING-001";
 const API = "/api/home/v1/keeprising";
+const DURATION_PRESETS = [5, 15, 45, 90, 120];
 
 const FLOODS = [
   { key: "do1", label: "投光器1" },
@@ -51,8 +54,33 @@ function authHeaders() {
   return headers;
 }
 
+export function snapKeepRisingDurationSec(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 45;
+  let best = DURATION_PRESETS[0];
+  let dist = Math.abs(n - best);
+  for (const preset of DURATION_PRESETS) {
+    const gap = Math.abs(n - preset);
+    if (gap <= dist) {
+      best = preset;
+      dist = gap;
+    }
+  }
+  return best;
+}
+
+function durationButtons(sec) {
+  const selected = snapKeepRisingDurationSec(sec);
+  return DURATION_PRESETS.map((preset) => {
+    const on = preset === selected ? " is-on" : "";
+    return `<button type="button" class="kr-duration-btn${on}" data-kr-sec="${preset}" aria-pressed="${preset === selected ? "true" : "false"}">${preset}秒</button>`;
+  }).join("");
+}
+
 async function readSettings() {
-  const res = await fetch(`${API}/settings?siteId=${SITE_ID}`, {
+  const res = await fetch(
+    `${API}/settings?siteId=${SITE_ID}&t=${Date.now()}&_fresh=${Date.now()}`,
+    {
     cache: "no-store",
     headers: authHeaders(),
   });
@@ -146,10 +174,9 @@ function render(root, settings) {
       <section class="kr-card">
         <h2>発報時の点灯秒数</h2>
         <p>センサーが反応したあとの保持時間です。決定するまで反映されません。</p>
-        <label class="kr-slider">
-          <strong data-kr-duration>${settings.durationSec || 30}秒</strong>
-          <input type="range" min="5" max="180" step="1" value="${settings.durationSec || 30}" data-kr="duration" />
-        </label>
+        <div class="kr-duration" data-kr-duration-group>
+          ${durationButtons(settings.durationSec)}
+        </div>
       </section>
       ${floods}
       <button type="button" class="kr-commit" data-kr-commit>設定を決定する</button>
@@ -182,23 +209,32 @@ function draftFrom(root) {
   return {
     scheduleStart: root.querySelector('[data-kr="start"]')?.value || "20:00",
     scheduleEnd: root.querySelector('[data-kr="end"]')?.value || "06:00",
-    durationSec: Number(root.querySelector('[data-kr="duration"]')?.value) || 30,
+    durationSec: snapKeepRisingDurationSec(
+      root.querySelector(".kr-duration-btn.is-on")?.getAttribute("data-kr-sec")
+    ),
     floodModes,
   };
 }
 
 function bind(root) {
   const note = () => root.querySelector("[data-kr-note]");
-  root.addEventListener("input", (event) => {
-    const duration = event.target.closest?.('[data-kr="duration"]');
-    if (duration) {
-      const label = root.querySelector("[data-kr-duration]");
-      if (label) label.textContent = `${duration.value}秒`;
-    }
+  root.addEventListener("input", () => {
     const line = note();
     if (line) line.textContent = "未保存です。設定を決定するまで反映されません。";
   });
   root.addEventListener("click", async (event) => {
+    const preset = event.target.closest?.("[data-kr-sec]");
+    if (preset) {
+      const group = preset.closest("[data-kr-duration-group]");
+      group?.querySelectorAll(".kr-duration-btn").forEach((btn) => {
+        const on = btn === preset;
+        btn.classList.toggle("is-on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      const line = note();
+      if (line) line.textContent = "未保存です。設定を決定するまで反映されません。";
+      return;
+    }
     const mode = event.target.closest?.("[data-kr-mode]");
     if (mode) {
       const group = mode.closest("[data-kr-flood]");
@@ -213,9 +249,21 @@ function bind(root) {
     if (commit) {
       commit.disabled = true;
       try {
-        await saveSettings(draftFrom(root));
+        const saved = await saveSettings(draftFrom(root));
+        const selected = snapKeepRisingDurationSec(saved?.durationSec);
+        root.querySelectorAll(".kr-duration-btn").forEach((btn) => {
+          const on = Number(btn.getAttribute("data-kr-sec")) === selected;
+          btn.classList.toggle("is-on", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+        });
         const line = note();
-        if (line) line.textContent = "設定を決定し、保存しました。";
+        if (line) line.textContent = `設定を決定し、保存しました（点灯 ${selected}秒）。`;
+        showViewportToast(
+          "kr-save-toast",
+          "ts-toast",
+          `点灯秒数 ${selected}秒を保存しました`,
+          2800
+        );
       } catch (err) {
         const line = note();
         if (line) line.textContent = err.message || "保存に失敗しました";

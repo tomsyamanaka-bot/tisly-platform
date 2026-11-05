@@ -178,6 +178,9 @@ describe("keeprising security", () => {
     );
     assert.match(js, /設定を決定する/);
     assert.match(js, /日中テスト発報/);
+    assert.match(js, /DURATION_PRESETS = \[5, 15, 45, 90, 120\]/);
+    assert.match(js, /data-kr-sec/);
+    assert.equal(js.includes('type="range"'), false);
     assert.equal(js.includes("setTimeout"), false);
     const inputAt = js.indexOf('root.addEventListener("input"');
     const saveAt = js.indexOf("await saveSettings");
@@ -225,7 +228,7 @@ describe("keeprising security", () => {
       .set("Authorization", `Bearer ${login.body.token}`)
       .send({ durationSec: 40 });
     assert.equal(saved.status, 200);
-    assert.equal(saved.body.settings.durationSec, 40);
+    assert.equal(saved.body.settings.durationSec, 45);
     const securityHtml = readFileSync(
       new URL("../public/security-customer-v1.html", import.meta.url),
       "utf8"
@@ -304,5 +307,50 @@ describe("keeprising security", () => {
     assert.match(customerJs, /警戒 OFF（解除）/);
     assert.match(assureJs, /🟢 オンライン/);
     assert.match(assureJs, /24\.5/);
+  });
+
+  it("saves a duration preset and follows the reported firmware", async () => {
+    const owner = token("RISING001");
+    const saved = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ durationSec: 90 });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.settings.durationSec, 90);
+    assert.equal(saved.body.settings.scheduleStart, "20:00");
+    const snapped = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ durationSec: 37 });
+    assert.equal(snapped.body.settings.durationSec, 45);
+    const kept = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ guardMode: "home" });
+    assert.equal(kept.body.settings.guardMode, "home");
+    assert.equal(kept.body.settings.durationSec, 45);
+    const behind = await request(app)
+      .post("/api/home/v1/keeprising/heartbeat")
+      .send({
+        deviceId: "rp2350-keeprising-main-01",
+        firmware_version: "1.2.52",
+      });
+    assert.equal(behind.status, 200);
+    const waiting = await request(app).get(
+      "/api/home/v1/keeprising/status?t=1"
+    );
+    assert.equal(waiting.body.firmwareLatest, false);
+    const current = await request(app)
+      .post("/api/home/v1/keeprising/heartbeat")
+      .send({
+        deviceId: "rp2350-keeprising-main-01",
+        firmwareVersion: "1.2.57",
+      });
+    assert.equal(current.status, 200);
+    const ready = await request(app).get(
+      "/api/home/v1/keeprising/status?t=2"
+    );
+    assert.equal(ready.body.firmwareVersion, "1.2.57");
+    assert.equal(ready.body.firmwareLatest, true);
   });
 });

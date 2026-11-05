@@ -33,6 +33,23 @@ export interface KeepRisingCustomerSettingsV1 {
 
 const DO_MIN_SEC = 5;
 const DO_MAX_SEC = 180;
+const DURATION_PRESETS_V1 = [5, 15, 45, 90, 120] as const;
+
+/** 5 / 15 / 45 / 90 / 120 の近い方。同じ距離なら長い方 */
+export function snapKeepRisingDurationPresetV1(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 45;
+  let best: number = DURATION_PRESETS_V1[0];
+  let dist = Math.abs(n - best);
+  for (const preset of DURATION_PRESETS_V1) {
+    const gap = Math.abs(n - preset);
+    if (gap <= dist) {
+      best = preset;
+      dist = gap;
+    }
+  }
+  return best;
+}
 
 let tableReady = false;
 
@@ -216,7 +233,7 @@ export function saveKeepRisingCustomerSettingsV1(input: {
     durationSec:
       input.durationSec === undefined
         ? prev.durationSec
-        : clampKeepRisingDurationSecV1(input.durationSec),
+        : snapKeepRisingDurationPresetV1(input.durationSec),
     floodModes: incoming
       ? {
           do1: floodMode(incoming.do1 ?? incoming["1"] ?? prev.floodModes.do1),

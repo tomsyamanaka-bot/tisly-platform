@@ -942,6 +942,21 @@ export function deployTislyOtaFirmwareV1(input: {
   return { ok: true, channel, sites, message };
 }
 
+/** 保存済みの報告版だけを読む。更新予約は変えない */
+export function readTislyOtaReportedFirmwareV1(
+  siteKey: TislyOtaSiteKeyV1,
+  deviceId: string
+): string {
+  try {
+    const id = String(deviceId || "").trim();
+    if (!id) return "";
+    const site = loadStore().sites[siteKey];
+    return String(site?.reported?.[id]?.firmwareVersion || "").trim();
+  } catch {
+    return "";
+  }
+}
+
 export function recordTislyOtaDeviceFirmwareV1(input: {
   siteKey: TislyOtaSiteKeyV1;
   deviceId?: string | null;
