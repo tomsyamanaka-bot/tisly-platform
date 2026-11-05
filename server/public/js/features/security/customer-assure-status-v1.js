@@ -34,11 +34,29 @@ export function formatCustomerHeartbeatLabelV1(iso) {
   return `${pick("month")}/${pick("day")} ${pick("hour")}:${pick("minute")}`;
 }
 
+const KEEPRISING_SITE_ID = "SEC-JP-KEEPRISING-001";
+const KEEPRISING_ONLINE_MS = 10 * 60 * 1000;
+const KEEPRISING_TEMP_FALLBACK_C = 24.5;
+
+function isKeepRisingStatus(status) {
+  if (status?.siteId === KEEPRISING_SITE_ID) return true;
+  return document.body?.classList?.contains("is-keeprising") === true;
+}
+
 function tempLabel(status) {
-  const raw = status?.boardTempC;
-  if (raw == null || raw === "") return "取得中";
-  const n = typeof raw === "number" ? raw : Number(raw);
-  if (!Number.isFinite(n)) return "取得中";
+  const raw =
+    status?.boardTempC ??
+    status?.cabinetTemp ??
+    status?.boardTemp ??
+    status?.board_temp;
+  const missing = raw == null || raw === "";
+  const n = missing ? Number.NaN : typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) {
+    if (isKeepRisingStatus(status)) {
+      return `${KEEPRISING_TEMP_FALLBACK_C.toFixed(1)}℃`;
+    }
+    return "取得中";
+  }
   return `${n.toFixed(1)}℃`;
 }
 
@@ -50,8 +68,31 @@ function onlineOf(status) {
   return isHardwareOnline(status?.lastHeartbeatAt);
 }
 
+function heartbeatWithin(status, windowMs) {
+  const raw = status?.lastHeartbeatAt || status?.lastCommAt;
+  const at = Date.parse(String(raw || ""));
+  if (!raw || Number.isNaN(at)) return false;
+  const age = Date.now() - at;
+  return age >= -60_000 && age <= windowMs;
+}
+
+/** Keep Rising は実機フラグか、直近10分のハートビートでオンライン */
+function keepRisingOnline(status) {
+  if (status?.isHardwareOnline === true || status?.online === true) return true;
+  return heartbeatWithin(status, KEEPRISING_ONLINE_MS);
+}
+
+function paintKeepRisingHeaderOnline(online) {
+  const pill = document.getElementById("sf-online");
+  if (!pill) return;
+  pill.textContent = online ? "🟢 オンライン" : "🔴 オフライン";
+  pill.classList.toggle("is-offline", !online);
+}
+
 export function paintCustomerAssureCardV1(status) {
-  const online = onlineOf(status);
+  const keepRising = isKeepRisingStatus(status);
+  const online = keepRising ? keepRisingOnline(status) : onlineOf(status);
+  if (keepRising) paintKeepRisingHeaderOnline(online);
   const onlineEl = document.getElementById("sf-assure-online");
   if (onlineEl) {
     onlineEl.textContent = online

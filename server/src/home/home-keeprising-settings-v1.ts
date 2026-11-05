@@ -11,6 +11,9 @@ const SEC_JP_KEEPRISING_SITE_ID_V1 = "SEC-JP-KEEPRISING-001";
 
 export type KeepRisingFloodModeV1 = "steady" | "blink";
 
+/** away=警戒ON / home=通知のみ / disarmed=警戒OFF */
+export type KeepRisingGuardModeV1 = "away" | "home" | "disarmed";
+
 export interface KeepRisingFloodModesV1 {
   do1: KeepRisingFloodModeV1;
   do2: KeepRisingFloodModeV1;
@@ -24,6 +27,7 @@ export interface KeepRisingCustomerSettingsV1 {
   scheduleEnd: string;
   durationSec: number;
   floodModes: KeepRisingFloodModesV1;
+  guardMode: KeepRisingGuardModeV1;
   updatedAt: string;
 }
 
@@ -95,6 +99,19 @@ function floodMode(raw: unknown): KeepRisingFloodModeV1 {
     : "steady";
 }
 
+export function parseKeepRisingGuardModeV1(
+  raw: unknown,
+  fallback: KeepRisingGuardModeV1 = "away"
+): KeepRisingGuardModeV1 {
+  const text = String(raw ?? "").trim().toLowerCase();
+  if (text === "home" || text === "notify" || text === "notify_only") {
+    return "home";
+  }
+  if (text === "disarmed" || text === "off") return "disarmed";
+  if (text === "away" || text === "on") return "away";
+  return fallback;
+}
+
 function defaultModes(): KeepRisingFloodModesV1 {
   return { do1: "steady", do2: "steady", do3: "steady", do7: "steady" };
 }
@@ -106,6 +123,7 @@ function defaultSettings(siteId: string): KeepRisingCustomerSettingsV1 {
     scheduleEnd: "06:00",
     durationSec: 30,
     floodModes: defaultModes(),
+    guardMode: "away",
     updatedAt: nowIso(),
   };
 }
@@ -146,6 +164,7 @@ function parseSettings(
       do3: floodMode(modes.do3 ?? modes["3"]),
       do7: floodMode(modes.do7 ?? modes["7"]),
     },
+    guardMode: parseKeepRisingGuardModeV1(row.guardMode, "away"),
     updatedAt:
       typeof row.updatedAt === "string" ? row.updatedAt : base.updatedAt,
   };
@@ -176,6 +195,7 @@ export function saveKeepRisingCustomerSettingsV1(input: {
   scheduleEnd?: unknown;
   durationSec?: unknown;
   floodModes?: unknown;
+  guardMode?: unknown;
 }): KeepRisingCustomerSettingsV1 {
   const id = String(input.siteId || SEC_JP_KEEPRISING_SITE_ID_V1).trim();
   const prev = getKeepRisingCustomerSettingsV1(id);
@@ -205,6 +225,10 @@ export function saveKeepRisingCustomerSettingsV1(input: {
           do7: floodMode(incoming.do7 ?? incoming["7"] ?? prev.floodModes.do7),
         }
       : prev.floodModes,
+    guardMode:
+      input.guardMode === undefined
+        ? prev.guardMode
+        : parseKeepRisingGuardModeV1(input.guardMode, prev.guardMode),
     updatedAt: nowIso(),
   };
   ensureTable();

@@ -3506,3 +3506,43 @@ body.sf-customer #sf-matrix-lidar:not([hidden]) {
   outline: 2px solid #1e3a8a;
   outline-offset: 1px;
 }
+
+/* Keep Rising の警戒ボタンだけ。他物件の在宅・外出・解除は変えない */
+body.sf-customer .sf-modes-keeprising {
+  display: grid;
+  gap: 10px;
+}
+
+body.sf-customer .sf-modes-keeprising .sf-mode {
+  min-height: 56px;
+  border-radius: 14px;
+  border: 2px solid #1e3a8a;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+
+body.sf-customer .sf-modes-keeprising .sf-mode[data-mode="away"].is-on {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #ffffff;
+}
+
+body.sf-customer .sf-modes-keeprising .sf-mode[data-mode="away"].is-on.is-alert {
+  background: #dc2626;
+  border-color: #991b1b;
+  color: #ffffff;
+}
+
+body.sf-customer .sf-modes-keeprising .sf-mode[data-mode="home"].is-on {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #ffffff;
+}
+
+body.sf-customer .sf-modes-keeprising .sf-mode[data-mode="disarmed"].is-on {
+  background: #64748b;
+  border-color: #475569;
+  color: #ffffff;
+}

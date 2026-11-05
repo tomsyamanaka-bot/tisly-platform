@@ -38,7 +38,9 @@ import {
 } from "./washmate-customer-settings-v1.js";
 import {
   isKeepRisingSecuritySite,
+  keepRisingGuardLabel,
   mountKeepRisingSettings,
+  renderKeepRisingGuardModes,
 } from "./keeprising-customer-settings-v1.js";
 import {
   applyItabashiHardwareStatus,
@@ -435,6 +437,13 @@ function renderDash(dash, opts = {}) {
     const soft = !!opts.soft;
     const nextSig = alarmSignature(dash);
     if (soft && state.dash && nextSig === state.alarmSig) {
+      if (
+        isKeepRisingSecuritySite(state.siteId) &&
+        dash.guardMode !== state.dash.guardMode
+      ) {
+        state.dash = dash;
+        paintKeepRisingModes(dash);
+      }
       if (isItabashiSecuritySite(state.siteId)) {
         fetchItabashiStatus({ force: false })
           .then((status) => paintItabashiAssureCard(status))
@@ -454,7 +463,12 @@ function renderDash(dash, opts = {}) {
         ? "異常があります"
         : dash.statusLabel || "正常に動いています"
     );
-    setText("sf-guard-label", dash.guardModeLabel || "—");
+    setText(
+      "sf-guard-label",
+      isKeepRisingSecuritySite(state.siteId)
+        ? keepRisingGuardLabel(dash.guardMode)
+        : dash.guardModeLabel || "—"
+    );
     if (!soft) {
       const floors = dash.floors || [];
       /* 3Dキャンバスが無い画面では
@@ -474,7 +488,18 @@ function renderDash(dash, opts = {}) {
         applySecurityOrbit();
         setSecurityDrumFloor(state.floorId);
       }
-      setHtml("sf-modes", renderGuardModes(dash.guardMode));
+      const modeHost = $("sf-modes");
+      const keepRising = isKeepRisingSecuritySite(state.siteId);
+      modeHost?.classList.toggle("sf-modes-keeprising", keepRising);
+      setHtml(
+        "sf-modes",
+        keepRising
+          ? renderKeepRisingGuardModes(
+              dash.guardMode,
+              dash.status === "alert"
+            )
+          : renderGuardModes(dash.guardMode)
+      );
       setHtml(
         "sf-notes",
         (dash.notes || []).map((n) => `<li>${n}</li>`).join("")
@@ -590,9 +615,10 @@ async function loadDash(opts = {}) {
     return;
   }
   try {
-    const fresh = opts.force
-      ? `&t=${Date.now()}&_fresh=${Date.now()}`
-      : "";
+    const fresh =
+      opts.force || isKeepRisingSecuritySite(state.siteId)
+        ? `&t=${Date.now()}&_fresh=${Date.now()}`
+        : "";
     const data = await fetchJson(
       `/api/security-floor/v1/customer?siteId=${encodeURIComponent(state.siteId)}${fresh}`
     );
@@ -611,7 +637,49 @@ function startAlarmPolling() {
   }, 2000);
 }
 
+function paintKeepRisingModes(dash) {
+  const modeHost = $("sf-modes");
+  modeHost?.classList.add("sf-modes-keeprising");
+  setHtml(
+    "sf-modes",
+    renderKeepRisingGuardModes(dash?.guardMode, dash?.status === "alert")
+  );
+  setText("sf-guard-label", keepRisingGuardLabel(dash?.guardMode));
+}
+
 async function setMode(mode) {
+  if (isKeepRisingSecuritySite(state.siteId)) {
+    const mapped =
+      mode === "home" ? "home" : mode === "disarmed" ? "disarmed" : "away";
+    try {
+      await fetchJson("/api/home/v1/keeprising/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardMode: mapped }),
+      });
+      const data = await fetchJson("/api/security-floor/v1/guard-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteId: state.siteId, mode: mapped }),
+      });
+      const dash = data.dashboard || applyLocalGuardMode(state.dash, mapped);
+      if (dash) dash.guardModeLabel = keepRisingGuardLabel(mapped);
+      renderDash(dash);
+      flashStatusToast(
+        mapped === "disarmed"
+          ? "警戒 OFF にしました"
+          : mapped === "home"
+            ? "通知のみにしました"
+            : "警戒 ON にしました"
+      );
+    } catch (err) {
+      const dash = applyLocalGuardMode(state.dash, mapped);
+      if (dash) dash.guardModeLabel = keepRisingGuardLabel(mapped);
+      renderDash(dash);
+      flashStatusToast(err?.message || "モード切替に失敗しました");
+    }
+    return;
+  }
   if (isToyoshimaSecuritySite(state.siteId)) {
     const mapped =
       mode === "disarmed" ? "disarmed" : mode === "home" ? "home" : "away";

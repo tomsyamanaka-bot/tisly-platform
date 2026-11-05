@@ -11,8 +11,8 @@ export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   itabashi: "1.6.10",
   /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
   ryugasaki: "1.2.42",
-  /** Keep Rising。夜間の現地連動 */
-  keeprising: "1.2.52",
+  /** Keep Rising。警戒モードと盤内温度を載せる版 */
+  keeprising: "1.2.57",
 } as const;
 
 export type TislySiteTargetKeyV1 = keyof typeof TISLY_SITE_TARGET_VERSIONS_V1;

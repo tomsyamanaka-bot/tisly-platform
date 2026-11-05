@@ -19,6 +19,28 @@ export function isKeepRisingSecuritySite(siteId) {
   return id === SITE_ID || id.includes("KEEPRISING");
 }
 
+export function keepRisingGuardLabel(mode) {
+  if (mode === "home") return "通知のみ";
+  if (mode === "disarmed") return "警戒 OFF";
+  return "警戒 ON";
+}
+
+/** 並びは 警戒ON → 通知のみ → 警戒OFF */
+export function renderKeepRisingGuardModes(mode, alerting) {
+  const items = [
+    { id: "away", label: "警戒 ON（外出警戒）" },
+    { id: "home", label: "通知のみ" },
+    { id: "disarmed", label: "警戒 OFF（解除）" },
+  ];
+  return items
+    .map((item) => {
+      const on = item.id === mode;
+      const alert = on && item.id === "away" && alerting ? " is-alert" : "";
+      return `<button type="button" class="sf-mode${on ? " is-on" : ""}${alert}" data-mode="${item.id}">${item.label}</button>`;
+    })
+    .join("");
+}
+
 function authHeaders() {
   const headers = { "Content-Type": "application/json" };
   const token =

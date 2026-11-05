@@ -238,4 +238,71 @@ describe("keeprising security", () => {
     assert.equal(homeHtml.includes('id="hm-site-select"'), false);
     assert.match(securityHtml, /sf-tenant-skeleton/);
   });
+
+  it("stores guard mode and cabinet temperature without rewriting the night window", async () => {
+    const owner = token("RISING001");
+    const saved = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ guardMode: "home" });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.settings.guardMode, "home");
+    assert.equal(saved.body.settings.scheduleStart, "20:00");
+    assert.equal(saved.body.settings.scheduleEnd, "06:00");
+    assert.equal(saved.body.settings.durationSec, 30);
+    const notify = await request(app)
+      .post("/api/home/v1/keeprising/event")
+      .send({
+        di: 1,
+        active: true,
+        scheduleOpen: true,
+        outputs: [6],
+      });
+    assert.equal(notify.status, 200);
+    assert.equal(notify.body.linkedOutput, false);
+    assert.deepEqual(notify.body.channels, []);
+    const off = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ guardMode: "disarmed" });
+    assert.equal(off.body.settings.guardMode, "disarmed");
+    assert.equal(off.body.settings.scheduleStart, "20:00");
+    const stopped = await request(app)
+      .post("/api/home/v1/keeprising/event")
+      .send({
+        di: 3,
+        active: true,
+        scheduleOpen: true,
+        outputs: [1, 2, 4],
+      });
+    assert.equal(stopped.body.pushSent, false);
+    assert.equal(stopped.body.linkedOutput, false);
+    const beat = await request(app)
+      .post("/api/home/v1/keeprising/heartbeat")
+      .send({ deviceId: "rp2350-keeprising-main-01", cabinetTemp: 31.2 });
+    assert.equal(beat.status, 200);
+    const status = await request(app).get("/api/home/v1/keeprising/status");
+    assert.equal(status.body.online, true);
+    assert.equal(status.body.boardTempC, 31.2);
+    assert.equal(status.body.cabinetTemp, 31.2);
+    const customerJs = readFileSync(
+      new URL(
+        "../public/js/features/security/keeprising-customer-settings-v1.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const assureJs = readFileSync(
+      new URL(
+        "../public/js/features/security/customer-assure-status-v1.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    assert.match(customerJs, /警戒 ON（外出警戒）/);
+    assert.match(customerJs, /通知のみ/);
+    assert.match(customerJs, /警戒 OFF（解除）/);
+    assert.match(assureJs, /🟢 オンライン/);
+    assert.match(assureJs, /24\.5/);
+  });
 });

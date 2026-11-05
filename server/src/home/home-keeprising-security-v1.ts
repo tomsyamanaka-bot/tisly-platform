@@ -180,22 +180,39 @@ export async function processKeepRisingSecurityEventV1(input: {
   const rising = active && !was;
   const falling = !active && was;
   const scheduleOpen = body.scheduleOpen !== false;
-  const channels = Array.isArray(body.outputs)
+  const guardMode = getKeepRisingCustomerSettingsV1().guardMode;
+  const reported = Array.isArray(body.outputs)
     ? body.outputs.map((ch) => Number(ch)).filter((ch) => Number.isFinite(ch))
     : scheduleOpen
       ? [...KEEPRISING_SENSOR_OUTPUTS_V1[di]]
       : [];
+  const channels = guardMode === "away" ? reported : [];
   let pushSent = false;
+  if (guardMode === "disarmed") {
+    return {
+      ok: true,
+      accepted: true,
+      di,
+      active,
+      pushSent: false,
+      sensorLabel: label,
+      linkedOutput: false,
+      channels: [],
+    };
+  }
   if (rising || falling) {
     const message = rising
       ? `${label}が反応しました`
       : `${label}が復帰しました`;
     const daytime =
-      rising && channels.length === 0 && di !== 2;
+      rising && channels.length === 0 && di !== 2 && guardMode === "away";
     const title = `⚠️ ${KEEPRISING_DISPLAY_NAME_V1}：${message}`;
-    const text = daytime
-      ? `${message}。稼働時間外のためライトとパトライトは止めています。`
-      : `${message}（${KEEPRISING_DISPLAY_NAME_V1}）`;
+    const text =
+      guardMode === "home"
+        ? `${message}。ライトとパトライトは止めています。`
+        : daytime
+          ? `${message}。稼働時間外のためライトとパトライトは止めています。`
+          : `${message}（${KEEPRISING_DISPLAY_NAME_V1}）`;
     pushSent = await sendKeepRisingPush({
       title,
       body: text,
@@ -368,6 +385,8 @@ export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
     isHardwareOnline: online,
     lastHeartbeatAt: runtime.lastHeartbeatAt,
     boardTempC: runtime.boardTempC,
+    cabinetTemp: runtime.boardTempC,
+    boardTemp: runtime.boardTempC,
     firmwareVersion: runtime.firmwareVersion,
     firmwareLatest: runtime.firmwareVersion
       ? !deviceNeedsSiteFirmwareUpdateV1(

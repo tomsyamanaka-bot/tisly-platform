@@ -77,6 +77,7 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         scheduleEnd: req.body?.scheduleEnd,
         durationSec: req.body?.durationSec,
         floodModes: req.body?.floodModes,
+        guardMode: req.body?.guardMode,
       });
       res.json({ ok: true, settings, savedBy: "confirm" });
     }
@@ -171,7 +172,11 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
     try {
       await recordKeepRisingHeartbeatV1({
         deviceId: req.body?.deviceId,
-        boardTemp: req.body?.board_temp ?? req.body?.boardTemp,
+        boardTemp:
+          req.body?.board_temp ??
+          req.body?.boardTemp ??
+          req.body?.cabinetTemp ??
+          req.body?.boardTempC,
         firmwareVersion: String(
           req.body?.firmware_version ?? req.body?.otaVersion ?? ""
         ).trim(),

@@ -5,7 +5,7 @@ Keep Rising のセンサーとリレー。
 """
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.56"
+FIRMWARE_LOGIC_VERSION = "1.2.57"
 
 DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300
@@ -109,6 +109,16 @@ def normalize_mode(raw):
     return "steady"
 
 
+def normalize_guard_mode(raw):
+    """away はフル連動。home は通知のみ。disarmed は停止。"""
+    text = str(raw or "away").strip().lower()
+    if text in ("disarmed", "off", "stop"):
+        return "disarmed"
+    if text in ("home", "notify", "notify_only"):
+        return "notify"
+    return "away"
+
+
 class DiDebouncer:
     """50ms 安定するまで立上りを出さない。"""
 
@@ -165,6 +175,7 @@ class KeepRisingController:
         self.schedule_start = 20 * 60
         self.schedule_end = 6 * 60
         self.duration_sec = 30
+        self.guard_mode = "away"
 
     def apply_rules(self, rules):
         """決定済みの設定だけを現地ルールへ写す。"""
@@ -179,6 +190,12 @@ class KeepRisingController:
         self.duration_sec = clamp_duration_sec(
             rules.get("durationSec"), self.duration_sec
         )
+        if "guardMode" in rules:
+            next_mode = normalize_guard_mode(rules.get("guardMode"))
+            if next_mode != "away":
+                for ch in OUTPUT_CHANNELS:
+                    self.hold_until[ch] = None
+            self.guard_mode = next_mode
         modes = rules.get("floodModes")
         if not isinstance(modes, dict):
             return
@@ -244,14 +261,17 @@ class KeepRisingController:
         """
         events = []
         open_now = self.schedule_open(utc_sec)
+        mode = getattr(self, "guard_mode", "away")
         for ch in (1, 2, 3, 4):
             active = bool((levels or {}).get(ch, False))
             changed = self.debouncer.update(ch, active, now_ms)
             if changed is None:
                 continue
             self.inputs[ch] = bool(changed)
+            if mode == "disarmed":
+                continue
             outputs = []
-            if changed and open_now:
+            if changed and open_now and mode == "away":
                 outputs = self.arm(self.outputs_for(ch), now_ms, False)
             events.append(self.build_event(ch, bool(changed), open_now, outputs))
         return events
@@ -316,11 +336,12 @@ class KeepRisingController:
         時間外の通常保持はここで消す。
         """
         open_now = self.schedule_open(utc_sec)
+        allow_hold = getattr(self, "guard_mode", "away") == "away" and open_now
         levels = {}
         for ch in OUTPUT_CHANNELS:
             forced = self._still(self.force_until.get(ch), now_ms)
             held = self._still(self.hold_until.get(ch), now_ms)
-            if held and not open_now and not forced:
+            if held and not allow_hold and not forced:
                 self.hold_until[ch] = None
                 held = False
             if not forced:
@@ -337,8 +358,30 @@ class KeepRisingController:
         return levels
 
 
+def read_board_temperature_c():
+    """内蔵温度。読めないときは None。"""
+    try:
+        import machine
+
+        adc_cls = machine.ADC
+        core = getattr(adc_cls, "CORE_TEMP", None)
+        sensor = adc_cls(core) if core is not None else adc_cls(4)
+        acc = 0
+        i = 0
+        while i < 4:
+            acc += sensor.read_u16()
+            i += 1
+        reading = (acc / 4) * (3.3 / 65535)
+        board_temp = round(27 - (reading - 0.706) / 0.001721, 1)
+        if board_temp < -40 or board_temp > 125:
+            return None
+        return board_temp
+    except Exception:
+        return None
+
+
 def build_heartbeat_payload(extra=None):
-    """死活と版だけ。センサー欄は入れない。"""
+    """死活と版。温度が読めたときだけ載せる。センサー欄は入れない。"""
     payload = {
         "tenantId": TENANT_ID,
         "siteId": SITE_ID,
@@ -346,6 +389,11 @@ def build_heartbeat_payload(extra=None):
         "firmware_version": FIRMWARE_LOGIC_VERSION,
         "otaVersion": FIRMWARE_LOGIC_VERSION,
     }
+    temp = read_board_temperature_c()
+    if temp is not None:
+        payload["board_temp"] = temp
+        payload["boardTemp"] = temp
+        payload["cabinetTemp"] = temp
     if extra and isinstance(extra, dict):
         payload.update(extra)
     for banned in (

@@ -124,6 +124,27 @@ def test_lights_drop_when_the_window_ends():
     assert ctrl.physical(50, _day())[6] is False
 
 
+def test_notify_and_off_skip_outputs():
+    ctrl = kr.KeepRisingController()
+    ctrl.apply_rules({"guardMode": "home"})
+    ctrl.seed_inputs({1: False, 4: False}, 0)
+    ctrl.poll_inputs({1: True}, 0, _night())
+    events = ctrl.poll_inputs({1: True}, 50, _night())
+    assert events[0]["outputs"] == []
+    assert ctrl.physical(50, _night())[6] is False
+    ctrl.apply_rules({"guardMode": "disarmed"})
+    ctrl.poll_inputs({4: True}, 100, _night())
+    stopped = ctrl.poll_inputs({4: True}, 150, _night())
+    assert stopped == []
+    assert ctrl.physical(150, _night())[1] is False
+
+
+def test_heartbeat_accepts_cabinet_temp():
+    payload = kr.build_heartbeat_payload({"board_temp": 24.5})
+    assert payload["board_temp"] == 24.5
+    assert "inputs" not in payload
+
+
 def test_main_keeps_relays_ahead_of_network():
     text = (ROOT / "firmware" / "main_keeprising.py").read_text(encoding="utf-8")
     body = text.split("def _service_once", 1)[1]
@@ -147,5 +168,7 @@ if __name__ == "__main__":
     test_day_test_forces_outputs()
     test_blink_mode_and_confirm_rules()
     test_lights_drop_when_the_window_ends()
+    test_notify_and_off_skip_outputs()
+    test_heartbeat_accepts_cabinet_temp()
     test_main_keeps_relays_ahead_of_network()
     print("ok")
