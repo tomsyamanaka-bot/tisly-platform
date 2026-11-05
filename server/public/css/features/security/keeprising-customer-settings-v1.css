@@ -158,3 +158,62 @@
 .kr-dialog .kr-no {
   background: #64748b;
 }
+
+.kr-day-relay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  margin-top: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.kr-switch {
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 30px;
+  flex: 0 0 auto;
+}
+
+.kr-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.kr-switch-ui {
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  position: relative;
+}
+
+.kr-switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+}
+
+.kr-switch input:checked + .kr-switch-ui {
+  background: #1e3a8a;
+}
+
+.kr-switch input:checked + .kr-switch-ui::after {
+  transform: translateX(22px);
+}
+
+.kr-day-relay strong {
+  min-width: 2.5rem;
+  color: #1e3a8a;
+}

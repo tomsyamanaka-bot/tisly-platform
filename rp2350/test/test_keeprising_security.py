@@ -81,6 +81,18 @@ def test_daytime_notifies_without_outputs():
     assert ctrl.physical(50, _day())[4] is False
 
 
+def test_daytime_relay_test_arms_outside_the_window():
+    ctrl = kr.KeepRisingController()
+    ctrl.apply_rules({"daytimeRelayTest": True})
+    ctrl.seed_inputs({1: False, 4: False}, 0)
+    ctrl.poll_inputs({1: True}, 0, _day())
+    events = ctrl.poll_inputs({1: True}, 50, _day())
+    assert events[0]["outputs"] == [6]
+    assert ctrl.physical(50, _day())[6] is True
+    ctrl.apply_rules({"daytimeRelayTest": False})
+    assert ctrl.physical(50, _day())[6] is False
+
+
 def test_unknown_clock_still_links():
     ctrl = kr.KeepRisingController()
     ctrl.seed_inputs({4: False}, 0)
@@ -164,6 +176,7 @@ if __name__ == "__main__":
     test_window_crosses_midnight()
     test_each_sensor_arms_only_its_outputs_at_night()
     test_daytime_notifies_without_outputs()
+    test_daytime_relay_test_arms_outside_the_window()
     test_unknown_clock_still_links()
     test_day_test_forces_outputs()
     test_blink_mode_and_confirm_rules()

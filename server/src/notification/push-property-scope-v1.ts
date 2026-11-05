@@ -3,7 +3,10 @@
  * HOME siteId と Security siteId は同じ物件として扱う。
  */
 
-import { isTomsOpsPushUserV1 } from "../home/home-board-temp-alert-v1.js";
+import {
+  isCustomerPushUserV1,
+  isTomsOpsPushUserV1,
+} from "../home/home-board-temp-alert-v1.js";
 
 const PUSH_PROPERTY_GROUPS_V1: readonly (readonly string[])[] = [
   [
@@ -108,6 +111,33 @@ export function pushRowMatchesPropertyScopeV1(
     [target],
     [rowSite, rowProperty, rowCustomer]
   );
+}
+
+const KEEPRISING_PUSH_KEYS_V1 = [
+  "SEC-JP-KEEPRISING-001",
+  "HOME-JP-KEEPRISING",
+  "KEEPRISING001",
+  "RISING001",
+] as const;
+
+/**
+ * Keep Rising の施主購読。
+ * 顧客コードか現場が Rising001 の行だけ。空の購読や他物件は含めない。
+ */
+export function keepRisingCustomerPushRowV1(row: PushScopeRowV1): boolean {
+  const code = String(row.customer_code || "").trim().toUpperCase();
+  const explicit = code === "KEEPRISING001" || code === "RISING001";
+  const ids = [row.site_id, row.property_id, code].filter((id) =>
+    String(id || "").trim()
+  );
+  if (!ids.length) return false;
+  if (!pushPropertiesOverlapV1(ids, [...KEEPRISING_PUSH_KEYS_V1])) {
+    return false;
+  }
+  if (explicit) return true;
+  const user = String(row.user_id || "").trim();
+  if (isTomsOpsPushUserV1(user)) return false;
+  return isCustomerPushUserV1(user) || user === "home-security";
 }
 
 /** data の現場ID、顧客コード、または HOME-/SEC- の deviceId を物件キーにする */

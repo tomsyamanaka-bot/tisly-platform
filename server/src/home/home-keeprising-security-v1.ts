@@ -22,6 +22,7 @@ import {
   looseSemverCoreV1,
 } from "../firmware/tisly-site-target-version-v1.js";
 import { readTislyOtaReportedFirmwareV1 } from "../firmware/tisly-rp2350-ota-v1.js";
+import { setSecuritySensorStateV1 } from "../security-floor/security-floor-sites-v1.js";
 
 export const KEEPRISING_CUSTOMER_CODE_V1 = "KEEPRISING001";
 export const KEEPRISING_DISPLAY_NAME_V1 = "Keep Rising";
@@ -61,7 +62,7 @@ const DO_LABELS_V1: Record<number, string> = {
   4: "赤色スピーカーパトライト",
   5: "事務所ベースライト",
   6: "青丸位置の赤色パトライト",
-  7: "投光器4",
+  7: "事務所室内灯",
 };
 
 export interface KeepRisingCommandV1 {
@@ -211,13 +212,20 @@ export async function processKeepRisingSecurityEventV1(input: {
       : `${label}が復帰しました`;
     const daytime =
       rising && channels.length === 0 && di !== 2 && guardMode === "away";
-    const title = `⚠️ ${KEEPRISING_DISPLAY_NAME_V1}：${message}`;
+    const title = rising
+      ? `【TiSLY警報】${KEEPRISING_DISPLAY_NAME_V1}`
+      : `【TiSLY】${KEEPRISING_DISPLAY_NAME_V1}`;
     const text =
       guardMode === "home"
         ? `${message}。ライトとパトライトは止めています。`
         : daytime
           ? `${message}。稼働時間外のためライトとパトライトは止めています。`
           : `${message}（${KEEPRISING_DISPLAY_NAME_V1}）`;
+    setSecuritySensorStateV1(
+      SEC_JP_KEEPRISING_SITE_ID_V1,
+      `kr-di${di}`,
+      rising ? "alert" : "normal"
+    );
     pushSent = await sendKeepRisingPush({
       title,
       body: text,

@@ -28,6 +28,8 @@ export interface KeepRisingCustomerSettingsV1 {
   durationSec: number;
   floodModes: KeepRisingFloodModesV1;
   guardMode: KeepRisingGuardModeV1;
+  /** 稼働時間外でもセンサー連動リレーを出す */
+  daytimeRelayTest: boolean;
   updatedAt: string;
 }
 
@@ -129,6 +131,12 @@ export function parseKeepRisingGuardModeV1(
   return fallback;
 }
 
+function parseDaytimeRelayTestV1(raw: unknown): boolean {
+  if (raw === true || raw === 1) return true;
+  const text = String(raw ?? "").trim().toLowerCase();
+  return text === "1" || text === "true" || text === "on" || text === "yes";
+}
+
 function defaultModes(): KeepRisingFloodModesV1 {
   return { do1: "steady", do2: "steady", do3: "steady", do7: "steady" };
 }
@@ -141,6 +149,7 @@ function defaultSettings(siteId: string): KeepRisingCustomerSettingsV1 {
     durationSec: 30,
     floodModes: defaultModes(),
     guardMode: "away",
+    daytimeRelayTest: false,
     updatedAt: nowIso(),
   };
 }
@@ -182,6 +191,7 @@ function parseSettings(
       do7: floodMode(modes.do7 ?? modes["7"]),
     },
     guardMode: parseKeepRisingGuardModeV1(row.guardMode, "away"),
+    daytimeRelayTest: parseDaytimeRelayTestV1(row.daytimeRelayTest),
     updatedAt:
       typeof row.updatedAt === "string" ? row.updatedAt : base.updatedAt,
   };
@@ -213,6 +223,7 @@ export function saveKeepRisingCustomerSettingsV1(input: {
   durationSec?: unknown;
   floodModes?: unknown;
   guardMode?: unknown;
+  daytimeRelayTest?: unknown;
 }): KeepRisingCustomerSettingsV1 {
   const id = String(input.siteId || SEC_JP_KEEPRISING_SITE_ID_V1).trim();
   const prev = getKeepRisingCustomerSettingsV1(id);
@@ -246,6 +257,10 @@ export function saveKeepRisingCustomerSettingsV1(input: {
       input.guardMode === undefined
         ? prev.guardMode
         : parseKeepRisingGuardModeV1(input.guardMode, prev.guardMode),
+    daytimeRelayTest:
+      input.daytimeRelayTest === undefined
+        ? prev.daytimeRelayTest
+        : parseDaytimeRelayTestV1(input.daytimeRelayTest),
     updatedAt: nowIso(),
   };
   ensureTable();

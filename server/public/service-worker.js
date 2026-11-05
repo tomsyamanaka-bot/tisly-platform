@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2596-keeprising-duration";
+const SW_VERSION = "tisly-pwa-v2597-keeprising-day-relay";
+/* tisly-pwa-v2596-keeprising-duration */
 /* tisly-pwa-v2595-keeprising-customer-status */
 /* tisly-pwa-v2594-customer-single-site */
 /* tisly-pwa-v2593-keeprising */
@@ -699,6 +700,12 @@ const STAFF_FOCUS_GROUPS = [
   ],
   ["HOME-JP-ITABASHI-LIVE", "SEC-JP-ITABASHI-LIVE"],
   ["HOME-JP-TSUKUBA-001", "SEC-JP-TSUKUBA-001"],
+  [
+    "HOME-JP-KEEPRISING",
+    "SEC-JP-KEEPRISING-001",
+    "KEEPRISING001",
+    "RISING001",
+  ],
 ];
 
 function expandStaffFocusId(id) {
@@ -734,6 +741,26 @@ async function readStaffNotifyFocus() {
   } catch {
     return { enabled: false, siteIds: [] };
   }
+}
+
+function keepRisingCustomerAlert(data) {
+  const payload = (data && data.data) || {};
+  const audience = String(
+    (data && data.audience) || payload.audience || ""
+  );
+  if (audience !== "customer") return false;
+  const blob = [
+    payload.siteId,
+    payload.propertyId,
+    payload.homeSiteId,
+    payload.securitySiteId,
+    payload.customerCode,
+    data && data.deviceId,
+    data && data.url,
+  ]
+    .join(" ")
+    .toUpperCase();
+  return blob.indexOf("KEEPRISING") !== -1 || blob.indexOf("RISING001") !== -1;
 }
 
 function staffFocusBlocksNotification(focus, data) {
@@ -794,7 +821,12 @@ self.addEventListener("push", (event) => {
   const severity = data.data?.severity || data.severity;
   event.waitUntil(
     readStaffNotifyFocus().then((focus) => {
-      if (staffFocusBlocksNotification(focus, data)) return undefined;
+      if (
+        !keepRisingCustomerAlert(data) &&
+        staffFocusBlocksNotification(focus, data)
+      ) {
+        return undefined;
+      }
       return self.registration.showNotification(data.title, {
         body: data.body,
         icon,

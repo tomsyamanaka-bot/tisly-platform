@@ -12,7 +12,9 @@ import {
 } from "../../home/home-board-temp-alert-v1.js";
 import {
   explicitPushSiteIdV1,
+  keepRisingCustomerPushRowV1,
   normalizePushScopeV1,
+  pushPropertyKeysV1,
   pushRowMatchesPropertyScopeV1,
   type PushSubscriptionScopeV1,
 } from "../push-property-scope-v1.js";
@@ -126,6 +128,10 @@ function rowMatchesAudienceV1(
   return true;
 }
 
+function isKeepRisingPushTargetV1(siteId: string | null | undefined): boolean {
+  return pushPropertyKeysV1(siteId).has("SEC-JP-KEEPRISING-001");
+}
+
 function loadActiveWebPushRows(
   db: ReturnType<typeof getDatabase>,
   userId?: string,
@@ -195,7 +201,18 @@ function loadActiveWebPushRows(
     else grouped.set(row.endpoint, [row]);
   }
   let muted = 0;
+  const keepRisingCustomer =
+    audience === "customer" && isKeepRisingPushTargetV1(targetSiteId);
   for (const [endpoint, rows] of grouped) {
+    if (keepRisingCustomer) {
+      const customerRow = rows.find((row) =>
+        keepRisingCustomerPushRowV1(row)
+      );
+      if (customerRow) {
+        byEndpoint.set(endpoint, customerRow);
+        continue;
+      }
+    }
     if (!staffFocusAllowsEndpointV1(rows, targetSiteId, staffFocus)) {
       muted += 1;
       continue;
@@ -290,6 +307,7 @@ export async function sendWebPush(
     url: payload.url ?? "/app/notifications",
     icon: payload.icon,
     badge: payload.badge,
+    audience: payload.audience,
     data: payload.data,
   });
 

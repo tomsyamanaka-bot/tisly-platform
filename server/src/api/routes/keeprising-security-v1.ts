@@ -78,6 +78,7 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         durationSec: req.body?.durationSec,
         floodModes: req.body?.floodModes,
         guardMode: req.body?.guardMode,
+        daytimeRelayTest: req.body?.daytimeRelayTest,
       });
       res.json({ ok: true, settings, savedBy: "confirm" });
     }

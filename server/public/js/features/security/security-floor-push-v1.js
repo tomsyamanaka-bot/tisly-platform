@@ -76,6 +76,18 @@ function readSecurityPushContextV1() {
       profile.homeSiteId ||
       ""
   ).trim();
+  const risingCustomer =
+    isCustomerPushScreen() &&
+    (customerCode === "RISING001" ||
+      customerCode === "KEEPRISING001" ||
+      document.body?.classList?.contains("is-keeprising") === true);
+  if (risingCustomer) {
+    return {
+      customerCode: customerCode || "KEEPRISING001",
+      siteId: "SEC-JP-KEEPRISING-001",
+      propertyId: "HOME-JP-KEEPRISING",
+    };
+  }
   return { customerCode, siteId, propertyId };
 }
 

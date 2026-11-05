@@ -41,6 +41,13 @@ import {
   isVapidConfigured,
   sendWebPush,
 } from "../../notification/channels/web-push.js";
+import { getKeepRisingCustomerSettingsV1 } from "../../home/home-keeprising-settings-v1.js";
+import {
+  HOME_JP_KEEPRISING_SITE_ID_V1,
+  KEEPRISING_CUSTOMER_CODE_V1,
+  KEEPRISING_DISPLAY_NAME_V1,
+  SEC_JP_KEEPRISING_SITE_ID_V1,
+} from "../../home/home-keeprising-security-v1.js";
 
 export const securityFloorRouter = Router();
 
@@ -291,15 +298,53 @@ securityFloorRouter.post("/test-notify", async (req, res) => {
     attempts: [],
   };
 
+  const keepRisingSite =
+    siteId === SEC_JP_KEEPRISING_SITE_ID_V1 ||
+    siteId.toUpperCase().includes("KEEPRISING");
+  const keepRisingDisarmed =
+    keepRisingSite &&
+    getKeepRisingCustomerSettingsV1().guardMode === "disarmed";
+
   try {
-    webPush = await sendWebPush({
-      title: "TiSLY 通知テスト",
-      body: "Push通知が正常に届きました",
-      eventType: "security_floor_test_notify",
-      deviceId: siteId,
-      url: `/security-v1.html?siteId=${encodeURIComponent(siteId)}`,
-      data: { siteId, kind: "test_notify" },
-    });
+    if (keepRisingDisarmed) {
+      webPush = {
+        channel: "web_push",
+        success: false,
+        error: "guard disarmed",
+        sent: 0,
+        attempted: 0,
+        attempts: [],
+      };
+    } else if (keepRisingSite) {
+      webPush = await sendWebPush({
+        title: `【TiSLY警報】${KEEPRISING_DISPLAY_NAME_V1}`,
+        body: "センサーが反応しました（Keep Rising）",
+        eventType: "keeprising_sensor_alert",
+        deviceId: SEC_JP_KEEPRISING_SITE_ID_V1,
+        url: "/customer/security",
+        audience: "customer",
+        icon: "/icons/icon-192.png?v=2003",
+        badge: "/icons/icon-192.png?v=2003",
+        data: {
+          siteId: SEC_JP_KEEPRISING_SITE_ID_V1,
+          propertyId: HOME_JP_KEEPRISING_SITE_ID_V1,
+          homeSiteId: HOME_JP_KEEPRISING_SITE_ID_V1,
+          securitySiteId: SEC_JP_KEEPRISING_SITE_ID_V1,
+          customerCode: KEEPRISING_CUSTOMER_CODE_V1,
+          audience: "customer",
+          kind: "sensor_alert",
+        },
+      });
+    } else {
+      webPush = await sendWebPush({
+        title: "TiSLY 通知テスト",
+        body: "Push通知が正常に届きました",
+        eventType: "security_floor_test_notify",
+        deviceId: siteId,
+        url: `/security-v1.html?siteId=${encodeURIComponent(siteId)}`,
+        data: { siteId, kind: "test_notify" },
+      });
+    }
   } catch (err) {
     webPush = {
       channel: "web_push",

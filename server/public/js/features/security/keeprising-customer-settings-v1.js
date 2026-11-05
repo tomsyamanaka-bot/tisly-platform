@@ -1,6 +1,6 @@
 /**
- * Keep Rising の稼働設定と日中テスト。
- * 点灯秒はボタンで選び、
+ * Keep Rising の稼働設定。
+ * 点灯秒と昼間の連動トグルは、
  * 決定ボタンまで保存しない。
  */
 
@@ -14,7 +14,7 @@ const FLOODS = [
   { key: "do1", label: "投光器1" },
   { key: "do2", label: "投光器2" },
   { key: "do3", label: "投光器3" },
-  { key: "do7", label: "投光器4（投光器3と束ねる）" },
+  { key: "do7", label: "事務所室内灯" },
 ];
 
 export function isKeepRisingSecuritySite(siteId) {
@@ -102,38 +102,6 @@ async function saveSettings(patch) {
   return data.settings;
 }
 
-function askTestConfirm(label) {
-  return new Promise((resolve) => {
-    const dialog = document.createElement("dialog");
-    dialog.className = "kr-dialog";
-    dialog.innerHTML = `
-      <p>${label}の連動を、稼働時間外でも動かします。よろしいですか？</p>
-      <div class="kr-dialog-actions">
-        <button type="button" class="kr-no">やめる</button>
-        <button type="button" class="kr-yes">日中テスト発報</button>
-      </div>
-    `;
-    const finish = (yes) => {
-      dialog.close();
-      dialog.remove();
-      resolve(yes);
-    };
-    dialog.querySelector(".kr-no").addEventListener("click", () => finish(false));
-    dialog.querySelector(".kr-yes").addEventListener("click", () => finish(true));
-    dialog.addEventListener("cancel", (event) => {
-      event.preventDefault();
-      finish(false);
-    });
-    document.body.appendChild(dialog);
-    if (typeof dialog.showModal === "function") {
-      dialog.showModal();
-      dialog.querySelector(".kr-no").focus();
-    } else {
-      finish(window.confirm(`${label}の日中テスト発報を送りますか？`));
-    }
-  });
-}
-
 function modeButtons(key, mode) {
   const steady = mode === "blink" ? "" : " is-on";
   const blink = mode === "blink" ? " is-on" : "";
@@ -170,6 +138,15 @@ function render(root, settings) {
             <input type="time" data-kr="end" value="${settings.scheduleEnd || "06:00"}" />
           </label>
         </div>
+        <label class="kr-day-relay" for="kr-daytime-relay">
+          <span>昼間でもセンサー連動リレー（テスト）</span>
+          <span class="kr-switch">
+            <input type="checkbox" id="kr-daytime-relay" data-kr="daytime" ${settings.daytimeRelayTest ? "checked" : ""} />
+            <span class="kr-switch-ui" aria-hidden="true"></span>
+          </span>
+          <strong data-kr-daytime-label>${settings.daytimeRelayTest ? "ON" : "OFF"}</strong>
+        </label>
+        <p>ON のあいだは、稼働時間の外でもセンサーが投光器・室内灯・パトライトを動かします。決定するまで保存されません。</p>
       </section>
       <section class="kr-card">
         <h2>発報時の点灯秒数</h2>
@@ -180,20 +157,6 @@ function render(root, settings) {
       </section>
       ${floods}
       <button type="button" class="kr-commit" data-kr-commit>設定を決定する</button>
-      <section class="kr-card">
-        <h2>日中テスト発報</h2>
-        <p>稼働時間外でも、選んだセンサーと同じ出力を一度だけ確認します。門は通知だけです。</p>
-        <label class="kr-select">
-          確認するセンサー
-          <select data-kr-di>
-            <option value="1">センサー1（青丸パトライト）</option>
-            <option value="2">門マグネット（通知のみ）</option>
-            <option value="3">センサー2（投光器2台とスピーカー）</option>
-            <option value="4" selected>センサー3（投光器・事務所・スピーカー）</option>
-          </select>
-        </label>
-        <button type="button" class="kr-test" data-kr-test>日中テスト発報</button>
-      </section>
       <p class="kr-note" data-kr-note>変更は「設定を決定する」まで保存されません。</p>
     </div>
   `;
@@ -213,14 +176,23 @@ function draftFrom(root) {
       root.querySelector(".kr-duration-btn.is-on")?.getAttribute("data-kr-sec")
     ),
     floodModes,
+    daytimeRelayTest: Boolean(root.querySelector('[data-kr="daytime"]')?.checked),
   };
 }
 
 function bind(root) {
   const note = () => root.querySelector("[data-kr-note]");
-  root.addEventListener("input", () => {
+  const markDirty = () => {
     const line = note();
     if (line) line.textContent = "未保存です。設定を決定するまで反映されません。";
+  };
+  root.addEventListener("input", markDirty);
+  root.addEventListener("change", (event) => {
+    const box = event.target.closest?.('[data-kr="daytime"]');
+    if (!box) return;
+    const label = root.querySelector("[data-kr-daytime-label]");
+    if (label) label.textContent = box.checked ? "ON" : "OFF";
+    markDirty();
   });
   root.addEventListener("click", async (event) => {
     const preset = event.target.closest?.("[data-kr-sec]");
@@ -256,12 +228,19 @@ function bind(root) {
           btn.classList.toggle("is-on", on);
           btn.setAttribute("aria-pressed", on ? "true" : "false");
         });
+        const dayOn = Boolean(saved?.daytimeRelayTest);
+        const dayBox = root.querySelector('[data-kr="daytime"]');
+        if (dayBox) dayBox.checked = dayOn;
+        const dayLabel = root.querySelector("[data-kr-daytime-label]");
+        if (dayLabel) dayLabel.textContent = dayOn ? "ON" : "OFF";
         const line = note();
-        if (line) line.textContent = `設定を決定し、保存しました（点灯 ${selected}秒）。`;
+        if (line) {
+          line.textContent = `設定を決定し、保存しました（点灯 ${selected}秒、昼間連動 ${dayOn ? "ON" : "OFF"}）。`;
+        }
         showViewportToast(
           "kr-save-toast",
           "ts-toast",
-          `点灯秒数 ${selected}秒を保存しました`,
+          `設定を保存しました（点灯 ${selected}秒）`,
           2800
         );
       } catch (err) {
@@ -271,41 +250,6 @@ function bind(root) {
         commit.disabled = false;
       }
       return;
-    }
-    const test = event.target.closest?.("[data-kr-test]");
-    if (!test || root.dataset.testing === "1") return;
-    const select = root.querySelector("[data-kr-di]");
-    const di = Number(select?.value || 4);
-    const label = select?.selectedOptions?.[0]?.textContent || "センサー";
-    const yes = await askTestConfirm(label);
-    if (!yes) return;
-    root.dataset.testing = "1";
-    test.disabled = true;
-    try {
-      const res = await fetch(`${API}/day-test`, {
-        method: "POST",
-        cache: "no-store",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          siteId: SITE_ID,
-          di,
-          confirmed: true,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.ok === false) {
-        throw new Error(data.error || "テストを送れませんでした");
-      }
-      const line = note();
-      if (line) {
-        line.textContent = `日中テストを送りました（${data.durationSec}秒）`;
-      }
-    } catch (err) {
-      const line = note();
-      if (line) line.textContent = err.message || "テストを送れませんでした";
-    } finally {
-      test.disabled = false;
-      root.dataset.testing = "0";
     }
   });
 }

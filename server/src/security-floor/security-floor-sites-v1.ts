@@ -1005,7 +1005,7 @@ export const SECURITY_FLOOR_SITES_V1: SecuritySiteV1[] = [
     guardMode: "away",
     notes: [
       "夜間 20:00〜06:00 だけ自動連動します",
-      "日中は通知のみ。テストは日中テスト発報です",
+      "昼間連動テストが ON のときだけ、稼働時間外もリレーが動きます",
     ],
   },
 ];

@@ -83,6 +83,7 @@ describe("keeprising security", () => {
     assert.equal(before.scheduleEnd, "06:00");
     assert.equal(before.durationSec, 30);
     assert.equal(before.floodModes.do1, "steady");
+    assert.equal(before.daytimeRelayTest, false);
   });
 
   it("saves schedule, seconds, and flood modes only on PUT", async () => {
@@ -177,7 +178,9 @@ describe("keeprising security", () => {
       "utf8"
     );
     assert.match(js, /設定を決定する/);
-    assert.match(js, /日中テスト発報/);
+    assert.equal(js.includes("日中テスト発報"), false);
+    assert.match(js, /昼間でもセンサー連動リレー（テスト）/);
+    assert.match(js, /事務所室内灯/);
     assert.match(js, /DURATION_PRESETS = \[5, 15, 45, 90, 120\]/);
     assert.match(js, /data-kr-sec/);
     assert.equal(js.includes('type="range"'), false);
@@ -347,10 +350,114 @@ describe("keeprising security", () => {
         firmwareVersion: "1.2.57",
       });
     assert.equal(current.status, 200);
-    const ready = await request(app).get(
+    const mid = await request(app).get(
       "/api/home/v1/keeprising/status?t=2"
     );
-    assert.equal(ready.body.firmwareVersion, "1.2.57");
+    assert.equal(mid.body.firmwareVersion, "1.2.57");
+    assert.equal(mid.body.firmwareLatest, false);
+    const shipped = await request(app)
+      .post("/api/home/v1/keeprising/heartbeat")
+      .send({
+        deviceId: "rp2350-keeprising-main-01",
+        firmwareVersion: "1.2.59",
+      });
+    assert.equal(shipped.status, 200);
+    const ready = await request(app).get(
+      "/api/home/v1/keeprising/status?t=3"
+    );
+    assert.equal(ready.body.firmwareVersion, "1.2.59");
     assert.equal(ready.body.firmwareLatest, true);
+  });
+
+  it("saves the daytime relay toggle without rewriting the night window", async () => {
+    const owner = token("RISING001");
+    const saved = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ daytimeRelayTest: true });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.settings.daytimeRelayTest, true);
+    assert.equal(saved.body.settings.scheduleStart, "20:00");
+    assert.equal(saved.body.settings.scheduleEnd, "06:00");
+    assert.equal(saved.body.settings.durationSec, 30);
+    const command = await request(app).get("/api/home/v1/keeprising/command");
+    assert.equal(command.status, 200);
+    assert.equal(command.body.settings.daytimeRelayTest, true);
+    const off = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ daytimeRelayTest: false });
+    assert.equal(off.body.settings.daytimeRelayTest, false);
+    assert.equal(off.body.settings.scheduleStart, "20:00");
+  });
+
+  it("records a sensor alarm for Keep Rising phones", async () => {
+    const { listSecurityAlarmLogsV1 } = await import(
+      "../src/security-floor/security-floor-soc-v1.js"
+    );
+    const { keepRisingCustomerPushRowV1 } = await import(
+      "../src/notification/push-property-scope-v1.js"
+    );
+    assert.equal(
+      keepRisingCustomerPushRowV1({
+        user_id: "home-security",
+        customer_code: "RISING001",
+        site_id: "SEC-JP-TOYOSHIMA-001",
+      }),
+      true
+    );
+    assert.equal(
+      keepRisingCustomerPushRowV1({
+        user_id: "customer-security",
+        site_id: "SEC-JP-KEEPRISING-001",
+      }),
+      true
+    );
+    assert.equal(
+      keepRisingCustomerPushRowV1({
+        user_id: "customer-security",
+        site_id: "SEC-JP-TOYOSHIMA-001",
+        customer_code: "TOYOSHIMA001",
+      }),
+      false
+    );
+    assert.equal(
+      keepRisingCustomerPushRowV1({
+        user_id: "toms-ops",
+        site_id: "SEC-JP-KEEPRISING-001",
+      }),
+      false
+    );
+    assert.equal(
+      keepRisingCustomerPushRowV1({ user_id: "customer-security" }),
+      false
+    );
+    const event = await request(app)
+      .post("/api/home/v1/keeprising/event")
+      .send({
+        di: 2,
+        active: true,
+        scheduleOpen: false,
+        outputs: [],
+      });
+    assert.equal(event.status, 200);
+    assert.equal(event.body.sensorLabel.length > 0, true);
+    const logs = listSecurityAlarmLogsV1("SEC-JP-KEEPRISING-001");
+    assert.equal(
+      logs.some(
+        (row) => row.sensorId === "kr-di2" && row.kindLabel === "開放検知"
+      ),
+      true
+    );
+    const server = readFileSync(
+      new URL("../src/home/home-keeprising-security-v1.ts", import.meta.url),
+      "utf8"
+    );
+    const sw = readFileSync(
+      new URL("../public/service-worker.js", import.meta.url),
+      "utf8"
+    );
+    assert.match(server, /【TiSLY警報】/);
+    assert.match(sw, /keepRisingCustomerAlert/);
   });
 });

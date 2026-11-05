@@ -5,7 +5,7 @@ Keep Rising のセンサーとリレー。
 """
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.58"
+FIRMWARE_LOGIC_VERSION = "1.2.59"
 
 DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300
@@ -119,6 +119,14 @@ def normalize_guard_mode(raw):
     return "away"
 
 
+def truthy_flag(raw):
+    """昼間連動テストの ON。未設定は OFF。"""
+    if raw is True or raw == 1:
+        return True
+    text = str(raw or "").strip().lower()
+    return text in ("1", "true", "on", "yes")
+
+
 class DiDebouncer:
     """50ms 安定するまで立上りを出さない。"""
 
@@ -176,6 +184,7 @@ class KeepRisingController:
         self.schedule_end = 6 * 60
         self.duration_sec = 30
         self.guard_mode = "away"
+        self.daytime_relay = False
 
     def apply_rules(self, rules):
         """決定済みの設定だけを現地ルールへ写す。"""
@@ -196,6 +205,8 @@ class KeepRisingController:
                 for ch in OUTPUT_CHANNELS:
                     self.hold_until[ch] = None
             self.guard_mode = next_mode
+        if "daytimeRelayTest" in rules:
+            self.daytime_relay = truthy_flag(rules.get("daytimeRelayTest"))
         modes = rules.get("floodModes")
         if not isinstance(modes, dict):
             return
@@ -212,6 +223,14 @@ class KeepRisingController:
         for key, ch in mapping.items():
             if key in modes:
                 self.modes[ch] = normalize_mode(modes.get(key))
+
+    def outputs_allowed(self, open_now):
+        """警戒 ON のとき、稼働時間内か昼間連動テスト中だけリレーを出す。"""
+        if getattr(self, "guard_mode", "away") != "away":
+            return False
+        if open_now:
+            return True
+        return bool(getattr(self, "daytime_relay", False))
 
     def schedule_open(self, utc_sec):
         """時刻不明のときは連動を止めない。"""
@@ -257,7 +276,7 @@ class KeepRisingController:
     def poll_inputs(self, levels, now_ms, utc_sec):
         """
         立上りだけをイベントにする。
-        夜間は即アームし、日中は通知だけ。
+        夜間、または昼間連動テスト中は即アームする。
         """
         events = []
         open_now = self.schedule_open(utc_sec)
@@ -271,7 +290,7 @@ class KeepRisingController:
             if mode == "disarmed":
                 continue
             outputs = []
-            if changed and open_now and mode == "away":
+            if changed and self.outputs_allowed(open_now):
                 outputs = self.arm(self.outputs_for(ch), now_ms, False)
             events.append(self.build_event(ch, bool(changed), open_now, outputs))
         return events
@@ -336,7 +355,7 @@ class KeepRisingController:
         時間外の通常保持はここで消す。
         """
         open_now = self.schedule_open(utc_sec)
-        allow_hold = getattr(self, "guard_mode", "away") == "away" and open_now
+        allow_hold = self.outputs_allowed(open_now)
         levels = {}
         for ch in OUTPUT_CHANNELS:
             forced = self._still(self.force_until.get(ch), now_ms)
