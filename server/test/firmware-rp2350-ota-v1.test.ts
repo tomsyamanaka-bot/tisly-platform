@@ -58,7 +58,7 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.ok, true);
     assert.equal(res.body.siteId, "toyoshima");
-    assert.equal(res.body.version, "1.2.29");
+    assert.equal(res.body.version, "1.2.60");
     assert.equal(typeof res.body.checksum, "string");
     assert.equal(res.body.checksum.length, 64);
     assert.equal(res.body.pending, false);
@@ -394,19 +394,20 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(stream.body.update_required, true);
     assert.ok(stream.body.files.includes("toyoshima_security.py"));
     assert.ok(stream.body.files.includes("main.py"));
-    assert.match(String(prod.body.version), /^1\.2\.29$/);
+    assert.match(String(prod.body.version), /^1\.2\.60$/);
     assert.match(String(prod.body.updateUrl), /\/api\/firmware\/toyoshima\/version/);
     assert.match(String(prod.body.scriptBaseUrl), /\/api\/firmware\/toyoshima\/script/);
     const same = await request(app).get(
-      `/api/firmware/toyoshima/version?firmware_version=${productSemver()}`
+      "/api/firmware/toyoshima/version?firmware_version=1.2.60"
     );
     assert.equal(same.body.has_ota_update, false);
     assert.equal(same.body.update_required, false);
-    assert.equal(same.body.version, "1.2.29");
+    assert.equal(same.body.version, "1.2.60");
     const currentSite = await request(app).get(
       "/api/firmware/toyoshima/version?firmware_version=1.2.29"
     );
-    assert.equal(currentSite.body.update_required, false);
+    assert.equal(currentSite.body.update_required, true);
+    assert.equal(currentSite.body.version, "1.2.60");
     const script = await request(app).get(
       "/api/firmware/toyoshima/script?name=toyoshima_security.py"
     );
@@ -415,7 +416,7 @@ describe("firmware-rp2350-ota-v1", () => {
       "/api/firmware/toyoshima/version?firmware_version=1.2.20"
     );
     assert.equal(drifted.body.update_required, true);
-    assert.equal(drifted.body.version, "1.2.29");
+    assert.equal(drifted.body.version, "1.2.60");
     const itabashi = await request(app).get(
       "/api/firmware/itabashi/version?firmware_version=1.6.6"
     );
@@ -439,13 +440,13 @@ describe("firmware-rp2350-ota-v1", () => {
     resetTislyOtaStoreForTestV1();
     const prod = await request(app).get("/api/firmware/toyoshima/version");
     assert.equal(prod.status, 200);
-    assert.equal(prod.body.version, "1.2.29");
+    assert.equal(prod.body.version, "1.2.60");
     assert.equal(prod.body.pending, false);
     const staging = await request(app).get(
       "/api/firmware/toyoshima/version?channel=staging"
     );
     assert.equal(staging.status, 200);
-    assert.equal(staging.body.version, "1.2.29");
+    assert.equal(staging.body.version, "1.2.60");
     assert.equal(staging.body.pending, false);
     assert.equal(staging.body.channel, "staging");
   });
@@ -480,7 +481,7 @@ describe("firmware-rp2350-ota-v1", () => {
     const toyoshima = await request(app).get(
       "/api/firmware/toyoshima/version?firmware_version=1.2.34"
     );
-    assert.equal(toyoshima.body.version, "1.2.29");
-    assert.equal(toyoshima.body.update_required, false);
+    assert.equal(toyoshima.body.version, "1.2.60");
+    assert.equal(toyoshima.body.update_required, true);
   });
 });

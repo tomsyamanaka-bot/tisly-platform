@@ -24,6 +24,7 @@ import {
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
 import { getTislyOtaVersionV1 } from "../firmware/tisly-rp2350-ota-v1.js";
+import { TISLY_SITE_TARGET_VERSIONS_V1 } from "../firmware/tisly-site-target-version-v1.js";
 import {
   loadToyoshimaHeartbeatStoreV1,
   saveToyoshimaHeartbeatStoreV1,
@@ -156,6 +157,10 @@ export interface ToyoshimaBuildingStateV1 {
 export interface ToyoshimaTimelineEventV1 {
   id: string;
   at: string;
+  /** 記録時刻のタイムゾーン。センサー履歴は Asia/Tokyo 固定 */
+  timeZone: "Asia/Tokyo";
+  /** JST の壁時計。YYYY-MM-DD HH:mm:ss */
+  jst: string;
   building: ToyoshimaBuildingIdV1;
   kind:
     | "main_beam"
@@ -302,7 +307,7 @@ export function buildToyoshimaFirmwareSsotV1(): ToyoshimaFirmwareSsotV1 {
   try {
     const ota = getTislyOtaVersionV1({ siteKey: "toyoshima" });
     const running = ota.runningVersion || null;
-    const server = ota.version || "1.2.29";
+    const server = ota.version || TISLY_SITE_TARGET_VERSIONS_V1.toyoshima;
     const latest = !ota.has_ota_update && !ota.update_required;
     return {
       runningVersion: running,
@@ -841,6 +846,16 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** センサー履歴に残す日本時間。UTC の瞬間へ 9 時間を足し、夏時間は無い。 */
+export function formatToyoshimaJstStampV1(at: Date = new Date()): string {
+  const jst = new Date(at.getTime() + 9 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${jst.getUTCFullYear()}-${p(jst.getUTCMonth() + 1)}-${p(jst.getUTCDate())} ` +
+    `${p(jst.getUTCHours())}:${p(jst.getUTCMinutes())}:${p(jst.getUTCSeconds())}`
+  );
+}
+
 function isToyoshimaSiteId(siteId: string): boolean {
   const sid = String(siteId || "").trim();
   return (
@@ -882,10 +897,16 @@ function findDi(
   return building.di.find((d) => d.ch === ch);
 }
 
-function appendTimeline(event: Omit<ToyoshimaTimelineEventV1, "id">): void {
+function appendTimeline(
+  event: Omit<ToyoshimaTimelineEventV1, "id" | "timeZone" | "jst">
+): void {
+  const at = event.at || nowIso();
   const row: ToyoshimaTimelineEventV1 = {
     id: uuid(),
     ...event,
+    at,
+    timeZone: "Asia/Tokyo",
+    jst: formatToyoshimaJstStampV1(new Date(at)),
   };
   runtime.timeline.unshift(row);
   if (runtime.timeline.length > 100) {
@@ -1438,7 +1459,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   const sensorId = resolveToyoshimaSensorIdV1(input.building, input.di);
   const sensorLabel = toyoshimaDiDisplayNameV1(input.di);
   const detectedAt = nowIso();
-  const detectedAtJst = formatToyoshimaJstV1(detectedAt);
+  const detectedAtJst = formatToyoshimaJstStampV1(new Date(detectedAt));
   const pushAllowed =
     input.notifyAllowed && isHomeNotifyAnyPushV1(input.notifyMode);
   const skipReason = pushAllowed
@@ -1469,6 +1490,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
         sensorName: sensorLabel,
         detectedAt,
         detectedAtJst,
+        timeZone: "Asia/Tokyo",
         notifyMode: input.notifyMode,
         pushAllowed,
         skipReason,

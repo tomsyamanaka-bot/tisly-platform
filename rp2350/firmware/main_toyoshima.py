@@ -1626,6 +1626,14 @@ async def async_main():
     )
     poll_counter = 0
 
+    # 起動直後に NTP。settime は UTC のまま。判定側が +32400 する。
+    kick_watchdog(_wdt)
+    if get_ip() and _security is not None:
+        try:
+            _security.sync_ntp_clock()
+        except Exception as ntp_exc:
+            log_error("ntp: {}".format(ntp_exc))
+
     # 起動直後に 1 発目 heartbeat を即時送信（0 秒・待機ループ前）
     kick_watchdog(_wdt)
     log("boot heartbeat (0 sec) — before poll loop")
@@ -1713,6 +1721,13 @@ async def async_main():
         if time.ticks_diff(now, next_heartbeat_ms) >= 0:
             if not get_ip():
                 ensure_network_or_retry()
+            # 心拍の直前に NTP を取り直す。失敗してもリレー判定は続ける。
+            # settime 後の RTC は UTC。夜間判定は time.time()+32400。
+            if get_ip() and _security is not None:
+                try:
+                    _security.sync_ntp_clock()
+                except Exception as ntp_exc:
+                    log_error("ntp: {}".format(ntp_exc))
             # 失敗時は 10 秒×最大 3 回。
             # 全滅しても次の 5 分周期まで待つ。
             try:

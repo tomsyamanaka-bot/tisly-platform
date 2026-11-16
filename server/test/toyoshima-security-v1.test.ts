@@ -8,6 +8,7 @@ import {
   buildToyoshimaSecurityDashboardV1,
   clearToyoshimaAlarmsV1,
   HOME_JP_TOYOSHIMA_SITE_ID_V1,
+  formatToyoshimaJstStampV1,
   processToyoshimaSecurityEventV1,
   recordToyoshimaHeartbeatV1,
   recordToyoshimaModeChangeV1,
@@ -1027,6 +1028,64 @@ describe("toyoshima-security-v1", () => {
         scheduleStart: before.scheduleStart,
         scheduleEnd: before.scheduleEnd,
         securityMode: before.securityMode,
+      });
+    }
+  });
+
+  it("sensor logs are stamped in Asia/Tokyo", () => {
+    assert.equal(
+      formatToyoshimaJstStampV1(new Date("2026-11-16T09:00:00.000Z")),
+      "2026-11-16 18:00:00"
+    );
+    assert.equal(
+      formatToyoshimaJstStampV1(new Date("2026-11-16T20:30:00.000Z")),
+      "2026-11-17 05:30:00"
+    );
+    recordToyoshimaModeChangeV1("在宅");
+    const dash = buildToyoshimaSecurityDashboardV1(
+      SEC_JP_TOYOSHIMA_SITE_ID_V1
+    );
+    assert.equal(dash.timeline[0].timeZone, "Asia/Tokyo");
+    assert.match(dash.timeline[0].jst, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+  });
+
+  it("overnight 17:00-05:30 is judged in JST", () => {
+    const before = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+    updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+      customerSecurityMode: "away",
+      forceRelayTest: false,
+      scheduleStart: "17:00",
+      scheduleEnd: "05:30",
+    });
+    try {
+      const rules = getHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
+      assert.equal(
+        shouldToyoshimaDriveSensorLightsV1(
+          rules,
+          new Date("2026-11-16T08:00:00.000Z")
+        ),
+        true
+      );
+      assert.equal(
+        shouldToyoshimaDriveSensorLightsV1(
+          rules,
+          new Date("2026-11-15T20:29:00.000Z")
+        ),
+        true
+      );
+      assert.equal(
+        shouldToyoshimaDriveSensorLightsV1(
+          rules,
+          new Date("2026-11-16T01:00:00.000Z")
+        ),
+        false
+      );
+    } finally {
+      updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+        customerSecurityMode: before.customerSecurityMode,
+        forceRelayTest: before.forceRelayTest,
+        scheduleStart: before.scheduleStart,
+        scheduleEnd: before.scheduleEnd,
       });
     }
   });

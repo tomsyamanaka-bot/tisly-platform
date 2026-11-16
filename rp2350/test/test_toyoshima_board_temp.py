@@ -20,6 +20,7 @@ def test_identifiers():
     assert ts.HEARTBEAT_RETRY_WAIT_SEC == 10
     assert ts.WDT_TIMEOUT_MS == 8000
     assert ts.BOARD_TEMP_OVERHEAT_C == 60.0
+    assert ts.JST_OFFSET_SEC == 32400
 
 
 def test_build_heartbeat_payload_shape():
@@ -1350,6 +1351,77 @@ def test_vps_jst_advances_until_next_sync():
             assert ctrl._is_in_light_schedule() is True
 
 
+def test_ntp_settime_adds_32400_and_resync_stays_jst():
+    """settime の直後と再同期のあとも、判定は time.time()+32400。"""
+    import sys
+    import types
+    from datetime import datetime, timezone
+
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    clock = {
+        "sec": int(datetime(2026, 11, 16, 2, 0, tzinfo=timezone.utc).timestamp())
+    }
+    sched = {"start": "17:00", "end": "05:30"}
+    ctrl.apply_rules({
+        "force_relay_test": False,
+        "jstMinutes": 11 * 60,
+        "light_schedule": sched,
+    })
+    assert ctrl._ntp_utc_ready is False
+    assert ctrl._jst_minutes() == 11 * 60
+
+    def settime_evening():
+        clock["sec"] = int(
+            datetime(2026, 11, 16, 9, 0, tzinfo=timezone.utc).timestamp()
+        )
+
+    fake = types.SimpleNamespace(settime=settime_evening, timeout=1)
+    with patch.object(ts.time, "time", lambda: clock["sec"]):
+        with patch.dict(sys.modules, {"ntptime": fake}):
+            assert ctrl.sync_ntp_clock() is True
+            assert ctrl._jst_epoch_sec() == clock["sec"] + 32400
+            assert ctrl._jst_minutes() == 18 * 60
+            assert ctrl._is_in_light_schedule() is True
+
+            def settime_morning():
+                clock["sec"] = int(
+                    datetime(2026, 11, 16, 1, 0, tzinfo=timezone.utc).timestamp()
+                )
+
+            fake.settime = settime_morning
+            assert ctrl.sync_ntp_clock() is True
+            assert ctrl._jst_minutes() == 10 * 60
+            assert ctrl._is_in_light_schedule() is False
+            clock["sec"] = int(
+                datetime(2026, 11, 15, 20, 29, tzinfo=timezone.utc).timestamp()
+            )
+            assert ctrl._jst_minutes() == 5 * 60 + 29
+            assert ctrl._is_in_light_schedule() is True
+
+
+def test_ntp_failure_keeps_vps_jst():
+    """NTP が失敗した心拍では、サーバーの JST を維持する。"""
+    import sys
+    import types
+
+    ctrl = ts.ToyoshimaMainHouseController(lambda ch, on: None)
+    ctrl.apply_rules({
+        "force_relay_test": False,
+        "jstMinutes": 11 * 60,
+        "light_schedule": {"start": "18:00", "end": "06:00"},
+    })
+
+    def settime():
+        raise OSError("ntp down")
+
+    fake = types.SimpleNamespace(settime=settime, timeout=1)
+    with patch.dict(sys.modules, {"ntptime": fake}):
+        assert ctrl.sync_ntp_clock() is False
+    assert ctrl._ntp_utc_ready is False
+    assert ctrl._jst_minutes() == 11 * 60
+    assert ctrl._is_in_light_schedule() is False
+
+
 def test_utc_epoch_without_vps_is_shifted_to_jst():
     """VPS 時刻が無いときは time.time() を UTC とみなし +9 する。"""
     from datetime import datetime, timezone
@@ -1458,6 +1530,8 @@ if __name__ == "__main__":
     test_vps_jst_daytime_test_switch_still_lights()
     test_vps_overnight_edges_use_jst_minutes()
     test_vps_jst_advances_until_next_sync()
+    test_ntp_settime_adds_32400_and_resync_stays_jst()
+    test_ntp_failure_keeps_vps_jst()
     test_utc_epoch_without_vps_is_shifted_to_jst()
     test_detached_daytime_skips_light_but_notifies()
     test_event_send_failure_does_not_raise()

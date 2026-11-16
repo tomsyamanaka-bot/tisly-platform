@@ -699,6 +699,19 @@ RTSP: `{nvrRtspBase}/unicast/c{channel}/s1/live`
 | 表示 | `/customer`・`/app` の盤内温度（主装置） |
 | 注意 / 警告 | 45℃ / 60℃（既存しきい値を維持） |
 
+### 2.8 実機 NTP と JST（2026-11-16）
+
+母屋 `rp2350-toyoshima-main-01` とはなれ `rp2350-toyoshima-detached-01` の両方。DI/DO の割当は変えない。
+
+| 項目 | 値 |
+|------|-----|
+| NTP | 起動時と心拍直前。失敗してもループは続ける |
+| RTC | `ntptime.settime()` のまま UTC。+9 は書き戻さない |
+| 昼夜判定 | 毎回 `time.time() + 32400` |
+| NTP 前 | サーバーの `jstMinutes`（JST） |
+| OTA 目標 | `1.2.60`（`force` なし。板橋 1.6 系は別） |
+| 点灯時間帯 | 保存済みのまま（既定 18:00〜06:00。日跨ぎ対応） |
+
 ---
 
 ## 3. 板橋自宅（TOMS001 / HOME-JP-ITABASHI-LIVE）

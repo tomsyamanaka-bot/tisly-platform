@@ -6,7 +6,7 @@
 
 export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   /** 豊島邸。他現場の追加では上げない */
-  toyoshima: "1.2.29",
+  toyoshima: "1.2.60",
   /** 板橋自宅。1.6 系の別ライン。物理 WDT でセルフ回復 */
   itabashi: "1.6.10",
   /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
