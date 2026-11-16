@@ -18,7 +18,7 @@ import {
 import { sendWebPush } from "../notification/channels/web-push.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import { durationSecForDoChannelV1 } from "./home-ryugasaki-settings-v1.js";
-import { deviceNeedsSiteFirmwareUpdateV1 } from "../firmware/tisly-site-target-version-v1.js";
+import { isOfferedFirmwareCurrentV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 
 export const RYUGASAKI_CUSTOMER_CODE_V1 = "WASHMATE001";
 export const RYUGASAKI_DISPLAY_NAME_V1 = "ウォッシュメイト龍ヶ崎店";
@@ -525,10 +525,7 @@ export function buildRyugasakiStatusV1(nowMs: number = Date.now()) {
     boardTempC: runtime.boardTempC,
     firmwareVersion: runtime.firmwareVersion,
     firmwareLatest: runtime.firmwareVersion
-      ? !deviceNeedsSiteFirmwareUpdateV1(
-          "ryugasaki",
-          runtime.firmwareVersion
-        )
+      ? isOfferedFirmwareCurrentV1("ryugasaki", runtime.firmwareVersion)
       : true,
     overheat: runtime.overheat,
     commandPending: runtime.queue.length,

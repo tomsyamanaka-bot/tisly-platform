@@ -5,7 +5,7 @@ Keep Rising のセンサーとリレー。
 """
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.60"
+FIRMWARE_LOGIC_VERSION = "1.2.61"
 
 DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300

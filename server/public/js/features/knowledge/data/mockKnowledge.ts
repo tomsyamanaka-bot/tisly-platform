@@ -2301,3 +2301,31 @@ export const MOCK_MATRIX_LIDAR_HEATMAP_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const DEPLOY_OTA_KNOWLEDGE_TITLES = [
+  "【保守DX】デプロイ連動・全顧客実機（RP2350）強制OTA自動化仕様",
+] as const;
+
+const DEPLOY_OTA_CREATED_AT = "2026-11-16T10:00:00.000Z";
+
+/** デプロイ連動の全現場 OTA（末尾追記） */
+export const MOCK_DEPLOY_OTA_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-deploy-ota-all-sites-001",
+    title: "【保守DX】デプロイ連動・全顧客実機（RP2350）強制OTA自動化仕様",
+    summary:
+      "サーバー側コードの更新・デプロイ完了時、自動で全テナントのOTA配信予約フラグをONにし、各現場の実機へ次回のハートビート通信時に強制的に最新ファームウェアを適用させるノータッチ保守パイプライン。",
+    genre: "IOT関連",
+    tags: ["#OTA", "#強制アップデート", "#自動化", "#保守DX", "#TiSLY_Core"],
+    pdf_url: null,
+    createdAt: DEPLOY_OTA_CREATED_AT,
+    body: [
+      "【起動】",
+      "新しい製品版で起動したとき、全現場の配信予約を付ける。",
+      "",
+      "【保護】",
+      "force は付けない。config.py は上書きしない。",
+      "板橋は 1.6 系のまま。入口は /app と /customer。",
+    ].join("\n"),
+  },
+];

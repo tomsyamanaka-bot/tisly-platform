@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import { getDatabase } from "../db/database.js";
 import {
   deviceNeedsSiteFirmwareUpdateV1,
+  offeredFirmwareVersionV1,
   tislySiteTargetVersionV1,
 } from "./tisly-site-target-version-v1.js";
 
@@ -104,6 +105,8 @@ export interface TislyOtaVersionPayloadV1 {
 interface TislyOtaStoreV1 {
   sites: Partial<Record<TislyOtaSiteKeyV1, TislyOtaSiteStateV1>>;
   updatedAt: string;
+  /** この製品版では全現場の配信予約を済ませた */
+  armedRelease?: string | null;
 }
 
 interface SiteProfileV1 {
@@ -410,6 +413,23 @@ function liveBundleSemverV1(
   return best;
 }
 
+/** 画面の「最新」判定。ストアの予約フラグは変えない。 */
+export function isOfferedFirmwareCurrentV1(
+  siteKey: TislyOtaSiteKeyV1,
+  reported: string | null | undefined
+): boolean {
+  const profile = getTislyOtaSiteProfileV1(siteKey);
+  const live = readMappedFiles(profile);
+  const offered = offeredFirmwareVersionV1(
+    siteKey,
+    liveBundleSemverV1(siteKey, live.files)
+  );
+  const reportedCore = looseSemverV1(reported);
+  const offeredCore = looseSemverV1(offered);
+  if (!reportedCore || !offeredCore) return false;
+  return compareSemverV1(reportedCore, offeredCore) >= 0;
+}
+
 /** リポジトリ上の実機スクリプト版を OTA ストアへ反映する（既存データは上書きせず版だけ上げる） */
 function syncLiveBundleVersionV1(
   store: TislyOtaStoreV1,
@@ -418,11 +438,14 @@ function syncLiveBundleVersionV1(
   live: { files: Record<string, string>; checksums: Record<string, string> }
 ): void {
   const bundle = liveBundleSemverV1(siteKey, live.files);
-  const target = tislySiteTargetVersionV1(siteKey) || bundle;
+  const target =
+    offeredFirmwareVersionV1(siteKey, bundle) ||
+    tislySiteTargetVersionV1(siteKey) ||
+    bundle;
   if (!target) return;
   const liveChecksum = combinedChecksum(live.checksums);
   let changed = false;
-  /* 目標版は現場固定。リポジトリ全体の版では上げない */
+  /* 同じ系統でスクリプトが新しければ、その版を配る。1.6 を 1.2 へは上げない */
   if (site.version !== target) {
     site.version = target;
     changed = true;
@@ -547,7 +570,7 @@ function parseSiteState(
 }
 
 function emptyStore(): TislyOtaStoreV1 {
-  return { sites: {}, updatedAt: nowIso() };
+  return { sites: {}, updatedAt: nowIso(), armedRelease: null };
 }
 
 function loadStore(): TislyOtaStoreV1 {
@@ -576,6 +599,10 @@ function loadStore(): TislyOtaStoreV1 {
         typeof parsed.updatedAt === "string"
           ? parsed.updatedAt
           : nowIso(),
+      armedRelease:
+        typeof parsed.armedRelease === "string"
+          ? parsed.armedRelease
+          : null,
     };
   } catch {
     return emptyStore();
@@ -587,6 +614,7 @@ function saveStore(store: TislyOtaStoreV1): void {
   const next: TislyOtaStoreV1 = {
     sites: { ...store.sites },
     updatedAt: nowIso(),
+    armedRelease: store.armedRelease ?? null,
   };
   getDatabase()
     .prepare(
@@ -779,11 +807,15 @@ export function getTislyOtaVersionV1(input: {
   );
   const reportedCore = looseSemverV1(reportedExact);
   const targetCore = looseSemverV1(version);
+  const behindAdvertised =
+    Boolean(reportedCore) &&
+    Boolean(targetCore) &&
+    compareSemverV1(reportedCore as string, targetCore as string) < 0;
   const atOrAboveTarget =
     Boolean(reportedCore) &&
     Boolean(targetCore) &&
     compareSemverV1(reportedCore as string, targetCore as string) >= 0;
-  if (deviceBehind) {
+  if (deviceBehind || behindAdvertised) {
     if (channel === "staging") {
       if (!site.pendingStaging) {
         site.pendingStaging = true;
@@ -802,7 +834,7 @@ export function getTislyOtaVersionV1(input: {
     channel === "staging" ? site.pendingStaging : site.pending;
   const hasUpdate =
     Boolean(site.force) ||
-    deviceBehind ||
+    behindAdvertised ||
     (pendingForOffer && !atOrAboveTarget);
   const updateUrl = `/api/firmware/${input.siteKey}/version?channel=${channel}`;
   const scriptBaseUrl = `/api/firmware/${input.siteKey}/script?channel=${channel}`;
@@ -889,6 +921,77 @@ export function getTislyOtaScriptV1(input: {
   const body = live.files[requested];
   if (typeof body !== "string") return null;
   return { name: requested, body, checksum: sha256Text(body) };
+}
+
+function readProductReleaseV1(): string {
+  const starts = [
+    process.cwd(),
+    path.dirname(fileURLToPath(import.meta.url)),
+  ];
+  for (const start of starts) {
+    let dir = start;
+    for (let i = 0; i < 6; i += 1) {
+      const pkgPath = path.join(dir, "package.json");
+      if (fs.existsSync(pkgPath)) {
+        try {
+          const json = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
+            name?: string;
+            version?: string;
+          };
+          if (json.name === "tisly-home-security-demo" && json.version) {
+            return String(json.version).trim();
+          }
+        } catch {
+          /* 次の親を探す */
+        }
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  return "";
+}
+
+/** 全現場の配信予約を付ける。force は付けない。config.py は配らない。 */
+export function reserveTislyOtaAllSitesV1(): {
+  sites: TislyOtaSiteKeyV1[];
+  force: false;
+} {
+  const result = deployTislyOtaFirmwareV1({
+    siteKey: "all",
+    force: false,
+  });
+  return {
+    sites: result.sites.map((site) => site.siteId),
+    force: false,
+  };
+}
+
+/**
+ * 製品版が変わった起動だけ、全現場の OTA 予約を付ける。
+ * 同じ版の再起動では予約をやり直さない。
+ * テストから版を渡したときだけ、テスト環境でも予約する。
+ */
+export function armTislyOtaForNewReleaseV1(release?: string): {
+  armed: boolean;
+  release: string;
+  sites: TislyOtaSiteKeyV1[];
+} {
+  const current = String(release || readProductReleaseV1() || "").trim();
+  if (!current) return { armed: false, release: "", sites: [] };
+  if (process.env.NODE_ENV === "test" && release == null) {
+    return { armed: false, release: current, sites: [] };
+  }
+  const store = loadStore();
+  if (store.armedRelease === current) {
+    return { armed: false, release: current, sites: [] };
+  }
+  const reserved = reserveTislyOtaAllSitesV1();
+  const next = loadStore();
+  next.armedRelease = current;
+  saveStore(next);
+  return { armed: true, release: current, sites: reserved.sites };
 }
 
 export function deployTislyOtaFirmwareV1(input: {

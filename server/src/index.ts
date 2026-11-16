@@ -24,6 +24,7 @@ import { probePdfEngineHealth } from "./business/pdf/pdf-engine-status.js";
 import { bootstrapQnapInfraHealthOnStartupV1 } from "./infrastructure/qnap-infra-health-v1.js";
 
 import { bootstrapHomeBathRuntimeV1 } from "./home/home-bath-worker-v1.js";
+import { armTislyOtaForNewReleaseV1 } from "./firmware/tisly-rp2350-ota-v1.js";
 
 // 再起動中の 502 窓を縮めるため、
 // listen を最優先し、重い Worker は後段で起動する。
@@ -89,6 +90,19 @@ server.listen(config.port, config.host, () => {
   console.log(
     `[TiSLY] ${config.publicUrl} — listening on http://${config.host}:${config.port} (ws: /ws) phase 1201-1240`
   );
+  try {
+    const armed = armTislyOtaForNewReleaseV1();
+    if (armed.armed) {
+      console.log(
+        `[ota] release ${armed.release} reserved for ${armed.sites.join(",")}`
+      );
+    }
+  } catch (err) {
+    console.warn(
+      "[ota] reserve failed",
+      err instanceof Error ? err.message : err
+    );
+  }
   startBackgroundServices();
   if (config.demoMode) {
     startDemoModeVirtualEspRunner();

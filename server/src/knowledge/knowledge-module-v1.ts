@@ -165,6 +165,10 @@ import {
   MATRIX_LIDAR_HEATMAP_MODULE_SEED_IDS,
   getMatrixLidarHeatmapModuleSeedItemsV1,
 } from "./knowledge-matrix-lidar-heatmap-seed-v1.js";
+import {
+  DEPLOY_OTA_MODULE_SEED_IDS,
+  getDeployOtaModuleSeedItemsV1,
+} from "./knowledge-deploy-ota-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -2053,6 +2057,48 @@ function mergeMatrixLidarHeatmapSeed(
   return { items: next, changed };
 }
 
+/**
+ * デプロイ連動の全現場 OTA を末尾追記。
+ */
+function mergeDeployOtaSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(DEPLOY_OTA_MODULE_SEED_IDS);
+  const seeds = getDeployOtaModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -2150,7 +2196,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedLidarHeatmap = mergeMatrixLidarHeatmapSeed(
     mergedUiuxDesign.items
   );
-  const mergedGenre = mergeUnifiedGenreBindings(mergedLidarHeatmap.items);
+  const mergedDeployOta = mergeDeployOtaSeed(mergedLidarHeatmap.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedDeployOta.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -2192,6 +2239,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedLeakageCurrent.changed ||
     mergedUiuxDesign.changed ||
     mergedLidarHeatmap.changed ||
+    mergedDeployOta.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

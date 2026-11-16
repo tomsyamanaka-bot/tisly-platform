@@ -18,10 +18,12 @@ import {
 } from "./home-keeprising-settings-v1.js";
 import {
   compareSemverCoreV1,
-  deviceNeedsSiteFirmwareUpdateV1,
   looseSemverCoreV1,
 } from "../firmware/tisly-site-target-version-v1.js";
-import { readTislyOtaReportedFirmwareV1 } from "../firmware/tisly-rp2350-ota-v1.js";
+import {
+  isOfferedFirmwareCurrentV1,
+  readTislyOtaReportedFirmwareV1,
+} from "../firmware/tisly-rp2350-ota-v1.js";
 import { setSecuritySensorStateV1 } from "../security-floor/security-floor-sites-v1.js";
 
 export const KEEPRISING_CUSTOMER_CODE_V1 = "KEEPRISING001";
@@ -416,7 +418,7 @@ export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
     boardTemp: runtime.boardTempC,
     firmwareVersion: firmwareVersion || null,
     firmwareLatest: firmwareVersion
-      ? !deviceNeedsSiteFirmwareUpdateV1("keeprising", firmwareVersion)
+      ? isOfferedFirmwareCurrentV1("keeprising", firmwareVersion)
       : true,
     commandPending: runtime.queue.length,
     settings,

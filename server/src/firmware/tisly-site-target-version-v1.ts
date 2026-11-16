@@ -62,6 +62,26 @@ export function compareSemverCoreV1(a: string, b: string): number {
 }
 
 /**
+ * 現場の下限と、その現場のスクリプトに書いてある版の新しい方。
+ * 1.2 系と 1.6 系は混ぜない。下限より古いスクリプトへは戻さない。
+ */
+export function offeredFirmwareVersionV1(
+  siteKey: string,
+  liveBundleVersion: string | null | undefined
+): string | null {
+  const floor = tislySiteTargetVersionV1(siteKey);
+  const floorCore = looseSemverCoreV1(floor);
+  const live = looseSemverCoreV1(liveBundleVersion);
+  if (!live) return floor;
+  if (!floorCore) return live;
+  const floorLine = floorCore.split(".").slice(0, 2).join(".");
+  const liveLine = live.split(".").slice(0, 2).join(".");
+  if (floorLine !== liveLine) return floor;
+  if (compareSemverCoreV1(live, floorCore) > 0) return live;
+  return floor;
+}
+
+/**
  * 実機版が現場ターゲットより古いときだけ更新が必要。
  * 申告が無い、またはターゲット以上なら最新。
  */

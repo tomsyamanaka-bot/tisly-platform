@@ -5,7 +5,21 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it, beforeEach } from "node:test";
+
+function logicVersionKeepRising(): string {
+  const text = readFileSync(
+    path.resolve(
+      process.cwd(),
+      "../rp2350/firmware/keeprising_security.py"
+    ),
+    "utf8"
+  );
+  const match = text.match(/FIRMWARE_LOGIC_VERSION = "(\d+\.\d+\.\d+)"/);
+  if (!match) throw new Error("keeprising logic version missing");
+  return match[1];
+}
 
 process.env.JWT_SECRET = "test-jwt-keeprising-v1";
 process.env.NODE_ENV = "test";
@@ -359,13 +373,13 @@ describe("keeprising security", () => {
       .post("/api/home/v1/keeprising/heartbeat")
       .send({
         deviceId: "rp2350-keeprising-main-01",
-        firmwareVersion: "1.2.59",
+        firmwareVersion: logicVersionKeepRising(),
       });
     assert.equal(shipped.status, 200);
     const ready = await request(app).get(
       "/api/home/v1/keeprising/status?t=3"
     );
-    assert.equal(ready.body.firmwareVersion, "1.2.59");
+    assert.equal(ready.body.firmwareVersion, logicVersionKeepRising());
     assert.equal(ready.body.firmwareLatest, true);
   });
 

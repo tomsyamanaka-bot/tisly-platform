@@ -187,6 +187,10 @@ const {
   MATRIX_LIDAR_HEATMAP_MODULE_SEED_IDS,
   seedMatrixLidarHeatmapKnowledgeCardsV1,
 } = await import("../src/knowledge/knowledge-matrix-lidar-heatmap-seed-v1.js");
+const {
+  DEPLOY_OTA_MODULE_SEED_IDS,
+  seedDeployOtaKnowledgeCardsV1,
+} = await import("../src/knowledge/knowledge-deploy-ota-seed-v1.js");
 const { getKnowledgeCardV1 } = await import("../src/knowledge/knowledge-store-v1.js");
 
 const app = createApp();
@@ -1721,6 +1725,37 @@ describe("knowledge-module-v1 store", () => {
     assert.ok(
       new Date(card!.createdAt).getTime() > new Date(uiux!.createdAt).getTime()
     );
+  });
+
+  it("listKnowledgeModuleItemsV1 appends deploy OTA seed", () => {
+    cleanupModuleData();
+    const listed = listKnowledgeModuleItemsV1();
+    for (const id of DEPLOY_OTA_MODULE_SEED_IDS) {
+      assert.ok(listed.some((x) => x.id === id), `missing seed ${id}`);
+    }
+    const card = listed.find((x) => x.id === "kn-seed-deploy-ota-all-sites-001");
+    assert.ok(card);
+    assert.equal(
+      card!.title,
+      "【保守DX】デプロイ連動・全顧客実機（RP2350）強制OTA自動化仕様"
+    );
+    assert.ok(card!.tags.includes("#OTA"));
+    assert.ok(card!.tags.includes("#強制アップデート"));
+    assert.ok(card!.tags.includes("#自動化"));
+    assert.ok(card!.tags.includes("#保守DX"));
+    assert.ok(card!.tags.includes("#TiSLY_Core"));
+    const lidar = listed.find((x) => x.id === "kn-seed-matrix-lidar-heatmap-001");
+    assert.ok(lidar);
+  });
+
+  it("seedDeployOtaKnowledgeCardsV1 upserts searchable cards", () => {
+    seedDeployOtaKnowledgeCardsV1();
+    const card = getKnowledgeCardV1("OPS-DEPLOY-OTA-ALL-SITES-001");
+    assert.ok(card);
+    assert.match(card!.summary, /OTA配信予約フラグをON/);
+    assert.match(card!.body ?? "", /config.py/);
+    const lidar = getKnowledgeCardV1("OPS-MATRIX-LIDAR-HEATMAP-001");
+    assert.ok(lidar);
   });
 
   it("seedMatrixLidarHeatmapKnowledgeCardsV1 upserts searchable cards", () => {
