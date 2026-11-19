@@ -29,7 +29,7 @@ def test_itabashi_heartbeat_sends_stream_ota():
     light = (ROOT / "firmware" / "security_light.py").read_text(
         encoding="utf-8"
     )
-    assert 'FIRMWARE_LOGIC_VERSION = "1.6.10"' in light
+    assert 'FIRMWARE_LOGIC_VERSION = "1.6.12"' in light
     assert "JST_OFFSET_SEC = 32400" in light
     assert "ntptime.settime()" in light
     assert "gmtime" in light

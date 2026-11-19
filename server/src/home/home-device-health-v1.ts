@@ -15,6 +15,14 @@ export const DEVICE_HEALTH_WDT_WINDOW_MS_V1 = 24 * 60 * 60 * 1000;
 export const DEVICE_HEALTH_WDT_COUNT_V1 = 3;
 export const DEVICE_HEALTH_ALERT_COOLDOWN_MS_V1 = 6 * 60 * 60 * 1000;
 export const DEVICE_HEALTH_SHORT_BOOT_SEC_V1 = 180;
+export const DEVICE_HEALTH_SCHEMA_V1 = 2;
+/** 秒の揺れでは再起動にしない幅。 */
+export const DEVICE_HEALTH_ROLLBACK_SEC_V1 = 5;
+
+const FALSE_COUNT_RESET_KEYS_V1 = [
+  "HOME-JP-ITABASHI-LIVE",
+  "HOME-JP-TOYOSHIMA",
+];
 
 const REASONS = new Set([
   "PWRON",
@@ -57,6 +65,7 @@ interface HealthSlotV1 {
 }
 
 interface HealthStateV1 {
+  schemaVersion: number;
   slots: Record<string, HealthSlotV1>;
 }
 
@@ -86,7 +95,27 @@ function emptySlot(): HealthSlotV1 {
 }
 
 function emptyState(): HealthStateV1 {
-  return { slots: {} };
+  return { schemaVersion: DEVICE_HEALTH_SCHEMA_V1, slots: {} };
+}
+
+/**
+ * 同じ起動のまま届いた WDT の誤回数を、一度だけ空に戻す。
+ * 対象は板橋自宅と豊島邸で、稼働秒と起動理由は残す。
+ */
+export function migrateFalseRestartCountsV1(
+  state: HealthStateV1
+): boolean {
+  if ((state.schemaVersion ?? 0) >= DEVICE_HEALTH_SCHEMA_V1) {
+    return false;
+  }
+  for (const key of FALSE_COUNT_RESET_KEYS_V1) {
+    const slot = state.slots[key];
+    if (!slot) continue;
+    slot.events = [];
+    slot.lastAlertMs = 0;
+  }
+  state.schemaVersion = DEVICE_HEALTH_SCHEMA_V1;
+  return true;
 }
 
 function storePath(): string {
@@ -100,7 +129,9 @@ function loadState(): HealthStateV1 {
       fs.readFileSync(storePath(), "utf8")
     ) as Partial<HealthStateV1>;
     const state = emptyState();
+    state.schemaVersion = Number(parsed.schemaVersion ?? 0);
     state.slots = parsed.slots ?? {};
+    if (migrateFalseRestartCountsV1(state)) saveState(state);
     return state;
   } catch {
     return emptyState();
@@ -244,31 +275,33 @@ export function noteDeviceHealthV1(input: {
   const key = canonicalOpsSiteKeyV1(input.siteId);
   const slot = slotOf(state, key);
   const name = opsSiteDisplayNameV1(input.siteId);
-  let restarted = false;
   if (uptime != null) {
-    const bootMs = nowMs - uptime * 1000;
-    const bootKey = Math.round(bootMs / 8000);
-    restarted =
-      slot.bootKey == null ||
-      slot.bootKey !== bootKey ||
-      (slot.uptimeSec != null && uptime + 5 < slot.uptimeSec);
-    if (restarted && slot.bootKey != null) {
+    const prev = slot.uptimeSec;
+    const prevMax = slot.maxUptimeSec;
+    // 稼働秒が5秒を超えて巻き戻ったときだけ、新しい再起動として数える。
+    // 5分ごとの心拍で稼働秒が増えているあいだは、再起動を増やさない。
+    const restarted =
+      prev == null ||
+      uptime + DEVICE_HEALTH_ROLLBACK_SEC_V1 < prev;
+    // 正常なOTA更新の再起動は、WDT頻発の回数に加えない。
+    if (restarted && reason !== "OTA") {
       if (reason === "WDT") {
         slot.events.push({ at: nowMs, kind: "wdt" });
       } else if (
-        slot.maxUptimeSec != null &&
-        slot.maxUptimeSec < DEVICE_HEALTH_SHORT_BOOT_SEC_V1
+        prev != null &&
+        prevMax != null &&
+        prevMax < DEVICE_HEALTH_SHORT_BOOT_SEC_V1
       ) {
         slot.events.push({ at: nowMs, kind: "short" });
       }
-    } else if (restarted && reason === "WDT") {
-      slot.events.push({ at: nowMs, kind: "wdt" });
     }
-    slot.bootKey = bootKey;
+    if (restarted) {
+      slot.bootKey = Math.round(nowMs / 8000);
+    }
     slot.uptimeSec = uptime;
     slot.maxUptimeSec = restarted
       ? uptime
-      : Math.max(slot.maxUptimeSec ?? 0, uptime);
+      : Math.max(prevMax ?? 0, uptime);
   }
   if (reason) slot.resetReason = reason;
   slot.history.push({

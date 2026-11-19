@@ -121,7 +121,8 @@ def _remove(path):
         pass
 
 
-def _reset():
+def _mark_ota_reboot():
+    """置換が終わってから再起動の旗を書く。"""
     try:
         from tisly_do_guard import mark_ota_reset
     except ImportError:
@@ -132,8 +133,22 @@ def _reset():
     if mark_ota_reset:
         try:
             mark_ota_reset()
+            return
         except Exception:
             pass
+    try:
+        handle = open(".ota_reboot", "w")
+        try:
+            handle.write("OTA")
+        finally:
+            handle.close()
+    except Exception:
+        pass
+
+
+def _reset():
+    """旗を残してから基板を再起動する。"""
+    _mark_ota_reboot()
     if machine is None:
         log("machine.reset skipped (host test)")
         return

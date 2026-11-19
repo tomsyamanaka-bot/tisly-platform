@@ -733,7 +733,7 @@ def _itabashi_logic_version():
                 return saved
         except Exception:
             pass
-    return str(getattr(config, "FIRMWARE_VERSION", "1.6.11") or "")
+    return str(getattr(config, "FIRMWARE_VERSION", "1.6.12") or "")
 
 
 def _sync_itabashi_clock():

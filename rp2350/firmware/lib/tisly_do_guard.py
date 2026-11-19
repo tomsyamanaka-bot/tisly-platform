@@ -7,7 +7,12 @@
 LOCK_LIMIT_SEC = 5
 ALARM_LIMIT_SEC = 180
 LIGHT_LIMIT_SEC = 600
-OTA_RESET_FLAG = "tisly_ota_reset.flag"
+OTA_RESET_FLAG = ".ota_reboot"
+# 配信前の版が書いた旗も、起動時は OTA として読む。
+_OTA_FLAG_NAMES = (
+    ".ota_reboot",
+    "tisly_ota_reset.flag",
+)
 
 # None は冷却ファン。温度制御を優先して切らない。
 _LIMITS = {
@@ -229,7 +234,9 @@ def boot_all_do_off(gpio_map=None, off_level=None, pin_ctor=None):
 
 
 def mark_ota_reset(path=None):
-    """OTA の再起動を次回起動で区別する。"""
+    """再起動の直前に .ota_reboot を残す。
+    次回の起動理由は WDT ではなく OTA。
+    """
     name = path or OTA_RESET_FLAG
     try:
         handle = open(name, "w")
@@ -241,13 +248,12 @@ def mark_ota_reset(path=None):
         pass
 
 
-def consume_ota_reset(path=None):
-    """フラグがあれば OTA。読んだら消す。"""
-    name = path or OTA_RESET_FLAG
+def _take_ota_flag(name):
+    """旗のファイルがあれば読み、すぐに消す。"""
     try:
         handle = open(name, "r")
         try:
-            text = handle.read()
+            handle.read()
         finally:
             handle.close()
     except Exception:
@@ -258,11 +264,21 @@ def consume_ota_reset(path=None):
         os.remove(name)
     except Exception:
         pass
-    return "OTA" in str(text)
+    return True
+
+
+def consume_ota_reset(path=None):
+    """旗があれば OTA。見つかったファイルは消す。"""
+    names = (path,) if path else _OTA_FLAG_NAMES
+    found = False
+    for name in names:
+        if _take_ota_flag(name):
+            found = True
+    return found
 
 
 def read_reset_reason(path=None, machine_mod=None):
-    """起動理由。OTA フラグをリセット定数より優先する。"""
+    """起動理由。OTA の旗を WDT より先に見る。"""
     if consume_ota_reset(path):
         return "OTA"
     mod = machine_mod

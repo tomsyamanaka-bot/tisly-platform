@@ -122,6 +122,32 @@ def test_ota_flag_wins_over_soft_reset(tmp_path=None):
     flag.unlink(missing_ok=True)
 
 
+def test_ota_reboot_file_beats_wdt_and_is_removed():
+    folder = Path(__file__).resolve().parent / "_ota_flag_tmp"
+    folder.mkdir(exist_ok=True)
+    flag = folder / ".ota_reboot"
+    guard.mark_ota_reset(str(flag))
+    assert flag.is_file()
+    assert flag.read_text(encoding="utf-8") == "OTA"
+
+    class Machine:
+        def reset_cause(self):
+            return 2
+
+        WDT_RESET = 2
+
+    assert guard.read_reset_reason(str(flag), Machine()) == "OTA"
+    assert not flag.exists()
+    assert guard.read_reset_reason(str(flag), Machine()) == "WDT"
+    assert guard.OTA_RESET_FLAG == ".ota_reboot"
+    assert ".ota_reboot" in guard._OTA_FLAG_NAMES
+    assert "tisly_ota_reset.flag" in guard._OTA_FLAG_NAMES
+    legacy = folder / "tisly_ota_reset.flag"
+    legacy.write_text("OTA", encoding="utf-8")
+    assert guard.read_reset_reason(str(legacy), Machine()) == "OTA"
+    assert not legacy.exists()
+
+
 def test_firmware_sources_call_the_guard():
     firmware = ROOT / "firmware"
     main = (firmware / "main.py").read_text(encoding="utf-8")
@@ -134,7 +160,13 @@ def test_firmware_sources_call_the_guard():
         assert "health_payload" in src or "uptime_sec" in src
         assert "health_payload" in src or "reset_reason" in src
     assert "mark_ota_reset" in ota
-    assert 'FIRMWARE_LOGIC_VERSION = "1.6.11"' in (
+    assert ".ota_reboot" in ota
+    reset_at = ota.find("def _reset")
+    reset_body = ota[reset_at:ota.find("\ndef ", reset_at + 1)]
+    assert reset_body.find("_mark_ota_reboot") < reset_body.find(
+        "machine.reset"
+    )
+    assert 'FIRMWARE_LOGIC_VERSION = "1.6.12"' in (
         firmware / "security_light.py"
     ).read_text(encoding="utf-8")
 
@@ -149,5 +181,6 @@ if __name__ == "__main__":
     test_off_clears_the_timer()
     test_health_payload_and_reset_names()
     test_ota_flag_wins_over_soft_reset()
+    test_ota_reboot_file_beats_wdt_and_is_removed()
     test_firmware_sources_call_the_guard()
     print("ok")
