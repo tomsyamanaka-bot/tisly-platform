@@ -758,6 +758,26 @@ function bindCustomerSchedule() {
     paint();
     mark();
   });
+  $("sf-customer-astro")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-astro-mode]");
+    if (!btn) return;
+    const current = customerAstroFields();
+    window.TislyAstroScheduleUiV1?.paint("sf-customer", {
+      mode: btn.getAttribute("data-astro-mode"),
+      label: $("sf-customer-astro-label")?.textContent || "",
+      sunset: current.sunsetOffsetMin,
+      sunrise: current.sunriseOffsetMin,
+      startId: "sf-customer-schedule-start",
+      endId: "sf-customer-schedule-end",
+    });
+    saveCustomerSchedule(start.value, end?.value).catch(() => {});
+  });
+  $("sf-customer-astro-sunset")?.addEventListener("change", () => {
+    saveCustomerSchedule(start.value, end?.value).catch(() => {});
+  });
+  $("sf-customer-astro-sunrise")?.addEventListener("change", () => {
+    saveCustomerSchedule(start.value, end?.value).catch(() => {});
+  });
   paint();
 }
 
@@ -790,6 +810,14 @@ async function loadCustomerLightDuration() {
     } catch {
       /* 装飾のみ */
     }
+    window.TislyAstroScheduleUiV1?.paint("sf-customer", {
+      mode: data.rules?.lightingScheduleMode,
+      label: data.rules?.astroPreview?.label || "",
+      sunset: data.rules?.sunsetOffsetMin,
+      sunrise: data.rules?.sunriseOffsetMin,
+      startId: "sf-customer-schedule-start",
+      endId: "sf-customer-schedule-end",
+    });
   } catch {
     /* 未取得でもスライダーは操作可能 */
   }
@@ -819,6 +847,16 @@ async function saveCustomerLightDuration(sec) {
   });
 }
 
+function customerAstroFields() {
+  return (
+    window.TislyAstroScheduleUiV1?.read("sf-customer") || {
+      lightingScheduleMode: "manual",
+      sunsetOffsetMin: -15,
+      sunriseOffsetMin: 15,
+    }
+  );
+}
+
 async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
   if (isKeepRisingSecuritySite(state.siteId)) return;
   const homeSiteId = resolveHomeSiteId(state.siteId);
@@ -829,12 +867,14 @@ async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
     actor: "customer-portal",
     scheduleStart: String(scheduleStart || "18:00").slice(0, 5),
     scheduleEnd: String(scheduleEnd || "06:00").slice(0, 5),
+    ...customerAstroFields(),
   };
   if (isToyoshimaSecuritySite(state.siteId)) {
-    await requestToyoshimaApi("PUT", "/security-rules", body);
+    const data = await requestToyoshimaApi("PUT", "/security-rules", body);
+    paintCustomerAstro(data?.rules);
     return;
   }
-  await fetchJson(`${HOME_API}/security-rules`, {
+  const data = await fetchJson(`${HOME_API}/security-rules`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -842,7 +882,21 @@ async function saveCustomerSchedule(scheduleStart, scheduleEnd) {
       actor: "customer-portal",
       scheduleStart: String(scheduleStart || "18:00").slice(0, 5),
       scheduleEnd: String(scheduleEnd || "06:00").slice(0, 5),
+      ...customerAstroFields(),
     }),
+  });
+  paintCustomerAstro(data?.rules);
+}
+
+function paintCustomerAstro(rules) {
+  if (!rules) return;
+  window.TislyAstroScheduleUiV1?.paint("sf-customer", {
+    mode: rules.lightingScheduleMode,
+    label: rules.astroPreview?.label || "",
+    sunset: rules.sunsetOffsetMin,
+    sunrise: rules.sunriseOffsetMin,
+    startId: "sf-customer-schedule-start",
+    endId: "sf-customer-schedule-end",
   });
 }
 
@@ -861,6 +915,7 @@ async function commitCustomerDailySettings() {
     di1DurationSec: sec,
     scheduleStart: String(start).slice(0, 5),
     scheduleEnd: String(end).slice(0, 5),
+    ...customerAstroFields(),
   };
   if (isToyoshimaSecuritySite(state.siteId)) {
     await requestToyoshimaApi("PUT", "/security-rules", body);

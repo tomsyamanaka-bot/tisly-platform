@@ -84,6 +84,10 @@ const state = {
   guardMode: "always",
   scheduleStart: "18:00",
   scheduleEnd: "06:00",
+  lightingScheduleMode: "manual",
+  sunsetOffsetMin: -15,
+  sunriseOffsetMin: 15,
+  astroLabel: "",
   paused: false,
   notifyModes: {
     notifyDi1Mode: "silent",
@@ -410,8 +414,14 @@ function writeScheduleTimes(start, end) {
   state.scheduleEnd = e;
   const startEl = $("sf-schedule-start");
   const endEl = $("sf-schedule-end");
-  if (startEl) startEl.value = s;
-  if (endEl) endEl.value = e;
+  if (startEl) {
+    startEl.value = s;
+    startEl.disabled = state.lightingScheduleMode === "astronomical";
+  }
+  if (endEl) {
+    endEl.value = e;
+    endEl.disabled = state.lightingScheduleMode === "astronomical";
+  }
   syncScheduleWindowHint(s, e);
   try {
     window.TislySecurityTimeRangeV1?.paintDayNightTiles?.(
@@ -446,6 +456,33 @@ function syncScheduleWindowHint(start, end) {
   hint.textContent = `${modeLabel}（${s}〜${e}）· ${activeLabel}`;
 }
 
+function paintAstro(rules) {
+  state.lightingScheduleMode =
+    rules?.lightingScheduleMode === "astronomical" ? "astronomical" : "manual";
+  state.sunsetOffsetMin = Number(rules?.sunsetOffsetMin ?? -15);
+  state.sunriseOffsetMin = Number(rules?.sunriseOffsetMin ?? 15);
+  state.astroLabel = rules?.astroPreview?.label || rules?.astroLabel || "";
+  window.TislyAstroScheduleUiV1?.paint("sf", {
+    mode: state.lightingScheduleMode,
+    label: state.astroLabel,
+    sunset: state.sunsetOffsetMin,
+    sunrise: state.sunriseOffsetMin,
+    startId: "sf-schedule-start",
+    endId: "sf-schedule-end",
+  });
+}
+
+function astroPayload() {
+  const read = window.TislyAstroScheduleUiV1?.read("sf");
+  return (
+    read || {
+      lightingScheduleMode: state.lightingScheduleMode || "manual",
+      sunsetOffsetMin: state.sunsetOffsetMin ?? -15,
+      sunriseOffsetMin: state.sunriseOffsetMin ?? 15,
+    }
+  );
+}
+
 function renderRules(rules, notifyPolicy) {
   if (!rules) return;
   state.guardMode = normalizeGuardModeUi(rules.guardMode || "always");
@@ -453,6 +490,7 @@ function renderRules(rules, notifyPolicy) {
     rules.securityPausedUntil &&
       Date.parse(rules.securityPausedUntil) > Date.now()
   );
+  paintAstro(rules);
   writeScheduleTimes(
     rules.scheduleStart || "18:00",
     rules.scheduleEnd || "06:00"
@@ -558,6 +596,7 @@ function collectPayload(homeSiteId) {
     notifyDi2InstantPush: notifyDi2Mode === "critical",
     scheduleStart: times.scheduleStart,
     scheduleEnd: times.scheduleEnd,
+    ...astroPayload(),
     forceRelayTest: Boolean($("sf-daytime-test")?.checked),
     daytime_test_mode: Boolean($("sf-daytime-test")?.checked),
     guardMode: guardSeg === "off" ? "off" : "always",
@@ -626,11 +665,15 @@ async function applyScheduleTimesImmediate() {
     securityPausedUntil: null,
     scheduleStart: times.scheduleStart,
     scheduleEnd: times.scheduleEnd,
+    ...astroPayload(),
   };
   const data = await postSecurityConfig(state.homeSiteId, payload);
-  showToast(
-    `ライト点灯時間帯 ${times.scheduleStart}〜${times.scheduleEnd} を保存しました`
-  );
+  const saved = astroPayload();
+  const label =
+    saved.lightingScheduleMode === "astronomical" && data.rules?.astroPreview?.label
+      ? data.rules.astroPreview.label
+      : `${times.scheduleStart}〜${times.scheduleEnd}`;
+  showToast(`ライト点灯時間帯 ${label} を保存しました`);
   return data;
 }
 
@@ -769,6 +812,25 @@ function bindRemoteConfigUi() {
   };
   $("sf-schedule-start")?.addEventListener("change", onScheduleChange);
   $("sf-schedule-end")?.addEventListener("change", onScheduleChange);
+  $("sf-astro")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-astro-mode]");
+    if (!btn) return;
+    state.lightingScheduleMode =
+      btn.getAttribute("data-astro-mode") === "astronomical"
+        ? "astronomical"
+        : "manual";
+    window.TislyAstroScheduleUiV1?.paint("sf", {
+      mode: state.lightingScheduleMode,
+      label: state.astroLabel,
+      sunset: state.sunsetOffsetMin,
+      sunrise: state.sunriseOffsetMin,
+      startId: "sf-schedule-start",
+      endId: "sf-schedule-end",
+    });
+    onScheduleChange();
+  });
+  $("sf-astro-sunset")?.addEventListener("change", onScheduleChange);
+  $("sf-astro-sunrise")?.addEventListener("change", onScheduleChange);
   $("sf-daytime-test")?.addEventListener("change", () => {
     const on = Boolean($("sf-daytime-test")?.checked);
     setText("sf-daytime-test-label", on ? "ON" : "OFF");

@@ -57,6 +57,10 @@ function syncSettingsState(dash) {
     patliteThreatEnabled: dash.patliteThreatEnabled !== false,
     scheduleStart: dash.scheduleStart || "18:00",
     scheduleEnd: dash.scheduleEnd || "06:00",
+    lightingScheduleMode:
+      dash.lightingScheduleMode === "astronomical" ? "astronomical" : "manual",
+    sunsetOffsetMin: Number(dash.sunsetOffsetMin ?? -15),
+    sunriseOffsetMin: Number(dash.sunriseOffsetMin ?? 15),
     customerMode: dash.customerMode || "home",
     securityMode: normalizeSecurityMode(dash.securityMode || "2STEP"),
     flashEnabled: dash.flashEnabled !== false,
@@ -876,6 +880,48 @@ function renderTwoStepRemoteBlock(dash) {
       </section>`;
 }
 
+function renderAstroScheduleBlock(prefix, dash) {
+  const astro =
+    dash.lightingScheduleMode === "astronomical" ? "astronomical" : "manual";
+  const sunset = Number(dash.sunsetOffsetMin ?? -15);
+  const sunrise = Number(dash.sunriseOffsetMin ?? 15);
+  const opts = [-30, -15, 0, 15, 30];
+  const options = (cur) =>
+    opts
+      .map((n) => {
+        const sign = n > 0 ? "+" : "";
+        const sel = n === cur ? " selected" : "";
+        return `<option value="${n}"${sel}>${sign}${n}分</option>`;
+      })
+      .join("");
+  const hidden = astro === "astronomical" ? "" : " hidden";
+  return `<div class="sf-astro" id="${prefix}-astro">
+    <div class="sf-astro-modes">
+      <button type="button" class="sf-astro-mode${
+        astro === "manual" ? " is-on" : ""
+      }" data-astro-mode="manual">手動時間指定（例：18:00〜06:00）</button>
+      <button type="button" class="sf-astro-mode${
+        astro === "astronomical" ? " is-on" : ""
+      }" data-astro-mode="astronomical">🌅 日の出・日の入り自動追従（天文タイマー）</button>
+    </div>
+    <p class="sf-astro-label" id="${prefix}-astro-label"${hidden}>${escapeHtml(
+      dash.astroLabel || ""
+    )}</p>
+    <div class="sf-astro-offsets" id="${prefix}-astro-offsets"${hidden}>
+      <label>日没オフセット
+        <select id="${prefix}-astro-sunset" aria-label="日没オフセット">${options(
+          sunset
+        )}</select>
+      </label>
+      <label>日の出オフセット
+        <select id="${prefix}-astro-sunrise" aria-label="日の出オフセット">${options(
+          sunrise
+        )}</select>
+      </label>
+    </div>
+  </div>`;
+}
+
 function renderCustomerDailySettings(dash) {
   const mode = dash.customerMode || "home";
   const lightSec = dash.lightingDurationSec ?? 45;
@@ -929,13 +975,18 @@ function renderCustomerDailySettings(dash) {
         <div class="ts-schedule-inline">
           <label class="ts-schedule-field" for="ts-daily-schedule-start">
             <span>開始時刻</span>
-            <input type="time" id="ts-daily-schedule-start" value="${start}" />
+            <input type="time" id="ts-daily-schedule-start" value="${start}"${
+              dash.lightingScheduleMode === "astronomical" ? " disabled" : ""
+            } />
           </label>
           <label class="ts-schedule-field" for="ts-daily-schedule-end">
             <span>終了時刻</span>
-            <input type="time" id="ts-daily-schedule-end" value="${end}" />
+            <input type="time" id="ts-daily-schedule-end" value="${end}"${
+              dash.lightingScheduleMode === "astronomical" ? " disabled" : ""
+            } />
           </label>
         </div>
+        ${renderAstroScheduleBlock("ts-daily", dash)}
       </section>
 
       <section class="ts-daily-block">
@@ -1513,13 +1564,18 @@ function renderSettingsCard(dash) {
     <div class="ts-schedule-inline">
       <label class="ts-schedule-field" for="ts-daily-schedule-start">
         <span>開始時刻</span>
-        <input type="time" id="ts-daily-schedule-start" value="${start}" />
+        <input type="time" id="ts-daily-schedule-start" value="${start}"${
+          dash.lightingScheduleMode === "astronomical" ? " disabled" : ""
+        } />
       </label>
       <label class="ts-schedule-field" for="ts-daily-schedule-end">
         <span>終了時刻</span>
-        <input type="time" id="ts-daily-schedule-end" value="${end}" />
+        <input type="time" id="ts-daily-schedule-end" value="${end}"${
+          dash.lightingScheduleMode === "astronomical" ? " disabled" : ""
+        } />
       </label>
     </div>
+    ${renderAstroScheduleBlock("ts-set", dash)}
     ${renderSecondsSliderField({
       id: "ts-lighting-duration",
       label: "💡 DOライト点灯維持時間",
@@ -2480,6 +2536,9 @@ async function persistSecuritySettings(rev) {
     di1DurationSec: settingsState.lightingDurationSec,
     scheduleStart: settingsState.scheduleStart,
     scheduleEnd: settingsState.scheduleEnd,
+    lightingScheduleMode: settingsState.lightingScheduleMode || "manual",
+    sunsetOffsetMin: settingsState.sunsetOffsetMin ?? -15,
+    sunriseOffsetMin: settingsState.sunriseOffsetMin ?? 15,
     patliteThreatEnabled: settingsState.patliteThreatEnabled,
     securityMode: settingsState.securityMode || "2STEP",
     flashEnabled: settingsState.flashEnabled !== false,
@@ -2605,6 +2664,43 @@ function bindSettingsSliders() {
       scheduleState.scheduleEnd = settingsState.scheduleEnd;
       saveSettingsDebounced();
     }
+    const sunset = e.target.closest("[id$='-astro-sunset']");
+    const sunrise = e.target.closest("[id$='-astro-sunrise']");
+    if (sunset) {
+      settingsState.sunsetOffsetMin = Number(sunset.value);
+      saveSettingsDebounced();
+    }
+    if (sunrise) {
+      settingsState.sunriseOffsetMin = Number(sunrise.value);
+      saveSettingsDebounced();
+    }
+  });
+  root.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-astro-mode]");
+    if (!btn || !e.target.closest(".sf-astro")) return;
+    const mode =
+      btn.getAttribute("data-astro-mode") === "astronomical"
+        ? "astronomical"
+        : "manual";
+    settingsState.lightingScheduleMode = mode;
+    root.querySelectorAll(".sf-astro").forEach((box) => {
+      box.querySelectorAll("[data-astro-mode]").forEach((el) => {
+        el.classList.toggle(
+          "is-on",
+          el.getAttribute("data-astro-mode") === mode
+        );
+      });
+      const label = box.querySelector(".sf-astro-label");
+      const offsets = box.querySelector(".sf-astro-offsets");
+      if (label) label.hidden = mode !== "astronomical";
+      if (offsets) offsets.hidden = mode !== "astronomical";
+    });
+    root.querySelectorAll("#ts-daily-schedule-start, #ts-daily-schedule-end").forEach(
+      (input) => {
+        input.disabled = mode === "astronomical";
+      }
+    );
+    saveSettingsDebounced();
   });
   root.addEventListener("change", (e) => {
     const patlite = e.target.closest("#ts-patlite-threat");

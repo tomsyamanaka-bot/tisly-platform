@@ -118,6 +118,7 @@ export function classifyStaffEventClassV1(
   const name = String(eventType || "").toLowerCase();
   if (!name) return "passthrough";
   if (
+    name.includes("comm_recovery") ||
     name.includes("heartbeat_lost") ||
     name.includes("comm_loss") ||
     name.includes("board_overheat") ||
@@ -200,13 +201,16 @@ export function decideStaffNotifyV1(input: {
   const working = maintenance || tempActive(slot, nowMs);
   if (eventClass === "critical_maintenance") {
     const deliver = slot.criticalEnabled !== false;
+    const titled = String(input.title || "");
+    const keepTitle = titled.includes("[社内]");
     return {
       eventClass,
       deliver,
-      titleKind: deliver ? "staff" : "keep",
-      title: deliver
-        ? formatStaffNotifyTitleV1(input.title || "", siteName, "staff")
-        : input.title || "",
+      titleKind: !deliver || keepTitle ? "keep" : "staff",
+      title:
+        deliver && !keepTitle
+          ? formatStaffNotifyTitleV1(titled, siteName, "staff")
+          : titled,
     };
   }
   // 明示のOFFは板橋でも止める。未設定は板橋だけ常時。

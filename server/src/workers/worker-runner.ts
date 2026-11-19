@@ -9,6 +9,7 @@ import { runRyugasakiHeartbeatWatchdogV1 } from "../home/home-ryugasaki-security
 import { runKeepRisingHeartbeatWatchdogV1 } from "../home/home-keeprising-security-v1.js";
 import { runItabashiHeartbeatWatchdogV1 } from "../home/home-itabashi-comm-v1.js";
 import { recordWorkerTick, setWorkerRunning } from "./worker-status.js";
+import { enableCommRecoveryPersistV1 } from "../home/home-comm-recovery-v1.js";
 
 const DEFAULT_INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? "15000");
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
@@ -19,6 +20,7 @@ export function startWorkers(): void {
     console.log("[TiSLY] Workers disabled (WORKERS_ENABLED=false)");
     return;
   }
+  enableCommRecoveryPersistV1();
   setWorkerRunning(true);
   const tick = async () => {
     try {

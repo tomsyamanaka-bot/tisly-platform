@@ -23,6 +23,11 @@ import {
 } from "./home-ops-safety-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import {
+  deliverCommRecoveryV1,
+  noteCommOfflineV1,
+  resetCommRecoveryForTestV1,
+} from "./home-comm-recovery-v1.js";
+import {
   getKeepRisingCustomerSettingsV1,
   type KeepRisingCustomerSettingsV1,
 } from "./home-keeprising-settings-v1.js";
@@ -119,6 +124,7 @@ export function resetKeepRisingSecurityStateForTestV1(): void {
   runtime.boardTempC = null;
   runtime.firmwareVersion = "";
   runtime.logs = [];
+  resetCommRecoveryForTestV1();
 }
 
 function asDi(raw: unknown): KeepRisingDiV1 | null {
@@ -420,6 +426,12 @@ export async function recordKeepRisingHeartbeatV1(input: {
   doLimitCuts?: unknown;
 }): Promise<{ online: true; boardTempC: number | null }> {
   runtime.lastHeartbeatAt = nowIso();
+  await deliverCommRecoveryV1({
+    siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
+    deviceKey: "main",
+    siteName: KEEPRISING_DISPLAY_NAME_V1,
+    maintenance: isMaintenanceActiveV1(HOME_JP_KEEPRISING_SITE_ID_V1),
+  });
   const version = String(input.firmwareVersion ?? "").trim();
   if (version) runtime.firmwareVersion = version;
   const temp = readTemp(input.boardTemp);
@@ -510,6 +522,12 @@ export async function runKeepRisingHeartbeatWatchdogV1(): Promise<void> {
     return;
   }
   if (isMaintenanceActiveV1(HOME_JP_KEEPRISING_SITE_ID_V1)) {
+    noteCommOfflineV1(
+      HOME_JP_KEEPRISING_SITE_ID_V1,
+      "main",
+      Date.now(),
+      false
+    );
     if (takeMaintenanceHoldLogV1(HOME_JP_KEEPRISING_SITE_ID_V1, "comm")) {
       recordSystemLogV1({
         siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
@@ -524,6 +542,7 @@ export async function runKeepRisingHeartbeatWatchdogV1(): Promise<void> {
   }
   if (keepRisingLossNotified) return;
   keepRisingLossNotified = true;
+  noteCommOfflineV1(HOME_JP_KEEPRISING_SITE_ID_V1, "main", Date.now(), true);
   await sendKeepRisingPush({
     title: buildHeartbeatCommLossPushTitleV1({
       siteDisplayName: KEEPRISING_DISPLAY_NAME_V1,

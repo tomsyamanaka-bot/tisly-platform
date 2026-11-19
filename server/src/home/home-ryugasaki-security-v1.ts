@@ -25,6 +25,11 @@ import {
   takeMaintenanceHoldLogV1,
 } from "./home-ops-safety-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import {
+  deliverCommRecoveryV1,
+  noteCommOfflineV1,
+  resetCommRecoveryForTestV1,
+} from "./home-comm-recovery-v1.js";
 import { durationSecForDoChannelV1 } from "./home-ryugasaki-settings-v1.js";
 import { isOfferedFirmwareCurrentV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 
@@ -126,6 +131,7 @@ export function resetRyugasakiSecurityStateForTestV1(): void {
   runtime.lossNotified = next.lossNotified;
   runtime.logs = next.logs;
   runtime.queue = next.queue;
+  resetCommRecoveryForTestV1();
 }
 
 export function isRyugasakiSecuritySiteIdV1(
@@ -481,6 +487,12 @@ export async function recordRyugasakiHeartbeatV1(input: {
   doLimitCuts?: unknown;
 }): Promise<{ online: true; boardTempC: number | null }> {
   runtime.lastHeartbeatAt = nowIso();
+  await deliverCommRecoveryV1({
+    siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
+    deviceKey: "main",
+    siteName: RYUGASAKI_DISPLAY_NAME_V1,
+    maintenance: isMaintenanceActiveV1(HOME_JP_RYUGASAKI_SITE_ID_V1),
+  });
   runtime.lossNotified = false;
   const version = String(input.firmwareVersion ?? "").trim();
   if (version) runtime.firmwareVersion = version;
@@ -537,6 +549,7 @@ export async function runRyugasakiHeartbeatWatchdogV1(): Promise<void> {
     return;
   }
   if (isMaintenanceActiveV1(HOME_JP_RYUGASAKI_SITE_ID_V1)) {
+    noteCommOfflineV1(HOME_JP_RYUGASAKI_SITE_ID_V1, "main", Date.now(), false);
     if (takeMaintenanceHoldLogV1(HOME_JP_RYUGASAKI_SITE_ID_V1, "comm")) {
       recordSystemLogV1({
         siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
@@ -551,6 +564,7 @@ export async function runRyugasakiHeartbeatWatchdogV1(): Promise<void> {
   }
   if (runtime.lossNotified) return;
   runtime.lossNotified = true;
+  noteCommOfflineV1(HOME_JP_RYUGASAKI_SITE_ID_V1, "main", Date.now(), true);
   const title = buildHeartbeatCommLossPushTitleV1({
     siteDisplayName: RYUGASAKI_DISPLAY_NAME_V1,
     deviceLabel: "主装置",

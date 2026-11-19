@@ -12,6 +12,15 @@ import {
   getJstMinutesOfDayV1,
   isWithinTimeRange,
 } from "./home-security-time-range-v1.js";
+import {
+  ASTRO_DEFAULT_SUNRISE_OFFSET_MIN_V1,
+  ASTRO_DEFAULT_SUNSET_OFFSET_MIN_V1,
+  buildAstroWindowV1,
+  clampAstroOffsetMinV1,
+  clampTimezoneOffsetSecV1,
+  siteAstroPlaceV1,
+  type AstroWindowV1,
+} from "./astro-schedule-v1.js";
 
 export { isWithinTimeRange } from "./home-security-time-range-v1.js";
 export { getJstMinutesOfDayV1 } from "./home-security-time-range-v1.js";
@@ -142,6 +151,14 @@ export interface HomeSecurityRulesV1 {
    * テスト時は昼間でもセンサー連動リレーを動かす
    */
   forceRelayTest?: boolean;
+  /** manual は保存時刻。astronomical は太陽追従 */
+  lightingScheduleMode?: "manual" | "astronomical";
+  latitude?: number;
+  longitude?: number;
+  /** 秒。既定は日本の 32400 */
+  timezoneOffsetSec?: number;
+  sunsetOffsetMin?: number;
+  sunriseOffsetMin?: number;
   updatedAt: string;
 }
 
@@ -188,6 +205,12 @@ export interface HomeSecurityRulesPatchV1 {
   /** 同じ意味。OFF の日中はセンサーでリレーを出さない */
   daytime_test_mode?: boolean;
   daytimeTestMode?: boolean;
+  lightingScheduleMode?: "manual" | "astronomical";
+  latitude?: number;
+  longitude?: number;
+  timezoneOffsetSec?: number;
+  sunsetOffsetMin?: number;
+  sunriseOffsetMin?: number;
 }
 
 /** RP2350 向けファームウェア JSON */
@@ -390,6 +413,10 @@ const DEFAULT_RULES: Omit<HomeSecurityRulesV1, "siteId" | "updatedAt"> = {
   debounceDi1Ms: 100,
   debounceDi2Ms: 100,
   debounceBeamMs: 100,
+  lightingScheduleMode: "manual",
+  sunsetOffsetMin: ASTRO_DEFAULT_SUNSET_OFFSET_MIN_V1,
+  sunriseOffsetMin: ASTRO_DEFAULT_SUNRISE_OFFSET_MIN_V1,
+  timezoneOffsetSec: 32400,
 };
 
 const rulesCache = new Map<string, HomeSecurityRulesV1>();
@@ -458,6 +485,67 @@ function readDaytimeSensorTestV1(
     return Boolean(parsed.daytimeTestMode);
   }
   return DEFAULT_RULES.forceRelayTest !== false;
+}
+
+function readCoordV1(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < min || n > max) return fallback;
+  return Math.round(n * 1000) / 1000;
+}
+
+function astroFieldsFromV1(
+  siteId: string,
+  source: Record<string, unknown>,
+  current?: HomeSecurityRulesV1
+) {
+  const place = siteAstroPlaceV1(siteId);
+  const mode = source.lightingScheduleMode;
+  const lightingScheduleMode =
+    mode === "astronomical" || mode === "manual"
+      ? mode
+      : current?.lightingScheduleMode ?? "manual";
+  return {
+    lightingScheduleMode,
+    latitude: readCoordV1(
+      source.latitude,
+      current?.latitude ?? place.latitude,
+      -90,
+      90
+    ),
+    longitude: readCoordV1(
+      source.longitude,
+      current?.longitude ?? place.longitude,
+      -180,
+      180
+    ),
+    timezoneOffsetSec:
+      source.timezoneOffsetSec === undefined
+        ? current?.timezoneOffsetSec ?? place.timezoneOffsetSec
+        : clampTimezoneOffsetSecV1(source.timezoneOffsetSec),
+    sunsetOffsetMin:
+      source.sunsetOffsetMin === undefined
+        ? current?.sunsetOffsetMin ??
+          ASTRO_DEFAULT_SUNSET_OFFSET_MIN_V1
+        : clampAstroOffsetMinV1(
+            source.sunsetOffsetMin,
+            current?.sunsetOffsetMin ??
+              ASTRO_DEFAULT_SUNSET_OFFSET_MIN_V1
+          ),
+    sunriseOffsetMin:
+      source.sunriseOffsetMin === undefined
+        ? current?.sunriseOffsetMin ??
+          ASTRO_DEFAULT_SUNRISE_OFFSET_MIN_V1
+        : clampAstroOffsetMinV1(
+            source.sunriseOffsetMin,
+            current?.sunriseOffsetMin ??
+              ASTRO_DEFAULT_SUNRISE_OFFSET_MIN_V1
+          ),
+  };
 }
 
 function parseRulesJson(
@@ -633,6 +721,7 @@ function parseRulesJson(
       parsed.debounceBeamMs ?? parsed.diConfirmMs,
       DEFAULT_RULES.debounceBeamMs ?? 100
     ),
+    ...astroFieldsFromV1(siteId, parsed),
     updatedAt:
       typeof parsed.updatedAt === "string"
         ? parsed.updatedAt
@@ -903,6 +992,7 @@ export function updateHomeSecurityRulesV1(
             current.debounceBeamMs ?? current.diConfirmMs ?? 100
           )
         : current.debounceBeamMs ?? current.diConfirmMs ?? 100,
+    ...astroFieldsFromV1(sid, patch as Record<string, unknown>, current),
     updatedAt: nowIso(),
   };
 
@@ -932,15 +1022,56 @@ export function isHomeSecurityArmedV1(
   return true;
 }
 
+export interface DeliveredLightScheduleV1 {
+  scheduleStart: string;
+  scheduleEnd: string;
+  mode: "manual" | "astronomical";
+  astro: AstroWindowV1 | null;
+}
+
+/** 手動はそのまま。天文は当日の計算結果。 */
+export function deliveredLightScheduleV1(
+  rules: HomeSecurityRulesV1,
+  at: Date = new Date()
+): DeliveredLightScheduleV1 {
+  const place = siteAstroPlaceV1(rules.siteId);
+  const astro = buildAstroWindowV1({
+    at,
+    latitude: rules.latitude ?? place.latitude,
+    longitude: rules.longitude ?? place.longitude,
+    timezoneOffsetSec:
+      rules.timezoneOffsetSec ?? place.timezoneOffsetSec,
+    sunsetOffsetMin:
+      rules.sunsetOffsetMin ?? ASTRO_DEFAULT_SUNSET_OFFSET_MIN_V1,
+    sunriseOffsetMin:
+      rules.sunriseOffsetMin ?? ASTRO_DEFAULT_SUNRISE_OFFSET_MIN_V1,
+  });
+  if (rules.lightingScheduleMode === "astronomical" && astro) {
+    return {
+      scheduleStart: astro.startHm,
+      scheduleEnd: astro.endHm,
+      mode: "astronomical",
+      astro,
+    };
+  }
+  return {
+    scheduleStart: rules.scheduleStart,
+    scheduleEnd: rules.scheduleEnd,
+    mode: "manual",
+    astro,
+  };
+}
+
 /** 現在時刻で防犯ライト・DO リレー点灯が有効か（時間帯のみ） */
 export function isHomeGuardActiveV1(
   rules: HomeSecurityRulesV1,
   at: Date = new Date()
 ): boolean {
   if (!isHomeSecurityArmedV1(rules, at)) return false;
+  const window = deliveredLightScheduleV1(rules, at);
   return isHomeScheduleWindowActiveV1(
-    rules.scheduleStart,
-    rules.scheduleEnd,
+    window.scheduleStart,
+    window.scheduleEnd,
     at
   );
 }
@@ -958,10 +1089,12 @@ export function isHomeSecurityPausedV1(
 
 /** RP2350 ポーリング用 JSON を生成 */
 export function buildHomeSecurityFirmwareRulesV1(
-  siteId: string
+  siteId: string,
+  at: Date = new Date()
 ): HomeSecurityFirmwareRulesV1 {
   const rules = getHomeSecurityRulesV1(siteId);
-  const guardActive = isHomeGuardActiveV1(rules);
+  const window = deliveredLightScheduleV1(rules, at);
+  const guardActive = isHomeGuardActiveV1(rules, at);
   /* 実機 1.6.1 は version が増えたときだけ guardActive を読む。
    * updatedAt のままだと 18 時を跨いでも昼の「点灯しない」が残る。
    * 分単位で単調増加させ、過去の updatedAt よりは小さくしない。 */
@@ -973,10 +1106,10 @@ export function buildHomeSecurityFirmwareRulesV1(
     version,
     siteId: rules.siteId,
     guardMode: rules.guardMode,
-    scheduleStart: rules.scheduleStart,
-    scheduleEnd: rules.scheduleEnd,
-    light_start: rules.scheduleStart,
-    light_end: rules.scheduleEnd,
+    scheduleStart: window.scheduleStart,
+    scheduleEnd: window.scheduleEnd,
+    light_start: window.scheduleStart,
+    light_end: window.scheduleEnd,
     guardActive,
     securityPaused: isHomeSecurityPausedV1(rules),
     di1DurationMs: rules.di1DurationSec * 1000,
@@ -1013,8 +1146,8 @@ export function buildHomeSecurityFirmwareRulesV1(
       "2STEP"
     ),
     light_schedule: {
-      start: rules.scheduleStart,
-      end: rules.scheduleEnd,
+      start: window.scheduleStart,
+      end: window.scheduleEnd,
     },
     flash_duration_sec: rules.flashDurationSec ?? 15,
     flash_enabled: rules.flashEnabled !== false,
@@ -1025,8 +1158,9 @@ export function buildHomeSecurityFirmwareRulesV1(
      * VPS の JST 判定を正とする */
     jstMinutes: getJstMinutesOfDayV1(),
     lightScheduleActive: isHomeScheduleWindowActiveV1(
-      rules.scheduleStart,
-      rules.scheduleEnd
+      window.scheduleStart,
+      window.scheduleEnd,
+      at
     ),
   };
 }

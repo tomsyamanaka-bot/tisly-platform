@@ -53,6 +53,7 @@ import { seedOpsSafetyKnowledgeCardsV1 } from "./knowledge-ops-safety-seed-v1.js
 import { seedDoGuardKnowledgeCardsV1 } from "./knowledge-do-guard-seed-v1.js";
 import { seedStaffNotifyKnowledgeCardsV1 } from "./knowledge-staff-notify-seed-v1.js";
 import { seedRp2350BaselineKnowledgeCardsV1 } from "./knowledge-rp2350-baseline-seed-v1.js";
+import { seedAstroRecoveryKnowledgeCardsV1 } from "./knowledge-astro-recovery-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -222,6 +223,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   doGuardCreated: number;
   staffNotifyCreated: number;
   rp2350BaselineCreated: number;
+  astroRecoveryCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -268,6 +270,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const doGuard = seedDoGuardKnowledgeCardsV1();
   const staffNotify = seedStaffNotifyKnowledgeCardsV1();
   const rp2350Baseline = seedRp2350BaselineKnowledgeCardsV1();
+  const astroRecovery = seedAstroRecoveryKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -314,5 +317,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     doGuardCreated: doGuard.length,
     staffNotifyCreated: staffNotify.length,
     rp2350BaselineCreated: rp2350Baseline.length,
+    astroRecoveryCreated: astroRecovery.length,
   };
 }

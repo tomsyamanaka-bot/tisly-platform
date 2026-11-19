@@ -83,6 +83,7 @@ import {
 } from "../../home/home-security-stats-v1.js";
 import {
   buildHomeSecurityFirmwareRulesV1,
+  deliveredLightScheduleV1,
   getHomeSecurityRulesV1,
   homeGuardModeLabelJaV1,
   updateHomeSecurityRulesV1,
@@ -752,11 +753,15 @@ homeRouter.get("/security-rules", (req, res) => {
     return;
   }
   const rules = getHomeSecurityRulesV1(siteId);
+  const delivered = deliveredLightScheduleV1(rules);
   res.json({
     ok: true,
     rules: {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+      astroPreview: delivered.astro,
+      deliveredScheduleStart: delivered.scheduleStart,
+      deliveredScheduleEnd: delivered.scheduleEnd,
     },
     notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
   });
@@ -818,6 +823,13 @@ function applyHomeSecurityRulesPatchV1(
     debounceDi1Ms: body?.debounceDi1Ms as number | undefined,
     debounceDi2Ms: body?.debounceDi2Ms as number | undefined,
     debounceBeamMs: body?.debounceBeamMs as number | undefined,
+    lightingScheduleMode: body?.lightingScheduleMode as
+      | "manual"
+      | "astronomical"
+      | undefined,
+    timezoneOffsetSec: body?.timezoneOffsetSec as number | undefined,
+    sunsetOffsetMin: body?.sunsetOffsetMin as number | undefined,
+    sunriseOffsetMin: body?.sunriseOffsetMin as number | undefined,
   });
   recordSystemLogV1({
     siteId,
@@ -851,11 +863,15 @@ homeRouter.put("/security-rules", (req, res) => {
     String(req.body?.actor ?? "app")
   );
   const toyoshima = isToyoshimaSecuritySiteIdV1(siteId);
+  const delivered = deliveredLightScheduleV1(rules);
   res.json({
     ok: true,
     rules: {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+      astroPreview: delivered.astro,
+      deliveredScheduleStart: delivered.scheduleStart,
+      deliveredScheduleEnd: delivered.scheduleEnd,
     },
     notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
     dashboard: toyoshima
@@ -1495,12 +1511,16 @@ homeRouter.post("/security/config", (req, res) => {
     req.body ?? {},
     String(req.body?.actor ?? "security-v1")
   );
+  const delivered = deliveredLightScheduleV1(rules);
   res.json({
     ok: true,
     message: "実機へ設定を反映しました",
     rules: {
       ...rules,
       guardModeLabel: homeGuardModeLabelJaV1(rules.guardMode),
+      astroPreview: delivered.astro,
+      deliveredScheduleStart: delivered.scheduleStart,
+      deliveredScheduleEnd: delivered.scheduleEnd,
     },
     notifyPolicy: buildHomeSecurityNotifyPolicyV1(rules),
     firmware: buildHomeSecurityFirmwareRulesV1(siteId),

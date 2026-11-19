@@ -44,6 +44,7 @@ import {
   isHomeNotifyAnyPushV1,
   isHomeNotifyModeV1,
   isHomeNotifyPushEnabledV1,
+  deliveredLightScheduleV1,
   isHomeScheduleWindowActiveV1,
   isHomeSecurityArmedV1,
   isHomeSecurityPausedV1,
@@ -60,6 +61,11 @@ import {
 } from "../shared/customer/customer-display-labels-v1.js";
 import { findHomeSiteV1 } from "./home-sites-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import {
+  deliverCommRecoveryV1,
+  noteCommOfflineV1,
+  resetCommRecoveryForTestV1,
+} from "./home-comm-recovery-v1.js";
 import {
   queueToyoshimaDeviceCommandV1,
 } from "./home-toyoshima-command-queue-v1.js";
@@ -357,6 +363,10 @@ export interface ToyoshimaSecurityDashboardV1 {
   scheduleStart: string;
   scheduleEnd: string;
   lightsScheduleLabel: string;
+  lightingScheduleMode?: "manual" | "astronomical";
+  sunsetOffsetMin?: number;
+  sunriseOffsetMin?: number;
+  astroLabel?: string;
   armed: boolean;
   lightsActive: boolean;
   lightingDurationSec: number;
@@ -664,14 +674,26 @@ export async function recordToyoshimaHeartbeatV1(input: {
     shellyKickCount: 0,
   };
   getBuilding(input.building).online = true;
+  const recovery = await deliverCommRecoveryV1({
+    siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+    deviceKey: input.building,
+    siteName: "豊島邸",
+    maintenance: isMaintenanceActiveV1(HOME_JP_TOYOSHIMA_SITE_ID_V1),
+  });
   if (wasOffline && prev.lastHeartbeatAt) {
     const label = input.building === "main" ? "主装置" : "子機";
     appendTimeline({
       at,
       building: input.building,
       kind: "comm_recovered",
-      title: `${label} 通信復旧`,
-      detail: "ハートビートを再受信しました",
+      title:
+        recovery.action === "ignore"
+          ? `${label} 通信復旧`
+          : recovery.logMessage,
+      detail:
+        recovery.action === "ignore"
+          ? "ハートビートを再受信しました"
+          : recovery.downtimeLabel || "ハートビートを再受信しました",
     });
   }
   const temp = parseBoardTempC(input.boardTemp);
@@ -792,6 +814,12 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
     }
     /* 点検中は途絶 Push と Shelly を止める。期限後は通常監視へ戻る。 */
     if (isMaintenanceActiveV1(HOME_JP_TOYOSHIMA_SITE_ID_V1)) {
+      noteCommOfflineV1(
+        HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        building,
+        now,
+        false
+      );
       if (takeMaintenanceHoldLogV1(
         HOME_JP_TOYOSHIMA_SITE_ID_V1,
         `comm-${building}`
@@ -825,6 +853,12 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
         body: buildHeartbeatCommLossPushBodyV1({ deviceLabel: label }),
         eventType: "toyoshima_comm_loss",
       });
+      noteCommOfflineV1(
+        HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        building,
+        now,
+        true
+      );
     }
 
     /* 10分30秒: Shelly PoE コールドリブート（最大2回） */
@@ -1356,9 +1390,10 @@ export function shouldToyoshimaDriveSensorLightsV1(
   const mode = deriveCustomerSecurityModeV1(rules);
   if (mode === "disarmed") return false;
   if (isHomeSecurityPausedV1(rules, at)) return false;
+  const window = deliveredLightScheduleV1(rules, at);
   const night = isHomeScheduleWindowActiveV1(
-    rules.scheduleStart,
-    rules.scheduleEnd,
+    window.scheduleStart,
+    window.scheduleEnd,
     at
   );
   if (night) return true;
@@ -2869,6 +2904,7 @@ export function buildToyoshimaSecurityDashboardV1(
   const rules = getHomeSecurityRulesV1(homeId);
   const scheduleStart = rules.scheduleStart || "18:00";
   const scheduleEnd = rules.scheduleEnd || "06:00";
+  const delivered = deliveredLightScheduleV1(rules, toyoshimaNowV1());
   const customerMode = deriveCustomerSecurityModeV1(rules);
   const ops = getToyoshimaOpsConfigV1(HOME_JP_TOYOSHIMA_SITE_ID_V1);
   const timeline = [...runtime.timeline];
@@ -2886,7 +2922,14 @@ export function buildToyoshimaSecurityDashboardV1(
     customerModeLabel: customerSecurityModeLabelV1(customerMode),
     scheduleStart,
     scheduleEnd,
-    lightsScheduleLabel: `${scheduleStart}〜${scheduleEnd}`,
+    lightsScheduleLabel:
+      delivered.mode === "astronomical"
+        ? `${delivered.scheduleStart}〜${delivered.scheduleEnd}`
+        : `${scheduleStart}〜${scheduleEnd}`,
+    lightingScheduleMode: delivered.mode,
+    sunsetOffsetMin: rules.sunsetOffsetMin ?? -15,
+    sunriseOffsetMin: rules.sunriseOffsetMin ?? 15,
+    astroLabel: delivered.astro?.label ?? "",
     armed: isHomeSecurityArmedV1(rules),
     lightsActive: isHomeGuardActiveV1(rules),
     lightingDurationSec:
@@ -2953,6 +2996,7 @@ export function resetToyoshimaSecurityStateForTestV1(): void {
   };
   runtime.alarmLatch = false;
   setToyoshimaNowForTestV1(null);
+  resetCommRecoveryForTestV1();
   lastToyoshimaNotifyAtV1.clear();
   toyoshimaFarBeamAtMsV1.clear();
   nearOutputLockUntilMsV1.clear();

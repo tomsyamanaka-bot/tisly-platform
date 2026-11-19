@@ -28,6 +28,11 @@ import {
   type ToyoshimaHeartbeatStoreV1,
 } from "./home-toyoshima-heartbeat-store-v1.js";
 import { getHeartbeatDebugSnapshot } from "../remote-test/remote-test-state.js";
+import {
+  deliverCommRecoveryV1,
+  noteCommOfflineV1,
+  resetCommRecoveryForTestV1,
+} from "./home-comm-recovery-v1.js";
 import { getTislyOtaVersionV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
@@ -335,6 +340,12 @@ export function recordItabashiHeartbeatV1(input?: {
   doLimitCuts?: unknown;
 }): ItabashiStatusSsotV1 {
   const at = nowIso();
+  void deliverCommRecoveryV1({
+    siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+    deviceKey: "main",
+    siteName: "板橋自宅",
+    maintenance: isMaintenanceActiveV1(HOME_ITABASHI_LIVE_SITE_ID_V1),
+  });
   const store = loadStore();
   const temp = parseBoardTempC(input?.boardTemp);
   const next: ToyoshimaHeartbeatStoreV1 = {
@@ -380,6 +391,7 @@ export async function runItabashiHeartbeatWatchdogV1(): Promise<void> {
     return;
   }
   if (isMaintenanceActiveV1(HOME_ITABASHI_LIVE_SITE_ID_V1)) {
+    noteCommOfflineV1(HOME_ITABASHI_LIVE_SITE_ID_V1, "main", Date.now(), false);
     if (takeMaintenanceHoldLogV1(HOME_ITABASHI_LIVE_SITE_ID_V1, "comm")) {
       recordSystemLogV1({
         siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
@@ -393,6 +405,7 @@ export async function runItabashiHeartbeatWatchdogV1(): Promise<void> {
   }
   if (itabashiLossNotified) return;
   itabashiLossNotified = true;
+  noteCommOfflineV1(HOME_ITABASHI_LIVE_SITE_ID_V1, "main", Date.now(), true);
   try {
     await sendWebPush({
       title: buildHeartbeatCommLossPushTitleV1({
@@ -426,6 +439,8 @@ export function parseItabashiBoardTempC(raw: unknown): number | null {
 /** テスト用: 板橋行だけ空に戻す
  * 豊島邸の heartbeat 行は消さない */
 export function resetItabashiCommForTestV1(): void {
+  itabashiLossNotified = false;
+  resetCommRecoveryForTestV1();
   itabashiTempLatches.tomsNotified = false;
   itabashiTempLatches.emergencyNotified = false;
   saveToyoshimaHeartbeatStoreV1(emptyStore());

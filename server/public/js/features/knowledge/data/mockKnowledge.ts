@@ -2456,3 +2456,35 @@ export const MOCK_RP2350_BASELINE_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const ASTRO_RECOVERY_KNOWLEDGE_TITLES = [
+  "【全物件標準】天文タイマー（日没・日の出自動追従＋タイムゾーン対応）＆ 通信復旧自動通知仕様",
+] as const;
+
+/** 天文タイマーと通信復旧（末尾追記） */
+export const MOCK_ASTRO_RECOVERY_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-astro-recovery-001",
+    title: ASTRO_RECOVERY_KNOWLEDGE_TITLES[0],
+    summary:
+      "外部API不要のサーバー側太陽計算による季節追従型ライト点灯（日没・日の出±オフセット対応、豪州展開を見据えた物件別タイムゾーン保持）と、オフライン状態からの復帰時に停止時間を算出して自動通知する（点検中抑止・15分クールダウン付き）保守標準仕様。",
+    genre: "IOT関連",
+    tags: [
+      "#天文タイマー",
+      "#自動点灯",
+      "#タイムゾーン",
+      "#通信復旧通知",
+      "#全物件標準",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-20T06:00:00.000Z",
+    body: [
+      "点灯時刻はサーバーが計算し、既存の開始終了へ流す。",
+      "実機の Python と版は変えない。",
+      "初期は手動。画面から天文へ切り替えられる。",
+      "通信が戻ったら停止時間を付けて知らせる。",
+      "点検中と15分以内は Push を出さない。",
+    ].join("\n"),
+  },
+];

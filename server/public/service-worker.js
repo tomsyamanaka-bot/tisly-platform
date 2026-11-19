@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2602-staff-notify-shadow";
+const SW_VERSION = "tisly-pwa-v2603-astro-recovery";
+/* tisly-pwa-v2602-staff-notify-shadow */
 /* tisly-pwa-v2597-keeprising-day-relay */
 /* tisly-pwa-v2596-keeprising-duration */
 /* tisly-pwa-v2595-keeprising-customer-status */
@@ -333,6 +334,7 @@ const SHELL_URLS = [
   "/js/features/security/security-floor-fallback-v1.js",
   "/js/features/security/security-floor-iso3d-v1.js",
   "/js/features/security/security-floor-remote-config-v1.js",
+  "/js/features/security/astro-schedule-ui-v1.js",
   "/js/features/security/security-floor-push-v1.js",
   "/js/features/security/security-floor-manual-light-v1.js",
   "/js/features/security/security-floor-intercom-v1.js",

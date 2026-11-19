@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2592" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2603" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2588" />
   <link rel="stylesheet" href="/css/features/security/washmate-customer-settings-v1.css?v=2578" />
   <link rel="stylesheet" href="/css/features/security/keeprising-customer-settings-v1.css?v=2597" />
@@ -217,6 +217,21 @@
         <section class="sf-daily-block">
           <p class="sf-card-label">② 昼夜のスマート点灯制御</p>
           <p class="sf-hint">夜間のライト自動点灯時間帯（日跨ぎ可）</p>
+          <div class="sf-astro" id="sf-customer-astro">
+            <div class="sf-astro-modes">
+              <button type="button" class="sf-astro-mode is-on" data-astro-mode="manual">手動時間指定（例：18:00〜06:00）</button>
+              <button type="button" class="sf-astro-mode" data-astro-mode="astronomical">🌅 日の出・日の入り自動追従（天文タイマー）</button>
+            </div>
+            <p class="sf-astro-label" id="sf-customer-astro-label" hidden></p>
+            <div class="sf-astro-offsets" id="sf-customer-astro-offsets" hidden>
+              <label>日没オフセット
+                <select id="sf-customer-astro-sunset" aria-label="日没オフセット"></select>
+              </label>
+              <label>日の出オフセット
+                <select id="sf-customer-astro-sunrise" aria-label="日の出オフセット"></select>
+              </label>
+            </div>
+          </div>
           <div class="ts-daynight" id="sf-customer-daynight">
             <div class="ts-dn-tile ts-dn-day">
               <span class="ts-dn-ico" aria-hidden="true">
@@ -324,9 +339,10 @@
 
   <script src="/js/features/security/security-floor-light-v1.js?v=2559"></script>
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
+  <script src="/js/features/security/astro-schedule-ui-v1.js?v=2603"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2569"></script>
-  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2597"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2603"></script>
+  <script type="module" src="/js/features/security/security-floor-customer-v1.js?v=2603"></script>
 </body>
 </html>
