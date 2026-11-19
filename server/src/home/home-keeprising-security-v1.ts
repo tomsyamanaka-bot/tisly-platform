@@ -13,6 +13,7 @@ import {
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
+import { decideStaffNotifyV1 } from "../notification/staff-notify-policy-v1.js";
 import { applyDeviceHealthV1 } from "./home-device-health-apply-v1.js";
 import { applyCabinetTempV1, applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
 import {
@@ -138,15 +139,17 @@ async function sendKeepRisingPush(input: {
   title: string;
   body: string;
   eventType: string;
+  audience?: "toms" | "customer";
 }): Promise<boolean> {
   try {
+    const staff = input.audience === "toms";
     const result = await sendWebPush({
       title: input.title,
       body: input.body,
       eventType: input.eventType,
       deviceId: SEC_JP_KEEPRISING_SITE_ID_V1,
-      url: "/customer/security",
-      audience: "customer",
+      url: staff ? "/app/security" : "/customer/security",
+      audience: input.audience ?? "customer",
       icon: "/icons/icon-192.png?v=2003",
       badge: "/icons/icon-192.png?v=2003",
       data: {
@@ -155,7 +158,7 @@ async function sendKeepRisingPush(input: {
         homeSiteId: HOME_JP_KEEPRISING_SITE_ID_V1,
         securitySiteId: SEC_JP_KEEPRISING_SITE_ID_V1,
         customerCode: KEEPRISING_CUSTOMER_CODE_V1,
-        audience: "customer",
+        audience: input.audience ?? "customer",
       },
     });
     return Boolean(result.success);
@@ -255,6 +258,28 @@ export async function processKeepRisingSecurityEventV1(input: {
       if (rising && pushSent) {
         markSensorCustomerPushV1(HOME_JP_KEEPRISING_SITE_ID_V1, di);
       }
+      if (rising) {
+        const staff = decideStaffNotifyV1({
+          siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
+          eventType: "keeprising_sensor_alert",
+          title,
+        });
+        if (staff.deliver) {
+          await sendKeepRisingPush({
+            title,
+            body: text,
+            eventType: "keeprising_sensor_alert",
+            audience: "toms",
+          });
+        }
+      }
+    } else if (gate.reason === "maintenance") {
+      pushSent = await sendKeepRisingPush({
+        title,
+        body: text,
+        eventType: "keeprising_sensor_alert",
+        audience: "toms",
+      });
     }
     pushLog(message);
     recordSystemLogV1({

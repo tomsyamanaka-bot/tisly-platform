@@ -19,9 +19,11 @@ import {
   type PushSubscriptionScopeV1,
 } from "../push-property-scope-v1.js";
 import {
+  isStaffNotifyFocusUserV1,
   loadEnabledStaffFocusMapV1,
   staffFocusAllowsEndpointV1,
 } from "../staff-notify-focus-v1.js";
+import { decideStaffNotifyV1 } from "../staff-notify-policy-v1.js";
 
 let vapidConfiguredLogged = false;
 
@@ -132,12 +134,27 @@ function isKeepRisingPushTargetV1(siteId: string | null | undefined): boolean {
   return pushPropertyKeysV1(siteId).has("SEC-JP-KEEPRISING-001");
 }
 
+function pushRowIsStaffV1(
+  userId: string | undefined,
+  audience?: NotificationPayload["audience"]
+): boolean {
+  if (audience === "customer") return false;
+  if (audience === "toms") return true;
+  const id = String(userId || "");
+  return isTomsOpsPushUserV1(id) || isStaffNotifyFocusUserV1(id);
+}
+
 function loadActiveWebPushRows(
   db: ReturnType<typeof getDatabase>,
   userId?: string,
   audience?: NotificationPayload["audience"],
   targetSiteId?: string
-): Array<{ id: string; endpoint: string; keys_json: string }> {
+): Array<{
+  id: string;
+  endpoint: string;
+  keys_json: string;
+  staff: boolean;
+}> {
   const tokenSql = `SELECT id, endpoint, keys_json, user_id, site_id, property_id, customer_code
      FROM notification_tokens
      WHERE channel = 'web_push' AND active = 1`;
@@ -190,7 +207,7 @@ function loadActiveWebPushRows(
 
   const byEndpoint = new Map<
     string,
-    { id: string; endpoint: string; keys_json: string }
+    { id: string; endpoint: string; keys_json: string; staff: boolean }
   >();
   const staffFocus = loadEnabledStaffFocusMapV1();
   const grouped = new Map<string, typeof tokens>();
@@ -209,7 +226,12 @@ function loadActiveWebPushRows(
         keepRisingCustomerPushRowV1(row)
       );
       if (customerRow) {
-        byEndpoint.set(endpoint, customerRow);
+        byEndpoint.set(endpoint, {
+          id: customerRow.id,
+          endpoint: customerRow.endpoint,
+          keys_json: customerRow.keys_json,
+          staff: false,
+        });
         continue;
       }
     }
@@ -222,7 +244,14 @@ function loadActiveWebPushRows(
         rowMatchesAudienceV1(row.user_id, audience) &&
         pushRowMatchesPropertyScopeV1(row, targetSiteId)
     );
-    if (deliverable) byEndpoint.set(endpoint, deliverable);
+    if (deliverable) {
+      byEndpoint.set(endpoint, {
+        id: deliverable.id,
+        endpoint: deliverable.endpoint,
+        keys_json: deliverable.keys_json,
+        staff: pushRowIsStaffV1(deliverable.user_id, audience),
+      });
+    }
   }
   if (muted > 0) {
     console.log(
@@ -299,20 +328,28 @@ export async function sendWebPush(
     };
   }
 
-  const message = JSON.stringify({
-    title: payload.title,
-    body: payload.body,
+  const staffPlan = decideStaffNotifyV1({
+    siteId: targetSiteId,
     eventType: payload.eventType,
-    deviceId: payload.deviceId,
-    url: payload.url ?? "/app/notifications",
-    icon: payload.icon,
-    badge: payload.badge,
-    audience: payload.audience,
-    data: payload.data,
+    title: payload.title,
   });
+  const targets = tokens.filter((row) => !row.staff || staffPlan.deliver);
+  if (!targets.length) {
+    console.log(
+      `[web-push] staff policy skipped site=${targetSiteId || "-"}` +
+        ` event=${payload.eventType}`
+    );
+    return {
+      channel: "web_push",
+      success: true,
+      sent: 0,
+      attempted: 0,
+      attempts: [],
+    };
+  }
 
   console.log(
-    `[web-push] sending title="${payload.title}" subscriptionCount=${tokens.length}` +
+    `[web-push] sending title="${payload.title}" subscriptionCount=${targets.length}` +
       (userId ? ` userId=${userId}` : " (all active)")
   );
 
@@ -320,11 +357,18 @@ export async function sendWebPush(
   let lastError: string | undefined;
   const attempts: WebPushAttemptResult[] = [];
 
-  for (const row of tokens as Array<{
-    id: string;
-    endpoint: string;
-    keys_json: string;
-  }>) {
+  for (const row of targets) {
+    const message = JSON.stringify({
+      title: row.staff ? staffPlan.title : payload.title,
+      body: payload.body,
+      eventType: payload.eventType,
+      deviceId: payload.deviceId,
+      url: payload.url ?? "/app/notifications",
+      icon: payload.icon,
+      badge: payload.badge,
+      audience: payload.audience,
+      data: payload.data,
+    });
     const host = endpointHost(row.endpoint);
     const tail = endpointTail(row.endpoint);
     try {

@@ -2788,7 +2788,8 @@
 
 body.sf-customer #sf-ota-host,
 body.sf-customer #sf-pro-ota-panel,
-body.sf-customer #sf-ops-safety {
+body.sf-customer #sf-ops-safety,
+body.sf-customer #sf-staff-notify {
   display: none !important;
 }
 
@@ -2821,6 +2822,44 @@ body.sf-customer #sf-ops-safety {
 .sf-ops-resume {
   background: #16a34a;
   color: #ffffff;
+}
+
+.sf-staff-notify {
+  max-width: 1280px;
+  margin: 12px auto 0;
+  padding: 16px;
+}
+
+.sf-staff-notify-status {
+  margin: 8px 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #64748b;
+}
+
+.sf-staff-notify-status.is-on {
+  background: #1e3a8a;
+}
+
+.sf-staff-notify-status.is-work {
+  background: #c2410c;
+}
+
+.sf-staff-notify-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  min-height: 44px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.sf-body.is-toyoshima #sf-staff-notify {
+  display: block;
 }
 
 .sf-ops-safety-banner {

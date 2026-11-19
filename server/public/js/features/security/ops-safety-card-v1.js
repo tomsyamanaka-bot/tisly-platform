@@ -5,10 +5,42 @@
 
 let bound = false;
 let currentSiteId = "";
+let notifyItabashi = false;
 
 function text(id, value) {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
+}
+
+function paintNotify(data) {
+  const notify = data?.notify;
+  const site = document.getElementById("sf-staff-notify-site");
+  if (site) site.textContent = `対象: ${data?.siteName || "選択中の物件"}`;
+  const status = document.getElementById("sf-staff-notify-status");
+  if (status) {
+    status.textContent = notify?.statusLabel || "—";
+    status.classList.remove("is-on", "is-work", "is-off");
+    status.classList.add(
+      notify?.statusTone === "on"
+        ? "is-on"
+        : notify?.statusTone === "work"
+          ? "is-work"
+          : "is-off"
+    );
+  }
+  const hint = document.getElementById("sf-staff-notify-hint");
+  if (hint) hint.textContent = notify?.hint || "";
+  const work = document.getElementById("sf-staff-notify-work");
+  if (work) work.hidden = notify ? notify.showWorkTimer === false : false;
+  const always = document.getElementById("sf-staff-notify-always");
+  const alwaysLabel = document.getElementById("sf-staff-notify-always-label");
+  if (alwaysLabel && notify?.alwaysLabel) {
+    alwaysLabel.textContent = notify.alwaysLabel;
+  }
+  if (always && notify) always.checked = Boolean(notify.alwaysChecked);
+  const critical = document.getElementById("sf-staff-notify-critical");
+  if (critical && notify) critical.checked = notify.criticalEnabled !== false;
+  notifyItabashi = Boolean(notify?.itabashi);
 }
 
 function paint(data) {
@@ -44,6 +76,7 @@ function paint(data) {
   } else {
     host.textContent = label;
   }
+  paintNotify(data);
 }
 
 export async function refreshOpsSafetyCardV1(siteId) {
@@ -73,6 +106,18 @@ async function postMinutes(minutes) {
   if (data?.ok) paint(data);
 }
 
+async function postNotify(body) {
+  if (!currentSiteId) return;
+  const res = await fetch("/api/home/v1/staff-notify", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ siteId: currentSiteId, ...body }),
+  });
+  const data = await res.json();
+  if (data?.ok) paint(data);
+}
+
 function bindOpsSafetyCardV1() {
   if (bound) return;
   const root = document.getElementById("sf-ops-safety");
@@ -84,6 +129,36 @@ function bindOpsSafetyCardV1() {
     const minutes = Number(button.getAttribute("data-ops-minutes"));
     void postMinutes(minutes);
   });
+  const notify = document.getElementById("sf-staff-notify");
+  notify?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-staff-minutes]");
+    if (!button) return;
+    const minutes = Number(button.getAttribute("data-staff-minutes"));
+    void postNotify({ kind: "temp", minutes });
+  });
+  document.getElementById("sf-staff-notify-always")?.addEventListener(
+    "change",
+    (event) => {
+      const checked = Boolean(event.target?.checked);
+      const value = notifyItabashi
+        ? checked
+          ? false
+          : null
+        : checked
+          ? true
+          : null;
+      void postNotify({ kind: "normalAlways", value });
+    }
+  );
+  document.getElementById("sf-staff-notify-critical")?.addEventListener(
+    "change",
+    (event) => {
+      void postNotify({
+        kind: "critical",
+        enabled: Boolean(event.target?.checked),
+      });
+    }
+  );
   window.setInterval(() => {
     void refreshOpsSafetyCardV1(currentSiteId);
   }, 30000);

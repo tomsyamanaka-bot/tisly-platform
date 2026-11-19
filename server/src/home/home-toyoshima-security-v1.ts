@@ -1571,7 +1571,17 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   }
 
   if (pushAllowed && !gate.allowCustomerPush) {
-    return false;
+    if (gate.reason !== "maintenance") return false;
+    const staff = await sendToyoshimaPush({
+      title: input.title,
+      body: `${sensorLabel}が反応しました（豊島邸）`,
+      eventType: input.eventType,
+      severity: "critical",
+      snapshotUrl: input.snapshotUrl,
+      audience: "toms",
+      url: "/app/security",
+    });
+    return staff.success;
   }
   /* 許可時は必ず sendWebPush を await する */
   let pushSent = false;

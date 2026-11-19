@@ -2392,3 +2392,34 @@ export const MOCK_DO_GUARD_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const STAFF_NOTIFY_KNOWLEDGE_TITLES = [
+  "【通知運用標準】社内（/app）通知フィルタリング：自社常時ON × 他現場は点検・作業時のみ自動一時受信",
+] as const;
+
+/** 社内通知の受信ルール（末尾追記） */
+export const MOCK_STAFF_NOTIFY_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-staff-notify-policy-001",
+    title: STAFF_NOTIFY_KNOWLEDGE_TITLES[0],
+    summary:
+      "顧客増加時の通知疲れを防ぐため、板橋自宅は常時受信、他現場の通常センサー通知はデフォルトOFFとし、点検中モード連動または一時タイマー（自動OFF復帰）時のみ社内受信する標準仕様。機器障害（通信断・65℃高温・WDT頻発・異常連打）は別枠の保守異常アラートとして分離管理する。",
+    genre: "IOT関連",
+    tags: [
+      "#通知設計",
+      "#保守DX",
+      "#点検モード連動",
+      "#全物件標準",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-19T05:50:00.000Z",
+    body: [
+      "板橋自宅は通常も保守も常時受信。",
+      "他現場の通常は停止が初期値。",
+      "点検中と作業タイマーのあいだだけ届く。",
+      "期限が来たら通常は自動で止まる。",
+      "通信断と高温と再起動は別枠。",
+    ].join("\n"),
+  },
+];

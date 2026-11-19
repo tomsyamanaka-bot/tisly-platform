@@ -225,6 +225,7 @@ async function sendHomeSecurityPush(payload: {
   eventType: string;
   url: string;
   severity: "warning" | "critical" | "info";
+  audience?: "toms" | "customer" | "all";
   data?: Record<string, unknown>;
 }): Promise<DeliveryResult> {
   try {
@@ -237,6 +238,7 @@ async function sendHomeSecurityPush(payload: {
       url: payload.url,
       icon: SECURITY_ALERT_ICON,
       badge: SECURITY_ALERT_BADGE,
+      audience: payload.audience,
       data: {
         ...payload.data,
         severity: payload.severity,
@@ -300,9 +302,12 @@ async function dispatchPatternPushV1(input: {
   rules: HomeSecurityRulesV1;
   di: 1 | 2;
   allowCustomerPush?: boolean;
+  relayStaff?: boolean;
 }): Promise<boolean> {
   const { siteId, pattern, armed, lightsActive, rules, di } = input;
-  const url = "/customer/security";
+  const staffOnly = input.allowCustomerPush === false && input.relayStaff === true;
+  const url = staffOnly ? "/app/security" : "/customer/security";
+  const audience = staffOnly ? "toms" as const : undefined;
 
   if (!armed) {
     console.log(
@@ -311,7 +316,7 @@ async function dispatchPatternPushV1(input: {
     return false;
   }
 
-  if (input.allowCustomerPush === false) {
+  if (input.allowCustomerPush === false && !staffOnly) {
     return false;
   }
   if (isDiPushInCooldown(siteId, di)) {
@@ -339,6 +344,7 @@ async function dispatchPatternPushV1(input: {
       eventType: "home_security_di1_perimeter",
       url,
       severity: "critical",
+      audience,
       data: { di: 1, siteId, pattern, urgency: "critical", click_action: url },
     });
     persistHomePushLog(
@@ -374,6 +380,7 @@ async function dispatchPatternPushV1(input: {
       eventType: "home_security_di2_instant",
       url,
       severity: "critical",
+      audience,
       data: { di: 2, siteId, pattern, urgency: "critical", click_action: url },
     });
     persistHomePushLog(
@@ -410,6 +417,7 @@ async function dispatchPatternPushV1(input: {
     eventType: "home_security_di2_staged_intrusion",
     url,
     severity: "critical",
+    audience,
     data: { di: 2, siteId, pattern, urgency: "critical", click_action: url },
   });
   persistHomePushLog(
@@ -505,6 +513,7 @@ async function handleDiRisingEdgeV1(
     rules,
     di,
     allowCustomerPush: gate.allowCustomerPush,
+    relayStaff: gate.reason === "maintenance",
   });
   return { pattern: resolvedPattern, pushSent };
 }

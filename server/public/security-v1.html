@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2600" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2601" />
   <link rel="stylesheet" href="/css/features/security/tenant-setting-summary-v1.css?v=2573" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2588" />
   <link rel="stylesheet" href="/css/features/security/keeprising-customer-settings-v1.css?v=2597" />
@@ -136,6 +136,27 @@
       <button type="button" class="sf-pro-action-btn sf-pro-action-primary" data-ops-minutes="240">4時間</button>
       <button type="button" class="sf-pro-action-btn sf-ops-resume" data-ops-minutes="0">今すぐ解除（監視再開）</button>
     </div>
+  </section>
+
+  <section class="sf-card sf-staff-notify" id="sf-staff-notify" aria-label="社内通知">
+    <p class="sf-card-label">🔔 作業中のみ社内通知を受信</p>
+    <p class="sf-pro-hint" id="sf-staff-notify-site">対象: —</p>
+    <p class="sf-staff-notify-status" id="sf-staff-notify-status">—</p>
+    <p class="sf-pro-hint" id="sf-staff-notify-hint"></p>
+    <div class="sf-ops-safety-actions" id="sf-staff-notify-work">
+      <button type="button" class="sf-pro-action-btn sf-pro-action-primary" data-staff-minutes="30">30分</button>
+      <button type="button" class="sf-pro-action-btn sf-pro-action-primary" data-staff-minutes="120">2時間</button>
+      <button type="button" class="sf-pro-action-btn sf-pro-action-primary" data-staff-minutes="240">4時間</button>
+      <button type="button" class="sf-pro-action-btn sf-ops-resume" data-staff-minutes="0">今すぐ停止</button>
+    </div>
+    <label class="sf-staff-notify-check">
+      <input type="checkbox" id="sf-staff-notify-always" />
+      <span id="sf-staff-notify-always-label">通常イベントを常時受信する</span>
+    </label>
+    <label class="sf-staff-notify-check">
+      <input type="checkbox" id="sf-staff-notify-critical" />
+      <span>保守異常アラート（通信断・高温・再起動・連打）</span>
+    </label>
   </section>
 
   <div class="sf-soc-shell">
@@ -725,7 +746,7 @@
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2564"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2598"></script>
-  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2600"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2601"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2598"></script>

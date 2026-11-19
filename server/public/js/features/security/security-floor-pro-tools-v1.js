@@ -15,7 +15,7 @@ import {
   otaCardStatusText,
   resolveOtaSiteSlugV1,
 } from "./ota-site-card-v1.js";
-import { refreshOpsSafetyCardV1 } from "./ops-safety-card-v1.js?v=2600";
+import { refreshOpsSafetyCardV1 } from "./ops-safety-card-v1.js?v=2601";
 import {
   getSelectedSiteId,
   onPropertyScopeChange,

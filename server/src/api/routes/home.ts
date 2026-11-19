@@ -138,6 +138,12 @@ import {
 } from "../../home/home-ops-safety-v1.js";
 import { deviceHealthViewV1 } from "../../home/home-device-health-v1.js";
 import {
+  setStaffCriticalEnabledV1,
+  setStaffNormalAlwaysV1,
+  setStaffTempNotifyV1,
+  staffNotifyViewV1,
+} from "../../notification/staff-notify-policy-v1.js";
+import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
   buildToyoshimaActivityReportV1,
@@ -1113,7 +1119,53 @@ homeRouter.get("/ops-safety", (req, res) => {
     maintenance,
     cabinet,
     health: deviceHealthViewV1(siteId),
+    notify: staffNotifyViewV1(siteId),
   });
+});
+
+/**
+ * POST /api/home/v1/staff-notify
+ * 作業タイマー、常時受信、保守異常の切替。
+ */
+homeRouter.post("/staff-notify", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const kind = String(req.body?.kind ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    let notify: ReturnType<typeof staffNotifyViewV1>;
+    if (kind === "temp") {
+      notify = setStaffTempNotifyV1(siteId, Number(req.body?.minutes));
+    } else if (kind === "critical") {
+      notify = setStaffCriticalEnabledV1(
+        siteId,
+        Boolean(req.body?.enabled)
+      );
+    } else if (kind === "normalAlways") {
+      const raw = req.body?.value;
+      const value = raw === null || raw === "default" ? null : Boolean(raw);
+      notify = setStaffNormalAlwaysV1(siteId, value);
+    } else {
+      res.status(400).json({ ok: false, error: "kind required" });
+      return;
+    }
+    res.json({
+      ok: true,
+      siteId,
+      siteName: opsSiteDisplayNameV1(siteId),
+      maintenance: maintenanceViewV1(siteId),
+      cabinet: cabinetViewV1(siteId),
+      health: deviceHealthViewV1(siteId),
+      notify,
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : "invalid",
+    });
+  }
 });
 
 /**
@@ -1139,6 +1191,7 @@ homeRouter.post("/ops-safety/maintenance", (req, res) => {
       maintenance,
       cabinet: cabinetViewV1(siteId),
       health: deviceHealthViewV1(siteId),
+      notify: staffNotifyViewV1(siteId),
     });
   } catch (err) {
     res.status(400).json({
