@@ -560,6 +560,24 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(toyoshima.body.update_required, true);
   });
 
+  it("toyoshima one patch behind streams the live bundle", async () => {
+    resetTislyOtaStoreForTestV1();
+    const live = logicVersion("toyoshima_security.py");
+    const parts = live.split(".").map((part) => Number(part));
+    const previous = `${parts[0]}.${parts[1]}.${Math.max(0, parts[2] - 1)}`;
+    const res = await request(app).get(
+      `/api/firmware/toyoshima/version?firmware_version=${previous}&ota_engine=stream`
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.version, live);
+    assert.equal(res.body.update_required, true);
+    assert.equal(res.body.has_ota_update, true);
+    assert.equal(res.body.force, false);
+    assert.ok(res.body.files.includes("main.py"));
+    assert.ok(res.body.files.includes("toyoshima_security.py"));
+    assert.ok(res.body.skipFiles.includes("config.py"));
+  });
+
   it("a new release reserves every site without force", async () => {
     resetTislyOtaStoreForTestV1();
     const first = armTislyOtaForNewReleaseV1("9.9.1");

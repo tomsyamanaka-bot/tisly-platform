@@ -32,6 +32,10 @@ DEFAULT_FILES = (
     "tisly_self_test.py",
 )
 SKIP_FILES = ("config.py",)
+# 物理 WDT は 8000ms。ソケットの待ちは 4 秒で切り、
+# 受信と書き込みの合間に feed してリセットを避ける。
+OTA_SOCKET_TIMEOUT_SEC = 4
+OTA_DOWNLOAD_TRIES = 2
 
 
 def log(msg):
@@ -85,8 +89,12 @@ def _write_text(path, text):
         f.write(text)
 
 
-def _copy_file(src, dst):
-    """512 バイトずつ写す。全文を RAM に載せない。"""
+def _copy_file(src, dst, kick_wdt=None):
+    """512 バイトずつ写す。全文を RAM に載せない。
+
+    ブロックを書く前後で WDT を給餌する。
+    大きいスクリプトの退避でも 8 秒で落ちない。
+    """
     parent = dst.rfind("/")
     if parent > 0:
         folder = dst[:parent]
@@ -94,13 +102,16 @@ def _copy_file(src, dst):
             os.mkdir(folder)
         except Exception:
             pass
+    _kick(kick_wdt)
     with open(src, "rb") as src_f:
         with open(dst, "wb") as dst_f:
             while True:
+                _kick(kick_wdt)
                 buf = src_f.read(512)
                 if not buf:
                     break
                 dst_f.write(buf)
+    _kick(kick_wdt)
 
 
 def _remove(path):
@@ -287,8 +298,14 @@ def _sha_hex(hasher):
 
 
 def _syntax_ok(name, text, kick_wdt=None):
+    """compile の直前と直後に給餌する。
+
+    compile 自体は途中で feed できない。
+    前後を蹴って、待ちが 8 秒を超えないようにする。
+    """
     _kick(kick_wdt)
     if name.endswith(".py") is False:
+        _kick(kick_wdt)
         return True
     try:
         compile(text, name, "exec")
@@ -296,6 +313,8 @@ def _syntax_ok(name, text, kick_wdt=None):
     except Exception as exc:
         log_error("syntax {}: {}".format(name, exc))
         return False
+    finally:
+        _kick(kick_wdt)
 
 
 def _checksum_ok(text, expected):
@@ -410,13 +429,15 @@ def _apply_file(name, text, kick_wdt=None):
         bak = name[:-3] + "_backup.py"
     else:
         bak = name + ".bak"
+    _kick(kick_wdt)
     if _exists(name):
         try:
-            _copy_file(name, bak)
+            _copy_file(name, bak, kick_wdt)
         except Exception as exc:
             log_error("backup {}: {}".format(name, exc))
             return False
-    _copy_file(tmp, name)
+    _kick(kick_wdt)
+    _copy_file(tmp, name, kick_wdt)
     _remove(tmp)
     return True
 
@@ -516,8 +537,28 @@ def _write_chunked(first, read, write, hasher):
     return False
 
 
-def _stream_download(path, dest, expected, config, kick_wdt):
-    """受信しながらフラッシュへ書く。待ちの途中で WDT を蹴る。"""
+def _arm_socket_timeout(sock=None):
+    """名前解決も受信も 4 秒で打ち切る。
+
+    既定の無限待ちだと、WDT の 8 秒に届く前に
+    給餌できず基板がリセットされる。
+    """
+    try:
+        import socket
+
+        socket.setdefaulttimeout(OTA_SOCKET_TIMEOUT_SEC)
+    except Exception:
+        pass
+    if sock is None:
+        return
+    try:
+        sock.settimeout(OTA_SOCKET_TIMEOUT_SEC)
+    except Exception:
+        pass
+
+
+def _socket_get_text(path, config, kick_wdt):
+    """版 JSON を短い待ちで取る。失敗は例外にしない。"""
     import socket
 
     host, port, use_ssl = _api_parts(config)
@@ -526,6 +567,7 @@ def _stream_download(path, dest, expected, config, kick_wdt):
         token = str(getattr(config, "REMOTE_TEST_TOKEN", "") or "")
     sock = None
     try:
+        _kick(kick_wdt)
         try:
             import gc
 
@@ -533,10 +575,11 @@ def _stream_download(path, dest, expected, config, kick_wdt):
         except Exception:
             pass
         _kick(kick_wdt)
+        _arm_socket_timeout()
         infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
         addr = infos[0][-1]
         sock = socket.socket()
-        sock.settimeout(4)
+        _arm_socket_timeout(sock)
         _kick(kick_wdt)
         sock.connect(addr)
         _kick(kick_wdt)
@@ -547,9 +590,94 @@ def _stream_download(path, dest, expected, config, kick_wdt):
                 sock = ssl.wrap_socket(sock, server_hostname=host)
             except TypeError:
                 sock = ssl.wrap_socket(sock)
+            _arm_socket_timeout(sock)
+            _kick(kick_wdt)
+        req = (
+            "GET {} HTTP/1.0\r\n"
+            "Host: {}\r\n"
+            "Accept-Encoding: identity\r\n"
+            "Connection: close\r\n"
+            "X-Remote-Test-Token: {}\r\n"
+            "\r\n"
+        ).format(path, host, token)
+        sock.send(req.encode("ascii", "ignore"))
+        raw = b""
+        while len(raw) < 262144:
+            _kick(kick_wdt)
+            try:
+                piece = sock.recv(512)
+            except Exception:
+                break
+            if not piece:
+                break
+            raw += piece
+        sep = raw.find(b"\r\n\r\n")
+        if sep < 0:
+            return None, 0
+        head = raw[:sep].decode("latin-1")
+        body = raw[sep + 4 :]
+        parts = head.split("\r\n", 1)[0].split()
+        status = 0
+        if len(parts) >= 2:
+            try:
+                status = int(parts[1])
+            except Exception:
+                status = 0
+        _kick(kick_wdt)
+        try:
+            text = body.decode("utf-8")
+        except Exception:
+            text = body.decode("latin-1")
+        return text, status
+    except Exception as exc:
+        log_error("version socket: {}".format(exc))
+        return None, 0
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
+        _kick(kick_wdt)
+
+
+def _stream_download(path, dest, expected, config, kick_wdt):
+    """受信しながらフラッシュへ書く。待ちの途中で WDT を蹴る。"""
+    import socket
+
+    host, port, use_ssl = _api_parts(config)
+    token = ""
+    if config is not None:
+        token = str(getattr(config, "REMOTE_TEST_TOKEN", "") or "")
+    sock = None
+    try:
+        _kick(kick_wdt)
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:
+            pass
+        _kick(kick_wdt)
+        _arm_socket_timeout()
+        infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+        addr = infos[0][-1]
+        sock = socket.socket()
+        _arm_socket_timeout(sock)
+        _kick(kick_wdt)
+        sock.connect(addr)
+        _kick(kick_wdt)
+        if use_ssl:
+            import ssl
+
+            try:
+                sock = ssl.wrap_socket(sock, server_hostname=host)
+            except TypeError:
+                sock = ssl.wrap_socket(sock)
+            _arm_socket_timeout(sock)
             _kick(kick_wdt)
         try:
-            sock.settimeout(4)
+            _arm_socket_timeout(sock)
         except Exception:
             pass
         req = (
@@ -618,10 +746,15 @@ def _stream_download(path, dest, expected, config, kick_wdt):
             except Exception:
                 return b""
 
+        def _write_piece(block):
+            _kick(kick_wdt)
+            out.write(block)
+            _kick(kick_wdt)
+
         with open(dest, "wb") as out:
             if chunked:
                 # 長さ無しの分割受信。枠はファイルへ書かない。
-                if not _write_chunked(pre, _recv, out.write, hasher):
+                if not _write_chunked(pre, _recv, _write_piece, hasher):
                     log_error("chunked {}".format(path))
                     _remove(dest)
                     return False
@@ -630,7 +763,7 @@ def _stream_download(path, dest, expected, config, kick_wdt):
                 if pre:
                     if total >= 0 and len(pre) > total:
                         pre = pre[:total]
-                    out.write(pre)
+                    _write_piece(pre)
                     if hasher:
                         hasher.update(pre)
                     got += len(pre)
@@ -640,7 +773,7 @@ def _stream_download(path, dest, expected, config, kick_wdt):
                         break
                     if total >= 0 and got + len(piece) > total:
                         piece = piece[: total - got]
-                    out.write(piece)
+                    _write_piece(piece)
                     if hasher:
                         hasher.update(piece)
                     got += len(piece)
@@ -686,6 +819,7 @@ def _compile_saved(name, path, kick_wdt, trusted=False):
         gc.collect()
     except Exception:
         pass
+    _kick(kick_wdt)
     size = 0
     try:
         size = os.stat(path)[6]
@@ -717,6 +851,7 @@ def _compile_saved(name, path, kick_wdt, trusted=False):
         log_error("compile read {}".format(name))
         return False
     try:
+        _kick(kick_wdt)
         return _syntax_ok(name, text, kick_wdt)
     finally:
         try:
@@ -729,34 +864,40 @@ def _compile_saved(name, path, kick_wdt, trusted=False):
             gc.collect()
         except Exception:
             pass
+        _kick(kick_wdt)
 
 
-def _restore_backup(name):
+def _restore_backup(name, kick_wdt=None):
     if str(name).endswith(".py"):
         bak = name[:-3] + "_backup.py"
     else:
         bak = name + ".bak"
     if not _exists(bak):
         return
+    _kick(kick_wdt)
     try:
-        _copy_file(bak, name)
+        _copy_file(bak, name, kick_wdt)
     except Exception as exc:
         log_error("restore {}: {}".format(name, exc))
 
 
-def _rename_over(src, dst):
+def _rename_over(src, dst, kick_wdt=None):
     """リネームで差し替える。失敗時だけ分割コピーする。"""
+    _kick(kick_wdt)
     _mkdirs_for(dst)
     if _exists(dst):
         _remove(dst)
+    _kick(kick_wdt)
     try:
         os.rename(src, dst)
+        _kick(kick_wdt)
         return True
     except Exception:
         pass
     try:
-        _copy_file(src, dst)
+        _copy_file(src, dst, kick_wdt)
         _remove(src)
+        _kick(kick_wdt)
         return _exists(dst)
     except Exception as exc:
         log_error("move {}: {}".format(dst, exc))
@@ -771,12 +912,14 @@ def _replace_from_temp(name, tmp, kick_wdt):
         bak = name + ".bak"
     if _exists(name):
         _remove(bak)
-        if not _rename_over(name, bak):
+        _kick(kick_wdt)
+        if not _rename_over(name, bak, kick_wdt):
             log_error("backup {}".format(name))
             return False
-    if not _rename_over(tmp, name):
+    _kick(kick_wdt)
+    if not _rename_over(tmp, name, kick_wdt):
         log_error("replace {}".format(name))
-        _restore_backup(name)
+        _restore_backup(name, kick_wdt)
         return False
     try:
         import gc
@@ -784,6 +927,7 @@ def _replace_from_temp(name, tmp, kick_wdt):
         gc.collect()
     except Exception:
         pass
+    _kick(kick_wdt)
     return True
 
 
@@ -852,7 +996,23 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
         "/api/firmware/{}/version?channel={}&firmware_version={}"
         "&ota_engine=stream".format(slug, channel, current)
     )
-    body, status = http_get(path)
+    body, status = None, 0
+    # 実機は 4 秒で切るソケット。ホスト試験は渡された http_get。
+    # 失敗しても 1 回だけやり直して、無限待ちにはしない。
+    version_tries = OTA_DOWNLOAD_TRIES if machine is not None else 1
+    for _attempt in range(version_tries):
+        _kick(kick_wdt)
+        try:
+            if machine is not None:
+                body, status = _socket_get_text(path, config, kick_wdt)
+            else:
+                body, status = http_get(path)
+        except Exception as exc:
+            log_error("version get: {}".format(exc))
+            body, status = None, 0
+        if status == 200 and body:
+            break
+        _kick(kick_wdt)
     if status != 200 or not body:
         log("version check skip HTTP {}".format(status))
         return False
@@ -902,6 +1062,7 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
             gc.collect()
         except Exception:
             pass
+        _kick(kick_wdt)
         script_path = (
             "/api/firmware/{}/script?name={}&channel={}".format(
                 slug, _query_escape(name), channel
@@ -912,9 +1073,20 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
             expected = checksums.get(name) or ""
         tmp = _tmp_path(name)
         if machine is not None:
-            if not _stream_download(
-                script_path, tmp, expected, config, kick_wdt
-            ):
+            saved = False
+            for _attempt in range(OTA_DOWNLOAD_TRIES):
+                _kick(kick_wdt)
+                try:
+                    if _stream_download(
+                        script_path, tmp, expected, config, kick_wdt
+                    ):
+                        saved = True
+                        break
+                except Exception as exc:
+                    log_error("download {}: {}".format(name, exc))
+                _remove(tmp)
+                _kick(kick_wdt)
+            if not saved:
                 _cleanup_temps(temps)
                 return False
             if not _compile_saved(
@@ -946,7 +1118,7 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
         if not _replace_from_temp(name, tmp, kick_wdt):
             log_error("apply failed {}".format(name))
             for done in applied:
-                _restore_backup(done)
+                _restore_backup(done, kick_wdt)
             _cleanup_temps(temps)
             _remove(OTA_PENDING_FILE)
             return False

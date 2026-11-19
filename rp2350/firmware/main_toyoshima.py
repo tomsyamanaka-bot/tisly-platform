@@ -706,6 +706,14 @@ def http_post_timed(path, payload, timeout_sec=EVENT_HTTP_TIMEOUT_SEC):
     token = getattr(config, "REMOTE_TEST_TOKEN", "")
     sock = None
     try:
+        try:
+            socket.setdefaulttimeout(timeout_sec)
+        except Exception:
+            pass
+        try:
+            kick_watchdog(_wdt)
+        except Exception:
+            pass
         infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
         addr = infos[0][-1]
         sock = socket.socket()
@@ -766,13 +774,27 @@ def http_post_timed(path, payload, timeout_sec=EVENT_HTTP_TIMEOUT_SEC):
 
 
 def http_get(path):
+    """命令と予備の取得。待ちは 4 秒で必ず戻る。
+
+    urequests が timeout を受け取れない版でも、
+    例外は捕まえて次のループでやり直す。
+    WDT の 8 秒より短いので、詰まりでは落ちない。
+    """
     if urequests is None:
         log_error("urequests 未インストール")
         return None, 0
+    try:
+        kick_watchdog(_wdt)
+    except Exception:
+        pass
     url = config.API_BASE.rstrip("/") + path
     res = None
     try:
-        res = urequests.get(url, headers=_http_headers())
+        headers = _http_headers()
+        try:
+            res = urequests.get(url, headers=headers, timeout=4)
+        except TypeError:
+            res = urequests.get(url, headers=headers)
         status = res.status_code
         body = res.text
         return body, status
@@ -785,6 +807,10 @@ def http_get(path):
                 res.close()
             except Exception:
                 pass
+        try:
+            kick_watchdog(_wdt)
+        except Exception:
+            pass
 
 
 def _json_dumps_safe(payload):

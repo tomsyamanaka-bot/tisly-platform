@@ -143,6 +143,24 @@ class TislyOtaHostTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(Path("main.py").read_text(encoding="utf-8"), "old = 1\n")
 
+    def test_wdt_is_fed_around_compile_and_copy(self) -> None:
+        import tisly_ota as ota
+
+        kicks = {"n": 0}
+
+        def kick() -> None:
+            kicks["n"] += 1
+
+        self.assertGreaterEqual(ota.OTA_SOCKET_TIMEOUT_SEC, 3)
+        self.assertLessEqual(ota.OTA_SOCKET_TIMEOUT_SEC, 5)
+        self.assertTrue(ota._syntax_ok("main.py", "x = 1\n", kick))
+        self.assertGreaterEqual(kicks["n"], 2)
+        Path("src.bin").write_bytes(b"a" * 2000)
+        before = kicks["n"]
+        ota._copy_file("src.bin", "dst.bin", kick)
+        self.assertGreater(kicks["n"], before)
+        self.assertEqual(Path("dst.bin").read_bytes(), b"a" * 2000)
+
 
 if __name__ == "__main__":
     unittest.main()
