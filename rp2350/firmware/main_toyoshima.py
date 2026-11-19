@@ -1049,6 +1049,7 @@ def send_heartbeat():
             ),
             "firmware_version": FIRMWARE_LOGIC_VERSION,
             "otaVersion": FIRMWARE_LOGIC_VERSION,
+            "ota_engine": "stream",
             "chStates": dict(ch_states),
             "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
             "uptime_sec": _uptime_sec(),
@@ -1096,15 +1097,31 @@ def send_heartbeat():
                 mark_boot_ok(config)
             except Exception:
                 pass
-        if has_ota_update_from_body and ota_maybe_update:
+        # 応答 JSON を持ったまま受けると RAM が尽きる。
+        # フラグが欠けても版の照会は行う。
+        needs_ota = False
+        if has_ota_update_from_body:
             try:
-                if has_ota_update_from_body(body):
-                    ota_maybe_update(
-                        http_get,
-                        config=config,
-                        kick_wdt=lambda: kick_watchdog(_wdt),
-                        reported_version=FIRMWARE_LOGIC_VERSION,
-                    )
+                needs_ota = bool(has_ota_update_from_body(body))
+            except Exception:
+                needs_ota = False
+        body = None
+        if ota_maybe_update:
+            try:
+                import gc
+
+                gc.collect()
+            except Exception:
+                pass
+            try:
+                if needs_ota:
+                    log("OTA update_required — stream")
+                ota_maybe_update(
+                    http_get,
+                    config=config,
+                    kick_wdt=lambda: kick_watchdog(_wdt),
+                    reported_version=FIRMWARE_LOGIC_VERSION,
+                )
             except Exception as ota_exc:
                 log_error("OTA from HB: {}".format(ota_exc))
         return True
@@ -1492,7 +1509,6 @@ def _safe_mode_loop(reason):
                         http_get,
                         config=config,
                         kick_wdt=lambda: kick_watchdog(_wdt),
-                        force=True,
                         reported_version=FIRMWARE_LOGIC_VERSION,
                     )
                 except Exception as exc:
@@ -1758,6 +1774,12 @@ async def async_main():
 
 def run():
     """どんな例外でも赤固定にせずセーフモードへ退避する。"""
+    # USB と LAN チップが安定するまで 2 秒待つ。
+    # WDT を始める前なので、この待ちは給餌しない。
+    try:
+        time.sleep(2)
+    except Exception:
+        pass
     try:
         import tisly_usb_safe
 

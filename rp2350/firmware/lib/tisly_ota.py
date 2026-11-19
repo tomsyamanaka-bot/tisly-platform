@@ -86,8 +86,7 @@ def _write_text(path, text):
 
 
 def _copy_file(src, dst):
-    with open(src, "rb") as f:
-        data = f.read()
+    """512 バイトずつ写す。全文を RAM に載せない。"""
     parent = dst.rfind("/")
     if parent > 0:
         folder = dst[:parent]
@@ -95,8 +94,13 @@ def _copy_file(src, dst):
             os.mkdir(folder)
         except Exception:
             pass
-    with open(dst, "wb") as f:
-        f.write(data)
+    with open(src, "rb") as src_f:
+        with open(dst, "wb") as dst_f:
+            while True:
+                buf = src_f.read(512)
+                if not buf:
+                    break
+                dst_f.write(buf)
 
 
 def _remove(path):
@@ -198,23 +202,88 @@ def ota_channel(config=None):
     return "production"
 
 
+def _flag_true(value):
+    """真偽のゆらぎを真にする。文字列の true も受ける。"""
+    if value is True:
+        return True
+    if value is False or value is None:
+        return False
+    text = str(value).strip().lower()
+    return text in ("1", "true", "yes", "on")
+
+
 def has_ota_update_from_body(body):
     if not body:
         return False
+    if isinstance(body, (bytes, bytearray)):
+        try:
+            body = body.decode("utf-8", "replace")
+        except Exception:
+            return False
     try:
         data = json.loads(body)
     except Exception:
         return False
     if not isinstance(data, dict):
         return False
-    if data.get("has_ota_update") or data.get("update_required"):
+    if _flag_true(data.get("has_ota_update")) or _flag_true(
+        data.get("update_required")
+    ):
+        return True
+    if _flag_true(data.get("pending")) and _flag_true(
+        data.get("update_required")
+    ):
         return True
     ota = data.get("ota")
     if isinstance(ota, dict) and (
-        ota.get("has_ota_update") or ota.get("update_required")
+        _flag_true(ota.get("has_ota_update"))
+        or _flag_true(ota.get("update_required"))
     ):
         return True
     return False
+
+
+def _query_escape(text):
+    """クエリのスラッシュを %2F にする。経路の分断を防ぐ。"""
+    out = []
+    for ch in str(text):
+        code = ord(ch)
+        if (
+            48 <= code <= 57
+            or 65 <= code <= 90
+            or 97 <= code <= 122
+            or ch in "._-"
+        ):
+            out.append(ch)
+        else:
+            out.append("%{:02X}".format(code))
+    return "".join(out)
+
+
+def _sha_hex(hasher):
+    """hexdigest が bytes でも 16 進文字列に揃える。"""
+    if hasher is None:
+        return ""
+    raw = None
+    try:
+        raw = hasher.hexdigest()
+    except Exception:
+        raw = None
+    if raw is None:
+        try:
+            digest = hasher.digest()
+            parts = []
+            for byte in digest:
+                parts.append("{:02x}".format(byte))
+            return "".join(parts)
+        except Exception:
+            return ""
+    if isinstance(raw, bytes):
+        try:
+            raw = raw.decode("ascii")
+        except Exception:
+            return ""
+    return str(raw).strip().lower()
 
 
 def _syntax_ok(name, text, kick_wdt=None):
@@ -241,17 +310,42 @@ def _checksum_ok(text, expected):
         return True
 
 
+def _py_broken(path):
+    """構文エラーの py だけ壊れているとみなす。
+
+    メモリ不足は壊れていない。誤って戻さない。
+    ファイルが無いときは戻す対象にする。
+    """
+    if not _exists(path):
+        return True
+    try:
+        import gc
+
+        gc.collect()
+    except Exception:
+        pass
+    try:
+        text = _read_text(path)
+        compile(text, path, "exec")
+        return False
+    except MemoryError:
+        return False
+    except Exception:
+        return True
+
+
 def recover_if_needed():
     """
     起動直後の文鎮化防止。
     前回 OTA 後に main が落ちていれば
     main_backup.py から復元して再起動する。
+    構文エラーも、起動前にバックアップへ戻す。
     """
     pending = _exists(OTA_PENDING_FILE)
     if not pending:
         _remove(OTA_BOOT_STARTED)
         return False
-    crashed = _exists(OTA_BOOT_STARTED)
+    crashed = _exists(OTA_BOOT_STARTED) or _py_broken("main.py")
     if not crashed:
         _write_text(OTA_BOOT_STARTED, "1")
         return False
@@ -380,6 +474,48 @@ def _cleanup_temps(temps):
         _remove(tmp)
 
 
+def _write_chunked(first, read, write, hasher):
+    """chunked 本文を write へ流す。ファイル全体は持たない。"""
+    buf = first if first else b""
+    if isinstance(buf, str):
+        buf = buf.encode("latin-1")
+    while True:
+        while buf.find(b"\r\n") < 0:
+            piece = read()
+            if not piece:
+                return False
+            buf += piece
+            if len(buf) > 65536:
+                return False
+        line, buf = buf.split(b"\r\n", 1)
+        size_txt = line.split(b";", 1)[0].strip()
+        if not size_txt:
+            return False
+        try:
+            size = int(size_txt, 16)
+        except Exception:
+            return False
+        if size < 0:
+            return False
+        if size == 0:
+            return True
+        need = size + 2
+        while len(buf) < need:
+            piece = read()
+            if not piece:
+                return False
+            buf += piece
+        block = buf[:size]
+        tail = buf[size : size + 2]
+        buf = buf[size + 2 :]
+        if tail != b"\r\n":
+            return False
+        write(block)
+        if hasher:
+            hasher.update(block)
+    return False
+
+
 def _stream_download(path, dest, expected, config, kick_wdt):
     """受信しながらフラッシュへ書く。待ちの途中で WDT を蹴る。"""
     import socket
@@ -472,31 +608,52 @@ def _stream_download(path, dest, expected, config, kick_wdt):
                 total = -1
         hasher = _new_sha256()
         _mkdirs_for(dest)
-        got = 0
+        transfer = str(headers.get("transfer-encoding") or "").lower()
+        chunked = transfer.find("chunked") >= 0
+
+        def _recv():
+            _kick(kick_wdt)
+            try:
+                return sock.recv(512)
+            except Exception:
+                return b""
+
         with open(dest, "wb") as out:
-            if pre:
-                out.write(pre)
-                if hasher:
-                    hasher.update(pre)
-                got += len(pre)
-            while total < 0 or got < total:
-                _kick(kick_wdt)
-                piece = sock.recv(512)
-                if not piece:
-                    break
-                if total >= 0 and got + len(piece) > total:
-                    piece = piece[: total - got]
-                out.write(piece)
-                if hasher:
-                    hasher.update(piece)
-                got += len(piece)
-        if total >= 0 and got != total:
-            log_error("short read {} {}/{}".format(path, got, total))
-            _remove(dest)
-            return False
+            if chunked:
+                # 長さ無しの分割受信。枠はファイルへ書かない。
+                if not _write_chunked(pre, _recv, out.write, hasher):
+                    log_error("chunked {}".format(path))
+                    _remove(dest)
+                    return False
+            else:
+                got = 0
+                if pre:
+                    if total >= 0 and len(pre) > total:
+                        pre = pre[:total]
+                    out.write(pre)
+                    if hasher:
+                        hasher.update(pre)
+                    got += len(pre)
+                while total < 0 or got < total:
+                    piece = _recv()
+                    if not piece:
+                        break
+                    if total >= 0 and got + len(piece) > total:
+                        piece = piece[: total - got]
+                    out.write(piece)
+                    if hasher:
+                        hasher.update(piece)
+                    got += len(piece)
+                if total >= 0 and got != total:
+                    log_error(
+                        "short read {} {}/{}".format(path, got, total)
+                    )
+                    _remove(dest)
+                    return False
         if hasher and expected:
-            digest = hasher.hexdigest()
-            if digest.lower() != str(expected).strip().lower():
+            digest = _sha_hex(hasher)
+            want = str(expected).strip().lower()
+            if digest != want:
                 log_error("checksum mismatch {}".format(path))
                 _remove(dest)
                 return False
@@ -513,14 +670,65 @@ def _stream_download(path, dest, expected, config, kick_wdt):
                 pass
 
 
-def _compile_saved(name, path, kick_wdt):
+def _compile_saved(name, path, kick_wdt, trusted=False):
+    """保存済み py を compile する。通過するまで置換しない。
+
+    空きが狭いときは MemoryError で更新が止まる。
+    チェックサム済みのときだけ、その不足を通す。
+    構文エラーはチェックサムがあっても戻す。
+    """
+    if str(name).endswith(".py") is False:
+        return True
+    _kick(kick_wdt)
+    try:
+        import gc
+
+        gc.collect()
+    except Exception:
+        pass
+    size = 0
     try:
         size = os.stat(path)[6]
     except Exception:
         size = 0
-    if size > 16384:
-        return True
-    return _syntax_ok(name, _read_text(path), kick_wdt)
+    free = None
+    try:
+        import gc
+
+        free = gc.mem_free()
+    except Exception:
+        free = None
+    if free is not None and size > 0 and free < (size * 2 + 8192):
+        if trusted:
+            log(
+                "compile defer {} free={} size={}".format(
+                    name, free, size
+                )
+            )
+            return True
+        log_error("compile ram {}".format(name))
+        return False
+    try:
+        text = _read_text(path)
+    except MemoryError:
+        if trusted:
+            log("compile defer read {}".format(name))
+            return True
+        log_error("compile read {}".format(name))
+        return False
+    try:
+        return _syntax_ok(name, text, kick_wdt)
+    finally:
+        try:
+            del text
+        except Exception:
+            pass
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:
+            pass
 
 
 def _restore_backup(name):
@@ -536,6 +744,25 @@ def _restore_backup(name):
         log_error("restore {}: {}".format(name, exc))
 
 
+def _rename_over(src, dst):
+    """リネームで差し替える。失敗時だけ分割コピーする。"""
+    _mkdirs_for(dst)
+    if _exists(dst):
+        _remove(dst)
+    try:
+        os.rename(src, dst)
+        return True
+    except Exception:
+        pass
+    try:
+        _copy_file(src, dst)
+        _remove(src)
+        return _exists(dst)
+    except Exception as exc:
+        log_error("move {}: {}".format(dst, exc))
+        return False
+
+
 def _replace_from_temp(name, tmp, kick_wdt):
     _kick(kick_wdt)
     if str(name).endswith(".py"):
@@ -543,18 +770,14 @@ def _replace_from_temp(name, tmp, kick_wdt):
     else:
         bak = name + ".bak"
     if _exists(name):
-        try:
-            _copy_file(name, bak)
-        except Exception as exc:
-            log_error("backup {}: {}".format(name, exc))
+        _remove(bak)
+        if not _rename_over(name, bak):
+            log_error("backup {}".format(name))
             return False
-    try:
-        _copy_file(tmp, name)
-    except Exception as exc:
-        log_error("replace {}: {}".format(name, exc))
+    if not _rename_over(tmp, name):
+        log_error("replace {}".format(name))
         _restore_backup(name)
         return False
-    _remove(tmp)
     try:
         import gc
 
@@ -649,8 +872,10 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
     ):
         log("local {} newer than {} — skip".format(current, remote_ver))
         return False
-    has_update = bool(meta.get("has_ota_update") or force)
-    if meta.get("force") or meta.get("update_required"):
+    has_update = _flag_true(meta.get("has_ota_update")) or bool(force)
+    if _flag_true(meta.get("force")) or _flag_true(
+        meta.get("update_required")
+    ):
         has_update = True
     if running and remote_ver and running != remote_ver:
         has_update = True
@@ -671,9 +896,15 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
         if name in skip:
             continue
         _kick(kick_wdt)
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:
+            pass
         script_path = (
             "/api/firmware/{}/script?name={}&channel={}".format(
-                slug, name, channel
+                slug, _query_escape(name), channel
             )
         )
         expected = ""
@@ -686,7 +917,9 @@ def _run_update(http_get, config, kick_wdt, force, reported_version):
             ):
                 _cleanup_temps(temps)
                 return False
-            if not _compile_saved(name, tmp, kick_wdt):
+            if not _compile_saved(
+                name, tmp, kick_wdt, trusted=bool(expected)
+            ):
                 _remove(tmp)
                 _cleanup_temps(temps)
                 return False

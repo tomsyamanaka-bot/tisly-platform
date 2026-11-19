@@ -128,6 +128,11 @@ firmwareRouter.get("/:siteId/script", (req, res) => {
     return;
   }
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Content-Encoding", "identity");
+  res.setHeader(
+    "Content-Length",
+    String(Buffer.byteLength(script.body, "utf8"))
+  );
   res.setHeader("X-Firmware-Name", script.name);
   res.setHeader("X-Firmware-Checksum", script.checksum);
   res.send(script.body);

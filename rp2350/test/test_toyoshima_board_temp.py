@@ -1390,13 +1390,19 @@ def test_ntp_settime_adds_32400_and_resync_stays_jst():
 
             fake.settime = settime_morning
             assert ctrl.sync_ntp_clock() is True
+            assert ctrl._jst_epoch_sec() == clock["sec"] + 32400
             assert ctrl._jst_minutes() == 10 * 60
             assert ctrl._is_in_light_schedule() is False
+            assert ctrl._daytime_relay_blocked() is True
+            assert ctrl._can_run_lights() is False
             clock["sec"] = int(
                 datetime(2026, 11, 15, 20, 29, tzinfo=timezone.utc).timestamp()
             )
+            assert ctrl._jst_epoch_sec() == clock["sec"] + 32400
             assert ctrl._jst_minutes() == 5 * 60 + 29
             assert ctrl._is_in_light_schedule() is True
+            assert ctrl._daytime_relay_blocked() is False
+            assert ctrl._can_run_lights() is True
 
 
 def test_ntp_failure_keeps_vps_jst():

@@ -754,7 +754,30 @@ function pickRunningVersion(site: TislyOtaSiteStateV1): string | null {
     .map((r) => r.firmwareVersion)
     .filter(Boolean);
   if (versions.length === 0) return null;
-  return versions.sort().reverse()[0] ?? null;
+  /* 文字順だと 1.2.9 が 1.2.61 より新しく見える。数値で比べる */
+  let best = versions[0];
+  let bestCore = looseSemverV1(best);
+  for (let i = 1; i < versions.length; i += 1) {
+    const cur = versions[i];
+    const core = looseSemverV1(cur);
+    if (!bestCore && core) {
+      best = cur;
+      bestCore = core;
+      continue;
+    }
+    if (core && bestCore && compareSemverV1(core, bestCore) > 0) {
+      best = cur;
+      bestCore = core;
+    }
+  }
+  return best;
+}
+
+function versionCoreEqual(a: string, b: string): boolean {
+  const left = looseSemverV1(a);
+  const right = looseSemverV1(b);
+  if (!left || !right) return a === b;
+  return compareSemverV1(left, right) === 0;
 }
 
 function allDevicesMatch(
@@ -763,7 +786,7 @@ function allDevicesMatch(
 ): boolean {
   const rows = Object.values(site.reported);
   if (rows.length === 0) return false;
-  return rows.every((r) => r.firmwareVersion === version);
+  return rows.every((r) => versionCoreEqual(r.firmwareVersion, version));
 }
 
 export function getTislyOtaVersionV1(input: {
@@ -1068,6 +1091,8 @@ export function recordTislyOtaDeviceFirmwareV1(input: {
   shippable?: boolean;
   rgbStatus?: TislyRgbStatusV1 | null;
   selfTest?: TislySelfTestChecksV1 | null;
+  /** stream のとき全ファイル。未指定の古い実機は小さい起動ファイルだけ */
+  otaEngine?: string | null;
 }): TislyOtaVersionPayloadV1 {
   const version = String(input.firmwareVersion ?? "").trim();
   const store = loadStore();
@@ -1115,6 +1140,7 @@ export function recordTislyOtaDeviceFirmwareV1(input: {
     siteKey: input.siteKey,
     reportedVersion: version || null,
     deviceId: input.deviceId,
+    otaEngine: input.otaEngine,
   });
 }
 

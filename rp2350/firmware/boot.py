@@ -63,3 +63,11 @@ except Exception:
                 pass
     except Exception:
         pass
+
+# ホストがいるとき print を戻す。
+# 落とされたままだと mpremote の応答が空になる。
+try:
+    if _usb_safe is not None and _usb_safe.host_present():
+        _usb_safe.note_host(True)
+except Exception:
+    pass

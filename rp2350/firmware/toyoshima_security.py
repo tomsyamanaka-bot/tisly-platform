@@ -75,6 +75,33 @@ DEFAULT_LIGHT_END = "06:00"
 # 昼夜判定は毎回 time.time() + 32400（9時間）で JST にする。
 # 32400 は RTC へ書き戻さない。書き戻すと次の判定で 18 時間ずれる。
 JST_OFFSET_SEC = 32400
+
+
+def jst_hms(utc_sec):
+    """UTC 秒を日本時間の時・分・秒にする。
+
+    settime の直後も、5分後の再同期の後も、
+    足すのは 32400 秒だけにする。
+    gmtime はタイムゾーンを重ねない。
+    localtime は PC 上でさらに 9 時間進む。
+    足した秒は基板の時計へ書き戻さない。
+    """
+    try:
+        sec = int(utc_sec)
+    except Exception:
+        sec = 0
+    if sec < 0:
+        sec = 0
+    shifted = sec + JST_OFFSET_SEC
+    gm = getattr(time, "gmtime", None)
+    if gm is not None:
+        try:
+            wall = gm(shifted)
+            return int(wall[3]), int(wall[4]), int(wall[5])
+        except Exception:
+            pass
+    minute_of_day = (shifted // 60) % (24 * 60)
+    return minute_of_day // 60, minute_of_day % 60, shifted % 60
 # 5 分 heartbeat — VPS と同期
 HEARTBEAT_INTERVAL_SEC = 300
 # HTTP失敗時の再試行（最大3回）
@@ -93,7 +120,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.61"
+FIRMWARE_LOGIC_VERSION = "1.2.62"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -325,9 +352,17 @@ class ToyoshimaBaseController:
             utc_sec = int(time.time())
         except Exception:
             return False
-        jst_sec = utc_sec + JST_OFFSET_SEC
+        # 再同期で settime しても UTC のまま。
+        # ここで 32400 を時計へ足すと昼夜が反転する。
+        hour, minute, _sec = jst_hms(utc_sec)
         self._ntp_utc_ready = True
-        self._ntp_jst_minutes = (jst_sec // 60) % (24 * 60)
+        self._ntp_jst_minutes = (hour * 60 + minute) % (24 * 60)
+        try:
+            self.log(
+                "NTP後JST {:02d}:{:02d}".format(hour, minute)
+            )
+        except Exception:
+            pass
         return True
 
     def _jst_epoch_sec(self):
@@ -339,6 +374,15 @@ class ToyoshimaBaseController:
         if utc_sec < 0:
             utc_sec = 0
         return utc_sec + JST_OFFSET_SEC
+
+    def _jst_minutes_from_clock(self):
+        """時計から日本時間の分を作る。オフセットは一度だけ。"""
+        try:
+            utc_sec = int(time.time())
+        except Exception:
+            utc_sec = 0
+        hour, minute, _sec = jst_hms(utc_sec)
+        return (hour * 60 + minute) % (24 * 60)
 
     def _sync_vps_clock(self, rules):
         """VPS の JST 分を毎回同期する。RTC は上書きしない。"""
@@ -362,11 +406,13 @@ class ToyoshimaBaseController:
 
         NTP 同期後は毎回 time.time() + 32400。
         settime() が RTC を UTC に戻しても、ここで 9 時間を足し直す。
+        再同期のたびに足すのは 1 回だけ。2 回目は足さない。
         NTP 前だけ、サーバーが渡した jstMinutes を正として経過分を足す。
         その値も無いときは time.time() を UTC とみなして +32400 する。
+        昼間テストがオフで、この分が点灯帯の外ならリレーは出さない。
         """
         if getattr(self, "_ntp_utc_ready", False):
-            return (self._jst_epoch_sec() // 60) % (24 * 60)
+            return self._jst_minutes_from_clock()
         if getattr(self, "_vps_jst_valid", False):
             extra = 0
             try:
@@ -380,7 +426,7 @@ class ToyoshimaBaseController:
                 extra = 0
             base = int(getattr(self, "_vps_jst_minutes", 0))
             return (base + extra) % (24 * 60)
-        return (self._jst_epoch_sec() // 60) % (24 * 60)
+        return self._jst_minutes_from_clock()
 
     def _is_in_light_schedule(self):
         """防犯ライト点灯時間帯（日跨ぎ対応）。"""

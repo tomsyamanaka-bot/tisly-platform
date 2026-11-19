@@ -202,6 +202,45 @@ describe("firmware-rp2350-ota-v1", () => {
     assert.equal(hb.body.ota.siteId, "toyoshima");
     assert.equal(hb.body.dashboard, undefined);
     assert.notEqual(hb.body.firmware_latest, "1.0.0");
+    assert.deepEqual(hb.body.ota.files, ["boot.py", "lib/tisly_ota.py"]);
+  });
+
+  it("stream heartbeat offers the full Toyoshima bundle", async () => {
+    resetTislyOtaStoreForTestV1();
+    const hb = await request(app)
+      .post("/api/home/v1/toyoshima/heartbeat")
+      .send({
+        building: "main",
+        deviceId: "rp2350-toyoshima-main-01",
+        firmware_version: "1.2.29",
+        ota_engine: "stream",
+        siteId: "HOME-JP-TOYOSHIMA",
+      });
+    assert.equal(hb.status, 200);
+    assert.equal(hb.body.update_required, true);
+    assert.ok(hb.body.ota.files.includes("main.py"));
+    assert.ok(hb.body.ota.files.includes("toyoshima_security.py"));
+    assert.ok(hb.body.ota.skipFiles.includes("config.py"));
+  });
+
+  it("picks the numeric firmware report, not lexicographic order", async () => {
+    resetTislyOtaStoreForTestV1();
+    const {
+      recordTislyOtaDeviceFirmwareV1,
+    } = await import("../src/firmware/tisly-rp2350-ota-v1.js");
+    recordTislyOtaDeviceFirmwareV1({
+      siteKey: "toyoshima",
+      deviceId: "old-lex",
+      firmwareVersion: "1.2.9",
+    });
+    recordTislyOtaDeviceFirmwareV1({
+      siteKey: "toyoshima",
+      deviceId: "rp2350-toyoshima-main-01",
+      firmwareVersion: "1.2.61",
+    });
+    const version = await request(app).get("/api/firmware/toyoshima/version");
+    assert.equal(version.status, 200);
+    assert.equal(version.body.runningVersion, "1.2.61");
   });
 
   it("POST all deploy covers both sites", async () => {

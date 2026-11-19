@@ -1644,6 +1644,10 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
         shippable: kitting.shippable,
         rgbStatus: kitting.rgbStatus,
         selfTest: kitting.selfTest,
+        otaEngine:
+          String(
+            req.body?.ota_engine ?? req.body?.otaEngine ?? ""
+          ).trim() || null,
       });
       const dashSite = String(
         req.body?.siteId ?? SEC_JP_TOYOSHIMA_SITE_ID_V1
