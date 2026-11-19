@@ -1753,19 +1753,19 @@ function driveTwoStageBlinkMainV1(input: {
   }
   if (input.isFar) {
     startRelayBlink("main", 1, lightMs);
-    holdSteadyOutput("main", 2, lightMs);
+    releaseToyoshimaOutputV1("main", 2);
     releaseToyoshimaOutputV1("main", 3);
     appendTimeline({
       at,
       building: "main",
       kind: "manual",
-      title: "外周 威嚇（ライト1点滅・ライト2点灯）",
-      detail: "two_stage_blink · DO3なし",
+      title: "外周 威嚇（ライト1点滅）",
+      detail: "two_stage_blink · DO2もDO3も出さない",
     });
     queueToyoshimaDeviceCommandV1({
       building: "main",
       command: "sensor_far",
-      channels: [1, 2],
+      channels: [1],
       durationMs: lightMs,
     });
     return;

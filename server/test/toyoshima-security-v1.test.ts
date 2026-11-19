@@ -671,7 +671,7 @@ describe("toyoshima-security-v1", () => {
     assert.deepEqual(near?.channels, [1, 2, 3]);
   });
 
-  it("two_stage_blink far blinks DO1, holds DO2, and skips DO3", async () => {
+  it("two_stage_blink far blinks DO1 and leaves DO2 and DO3 off", async () => {
     updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
       customerSecurityMode: "away",
       guardMode: "always",
@@ -690,13 +690,48 @@ describe("toyoshima-security-v1", () => {
     assert.equal(dash.securityMode, "two_stage_blink");
     assert.equal(dash.main.do[0].blinking, true);
     assert.equal(dash.main.do[0].on, true);
-    assert.equal(dash.main.do[1].on, true);
+    assert.equal(dash.main.do[1].on, false);
     assert.equal(dash.main.do[1].blinking, false);
     assert.equal(dash.main.do[2].on, false);
     assert.equal(dash.main.do[2].blinking, false);
     const cmd = consumeToyoshimaDeviceCommandV1("main");
     assert.equal(cmd?.command, "sensor_far");
-    assert.deepEqual(cmd?.channels, [1, 2]);
+    assert.deepEqual(cmd?.channels, [1]);
+    assert.equal(cmd?.durationMs, 45_000);
+  });
+
+  it("slider seconds are the DO command duration in every beam mode", async () => {
+    for (const sec of [5, 30]) {
+      for (const securityMode of ["2STEP", "DIRECT", "two_stage_blink"]) {
+        resetToyoshimaSecurityStateForTestV1();
+        resetToyoshimaDeviceCommandQueueForTestV1();
+        updateHomeSecurityRulesV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, {
+          customerSecurityMode: "away",
+          guardMode: "always",
+          scheduleStart: "00:00",
+          scheduleEnd: "00:00",
+          securityMode,
+          flashEnabled: true,
+          flashDurationSec: 15,
+          lightingDurationSec: sec,
+        });
+        await processToyoshimaSecurityEventV1({
+          building: "main",
+          di: 1,
+        });
+        const far = consumeToyoshimaDeviceCommandV1("main");
+        assert.equal(far?.durationMs, sec * 1000, securityMode);
+        await processToyoshimaSecurityEventV1({
+          building: "main",
+          di: 2,
+        });
+        const near = consumeToyoshimaDeviceCommandV1("main");
+        assert.equal(near?.durationMs, sec * 1000, securityMode);
+        while (consumeToyoshimaDeviceCommandV1("main")) {
+          /* 次のモードへ持ち越さない */
+        }
+      }
+    }
   });
 
   it("two_stage_blink near alone is steady work light without flash", async () => {

@@ -797,7 +797,10 @@ describe("security-floor-v1", () => {
     assert.match(toyoshimaJs, /遠近2段階/);
     assert.match(toyoshimaJs, /two_stage_blink/);
     assert.match(toyoshimaJs, /遠近2段階（威嚇点滅）/);
-    assert.match(toyoshimaJs, /遠はライト1点滅、近はライト1・2とフラッシュが点滅/);
+    assert.match(
+      toyoshimaJs,
+      /遠はライト1だけ点滅、近はライト1・2が指定秒だけ点滅。フラッシュは別の秒数/
+    );
     assert.match(toyoshimaJs, /patchSharedSecurityControls/);
     assert.match(toyoshimaJs, /settingsDirty/);
     assert.match(toyoshimaJs, /requestToyoshimaApi/);

@@ -13,9 +13,10 @@ VPS イベント送信を行う。
 夜間は force_relay_test を無視してライト連動する。
 日中だけ force_relay_test でテスト点灯する。
 警戒 OFF と一時停止中はライトもフラッシュも出さない。
-母屋 2STEP: 遠は DO1 常時点灯。近（遠のあと）は DO1+DO2+DO3 常時点灯。
-威嚇点滅: 遠は DO1 点滅。近（遠のあと）は DO1+DO2+DO3 点滅。
-DIRECT: 遠も近（遠のあと）も DO1+DO2+DO3 常時点灯。
+母屋 2STEP: 遠は DO1 常時点灯。近（遠のあと）は DO1+DO2 常時点灯。
+威嚇点滅: 遠は DO1 点滅。近（遠のあと）は DO1+DO2 点滅。
+DIRECT: 遠も近（遠のあと）も DO1+DO2 常時点灯。
+DO1 と DO2 の維持はスライダー秒。DO3 はフラッシュ秒。
 SILENT: 昼夜ともライトとフラッシュは出さない。
 遠が無く近だけ: 通知のみ以外は DO1+DO2 を点灯維持秒だけ点灯。フラッシュは出さない。
 
@@ -120,7 +121,7 @@ BOARD_TEMP_FAN_OFF_C = 40.0
 # 照明 DO1〜DO3・解錠 CH1 は使わない
 FAN_CH = 8
 # ロジック版（OTA カード / heartbeat が参照）
-FIRMWARE_LOGIC_VERSION = "1.2.66"
+FIRMWARE_LOGIC_VERSION = "1.2.67"
 # リレー CH → GPIO（Waveshare RO1〜RO8 = GPIO17〜24）
 # 実際の machine.Pin 生成は main.py の BOARD_CH_GPIO。
 # ここは参照用の正の写しで、ズレ検知テストが参照する。
@@ -128,10 +129,13 @@ BOARD_CH_GPIO = {1: 17, 2: 18, 3: 19, 4: 20, 5: 21, 6: 22, 7: 23, 8: 24}
 
 
 def _mono_ms():
-    """ホストテストでも動く単調ミリ秒。"""
+    """実機は ticks_ms。ホストは単調時計で、壁時計の凍結に巻き込まれない。"""
     ticks = getattr(time, "ticks_ms", None)
     if ticks:
         return int(ticks())
+    mono = getattr(time, "monotonic", None)
+    if mono:
+        return int(mono() * 1000)
     return int(time.time() * 1000)
 
 
@@ -228,9 +232,6 @@ class ToyoshimaBaseController:
             rules.get("light_end", rules.get("scheduleEnd", DEFAULT_LIGHT_END))
         )
         self._security_paused = bool(rules.get("securityPaused", False))
-        ms = int(rules.get("di1DurationMs", DEFAULT_OUTPUT_MS))
-        if 5000 <= ms <= 180000:
-            self._output_ms = ms
         confirm = int(rules.get("diConfirmMs", DI_DEBOUNCE_MS))
         if 20 <= confirm <= 500:
             self._di_confirm_ms = confirm
@@ -273,13 +274,20 @@ class ToyoshimaBaseController:
                 self._light_start = str(sched.get("start"))
             if sched.get("end"):
                 self._light_end = str(sched.get("end"))
-        # ライト維持秒（クラウドキー）。スライダーは camelCase でも受ける
+        # スライダー秒があるあいだは、古い di1DurationMs で上書きしない
         light_sec = rules.get("light_duration_sec")
         if light_sec is None:
             light_sec = rules.get("lighting_duration_sec")
         if light_sec is None:
             light_sec = rules.get("lightingDurationSec")
-        if light_sec is not None:
+        if light_sec is None:
+            try:
+                legacy_ms = int(rules.get("di1DurationMs", 0) or 0)
+            except Exception:
+                legacy_ms = 0
+            if 5000 <= legacy_ms <= 180000:
+                self._output_ms = legacy_ms
+        else:
             self._output_ms = self._normalize_duration_ms(
                 light_sec, self._output_ms
             )
@@ -569,6 +577,14 @@ class ToyoshimaBaseController:
             ms = DEFAULT_OUTPUT_MS
         return ms
 
+    def _light_hold_ms(self):
+        """DO1とDO2の点灯と点滅は、スライダーの維持秒だけで終える。"""
+        return self._hold_ms(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
+
+    def _flash_hold_ms(self):
+        """フラッシュ点灯秒はDO3だけ。防犯ライトの維持秒とは混ぜない。"""
+        return self._hold_ms(getattr(self, "_flash_ms", DEFAULT_FLASH_MS))
+
     def _safe_off(self, channel):
         try:
             self._set_ch(channel, False)
@@ -755,10 +771,16 @@ class ToyoshimaBaseController:
         return ch, ms
 
     def _apply_command_light_ms(self, duration_ms):
-        """クラウドが付けた点灯時間を、この消灯タイマーへ使う。"""
+        """クラウドの点灯ミリ秒を、この回のDO1とDO2へ使う。"""
         self._output_ms = self._normalize_duration_ms(
             duration_ms, self._output_ms
         )
+        retarget = getattr(self, "_retarget_light_deadline", None)
+        if retarget:
+            try:
+                retarget()
+            except Exception:
+                pass
 
     async def _hold_then_off(self, channels, duration_ms, token):
         """指定秒のあと対象 CH を落とす。失敗しても同じ世代なら消す。"""
@@ -1061,6 +1083,8 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._blink_suppress = False
         self._blink_deadline_ms = None
         self._blink_budget_ms = 0
+        self._blink_started_ms = None
+        self._flash_token = 0
 
     def _spawn(self, coro):
         try:
@@ -1086,19 +1110,52 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             return False
         return bool(self._can_run_lights())
 
-    def _blink_all_off(self):
+    def _lights_off(self):
+        """点灯維持の終わり。DO1とDO2だけを必ず0へ戻す。"""
         self._set_ch(self.DO_LIGHT_1, False)
         self._set_ch(self.DO_LIGHT_2, False)
+
+    def _blink_all_off(self):
+        self._lights_off()
         self._set_ch(self.DO_FLASH, False)
+
+    def _stop_flash(self):
+        """フラッシュだけ止める。ライトの点滅ループは触らない。"""
+        self._flash_token = int(getattr(self, "_flash_token", 0)) + 1
+        self._set_ch(self.DO_FLASH, False)
+
+    def _start_flash(self):
+        """DO3はフラッシュ秒だけ点滅する。ライトの期限では延ばさない。"""
+        if not bool(getattr(self, "_flash_enabled", True)):
+            self._stop_flash()
+            return
+        self._flash_token = int(getattr(self, "_flash_token", 0)) + 1
+        token = self._flash_token
+        self._set_ch(self.DO_FLASH, True)
+        self._spawn(self._flash_blink(token, self._flash_hold_ms()))
+
+    def _retarget_light_deadline(self):
+        """進行中のDO1とDO2を、今のスライダー秒の期限へ合わせ直す。"""
+        self._ensure_blink_state()
+        if self._blink_phase not in ("far", "near", "alone"):
+            return
+        started = getattr(self, "_blink_started_ms", None)
+        if started is None:
+            return
+        ms = self._light_hold_ms()
+        self._blink_budget_ms = ms
+        self._blink_deadline_ms = int(started) + int(ms)
 
     def _blink_force_idle(self):
         self._ensure_blink_state()
         self._blink_hold_token = self._blink_hold_token + 1
         self._blink_holding = False
         self._blink_gen = self._blink_gen + 1
+        self._flash_token = int(getattr(self, "_flash_token", 0)) + 1
         self._blink_phase = "idle"
         self._blink_deadline_ms = None
         self._blink_budget_ms = 0
+        self._blink_started_ms = None
         self._blink_suppress = False
         self._blink_all_off()
 
@@ -1108,11 +1165,11 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._blink_holding = False
 
     def _arm_hold(self):
-        """センサーOFF後の保険。開始時の窓が先に切れれば世代違いで何もしない。"""
+        """センサーが戻っても、開始時の期限より先には消さない。"""
         self._ensure_blink_state()
         if self._blink_holding:
             return
-        if self._blink_phase not in ("far", "near"):
+        if self._blink_phase not in ("far", "near", "alone"):
             return
         self._blink_holding = True
         self._blink_hold_token = self._blink_hold_token + 1
@@ -1120,8 +1177,17 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._spawn(self._blink_hold_then_idle(token))
 
     async def _blink_hold_then_idle(self, token):
+        """固定秒の再待ちはしない。共有期限まで200ms刻みで待つ。"""
         try:
-            await asyncio.sleep_ms(self._hold_ms(self._output_ms))
+            while int(self._blink_hold_token) == int(token):
+                deadline = getattr(self, "_blink_deadline_ms", None)
+                if deadline is None:
+                    return
+                left = _mono_diff(deadline, _mono_ms())
+                if left <= 0:
+                    break
+                step = 200 if left > 200 else left
+                await asyncio.sleep_ms(step)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -1131,7 +1197,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._close_output_window(self._blink_gen)
 
     def _close_output_window(self, gen):
-        """点灯維持時間が来たら点滅を止め、DO1〜DO3 をすべて消す。"""
+        """維持秒が来たら点滅を止め、DO1とDO2を必ず消す。"""
         self._ensure_blink_state()
         if int(getattr(self, "_blink_gen", -1)) != int(gen):
             return
@@ -1142,24 +1208,37 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._blink_phase = "idle"
         levels = getattr(self, "_di_level", None) or {}
         self._blink_suppress = bool(levels.get(1) or levels.get(2))
-        self._blink_all_off()
+        self._lights_off()
         self.log("light window done")
 
     def _arm_output_window(self, gen, duration_ms):
         ms = self._hold_ms(duration_ms)
+        now = _mono_ms()
+        self._blink_started_ms = now
         self._blink_budget_ms = ms
-        self._blink_deadline_ms = _mono_ms() + ms
+        self._blink_deadline_ms = now + ms
         self._blink_suppress = False
-        self._spawn(self._output_window_watch(gen, ms))
+        self._spawn(self._output_window_watch(gen))
 
-    async def _output_window_watch(self, gen, duration_ms):
-        """点滅の周期待ちの途中でも、維持時間で全消灯する。"""
+    def _light_left_ms(self):
+        """共有期限までの残り。命令で縮んでも、次の周期で追従する。"""
+        deadline = getattr(self, "_blink_deadline_ms", None)
+        if deadline is None:
+            return 0
+        left = _mono_diff(deadline, _mono_ms())
+        if left < 0:
+            return 0
+        return int(left)
+
+    async def _output_window_watch(self, gen):
+        """点滅の待ちの途中でも、スライダー秒でDO1とDO2を消す。"""
         try:
-            left = self._hold_ms(duration_ms)
-            while left > 0 and int(self._blink_gen) == int(gen):
+            while int(self._blink_gen) == int(gen):
+                left = self._light_left_ms()
+                if left <= 0:
+                    break
                 step = 200 if left > 200 else left
                 await asyncio.sleep_ms(step)
-                left -= step
             self._close_output_window(gen)
         except asyncio.CancelledError:
             raise
@@ -1168,27 +1247,25 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             self._close_output_window(gen)
 
     async def _blink_until_gen(self, channel, gen):
-        """0.5秒点滅。維持時間を自分で数え、来たらループを抜けて全DOを消す。"""
+        """0.5秒点滅。期限を毎周期見て、来たらDOを0で終える。"""
         on = True
-        budget = int(getattr(self, "_blink_budget_ms", 0) or 0)
-        if budget < 1:
-            budget = self._hold_ms(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
-        left = budget
         try:
             self._set_ch(channel, True)
-            while int(self._blink_gen) == int(gen) and left > 0:
+            while int(self._blink_gen) == int(gen):
+                left = self._light_left_ms()
+                if left <= 0:
+                    break
                 step = PATLITE_BLINK_MS if left > PATLITE_BLINK_MS else left
                 await asyncio.sleep_ms(step)
-                left -= step
                 if int(self._blink_gen) != int(gen):
                     return
-                if left <= 0:
-                    self._close_output_window(gen)
-                    return
+                if self._light_left_ms() <= 0:
+                    break
                 on = not on
-                if int(self._blink_gen) != int(gen):
-                    return
                 self._set_ch(channel, on)
+            if int(self._blink_gen) == int(gen):
+                self._safe_off(channel)
+                self._close_output_window(gen)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -1197,6 +1274,32 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         finally:
             if int(getattr(self, "_blink_gen", -1)) == int(gen):
                 self._safe_off(channel)
+
+    async def _flash_blink(self, token, duration_ms):
+        """DO3だけ0.5秒点滅。終わりにDO3を消し、ライトは触らない。"""
+        end = _mono_ms() + self._hold_ms(duration_ms)
+        on = True
+        try:
+            while int(getattr(self, "_flash_token", 0)) == int(token):
+                left = _mono_diff(end, _mono_ms())
+                if left <= 0:
+                    break
+                step = PATLITE_BLINK_MS if left > PATLITE_BLINK_MS else left
+                await asyncio.sleep_ms(step)
+                if int(getattr(self, "_flash_token", 0)) != int(token):
+                    return
+                left = _mono_diff(end, _mono_ms())
+                if left <= 0:
+                    break
+                on = not on
+                self._set_ch(self.DO_FLASH, on)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.log("flash blink err: {}".format(exc))
+        finally:
+            if int(getattr(self, "_flash_token", 0)) == int(token):
+                self._safe_off(self.DO_FLASH)
 
     async def _steady_until_gen(self, channel, gen):
         try:
@@ -1212,36 +1315,37 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
                 self._safe_off(channel)
 
     async def _steady_ms_gen(self, channel, duration_ms, gen):
-        """フラッシュ点灯時間。世代が変わったら途中で手放す。"""
+        """常時点灯。共有期限が縮んだら、その場でDOを消す。"""
         try:
             self._set_ch(channel, True)
-            left = int(duration_ms)
-            while left > 0 and self._blink_gen == gen:
+            while int(self._blink_gen) == int(gen):
+                left = self._light_left_ms()
+                if left <= 0:
+                    break
                 step = 100 if left > 100 else left
                 await asyncio.sleep_ms(step)
-                left -= step
             if int(self._blink_gen) == int(gen):
                 self._safe_off(channel)
                 self._close_output_window(gen)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            self.log("flash hold err CH{}: {}".format(channel, exc))
+            self.log("steady hold err CH{}: {}".format(channel, exc))
             if int(self._blink_gen) == int(gen):
                 self._safe_off(channel)
                 self._close_output_window(gen)
 
     def _begin_alone_timed(self):
-        """遠が無い近だけ。DO1+DO2 を点灯維持秒だけ点灯し、フラッシュは出さない。"""
+        """遠が無い近だけ。DO1+DO2をスライダー秒だけ点灯し、DO3は出さない。"""
         self._ensure_blink_state()
         self._cancel_hold()
+        self._stop_flash()
         self._blink_gen = self._blink_gen + 1
         gen = self._blink_gen
         self._blink_phase = "alone"
-        ms = self._hold_ms(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
+        ms = self._light_hold_ms()
         self._set_ch(self.DO_LIGHT_1, True)
         self._set_ch(self.DO_LIGHT_2, True)
-        self._set_ch(self.DO_FLASH, False)
         self._arm_output_window(gen, ms)
         self._spawn(self._steady_ms_gen(self.DO_LIGHT_1, ms, gen))
         self._spawn(self._steady_ms_gen(self.DO_LIGHT_2, ms, gen))
@@ -1256,25 +1360,24 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         self._blink_gen = self._blink_gen + 1
         gen = self._blink_gen
         self._blink_phase = phase
-        ms = self._hold_ms(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
+        ms = self._light_hold_ms()
         self._arm_output_window(gen, ms)
         if phase == "far":
+            self._stop_flash()
             self._set_ch(self.DO_LIGHT_1, True)
             self._set_ch(self.DO_LIGHT_2, False)
-            self._set_ch(self.DO_FLASH, False)
             self._spawn(self._blink_until_gen(self.DO_LIGHT_1, gen))
-            self.log("two_stage_blink far")
+            self.log("two_stage_blink far {}ms".format(ms))
             return
         self._set_ch(self.DO_LIGHT_1, True)
         self._set_ch(self.DO_LIGHT_2, True)
-        self._set_ch(self.DO_FLASH, True)
         self._spawn(self._blink_until_gen(self.DO_LIGHT_1, gen))
         self._spawn(self._blink_until_gen(self.DO_LIGHT_2, gen))
-        self._spawn(self._blink_until_gen(self.DO_FLASH, gen))
-        self.log("two_stage_blink near")
+        self._start_flash()
+        self.log("two_stage_blink near {}ms".format(ms))
 
     def _apply_two_stage_blink(self):
-        """DI1/DI2 の現在値から出力相を決める。"""
+        """DI1とDI2の現在値から、点灯相と点滅相を決める。"""
         self._ensure_blink_state()
         if not self._blink_outputs_allowed():
             self._blink_force_idle()
@@ -1283,7 +1386,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         di2 = bool(self._di_level.get(2))
         if getattr(self, "_blink_suppress", False):
             if di1 or di2:
-                self._blink_all_off()
+                self._lights_off()
                 return
             self._blink_suppress = False
         staged = self._near_is_intrusion()
@@ -1303,16 +1406,17 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             if self._blink_phase != "far":
                 self._begin_phase("far")
             return
-        if self._blink_phase in ("far", "near"):
+        if self._blink_phase in ("far", "near", "alone"):
             self._arm_hold()
             return
-        self._blink_all_off()
+        self._lights_off()
 
     def _pulse_two_stage_blink(self, di):
-        """VPS バックアップ。実 DI が見えていればレベル制御に任せる。"""
+        """VPSの命令。すでに点灯中なら、期限だけスライダー秒へ直す。"""
         self._ensure_blink_state()
         if self._di_level.get(1) or self._di_level.get(2):
             self._apply_two_stage_blink()
+            self._retarget_light_deadline()
             return
         if not self._blink_outputs_allowed():
             self.log("two_stage_blink pulse skipped")
@@ -1346,7 +1450,9 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             msg = "建物側・近センサー検知"
         else:
             msg = "外側・遠センサー検知"
-        light_ms = int(getattr(self, "_output_ms", DEFAULT_OUTPUT_MS))
+        light_ms = self._light_hold_ms()
+        flash_ms = self._flash_hold_ms()
+        flash_ok = bool(getattr(self, "_flash_enabled", True))
         plan = {
             "mode": mode,
             "message": msg,
@@ -1359,7 +1465,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             "near_first": near_alone,
             "force_outputs": blink,
             "light_ms": light_ms,
-            "flash_ms": light_ms,
+            "flash_ms": flash_ms,
         }
         if not light_ok:
             return plan
@@ -1384,10 +1490,10 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         if blink and is_near:
             plan["do1"] = True
             plan["do2"] = True
-            plan["do3"] = True
+            plan["do3"] = flash_ok
             plan["do1_pattern"] = "blink"
             plan["do2_pattern"] = "blink"
-            plan["do3_pattern"] = "blink"
+            plan["do3_pattern"] = "blink" if flash_ok else "off"
             return plan
         if blink:
             plan["do1"] = True
@@ -1583,6 +1689,7 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
         gen = self._begin_output_seq()
         self._cancel_channel_holds()
         light_ms = self._hold_ms(plan.get("light_ms"))
+        flash_ms = self._hold_ms(plan.get("flash_ms"))
         d1 = self._output_pattern(plan, "do1_pattern", plan.get("do1"), "steady")
         d2 = self._output_pattern(plan, "do2_pattern", plan.get("do2"), "blink")
         d3 = self._output_pattern(plan, "do3_pattern", plan.get("do3"), "steady")
@@ -1624,13 +1731,13 @@ class ToyoshimaMainHouseController(ToyoshimaBaseController):
             if d3 == "steady":
                 tasks.append(
                     asyncio.create_task(
-                        self._drive_steady(self.DO_FLASH, light_ms)
+                        self._drive_steady(self.DO_FLASH, flash_ms)
                     )
                 )
             elif d3 == "blink":
                 tasks.append(
                     asyncio.create_task(
-                        self._drive_blink(self.DO_FLASH, light_ms)
+                        self._drive_blink(self.DO_FLASH, flash_ms)
                     )
                 )
             self._seq_tasks = tasks

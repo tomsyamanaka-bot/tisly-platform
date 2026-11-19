@@ -198,7 +198,7 @@ const SECURITY_MODE_OPTIONS = [
   {
     id: "two_stage_blink",
     label: "遠近2段階（威嚇点滅）",
-    desc: "遠はライト1点滅、近はライト1・2とフラッシュが点滅",
+    desc: "遠はライト1だけ点滅、近はライト1・2が指定秒だけ点滅。フラッシュは別の秒数",
   },
   {
     id: "DIRECT",

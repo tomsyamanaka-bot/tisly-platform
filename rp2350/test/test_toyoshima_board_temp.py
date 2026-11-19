@@ -277,7 +277,7 @@ def test_twostep_di2_alone_flashes_at_night():
     assert plan["do3_pattern"] == "off"
     assert plan["near_first"] is True
     assert plan["light_ms"] == 45_000
-    assert plan["flash_ms"] == plan["light_ms"]
+    assert plan["flash_ms"] == 15_000
     assert plan["message"] == "建物側・近センサー検知"
 
 
