@@ -21,6 +21,7 @@ import {
   markSensorCustomerPushV1,
   takeMaintenanceHoldLogV1,
 } from "./home-ops-safety-v1.js";
+import { siteAllowsLiveWatchV1 } from "./site-lifecycle-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import {
   deliverCommRecoveryV1,
@@ -511,6 +512,7 @@ let keepRisingLossNotified = false;
 
 /** 5分途絶の通知。点検中は送らず、期限後に戻す。 */
 export async function runKeepRisingHeartbeatWatchdogV1(): Promise<void> {
+  if (!siteAllowsLiveWatchV1(HOME_JP_KEEPRISING_SITE_ID_V1)) return;
   if (!runtime.lastHeartbeatAt) return;
   const online = isHeartbeatOnlineV1(
     runtime.lastHeartbeatAt,

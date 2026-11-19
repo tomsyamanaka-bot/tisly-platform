@@ -74,6 +74,14 @@ import {
 import { recordSystemLogV1 } from "../../home/home-system-log-v1.js";
 import { buildSiteSignalBoardV1 } from "../../home/site-signal-board-v1.js";
 import {
+  addSiteUnitV1,
+  deleteSiteLifecycleV1,
+  deleteSiteUnitV1,
+  listSiteLifecyclesV1,
+  setSiteLifecycleV1,
+  setUnitPresenceV1,
+} from "../../home/site-lifecycle-v1.js";
+import {
   applyHomeSceneV1,
   listHomeScenesV1,
   type HomeSceneIdV1,
@@ -214,6 +222,69 @@ const CONTROL_TARGETS_V1: HomeControlTargetV1[] = [
 homeRouter.get("/sites/summary", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.json(buildSiteSignalBoardV1());
+});
+
+/** 社内の物件状態と子機。お客様画面からは呼ばない。 */
+homeRouter.get("/sites/lifecycle", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, sites: listSiteLifecyclesV1() });
+});
+
+homeRouter.post("/sites/lifecycle", (req, res) => {
+  const body = (req.body ?? {}) as {
+    siteId?: string;
+    lifecycleStatus?: "active" | "demo" | "archived";
+  };
+  const status = body.lifecycleStatus;
+  if (status !== "active" && status !== "demo" && status !== "archived") {
+    res.status(400).json({ ok: false, message: "状態を選べません" });
+    return;
+  }
+  const result = setSiteLifecycleV1(String(body.siteId || ""), status);
+  res.status(result.ok ? 200 : 400).json(result);
+});
+
+homeRouter.post("/sites/lifecycle/delete", (req, res) => {
+  const body = (req.body ?? {}) as { siteId?: string; confirm?: string };
+  const result = deleteSiteLifecycleV1(
+    String(body.siteId || ""),
+    String(body.confirm || "")
+  );
+  res.status(result.ok ? 200 : 400).json(result);
+});
+
+homeRouter.post("/sites/units", (req, res) => {
+  const body = (req.body ?? {}) as {
+    siteId?: string;
+    action?: string;
+    unitId?: string;
+    name?: string;
+    kind?: "rp2350" | "modbus";
+    modbusId?: string | null;
+    presence?: "active" | "planned";
+    role?: "parent" | "child";
+  };
+  const siteId = String(body.siteId || "");
+  const action = String(body.action || "");
+  const result =
+    action === "add"
+      ? addSiteUnitV1(siteId, {
+          name: String(body.name || ""),
+          kind: body.kind,
+          modbusId: body.modbusId,
+          presence: body.presence,
+          role: body.role,
+        })
+      : action === "presence"
+        ? setUnitPresenceV1(
+            siteId,
+            String(body.unitId || ""),
+            body.presence === "active" ? "active" : "planned"
+          )
+        : action === "delete"
+          ? deleteSiteUnitV1(siteId, String(body.unitId || ""))
+          : { ok: false, message: "操作が分かりません" };
+  res.status(result.ok ? 200 : 400).json(result);
 });
 
 /** 物件一覧（SaaS 契約情報つき） */

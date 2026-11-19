@@ -3830,6 +3830,135 @@ body.sf-customer .sf-modes-keeprising .sf-mode[data-mode="disarmed"].is-on {
   padding: 8px;
 }
 
-body.sf-customer .sf-signal {
+body.sf-customer .sf-signal,
+body.sf-customer .sf-life,
+body.sf-customer .sf-life-modal {
   display: none;
+}
+
+.sf-signal-tools {
+  gap: 8px;
+}
+
+.sf-signal-extra {
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: #64748b;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
+.sf-signal-extra.is-on,
+.sf-signal-row.is-demo,
+.sf-signal-row.is-archived {
+  opacity: 0.82;
+}
+
+.sf-life {
+  margin: 8px 12px 0;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #1e3a8a;
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.sf-life h2 {
+  margin: 0 0 8px;
+  color: #1e3a8a;
+  font-size: 1rem;
+}
+
+.sf-life-modes,
+.sf-life-add,
+.sf-life-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sf-life-modes button,
+.sf-life-add button,
+.sf-life-presence,
+.sf-life-remove,
+.sf-life-delete,
+.sf-life-modal-actions button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.sf-life-modes button { background: #64748b; }
+.sf-life-modes button.is-on { background: #1e3a8a; }
+.sf-life-delete,
+.sf-life-remove,
+#sf-life-confirm { background: #dc2626; }
+.sf-life-delete:disabled,
+.sf-life-remove:disabled { background: #cbd5e1; color: #0f172a; }
+.sf-life-presence { background: #64748b; }
+.sf-life-presence.is-on { background: #16a34a; }
+.sf-life-add button,
+#sf-life-cancel { background: #1e3a8a; }
+
+.sf-life-add input,
+.sf-life-add select {
+  min-height: 48px;
+  border: 1px solid #1e3a8a;
+  border-radius: 12px;
+  padding: 8px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.sf-life-units {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sf-life-unit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sf-life-unit small {
+  display: block;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.sf-life-lock {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.sf-life-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  padding: 16px;
+}
+
+.sf-life-modal[hidden] { display: none; }
+
+.sf-life-modal-card {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border: 1px solid #1e3a8a;
+  border-radius: 16px;
+  padding: 16px;
+  color: #0f172a;
 }

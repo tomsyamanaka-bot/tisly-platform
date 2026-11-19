@@ -22,6 +22,11 @@ import {
   readTislyFirmwareBoardV1,
   type TislyOtaSiteKeyV1,
 } from "../firmware/tisly-rp2350-ota-v1.js";
+import {
+  siteLifecycleOfV1,
+  type SiteLifecycleStatusV1,
+  type UnitPresenceV1,
+} from "./site-lifecycle-v1.js";
 
 export type SiteHealthLevelV1 = "critical" | "warning" | "ok";
 
@@ -50,6 +55,7 @@ export interface SiteSignalRowV1 {
   latestVersion: string | null;
   versionsMatch: boolean | null;
   lastHeartbeatAt: string | null;
+  lifecycleStatus: SiteLifecycleStatusV1;
 }
 
 const RANK: Record<SiteHealthLevelV1, number> = {
@@ -164,10 +170,22 @@ export function classifySiteSignalV1(facts: SiteSignalFactsV1): {
   return { healthLevel: "ok", statusLabel: "オンライン" };
 }
 
-export function sortSiteSignalsV1<T extends { healthLevel: SiteHealthLevelV1; displayName: string }>(
-  rows: T[]
-): T[] {
+function lifeBucket(status: string | undefined): number {
+  if (status === "demo") return 1;
+  if (status === "archived") return 2;
+  return 0;
+}
+
+export function sortSiteSignalsV1<
+  T extends {
+    healthLevel: SiteHealthLevelV1;
+    displayName: string;
+    lifecycleStatus?: string;
+  }
+>(rows: T[]): T[] {
   return [...rows].sort((a, b) => {
+    const life = lifeBucket(a.lifecycleStatus) - lifeBucket(b.lifecycleStatus);
+    if (life !== 0) return life;
     const rank = RANK[a.healthLevel] - RANK[b.healthLevel];
     if (rank !== 0) return rank;
     return a.displayName.localeCompare(b.displayName, "ja");
@@ -180,8 +198,9 @@ function offlineOf(
 ): { offline: boolean; ageMs: number | null; latest: string | null } {
   let latest: string | null = null;
   let latestMs = 0;
-  let missing = ats.length === 0;
+  let missing = false;
   let worst: number | null = null;
+  if (!ats.length) return { offline: false, ageMs: null, latest: null };
   for (const iso of ats) {
     if (!iso) {
       missing = true;
@@ -215,12 +234,23 @@ function heartbeatOf(siteId: string): {
     return { ats: [row.lastHeartbeatAt], tempC: row.boardTempC };
   }
   if (siteId === "HOME-JP-TOYOSHIMA") {
+    const life = siteLifecycleOfV1(siteId);
+    const presence = new Map(
+      (life?.units ?? []).map((unit) => [unit.id, unit.presence])
+    );
     const rows = listToyoshimaHeartbeatAtsV1();
-    const temps = rows
-      .map((row) => row.tempC)
+    const paired = [
+      { id: "main", row: rows[0] },
+      { id: "detached", row: rows[1] },
+    ].filter((item) => {
+      const state = presence.get(item.id) as UnitPresenceV1 | undefined;
+      return state !== "planned" && item.row;
+    });
+    const temps = paired
+      .map((item) => item.row?.tempC)
       .filter((n): n is number => n != null);
     return {
-      ats: rows.map((row) => row.at),
+      ats: paired.map((item) => item.row?.at ?? null),
       tempC: temps.length ? Math.max(...temps) : null,
     };
   }
@@ -267,12 +297,20 @@ export function buildSiteSignalBoardV1(nowMs: number = Date.now()): {
 } {
   const rows: SiteSignalRowV1[] = [];
   for (const group of listOpsSiteGroupsV1()) {
+    const life = siteLifecycleOfV1(group.key);
+    if (!life || life.lifecycleStatus === "deleted") continue;
     const meta = SITE_META[group.key];
     let pulse = { ats: [null] as Array<string | null>, tempC: null as number | null };
     try {
       pulse = heartbeatOf(group.key);
     } catch {
       pulse = { ats: [null], tempC: null };
+    }
+    if (group.key !== "HOME-JP-TOYOSHIMA") {
+      const main = life.units.find((unit) => unit.id === "main");
+      if (main?.presence === "planned") {
+        pulse = { ats: [], tempC: pulse.tempC };
+      }
     }
     const link = offlineOf(pulse.ats, nowMs);
     const cabinet = cabinetViewV1(group.key).tempC;
@@ -304,11 +342,18 @@ export function buildSiteSignalBoardV1(nowMs: number = Date.now()): {
       latestVersion: fw.latestVersion,
       versionsMatch: fw.versionsMatch,
       lastHeartbeatAt: link.latest,
+      lifecycleStatus: life.lifecycleStatus,
     });
   }
   const sites = sortSiteSignalsV1(rows);
-  const counts = { critical: 0, warning: 0, ok: 0, total: sites.length };
-  for (const row of sites) counts[row.healthLevel] += 1;
+  const counted = sites.filter((row) => row.lifecycleStatus === "active");
+  const counts = {
+    critical: 0,
+    warning: 0,
+    ok: 0,
+    total: counted.length,
+  };
+  for (const row of counted) counts[row.healthLevel] += 1;
   return {
     ok: true,
     generatedAt: new Date(nowMs).toISOString(),

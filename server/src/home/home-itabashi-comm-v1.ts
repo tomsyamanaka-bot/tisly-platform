@@ -18,6 +18,7 @@ import {
   isMaintenanceActiveV1,
   takeMaintenanceHoldLogV1,
 } from "./home-ops-safety-v1.js";
+import { siteAllowsLiveWatchV1 } from "./site-lifecycle-v1.js";
 import {
   getToyoshimaOpsConfigV1,
   updateToyoshimaOpsConfigV1,
@@ -390,6 +391,7 @@ let itabashiLossNotified = false;
 
 /** 5分途絶の通知。点検中は送らず、期限後に戻す。 */
 export async function runItabashiHeartbeatWatchdogV1(): Promise<void> {
+  if (!siteAllowsLiveWatchV1(HOME_ITABASHI_LIVE_SITE_ID_V1)) return;
   const status = buildItabashiStatusSsotV1();
   if (status.heartbeatWatchEnabled === false) return;
   if (!status.lastHeartbeatAt) return;

@@ -301,7 +301,10 @@ function normalizeStatus(data) {
       formatFirmwareCustomerLabel(
         data.firmwareVersion || data.runningVersion
       ),
-    devices: Array.isArray(data.devices) ? data.devices : [],
+    devices: (Array.isArray(data.devices) ? data.devices : []).filter((row) => {
+      if (!document.body?.classList?.contains("sf-customer")) return true;
+      return row?.presence !== "planned";
+    }),
   };
 }
 

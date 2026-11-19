@@ -30,6 +30,10 @@ import {
   markSensorCustomerPushV1,
   takeMaintenanceHoldLogV1,
 } from "./home-ops-safety-v1.js";
+import {
+  unitAllowsLiveWatchV1,
+  unitPresenceV1,
+} from "./site-lifecycle-v1.js";
 import { getTislyOtaVersionV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 import { TISLY_SITE_TARGET_VERSIONS_V1 } from "../firmware/tisly-site-target-version-v1.js";
 import {
@@ -212,6 +216,8 @@ export interface ToyoshimaNotifySensorV1 {
 export interface ToyoshimaDeviceHealthV1 {
   building: ToyoshimaBuildingIdV1;
   label: string;
+  /** 未設置は planned。お客様画面では出さない。 */
+  presence?: "active" | "planned";
   online: boolean;
   lastCommAt: string | null;
   lastHeartbeatAt: string | null;
@@ -399,6 +405,8 @@ export interface ToyoshimaSecurityDashboardV1 {
   notifySensors: ToyoshimaNotifySensorV1[];
   main: ToyoshimaBuildingStateV1;
   detached: ToyoshimaBuildingStateV1;
+  /** お客様画面では未設置のはなれを出さない。 */
+  detachedInstalled?: boolean;
   timeline: ToyoshimaTimelineEventV1[];
   lastUpdatedAt: string;
   ota?: {
@@ -800,6 +808,9 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
 
   const now = Date.now();
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+    if (!unitAllowsLiveWatchV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, building)) {
+      continue;
+    }
     const comm = runtime.deviceComm[building];
     const hbAt = comm.lastHeartbeatAt;
     if (!hbAt) continue;
@@ -2452,6 +2463,11 @@ function buildToyoshimaAlarmStateV1(): ToyoshimaAlarmStateV1 {
     items.push("母屋 フラッシュライト作動中");
   }
   for (const building of ["main", "detached"] as ToyoshimaBuildingIdV1[]) {
+    if (
+      unitPresenceV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, building) === "planned"
+    ) {
+      continue;
+    }
     const comm = runtime.deviceComm[building];
     if (
       comm.boardTempC != null &&
@@ -2486,9 +2502,14 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
     comm.online = online;
     getBuilding(building).online = online;
     const boardTempC = comm.boardTempC;
+    const presence = unitPresenceV1(
+      HOME_JP_TOYOSHIMA_SITE_ID_V1,
+      building
+    );
     return {
       building,
       label: building === "main" ? "主装置" : "子機",
+      presence: presence === "planned" ? "planned" : "active",
       online,
       lastCommAt: comm.lastCommAt,
       lastHeartbeatAt: comm.lastHeartbeatAt,
@@ -2503,29 +2524,31 @@ function buildToyoshimaCommHealthV1(): ToyoshimaCommHealthV1 {
       customerBoardTempLevel: customerBoardTempLevelV1(boardTempC),
     };
   });
-  const latestHb = devices
+  const watched = devices.filter((d) => d.presence !== "planned");
+  const judge = watched.length ? watched : devices;
+  const latestHb = judge
     .filter((d) => d.lastHeartbeatAt)
     .sort((a, b) =>
       String(b.lastHeartbeatAt).localeCompare(String(a.lastHeartbeatAt))
     )[0];
-  const latest = devices
+  const latest = judge
     .filter((d) => d.lastCommAt)
     .sort((a, b) =>
       String(b.lastCommAt).localeCompare(String(a.lastCommAt))
     )[0];
-  const allOnline = devices.every((d) => d.online);
+  const allOnline = judge.length > 0 && judge.every((d) => d.online);
   const mainDevice = devices.find((d) => d.building === "main");
   const mainTemp = mainDevice?.boardTempC ?? null;
   const mainLevel =
     mainTemp != null ? boardTempLevelV1(mainTemp) : "normal";
-  const anyOverheat = devices.some(
+  const anyOverheat = judge.some(
     (d) =>
       d.boardTempC != null &&
       d.boardTempC >= TOYOSHIMA_BOARD_TEMP_WARN_C_V1
   );
 
   let onlineSummary = "🔴 オフライン（通信途絶）";
-  const onlineDevices = devices.filter((d) => d.online);
+  const onlineDevices = judge.filter((d) => d.online);
   if (allOnline && devices.length > 0) {
     // UI 表示の SSOT · 実機稼働中を優先
     onlineSummary = "🟢 オンライン（実機稼働中）";
@@ -2977,6 +3000,8 @@ export function buildToyoshimaSecurityDashboardV1(
       di: [...runtime.detached.di],
       do: [...runtime.detached.do],
     }),
+    detachedInstalled:
+      unitPresenceV1(HOME_JP_TOYOSHIMA_SITE_ID_V1, "detached") === "active",
     timeline,
     lastUpdatedAt: nowIso(),
     ota: (() => {

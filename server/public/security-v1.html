@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2604" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2605" />
   <link rel="stylesheet" href="/css/features/security/tenant-setting-summary-v1.css?v=2573" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2588" />
   <link rel="stylesheet" href="/css/features/security/keeprising-customer-settings-v1.css?v=2597" />
@@ -62,10 +62,47 @@
     <div id="sf-signal-body">
       <div class="sf-signal-tools">
         <button type="button" class="sf-signal-filter" id="sf-signal-filter">異常・注意のみ表示</button>
+        <button type="button" class="sf-signal-extra" id="sf-signal-extra">デモ・アーカイブを表示</button>
       </div>
       <ul class="sf-signal-list" id="sf-signal-list"></ul>
     </div>
   </section>
+
+  <section class="sf-life" id="sf-life" aria-label="機器・ユニット構成管理">
+    <h2>🧩 機器・ユニット構成管理（親機・子機の追加／増減）</h2>
+    <p id="sf-life-site">対象: —</p>
+    <div class="sf-life-modes">
+      <button type="button" data-life-status="active">🟢 本番稼働</button>
+      <button type="button" data-life-status="demo">🧪 デモ・商談中</button>
+      <button type="button" data-life-status="archived">📦 アーカイブ</button>
+    </div>
+    <p class="sf-life-lock" id="sf-life-lock">削除するには先にアーカイブへ変更してください</p>
+    <button type="button" class="sf-life-delete" id="sf-life-delete" disabled>🗑️ 物件を完全削除</button>
+    <ul class="sf-life-units" id="sf-life-units"></ul>
+    <form class="sf-life-add" id="sf-life-add">
+      <input name="unitName" placeholder="ユニット名（はなれ、第2倉庫）" maxlength="40" required />
+      <select name="unitKind" aria-label="種別">
+        <option value="rp2350">子機 RP2350</option>
+        <option value="modbus">子機 RS485 Modbus</option>
+      </select>
+      <input name="unitModbus" placeholder="Modbus ID（任意）" maxlength="8" />
+      <select name="unitPresence" aria-label="初期ステータス">
+        <option value="planned">未設置・準備中</option>
+        <option value="active">設置済み・監視中</option>
+      </select>
+      <button type="submit">＋ 子機・ユニットを追加</button>
+    </form>
+  </section>
+  <div class="sf-life-modal" id="sf-life-modal" hidden>
+    <div class="sf-life-modal-card" role="dialog" aria-modal="true" aria-labelledby="sf-life-modal-title">
+      <h3 id="sf-life-modal-title">物件を完全削除</h3>
+      <p id="sf-life-modal-text"></p>
+      <div class="sf-life-modal-actions">
+        <button type="button" id="sf-life-cancel">キャンセル</button>
+        <button type="button" id="sf-life-confirm">完全に削除する</button>
+      </div>
+    </div>
+  </div>
 
   <nav class="sf-mobile-tabs" aria-label="画面切替">
     <button type="button" class="is-on" data-pane="alert">警報</button>
@@ -766,7 +803,7 @@
   <script src="/js/features/security/security-floor-light-v1.js?v=2559"></script>
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
   <script src="/js/features/security/astro-schedule-ui-v1.js?v=2603"></script>
-  <script src="/js/features/security/site-signal-board-v1.js?v=2604"></script>
+  <script src="/js/features/security/site-signal-board-v1.js?v=2605"></script>
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2564"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2603"></script>
@@ -774,6 +811,6 @@
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2603"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2604"></script
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2605"></script
 </body>
 </html>

@@ -1474,7 +1474,9 @@ function collectDiChannels(dash) {
       state: d.state,
     });
   }
-  for (const d of dash?.detached?.di || []) {
+  const hideDetached =
+    isCustomerPortal() && dash?.detachedInstalled === false;
+  if (!hideDetached) for (const d of dash?.detached?.di || []) {
     const rest = String(d.label || "")
       .replace(/\(DI\d\)/i, "")
       .replace(/DI\d\s*/i, "")
@@ -1532,11 +1534,15 @@ const TOYOSHIMA_FORCE_TEST_OUTPUTS = [
   { id: "det-do3", label: "はなれ DO3 予備ライト", building: "detached" },
 ];
 
-function renderDoForceTestCard() {
+function renderDoForceTestCard(dash) {
+  const outputs = TOYOSHIMA_FORCE_TEST_OUTPUTS.filter((row) => {
+    if (row.building !== "detached") return true;
+    return !(isCustomerPortal() && dash?.detachedInstalled === false);
+  });
   return `<section class="ts-card ts-do-card" id="ts-do-card">
     <h3 class="ts-card-head">⚡ 接点強制テスト（1秒ワンショット）</h3>
     <p class="ts-hint">盤・照明から離れた位置でも配線導通を安全に確認できます。押して約1秒だけONします。</p>
-    <div class="ts-do-grid" id="ts-do-grid">${TOYOSHIMA_FORCE_TEST_OUTPUTS.map(
+    <div class="ts-do-grid" id="ts-do-grid">${outputs.map(
       (o) => `<button type="button" class="ts-do-pulse-btn${
         o.id === "main-do3" || o.id === "det-do2" ? " is-warn" : " is-on"
       }" data-ts-do-pulse="${escapeHtml(
@@ -2383,7 +2389,7 @@ function patchToyoshimaDashboard(dash) {
   }
   const doRoot = $("ts-do-root");
   if (doRoot && !doRoot.querySelector(":active, :focus")) {
-    doRoot.innerHTML = renderDoForceTestCard();
+    doRoot.innerHTML = renderDoForceTestCard(dash);
   }
   const kitRoot = $("ts-kitting-root");
   if (kitRoot) kitRoot.innerHTML = renderKittingCard(dash);
@@ -2815,11 +2821,15 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
         </button>
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
         <div id="ts-di-root">${renderDiMaintenanceCard(dash)}</div>
-        <div id="ts-do-root">${renderDoForceTestCard()}</div>
+        <div id="ts-do-root">${renderDoForceTestCard(dash)}</div>
         <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
         ${renderCloudStreamCard()}
         ${renderBuildingCard(dash.main)}
-        ${renderBuildingCard(dash.detached)}
+        ${
+          isCustomerPortal() && dash.detachedInstalled === false
+            ? ""
+            : renderBuildingCard(dash.detached)
+        }
         <section class="ts-card" id="ts-map-manual-lights">
           <h3 class="ts-card-head">💡 外構ライト手動操作</h3>
           <p class="ts-hint">手動操作は昼夜を無視して即時点灯します</p>

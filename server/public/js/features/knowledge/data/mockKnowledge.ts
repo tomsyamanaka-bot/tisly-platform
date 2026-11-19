@@ -2518,3 +2518,33 @@ export const MOCK_SITE_SIGNAL_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const SITE_LIFECYCLE_KNOWLEDGE_TITLES = [
+  "【運用標準】物件ライフサイクル管理（本番/デモ/アーカイブ/安全削除）＆ 子機ユニット増減管理仕様",
+] as const;
+
+/** 物件と子機の増減（末尾追記） */
+export const MOCK_SITE_LIFECYCLE_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-site-lifecycle-001",
+    title: SITE_LIFECYCLE_KNOWLEDGE_TITLES[0],
+    summary:
+      "デモ案件や未設置の子機（はなれ等）による死活監視の誤警報を防ぐため、物件を本番/デモ/アーカイブで分離管理し（本番は誤削除ロック）、物件内の親機・子機ユニットを画面から柔軟に追加・未設置切替・削除できる運用標準。",
+    genre: "IOT関連",
+    tags: [
+      "#物件管理",
+      "#デモ管理",
+      "#子機増設",
+      "#アーカイブ",
+      "#保守DX",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-20T08:20:00.000Z",
+    body: [
+      "本番稼働中は削除できない。",
+      "未設置の子機は途絶にしない。",
+      "お客様画面には管理パネルを出さない。",
+    ].join("\n"),
+  },
+];

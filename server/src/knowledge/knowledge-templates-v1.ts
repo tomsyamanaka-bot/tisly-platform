@@ -55,6 +55,7 @@ import { seedStaffNotifyKnowledgeCardsV1 } from "./knowledge-staff-notify-seed-v
 import { seedRp2350BaselineKnowledgeCardsV1 } from "./knowledge-rp2350-baseline-seed-v1.js";
 import { seedAstroRecoveryKnowledgeCardsV1 } from "./knowledge-astro-recovery-seed-v1.js";
 import { seedSiteSignalKnowledgeCardsV1 } from "./knowledge-site-signal-seed-v1.js";
+import { seedSiteLifecycleKnowledgeCardsV1 } from "./knowledge-site-lifecycle-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -226,6 +227,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   rp2350BaselineCreated: number;
   astroRecoveryCreated: number;
   siteSignalCreated: number;
+  siteLifecycleCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -274,6 +276,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const rp2350Baseline = seedRp2350BaselineKnowledgeCardsV1();
   const astroRecovery = seedAstroRecoveryKnowledgeCardsV1();
   const siteSignal = seedSiteSignalKnowledgeCardsV1();
+  const siteLifecycle = seedSiteLifecycleKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -322,5 +325,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     rp2350BaselineCreated: rp2350Baseline.length,
     astroRecoveryCreated: astroRecovery.length,
     siteSignalCreated: siteSignal.length,
+    siteLifecycleCreated: siteLifecycle.length,
   };
 }

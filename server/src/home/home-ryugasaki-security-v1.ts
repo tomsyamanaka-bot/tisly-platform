@@ -24,6 +24,7 @@ import {
   markSensorCustomerPushV1,
   takeMaintenanceHoldLogV1,
 } from "./home-ops-safety-v1.js";
+import { siteAllowsLiveWatchV1 } from "./site-lifecycle-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import {
   deliverCommRecoveryV1,
@@ -538,6 +539,7 @@ export async function recordRyugasakiHeartbeatV1(input: {
 
 /** 途絶を一度だけ知らせる。心拍が戻れば再開できる */
 export async function runRyugasakiHeartbeatWatchdogV1(): Promise<void> {
+  if (!siteAllowsLiveWatchV1(HOME_JP_RYUGASAKI_SITE_ID_V1)) return;
   if (!runtime.lastHeartbeatAt) return;
   const online = isHeartbeatOnlineV1(
     runtime.lastHeartbeatAt,

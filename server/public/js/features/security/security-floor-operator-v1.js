@@ -270,6 +270,7 @@ function fillSiteSelect(sites) {
   sel.hidden = false;
   sel.removeAttribute("aria-hidden");
   publishOperatorScope();
+  window.TislySiteSignalBoardV1?.syncSelect?.();
 }
 
 function syncHeaderTitle(site) {
