@@ -745,6 +745,17 @@ describe("security-floor-v1", () => {
     assert.match(opHtml, /TiSLY OTAファームウェア一元管理/);
     assert.match(opHtml, /最新ファームウェアを現場実機へ遠隔配信/);
     assert.match(opHtml, /sf-ota-deploy/);
+    assert.match(opHtml, /sf-ota-refresh/);
+    assert.match(opHtml, /id="sf-ota-heartbeat"/);
+    assert.match(opHtml, /id="sf-ota-host"/);
+    const otaHostAt = opHtml.indexOf('id="sf-ota-host"');
+    const shellAt = opHtml.indexOf('class="sf-soc-shell"');
+    assert.ok(otaHostAt > 0 && otaHostAt < shellAt);
+    assert.equal(opHtml.match(/id="sf-pro-ota-panel"/g)?.length, 1);
+    assert.doesNotMatch(customerHtml, /id="sf-ota-host"/);
+    assert.doesNotMatch(customerHtml, /id="sf-pro-ota-panel"/);
+    assert.doesNotMatch(customerHtml, /id="sf-site-select"/);
+    assert.match(opJs, /refreshSecurityProToolsSiteV1/);
     assert.match(opHtml, /全現場一括配信/);
     assert.match(opHtml, /ステージング \/ 本番/);
     assert.match(opHtml, /出荷前キッティング・ステータス連携/);
@@ -908,6 +919,13 @@ describe("security-floor-v1", () => {
     );
     assert.match(toyoshimaJs, /ota_deploy|最新ファームウェアを現場実機へ配信/);
     assert.match(toyoshimaJs, /ts-ota-card|TiSLY OTAファームウェア一元管理/);
+    const toyoshimaDeploy = toyoshimaJs.slice(
+      toyoshimaJs.indexOf('action === "ota_deploy"'),
+      toyoshimaJs.indexOf('action === "sim_heartbeat"')
+    );
+    assert.match(toyoshimaDeploy, /buildOtaDeployRequestV1/);
+    assert.doesNotMatch(toyoshimaDeploy, /force:\s*true/);
+    assert.match(toyoshimaDeploy, /plan\.slug !== "toyoshima"/);
     assert.match(toyoshimaJs, /ts-di-card|DI現場保守/);
     assert.match(toyoshimaJs, /data-ts-di-trigger/);
     assert.match(toyoshimaJs, /ts-do-card|接点強制テスト/);
@@ -942,6 +960,8 @@ describe("security-floor-v1", () => {
       ),
       "utf8"
     );
+    assert.match(floorCss, /is-toyoshima #sf-ota-host/);
+    assert.match(floorCss, /sf-customer #sf-ota-host/);
     const toyoshimaCss = fs.readFileSync(
       path.join(
         publicDir,
@@ -1002,13 +1022,14 @@ describe("security-floor-v1", () => {
     assert.match(customerJs, /forceRefreshOnDeployedCommit|ensureSecurityServiceWorker/);
     assert.match(customerJs, /SKIP_WAITING|tisly-security-customer-commit/);
     assert.match(customerJs, /sf-tenant-fixed|lockSiteSelectorUi/);
-    assert.match(customerJs, /sel\.hidden = true/);
+    assert.match(customerJs, /dropCustomerSiteSelect|sel\.hidden = true/);
     assert.match(
       floorCss,
       /body\.sf-soc:not\(\.sf-customer\) \.sf-soc-meta \.sf-select\.sf-select-inline/
     );
     assert.match(floorCss, /body\.sf-customer #sf-site-select/);
-    assert.match(customerHtml, /id="sf-site-select"[^>]*hidden/);
+    assert.doesNotMatch(customerHtml, /<select[^>]*id="sf-site-select"/);
+    assert.match(customerHtml, /if \(picked\) picked\.remove\(\)/);
     assert.match(customerJs, /locked:\s*true|tenant_single|applyTenantSingleSite/);
     assert.doesNotMatch(customerJs, /switchCustomerSite/);
     assert.match(customerJs, /fetchToyoshimaStatus/);
@@ -1077,6 +1098,9 @@ describe("security-floor-v1", () => {
     assert.match(proJs, /onPropertyScopeChange/);
     assert.match(proJs, /currentSiteId/);
     assert.match(proJs, /resolveOtaSiteSlugV1/);
+    assert.match(proJs, /buildOtaVersionRequestV1/);
+    assert.match(proJs, /buildOtaDeployRequestV1/);
+    assert.match(proJs, /showStaffOtaCard/);
     assert.doesNotMatch(proJs, /tisly:property-scope-changed/);
 
     assert.doesNotMatch(customerHtml, /ハートビート死活監視/);

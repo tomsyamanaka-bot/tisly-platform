@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2592" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2598" />
   <link rel="stylesheet" href="/css/features/security/tenant-setting-summary-v1.css?v=2573" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2588" />
   <link rel="stylesheet" href="/css/features/security/keeprising-customer-settings-v1.css?v=2597" />
@@ -72,6 +72,55 @@
   <section class="sf-setting-summary" id="sf-setting-summary" hidden>
     <p class="sf-setting-summary-kicker">現在の設定サマリー</p>
     <p class="sf-setting-summary-text" id="sf-setting-summary-text"></p>
+  </section>
+
+  <section class="sf-card sf-ota-host" id="sf-ota-host" aria-label="TiSLY OTAファームウェア一元管理">
+    <details class="sf-pro-details" open id="sf-pro-ota-panel">
+      <summary>🚀 TiSLY OTAファームウェア一元管理</summary>
+      <p class="sf-pro-hint">
+        USB不要。次回ハートビート時に現場RP2350が自律更新します。
+        ドロップダウンの選択中物件だけを表示します。
+        顧客画面（/customer）には表示されません。
+      </p>
+      <p class="sf-pro-hint" id="sf-ota-site">対象: —</p>
+      <div class="sf-ota-grid">
+        <div class="sf-ota-cell">
+          <span class="sf-ota-key">実機バージョン</span>
+          <span class="sf-ota-val" id="sf-ota-running">未受信</span>
+        </div>
+        <div class="sf-ota-cell">
+          <span class="sf-ota-key">クラウド側設定バージョン</span>
+          <span class="sf-ota-val" id="sf-ota-server">未受信</span>
+        </div>
+        <div class="sf-ota-cell sf-ota-cell-wide">
+          <span class="sf-ota-key">最終ハートビート</span>
+          <span class="sf-ota-val" id="sf-ota-heartbeat">未受信</span>
+        </div>
+      </div>
+      <label class="sf-pro-switch-row" for="sf-ota-all-sites">
+        <span>全現場一括配信</span>
+        <span class="sf-pro-switch">
+          <input type="checkbox" id="sf-ota-all-sites" />
+          <span id="sf-ota-all-sites-label">OFF</span>
+        </span>
+      </label>
+      <label class="sf-pro-switch-row" for="sf-ota-staging">
+        <span>ステージング / 本番</span>
+        <span class="sf-pro-switch">
+          <input type="checkbox" id="sf-ota-staging" />
+          <span id="sf-ota-staging-label">本番</span>
+        </span>
+      </label>
+      <p class="sf-pro-hint" id="sf-ota-status">未取得</p>
+      <div class="sf-pro-reboot-row">
+        <button type="button" class="sf-pro-action-btn sf-pro-action-primary" id="sf-ota-deploy">
+          🚀 最新ファームウェアを現場実機へ遠隔配信
+        </button>
+        <button type="button" class="sf-pro-action-btn sf-pro-action-ghost" id="sf-ota-refresh">
+          🔄 バージョン再読込
+        </button>
+      </div>
+    </details>
   </section>
 
   <div class="sf-soc-shell">
@@ -453,47 +502,6 @@
           </div>
         </details>
 
-        <details class="sf-pro-details" open id="sf-pro-ota-panel">
-          <summary>🚀 TiSLY OTAファームウェア一元管理</summary>
-          <p class="sf-pro-hint">
-            USB不要。次回ハートビート時に現場RP2350が自律更新します。
-            顧客画面（/customer）には表示されません。
-          </p>
-          <div class="sf-ota-grid">
-            <div class="sf-ota-cell">
-              <span class="sf-ota-key">実機バージョン</span>
-              <span class="sf-ota-val" id="sf-ota-running">v—</span>
-            </div>
-            <div class="sf-ota-cell">
-              <span class="sf-ota-key">クラウド側設定バージョン</span>
-              <span class="sf-ota-val" id="sf-ota-server">v—</span>
-            </div>
-          </div>
-          <label class="sf-pro-switch-row" for="sf-ota-all-sites">
-            <span>全現場一括配信</span>
-            <span class="sf-pro-switch">
-              <input type="checkbox" id="sf-ota-all-sites" />
-              <span id="sf-ota-all-sites-label">OFF</span>
-            </span>
-          </label>
-          <label class="sf-pro-switch-row" for="sf-ota-staging">
-            <span>ステージング / 本番</span>
-            <span class="sf-pro-switch">
-              <input type="checkbox" id="sf-ota-staging" />
-              <span id="sf-ota-staging-label">本番</span>
-            </span>
-          </label>
-          <p class="sf-pro-hint" id="sf-ota-status">配信予約なし</p>
-          <div class="sf-pro-reboot-row">
-            <button type="button" class="sf-pro-action-btn" id="sf-ota-deploy">
-              🚀 最新ファームウェアを現場実機へ遠隔配信
-            </button>
-            <button type="button" class="sf-pro-action-btn sf-pro-action-ghost" id="sf-ota-refresh">
-              🔄 バージョン再読込
-            </button>
-          </div>
-        </details>
-
         <details class="sf-pro-details" open id="sf-pro-kitting-panel">
           <summary>🟢 出荷前キッティング・ステータス連携</summary>
           <p class="sf-pro-hint">
@@ -701,12 +709,12 @@
   <script src="/js/features/security/security-time-range-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2564"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2589"></script>
-  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2559"></script>
+  <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2598"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2598"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
-  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2569"></script>
-  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2592"></script>
+  <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2598"></script>
+  <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2598"></script>
   <script type="module" src="/js/features/security/staff-notify-focus-v1.js?v=2577"></script>
 </body>
 </html>

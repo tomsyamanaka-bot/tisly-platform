@@ -2772,6 +2772,32 @@
   margin: 12px 0;
 }
 
+.sf-ota-cell-wide {
+  grid-column: 1 / -1;
+}
+
+.sf-ota-host {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 8px 14px 0;
+}
+
+.sf-body.is-toyoshima #sf-ota-host {
+  display: block;
+}
+
+body.sf-customer #sf-ota-host,
+body.sf-customer #sf-pro-ota-panel {
+  display: none !important;
+}
+
+.sf-pro-action-btn.sf-pro-action-primary {
+  min-height: 56px;
+  background: #1e3a8a;
+  color: #ffffff;
+  border-radius: 14px;
+}
+
 .sf-ota-cell {
   display: grid;
   gap: 4px;

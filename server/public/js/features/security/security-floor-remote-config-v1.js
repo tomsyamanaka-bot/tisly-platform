@@ -138,25 +138,10 @@ export function resolveHomeSiteId(securitySiteId) {
 }
 
 /**
- * OTA API 用スラッグ（toyoshima / itabashi / ryugasaki）
- * ヘッダー選択 ID を動的に解決する
+ * OTA API 用スラッグ。
+ * 未知の現場は板橋へ落とさない。
  */
-export function resolveOtaSiteSlugV1(rawId) {
-  const id = String(rawId || "").trim();
-  const upper = id.toUpperCase();
-  if (upper.includes("RYUGASAKI") || upper.includes("WASHMATE")) {
-    return "ryugasaki";
-  }
-  if (upper.includes("KEEPRISING")) {
-    return "keeprising";
-  }
-  const home = resolveHomeSiteId(id);
-  const hay = `${id} ${home}`.toUpperCase();
-  if (hay.includes("TOYOSHIMA") || hay.includes("TOSHIMA")) {
-    return "toyoshima";
-  }
-  return "itabashi";
-}
+export { resolveOtaSiteSlugV1 } from "./ota-site-card-v1.js";
 
 function readSegValue(groupId) {
   const group = $(groupId);

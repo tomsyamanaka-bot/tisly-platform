@@ -31,6 +31,7 @@ import {
   resolveOperatorSiteIdV1,
 } from "./security-floor-fallback-v1.js";
 import { refreshSecurityRemoteConfigV1 } from "./security-floor-remote-config-v1.js";
+import { refreshSecurityProToolsSiteV1 } from "./security-floor-pro-tools-v1.js";
 import {
   hideToyoshimaDashboard,
   isToyoshimaSecuritySite,
@@ -351,6 +352,7 @@ function applySiteLayout(force = false) {
     stopItabashiCommPolling();
     hideToyoshimaDashboard();
   }
+  refreshSecurityProToolsSiteV1(state.siteId);
 }
 
 function openAlarms(soc) {

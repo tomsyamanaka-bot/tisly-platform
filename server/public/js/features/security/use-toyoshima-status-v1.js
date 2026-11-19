@@ -105,13 +105,12 @@ function paintFirmwareEls(status) {
   if (badge) badge.hidden = true;
   const cvBadge = document.getElementById("cv-firmware-badge");
   if (cvBadge) cvBadge.hidden = true;
-  /* /app OTA カードも同じ実機版を描く */
+  /* 社内OTAカードの実機版は
+   * 配信APIの表示を上書きしない */
   if (run) {
     const painted = formatFirmwareCustomerLabel(run);
     const op = document.getElementById("ts-ota-running");
     if (op) op.textContent = painted;
-    const sf = document.getElementById("sf-ota-running");
-    if (sf) sf.textContent = painted;
   }
 }
 

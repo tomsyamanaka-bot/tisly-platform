@@ -16,6 +16,7 @@ import {
 import { bindGuardViewerLaunchersV1 } from "./open-guard-viewer-v1.js";
 import { showViewportToast } from "./toast-viewport-v1.js";
 import { tislyCustomerUpdateStatusLabel } from "../../tisly-release-version-v1.js";
+import { buildOtaDeployRequestV1 } from "./ota-site-card-v1.js";
 import {
   bindSecurityHistoryModalV1,
   openSecurityHistoryModalV1,
@@ -2717,7 +2718,6 @@ export function renderToyoshimaDashboard(dash, opts = {}) {
           📡 主装置・子機へ設定を反映
         </button>
         <div id="ts-health-root">${renderHealthGrid(dash)}</div>
-        <div id="ts-ota-root">${renderOtaCard(dash)}</div>
         <div id="ts-di-root">${renderDiMaintenanceCard(dash)}</div>
         <div id="ts-do-root">${renderDoForceTestCard()}</div>
         <div id="ts-kitting-root">${renderKittingCard(dash)}</div>
@@ -3163,14 +3163,19 @@ function bindToyoshimaControls() {
       if (action === "ota_deploy") {
         actionBtn.disabled = true;
         try {
-          const res = await fetch("/api/firmware/toyoshima/deploy", {
+          const plan = buildOtaDeployRequestV1({
+            siteId: TOYOSHIMA_SEC_ID,
+            channel: "production",
+            allSites: false,
+          });
+          if (!plan.ok || plan.slug !== "toyoshima") {
+            showToast("豊島邸への配信先を解決できません");
+            return;
+          }
+          const res = await fetch(plan.url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              channel: "production",
-              siteId: TOYOSHIMA_HOME_ID,
-              force: true,
-            }),
+            body: JSON.stringify(plan.body),
           });
           const data = await res.json().catch(() => ({}));
           showToast(

@@ -5,9 +5,16 @@
 
 import {
   resolveHomeSiteId,
-  resolveOtaSiteSlugV1,
   showSecurityRemoteToastV1,
 } from "./security-floor-remote-config-v1.js";
+import {
+  buildOtaDeployRequestV1,
+  buildOtaVersionRequestV1,
+  formatFirmwareVersionLabel,
+  formatOtaHeartbeatLabel,
+  otaCardStatusText,
+  resolveOtaSiteSlugV1,
+} from "./ota-site-card-v1.js";
 import {
   getSelectedSiteId,
   onPropertyScopeChange,
@@ -16,6 +23,7 @@ import {
 const HOME_API = "/api/home/v1";
 
 let currentHomeSiteId = "HOME-JP-ITABASHI-LIVE";
+let currentSecuritySiteId = "";
 let diPollTimer = null;
 
 function $(id) {
@@ -36,15 +44,21 @@ function toast(msg) {
   }
 }
 
+function showStaffOtaCard() {
+  if (document.body.classList.contains("sf-customer")) return;
+  const host = $("sf-ota-host");
+  if (host) host.hidden = false;
+  const panel = $("sf-pro-ota-panel");
+  if (panel) panel.hidden = false;
+}
+
 function setHomeSite(securitySiteId, opts = {}) {
+  currentSecuritySiteId = String(securitySiteId || "").trim();
   currentHomeSiteId = resolveHomeSiteId(securitySiteId);
+  showStaffOtaCard();
   const label = $("sf-pro-site-label");
   if (label) {
-    const names = {
-      "HOME-JP-ITABASHI-LIVE": "板橋自宅",
-      "HOME-JP-TOYOSHIMA": "豊島邸",
-    };
-    label.textContent = names[currentHomeSiteId] || "選択中の物件";
+    label.textContent = selectedSiteLabel(currentSecuritySiteId);
   }
   applyToyoshimaOptionalModuleVisibility();
   if (opts.silent) return;
@@ -230,7 +244,7 @@ async function refreshProToolsPanels() {
     loadDiStatus(),
     hideShelly ? Promise.resolve() : loadShellyFailsafe().catch(() => {}),
     loadHeartbeatWatch().catch(() => {}),
-    loadOtaPanel().catch(() => {}),
+    loadOtaPanel(currentSecuritySiteId).catch(() => {}),
     loadKittingPanel().catch(() => {}),
   ]);
   startDiPolling();
@@ -244,8 +258,24 @@ function readCurrentSiteId() {
   const globalId =
     window.__TISLY_SELECTED_SITE_ID || window.__TISLY_SF_SITE_ID || "";
   return String(
-    selectId || scopeId || globalId || currentHomeSiteId || ""
+    selectId || scopeId || globalId || currentSecuritySiteId || ""
   ).trim();
+}
+
+function selectedSiteLabel(siteId) {
+  const sel = $("sf-site-select");
+  if (!sel) return "選択中の物件";
+  const options = Array.from(sel.options || []);
+  const hit = options.find((opt) => opt.value === siteId);
+  const text = hit?.textContent || sel.selectedOptions?.[0]?.textContent || "";
+  return String(text || "選択中の物件").trim();
+}
+
+function paintOtaMiss(message) {
+  if ($("sf-ota-running")) $("sf-ota-running").textContent = "未受信";
+  if ($("sf-ota-server")) $("sf-ota-server").textContent = "未受信";
+  if ($("sf-ota-heartbeat")) $("sf-ota-heartbeat").textContent = "未受信";
+  if ($("sf-ota-status")) $("sf-ota-status").textContent = message;
 }
 
 function otaSiteSlug(rawId) {
@@ -256,37 +286,50 @@ function otaChannel() {
   return $("sf-ota-staging")?.checked ? "staging" : "production";
 }
 
-async function loadOtaPanel() {
-  const liveId = readCurrentSiteId();
+async function loadOtaPanel(siteId) {
+  showStaffOtaCard();
+  const liveId = String(siteId || readCurrentSiteId()).trim();
   if (liveId) setHomeSite(liveId, { silent: true });
+  const siteLabel = $("sf-ota-site");
+  if (siteLabel) siteLabel.textContent = `対象: ${selectedSiteLabel(liveId)}`;
   const slug = otaSiteSlug(liveId);
+  const host = $("sf-ota-host");
+  if (host) {
+    host.dataset.otaSlug = slug;
+    host.dataset.otaSiteId = liveId;
+  }
+  const deployBtn = $("sf-ota-deploy");
+  if (!slug) {
+    paintOtaMiss("この物件の配信先は未登録です");
+    if (deployBtn) deployBtn.disabled = true;
+    return;
+  }
+  if (deployBtn && !$("sf-ota-all-sites")?.checked) {
+    deployBtn.disabled = false;
+  }
   const channel = otaChannel();
-  const res = await fetch(
-    `/api/firmware/${encodeURIComponent(slug)}/version?channel=${encodeURIComponent(
-      channel
-    )}`,
-    { cache: "no-store" }
-  );
-  const data = await res.json();
-  const run = data.runningVersion || "1.0.0";
-  const srv = data.version || "1.0.0";
+  const req = buildOtaVersionRequestV1(slug, channel, Date.now());
+  const res = await fetch(req.url, req.init);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    paintOtaMiss("バージョンを取得できません");
+    return;
+  }
   if ($("sf-ota-running")) {
-    $("sf-ota-running").textContent = `v${run}`;
+    $("sf-ota-running").textContent = formatFirmwareVersionLabel(
+      data.runningVersion
+    );
   }
   if ($("sf-ota-server")) {
-    $("sf-ota-server").textContent = `v${srv}`;
+    $("sf-ota-server").textContent = formatFirmwareVersionLabel(data.version);
+  }
+  if ($("sf-ota-heartbeat")) {
+    $("sf-ota-heartbeat").textContent = formatOtaHeartbeatLabel(
+      data.kitting?.reportedAt
+    );
   }
   const status = $("sf-ota-status");
-  if (status) {
-    if (data.has_ota_update || data.pending) {
-      status.textContent =
-        "次回ハートビート時に実機が自動更新されます";
-    } else if (run === srv) {
-      status.textContent = "現場は最新バージョンで稼働中";
-    } else {
-      status.textContent = "配信予約なし";
-    }
-  }
+  if (status) status.textContent = otaCardStatusText(data);
   renderKittingFromPayload(data);
 }
 
@@ -339,10 +382,9 @@ function renderKittingFromPayload(data) {
 
 async function loadKittingPanel() {
   const slug = otaSiteSlug(readCurrentSiteId());
-  const res = await fetch(
-    `/api/firmware/${encodeURIComponent(slug)}/version`,
-    { cache: "no-store" }
-  );
+  if (!slug) return;
+  const req = buildOtaVersionRequestV1(slug, otaChannel(), Date.now());
+  const res = await fetch(req.url, req.init);
   const data = await res.json();
   renderKittingFromPayload(data);
 }
@@ -351,19 +393,29 @@ async function deployOtaFirmware() {
   const allSites = !!$("sf-ota-all-sites")?.checked;
   const liveId = readCurrentSiteId();
   if (liveId) setHomeSite(liveId, { silent: true });
-  // 単独配信は選択中現場だけ予約し
-  // 板橋など固定現場へ飛ばさない
-  const slug = allSites ? "all" : otaSiteSlug(liveId);
-  const channel = otaChannel();
-  const data = await fetchJson(`/api/firmware/${encodeURIComponent(slug)}/deploy`, {
+  const plan = buildOtaDeployRequestV1({
+    siteId: liveId,
+    channel: otaChannel(),
+    allSites,
+  });
+  if (!plan.ok || !plan.body.currentSiteId) {
+    toast("選択中の物件へは配信できません");
+    return;
+  }
+  if (
+    !allSites &&
+    plan.slug === "itabashi" &&
+    !String(liveId).toUpperCase().includes("ITABASHI") &&
+    !String(liveId).toUpperCase().includes("TOMS001") &&
+    liveId !== "HOME001"
+  ) {
+    toast("板橋以外の選択を板橋へは送りません");
+    return;
+  }
+  const data = await fetchJson(plan.url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      channel,
-      allSites,
-      siteId: allSites ? "all" : liveId,
-      currentSiteId: liveId,
-    }),
+    body: JSON.stringify(plan.body),
   });
   toast(
     data.message ||
