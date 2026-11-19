@@ -22,8 +22,37 @@ import time
 # 1.6 系のまま。製品全体の 1.2 系には合わせない。
 FIRMWARE_LOGIC_VERSION = "1.6.10"
 
-# NTP の time.time() は UTC。VPS 時刻が無いときだけ窓判定の前に足す。
-JST_OFFSET_SEC = 9 * 3600
+# ntptime.settime() は RTC を UTC のままにする。
+# 昼夜判定は毎回 time.time() + 32400 を JST とする。
+# 32400 は基板の時計へ書き戻さない。
+# 書き戻すと次の判定でさらに 9 時間進む。
+JST_OFFSET_SEC = 32400
+
+
+def jst_hms(utc_sec):
+    """UTC 秒を日本時間の時・分・秒にする。
+
+    足すのは 32400 秒だけ。
+    gmtime はタイムゾーンを重ねない。
+    localtime は PC 上でさらに 9 時間進む。
+    足した秒は RTC へ書き戻さない。
+    """
+    try:
+        sec = int(utc_sec)
+    except Exception:
+        sec = 0
+    if sec < 0:
+        sec = 0
+    shifted = sec + JST_OFFSET_SEC
+    gm = getattr(time, "gmtime", None)
+    if gm is not None:
+        try:
+            wall = gm(shifted)
+            return int(wall[3]), int(wall[4]), int(wall[5])
+        except Exception:
+            pass
+    minute_of_day = (shifted // 60) % (24 * 60)
+    return minute_of_day // 60, minute_of_day % 60, shifted % 60
 
 try:
     import uasyncio as asyncio
@@ -184,12 +213,8 @@ def utc_epoch_to_jst_minutes(utc_sec):
     UTC の時分を返す。それをそのまま 17:00〜06:00 と比べると
     夜間なのにライトが消える。localtime は使わず +9 時間する。
     """
-    try:
-        sec = int(utc_sec)
-    except Exception:
-        sec = 0
-    jst_sec = sec + JST_OFFSET_SEC
-    return (jst_sec // 60) % (24 * 60)
+    hour, minute, _sec = jst_hms(utc_sec)
+    return (hour * 60 + minute) % (24 * 60)
 
 
 class SecurityLightController:
@@ -213,6 +238,8 @@ class SecurityLightController:
         self._vps_jst_minutes = 0
         self._vps_jst_ticks = 0
         self._vps_jst_valid = False
+        # NTP 成功後だけ RTC を UTC として +9 する
+        self._ntp_utc_ready = False
         self._vps_light_active = True
         self._vps_light_active_set = False
         # 未受信のあいだは日中のセンサー点灯を出さない
@@ -463,6 +490,35 @@ class SecurityLightController:
     def log(self, msg):
         print("[tisly security]", msg)
 
+    def sync_ntp_clock(self):
+        """NTP で RTC を UTC にする。失敗しても点灯は止めない。
+
+        settime() の直後に time.time() + 32400 を読み、
+        日本時間として確定する。
+        9 時間は RTC へ足さない。
+        心拍のたびに settime しても UTC のまま。
+        """
+        try:
+            import ntptime
+        except Exception:
+            return False
+        try:
+            try:
+                ntptime.timeout = 2
+            except Exception:
+                pass
+            ntptime.settime()
+            utc_sec = int(time.time())
+        except Exception:
+            return False
+        hour, minute, _sec = jst_hms(utc_sec)
+        self._ntp_utc_ready = True
+        try:
+            self.log("NTP後JST {:02d}:{:02d}".format(hour, minute))
+        except Exception:
+            pass
+        return True
+
     def _set_ch(self, channel, on):
         """防犯ライトは DO2/DO3 のみ。CH1 電気錠は駆動しない。"""
         try:
@@ -477,10 +533,16 @@ class SecurityLightController:
     def _jst_minutes(self):
         """点灯窓判定用の JST 分（0-1439）。
 
-        VPS の jstMinutes を正とする。盤の time.time() が
-        すでに JST だと +9 で昼が夜に見える。
-        VPS 時刻が無いときだけ NTP の UTC に +9 時間する。
+        NTP 成功後は毎回 time.time() + 32400 を JST にする。
+        32400 は RTC へ書き戻さない。
+        NTP 前だけ、サーバーが渡した日本時間を使う。
         """
+        if self._ntp_utc_ready:
+            try:
+                hour, minute, _sec = jst_hms(int(time.time()))
+                return (hour * 60 + minute) % (24 * 60)
+            except Exception:
+                pass
         if self._vps_jst_valid:
             extra = 0
             try:

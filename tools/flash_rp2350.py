@@ -329,13 +329,15 @@ def _swap_in(board, remote: str) -> None:
     )
 
 
-def _confirm_version(board, version: str) -> str:
+def _confirm_version(
+    board, version: str, script: str = "toyoshima_security.py"
+) -> str:
     """import せず版の行だけ読む。コンパイルで WDT を踏まない。"""
     if not version:
         return ""
     _device_exec(
         board,
-        "f=open('toyoshima_security.py')\n"
+        "f=open(" + repr(script) + ")\n"
         "found=''\n"
         "while True:\n"
         " s=f.readline()\n"
@@ -353,7 +355,12 @@ def _confirm_version(board, version: str) -> str:
     return version
 
 
-def _raw_upload(port: str, uploads: list[tuple[Path, str]]) -> str:
+def _raw_upload(
+    port: str,
+    uploads: list[tuple[Path, str]],
+    version: str = "",
+    version_script: str = "toyoshima_security.py",
+) -> str:
     """mpremote の cp は print 遮断で失敗する。
 
     同じ生 REPL でも、OK が戻ったときだけ次へ進む。
@@ -393,8 +400,8 @@ def _raw_upload(port: str, uploads: list[tuple[Path, str]]) -> str:
         for remote in staged:
             _swap_in(board, remote)
             print("反映 {}".format(remote), flush=True)
-        version = _logic_version()
-        report = _confirm_version(board, version)
+        version = version or _logic_version()
+        report = _confirm_version(board, version, version_script)
         try:
             board.exec_raw("import machine\nmachine.reset()\n", timeout=2)
         except Exception:
@@ -543,6 +550,184 @@ def flash(
     return 0
 
 
+ITABASHI_FILES = (
+    "main.py",
+    "security_light.py",
+    "boot.py",
+    "matrix_lidar.py",
+    "tisly_self_test.py",
+    "lib/tisly_ota.py",
+    "lib/tisly_rgb.py",
+    "lib/tisly_wdt.py",
+    "lib/tisly_usb_safe.py",
+    "lib/ethernet_init.py",
+    "lib/w5500_pins.py",
+)
+
+
+def _list_pico_ports() -> list[str]:
+    """VID 2E8A の COM を全部返す。最初の1つに決め打ちしない。"""
+    if sys.platform != "win32":
+        return []
+    try:
+        import serial.tools.list_ports  # type: ignore
+    except ImportError:
+        return []
+    found: list[str] = []
+    for p in serial.tools.list_ports.comports():
+        hwid = ((p.hwid or "") + " " + (p.description or "")).upper()
+        if "2E8A" in hwid or re.search(r"PICO|RP2350|WAVESHARE", hwid):
+            if p.device not in found:
+                found.append(p.device)
+    return found
+
+
+def _probe_identity(port: str) -> str:
+    """実機 config の物件名だけ読む。config.py は書き換えない。"""
+    from mpremote.transport import TransportError
+    from mpremote.transport_serial import SerialTransport
+
+    board = SerialTransport(port, baudrate=115200, timeout=3)
+    try:
+        board.serial.write(b"\x03\x03\x03")
+        time.sleep(0.15)
+        try:
+            board.enter_raw_repl(soft_reset=False, timeout_overall=4)
+        except TransportError:
+            time.sleep(0.4)
+            board.serial.write(b"\x03\x03")
+            board.enter_raw_repl(soft_reset=True, timeout_overall=8)
+        out, err = board.exec_raw(
+            "import config\n"
+            "print(getattr(config,'SITE_ID',''))\n"
+            "print(getattr(config,'DEVICE_ID',''))\n"
+            "print(getattr(config,'OTA_SITE',''))\n",
+            timeout=6,
+        )
+        text = b""
+        if isinstance(out, (bytes, bytearray)):
+            text += bytes(out)
+        if isinstance(err, (bytes, bytearray)):
+            text += bytes(err)
+        return text.decode("utf-8", "replace")
+    finally:
+        try:
+            board.close()
+        except Exception:
+            pass
+
+
+def _itabashi_logic_version() -> str:
+    text = (FW_DIR / "security_light.py").read_text(encoding="utf-8")
+    found = re.search(r'FIRMWARE_LOGIC_VERSION = "([^"]+)"', text)
+    return found.group(1) if found else ""
+
+
+def _select_itabashi_port(preferred: str | None) -> str | None:
+    """板橋自宅以外の基板へは書き込まない。"""
+    ports = [preferred] if preferred else _list_pico_ports()
+    if not ports:
+        detected = _detect_com_port()
+        ports = [detected] if detected else []
+    for port in ports:
+        if not port:
+            continue
+        try:
+            ident = _probe_identity(port)
+        except Exception as exc:
+            print("識別失敗 {}: {}".format(port, exc), flush=True)
+            continue
+        upper = ident.upper()
+        print("識別 {} => {}".format(port, ident.strip()), flush=True)
+        foreign = (
+            "TOYOSHIMA" in upper
+            or "RYUGASAKI" in upper
+            or "WASHMATE" in upper
+            or "KEEPRISING" in upper
+            or "KEEP-RISING" in upper
+            or "KEEP_RISING" in upper
+        )
+        if foreign and "ITABASHI" not in upper:
+            print("板橋以外なので書き込みません: {}".format(port), flush=True)
+            continue
+        if "ITABASHI" in upper or "TOMS001" in upper:
+            return port
+    return None
+
+
+def flash_itabashi(port: str | None, dry_run: bool) -> int:
+    """板橋自宅の 1.6 系だけを USB で入れる。config.py は送らない。"""
+    print("=== 板橋自宅 RP2350 書き込み: 1.6 系 ===", flush=True)
+    version = _itabashi_logic_version()
+    uploads: list[tuple[Path, str]] = []
+    for name in ITABASHI_FILES:
+        src = FW_DIR / name
+        if not src.exists():
+            print("無いのでスキップ {}".format(name), flush=True)
+            continue
+        uploads.append((src, ":{}".format(name)))
+    print("config.py は実機の端子と回線を守るため転送しない", flush=True)
+    if dry_run:
+        for src, dest in uploads:
+            print("[dry-run] {} -> {}".format(src, dest))
+        print("logic {}".format(version))
+        return 0
+    port = _select_itabashi_port(port)
+    if not port:
+        print("板橋自宅の COM が見つかりません", file=sys.stderr)
+        return 1
+    print("板橋自宅 COM: {}".format(port), flush=True)
+    mp = _ensure_mpremote()
+    last_exc: Exception | None = None
+    for attempt in (1, 2):
+        try:
+            _raw_upload(
+                port,
+                uploads,
+                version=version,
+                version_script="security_light.py",
+            )
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            print(
+                "生REPL転送失敗 ({}回目): {}".format(attempt, exc),
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(1.5)
+    if last_exc is not None:
+        print("板橋自宅の書き込みに失敗しました", file=sys.stderr)
+        return 1
+    time.sleep(2)
+    try:
+        _run_timeout(
+            mp + ["connect", port, "reset"],
+            timeout_sec=15,
+            check=False,
+        )
+    except Exception:
+        pass
+    boot_log = _read_serial(port, 18)
+    out_dir = ROOT / "build_output"
+    try:
+        out_dir.mkdir(exist_ok=True)
+        (out_dir / "itabashi-boot.txt").write_text(
+            boot_log or "", encoding="utf-8"
+        )
+    except Exception:
+        pass
+    print("--- serial ---")
+    print(boot_log or "(ログなし)")
+    print("--- /serial ---")
+    if _boot_log_failed(boot_log):
+        print("起動ログに例外があります", file=sys.stderr)
+        return 1
+    print("書き込み完了 - 板橋自宅 logic {}".format(version))
+    return 0
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(line_buffering=True)
@@ -573,7 +758,15 @@ def main() -> int:
         action="store_true",
         help="実機の config.py は転送しない",
     )
+    parser.add_argument(
+        "--site",
+        choices=("toyoshima", "itabashi"),
+        default="toyoshima",
+        help="書き込み先。板橋は config.py を送らない",
+    )
     args = parser.parse_args()
+    if args.site == "itabashi":
+        return flash_itabashi(args.port, args.dry_run)
     return flash(args.building, args.port, args.dry_run, args.keep_config)
 
 

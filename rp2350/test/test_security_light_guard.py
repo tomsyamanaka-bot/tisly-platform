@@ -282,6 +282,28 @@ def test_manual_on_bypasses_daytime_schedule():
     assert (3, True) in lights
 
 
+def test_ntp_ready_uses_offset_not_vps_minutes():
+    """NTP 後は RTC の UTC に 32400 を足す。VPS 分では上書きしない。"""
+    import security_light as sl
+
+    assert sl.JST_OFFSET_SEC == 32400
+    # UTC 12:00 は JST 21:00。localtime の二重加算は使わない。
+    hour, minute, _sec = sl.jst_hms(12 * 3600)
+    assert (hour, minute) == (21, 0)
+    with patch("security_light.time.time", return_value=12 * 3600):
+        ctrl = _ctrl(
+            {
+                "version": 32,
+                "guardMode": "always",
+                "jstMinutes": 12 * 60,
+                "lightScheduleActive": False,
+            }
+        )
+        ctrl._ntp_utc_ready = True
+        assert ctrl._jst_minutes() == 21 * 60
+        assert ctrl._is_in_light_schedule() is True
+
+
 def test_vps_jst_minutes_overrides_local_rtc():
     """VPS JST 分を正とし RTC ズレを無視する。"""
     utc_day = 3 * 3600
@@ -637,6 +659,7 @@ if __name__ == "__main__":
     test_apply_rules_accepts_50ms_confirm()
     test_apply_rules_rejects_too_short_confirm()
     test_manual_on_bypasses_daytime_schedule()
+    test_ntp_ready_uses_offset_not_vps_minutes()
     test_vps_jst_minutes_overrides_local_rtc()
     test_itabashi_light_gpio_map()
     test_parse_vps_sensor_pulse_66s()

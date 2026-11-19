@@ -18,6 +18,23 @@ def test_itabashi_main_heartbeat_includes_board_temp():
     assert "read_board_temperature_c" in src
 
 
+def test_itabashi_heartbeat_sends_stream_ota():
+    src = MAIN_PY.read_text(encoding="utf-8")
+    assert '"ota_engine": "stream"' in src
+    assert '"firmware": _itabashi_logic_version()' in src
+    assert "reported_version=_itabashi_logic_version()" in src
+    assert "def _run_stream_ota" in src
+    assert "def _sync_itabashi_clock" in src
+    assert "timeout=4" in src
+    light = (ROOT / "firmware" / "security_light.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'FIRMWARE_LOGIC_VERSION = "1.6.10"' in light
+    assert "JST_OFFSET_SEC = 32400" in light
+    assert "ntptime.settime()" in light
+    assert "gmtime" in light
+
+
 def test_itabashi_main_falls_back_when_toyoshima_import_fails():
     src = MAIN_PY.read_text(encoding="utf-8")
     assert "except Exception:" in src
@@ -27,5 +44,6 @@ def test_itabashi_main_falls_back_when_toyoshima_import_fails():
 
 if __name__ == "__main__":
     test_itabashi_main_heartbeat_includes_board_temp()
+    test_itabashi_heartbeat_sends_stream_ota()
     test_itabashi_main_falls_back_when_toyoshima_import_fails()
     print("ok")

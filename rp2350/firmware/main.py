@@ -445,42 +445,41 @@ def _http_headers(content_type=None):
 
 
 def http_get(path):
+    """命令と予備の取得。待ちは 4 秒で必ず戻る。
 
+    urequests が timeout を受け取れない版でも、
+    例外は捕まえて次のループでやり直す。
+    WDT の 8 秒より短いので、詰まりでは落ちない。
+    """
     if urequests is None:
-
         log_error("urequests 未インストール — Thonny ツール → パッケージ → urequests")
-
         return None, 0
-
-
-
+    _kick_wdt()
+    arm_socket_timeout(4)
     url = config.API_BASE.rstrip("/") + path
-
-    arm_socket_timeout(1)
-
+    res = None
     try:
-
-        res = urequests.get(url, headers=_http_headers())
-
+        headers = _http_headers()
+        try:
+            res = urequests.get(url, headers=headers, timeout=4)
+        except TypeError:
+            res = urequests.get(url, headers=headers)
         status = res.status_code
-
         body = res.text
-
-        res.close()
-
         return body, status
-
     except OSError as e:
-
         log_error("HTTP: {}".format(e))
-
         return None, 0
-
     except Exception as e:
-
         log_error("HTTP: {}".format(e))
-
         return None, 0
+    finally:
+        if res:
+            try:
+                res.close()
+            except Exception:
+                pass
+        _kick_wdt()
 
 
 
@@ -498,19 +497,25 @@ def http_post(path, payload):
 
     url = config.API_BASE.rstrip("/") + path
 
-    arm_socket_timeout(1)
+    _kick_wdt()
+    arm_socket_timeout(4)
+    res = None
 
     try:
 
         body = json.dumps(payload)
 
-        res = urequests.post(url, headers=_http_headers("application/json"), data=body)
+        headers = _http_headers("application/json")
+        try:
+            res = urequests.post(
+                url, headers=headers, data=body, timeout=4
+            )
+        except TypeError:
+            res = urequests.post(url, headers=headers, data=body)
 
         status = res.status_code
 
         text = res.text
-
-        res.close()
 
         return text, status
 
@@ -525,6 +530,14 @@ def http_post(path, payload):
         log_error("HTTP POST: {}".format(e))
 
         return None, 0
+
+    finally:
+        if res:
+            try:
+                res.close()
+            except Exception:
+                pass
+        _kick_wdt()
 
 
 
@@ -695,10 +708,75 @@ def _read_board_temp_local():
         return None
 
 
+def _itabashi_logic_version():
+    """動いている 1.6 系の版。config.py の古い版は使わない。"""
+    try:
+        import security_light
+        ver = str(
+            getattr(security_light, "FIRMWARE_LOGIC_VERSION", "") or ""
+        ).strip()
+        if ver:
+            return ver
+    except Exception:
+        pass
+    if ota_local_version:
+        try:
+            saved = str(ota_local_version(config) or "").strip()
+            if saved:
+                return saved
+        except Exception:
+            pass
+    return str(getattr(config, "FIRMWARE_VERSION", "1.6.10") or "")
+
+
+def _sync_itabashi_clock():
+    """NTP で UTC を合わせる。失敗しても通知とリレーは続ける。
+
+    9 時間は時計へ足さない。判定側が毎回 +32400 する。
+    """
+    if _security is None:
+        return False
+    _kick_wdt()
+    try:
+        ok = bool(_security.sync_ntp_clock())
+    except Exception as exc:
+        log_error("NTP: {}".format(exc))
+        ok = False
+    _kick_wdt()
+    return ok
+
+
+def _run_stream_ota(reason):
+    """起動直後と 5 分心拍で stream 更新を確認する。
+
+    受信・書込・構文検査の前後は OTA 側が WDT を給餌する。
+    config.py は置換対象に入らない。
+    """
+    if not ota_maybe_update:
+        return
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+    _kick_wdt()
+    try:
+        log("OTA check ({}) engine=stream".format(reason))
+        ota_maybe_update(
+            http_get,
+            config=config,
+            kick_wdt=_kick_wdt,
+            reported_version=_itabashi_logic_version(),
+        )
+    except Exception as ota_exc:
+        log_error("OTA {}: {}".format(reason, ota_exc))
+    _kick_wdt()
+
+
 def send_heartbeat():
 
     try:
-
+        _sync_itabashi_clock()
         return _send_heartbeat_once()
 
     except Exception as e:
@@ -715,13 +793,11 @@ def _send_heartbeat_once():
 
     payload = {
 
-        "firmware": config.FIRMWARE_VERSION,
+        "firmware": _itabashi_logic_version(),
 
-        "firmware_version": (
-            ota_local_version(config)
-            if ota_local_version
-            else getattr(config, "OTA_VERSION", "1.0.0")
-        ),
+        "firmware_version": _itabashi_logic_version(),
+        "otaVersion": _itabashi_logic_version(),
+        "ota_engine": "stream",
 
         "chStates": dict(ch_states),
 
@@ -789,14 +865,15 @@ def _send_heartbeat_once():
         except Exception:
             pass
 
-    if has_ota_update_from_body and ota_maybe_update:
+    needs_ota = False
+    if has_ota_update_from_body:
         try:
-            if has_ota_update_from_body(body):
-                ota_maybe_update(
-                    http_get, config=config, kick_wdt=_kick_wdt
-                )
-        except Exception as ota_exc:
-            log_error("OTA from HB: {}".format(ota_exc))
+            needs_ota = bool(has_ota_update_from_body(body))
+        except Exception:
+            needs_ota = False
+    if needs_ota:
+        log("OTA update_required — stream")
+    _run_stream_ota("heartbeat")
 
     mapping_device_id = getattr(
 
@@ -1181,7 +1258,13 @@ async def async_main():
     _kick_wdt()
     log("WDT armed {}ms".format(wdt_ms if _wdt is not None else 0))
 
-    log("device: {}  fw: {}".format(config.DEVICE_ID, config.FIRMWARE_VERSION))
+    log(
+        "device: {}  fw: {}  logic: {}".format(
+            config.DEVICE_ID,
+            config.FIRMWARE_VERSION,
+            _itabashi_logic_version(),
+        )
+    )
     global _kit
     if get_kitting_runner:
         try:
@@ -1237,13 +1320,7 @@ async def async_main():
         except Exception as kit_exc:
             log_error("kitting lan: {}".format(kit_exc))
 
-    if ota_maybe_update:
-        try:
-            ota_maybe_update(
-                http_get, config=config, kick_wdt=_kick_wdt
-            )
-        except Exception as ota_exc:
-            log_error("boot OTA: {}".format(ota_exc))
+    _run_stream_ota("boot")
 
     ip = get_ip()
 
@@ -1282,6 +1359,7 @@ async def async_main():
     _security.set_di_reader(_read_di_for_confirm)
 
     log("security light DO2/DO3 enabled (JST UTC+9, DI rising)")
+    _sync_itabashi_clock()
 
     rules_sync_every = int(
         getattr(config, "SECURITY_RULES_SYNC_EVERY", 10)
