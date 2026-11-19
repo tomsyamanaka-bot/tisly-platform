@@ -189,6 +189,10 @@ import {
   ASTRO_RECOVERY_MODULE_SEED_IDS,
   getAstroRecoveryModuleSeedItemsV1,
 } from "./knowledge-astro-recovery-seed-v1.js";
+import {
+  SITE_SIGNAL_MODULE_SEED_IDS,
+  getSiteSignalModuleSeedItemsV1,
+} from "./knowledge-site-signal-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -2328,6 +2332,47 @@ function mergeAstroRecoverySeed(
   return { items: next, changed };
 }
 
+/**
+ * 信号機一覧を末尾へ足す。
+ * 既存の項目は消さない。
+ */
+function mergeSiteSignalSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(SITE_SIGNAL_MODULE_SEED_IDS);
+  const seeds = getSiteSignalModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -2431,7 +2476,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedStaffNotify = mergeStaffNotifySeed(mergedDoGuard.items);
   const mergedBaseline = mergeRp2350BaselineSeed(mergedStaffNotify.items);
   const mergedAstro = mergeAstroRecoverySeed(mergedBaseline.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedAstro.items);
+  const mergedSignal = mergeSiteSignalSeed(mergedAstro.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedSignal.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -2479,6 +2525,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedStaffNotify.changed ||
     mergedBaseline.changed ||
     mergedAstro.changed ||
+    mergedSignal.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

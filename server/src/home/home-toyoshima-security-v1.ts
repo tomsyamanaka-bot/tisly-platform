@@ -2617,6 +2617,23 @@ export function buildToyoshimaStatusSsotV1(
  * Security Floor SOC 向けの豊島邸ハートビート SSOT。
  * remote-test の別系統スナップショットと二重化しない。
  */
+/** 母屋とはなれの最終心拍。状態は書き換えない。 */
+export function listToyoshimaHeartbeatAtsV1(): Array<{
+  at: string | null;
+  tempC: number | null;
+}> {
+  return [
+    {
+      at: runtime.deviceComm.main.lastHeartbeatAt,
+      tempC: runtime.deviceComm.main.boardTempC,
+    },
+    {
+      at: runtime.deviceComm.detached.lastHeartbeatAt,
+      tempC: runtime.deviceComm.detached.boardTempC,
+    },
+  ];
+}
+
 export function getToyoshimaSocHeartbeatSnapshotV1(): {
   lastHeartbeatAt: string | null;
   deviceOnline: boolean;

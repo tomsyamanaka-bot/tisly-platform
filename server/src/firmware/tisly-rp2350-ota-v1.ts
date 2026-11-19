@@ -1163,6 +1163,39 @@ export function listTislyOtaCatalogV1(channel?: TislyOtaChannelV1): {
   };
 }
 
+/**
+ * 実機版と配信版の比較だけ。
+ * 更新予約のフラグは変えない。
+ */
+export function readTislyFirmwareBoardV1(siteKey: TislyOtaSiteKeyV1): {
+  runningVersion: string | null;
+  latestVersion: string | null;
+  versionsMatch: boolean | null;
+} {
+  let running: string | null = null;
+  try {
+    const site = loadStore().sites[siteKey];
+    running = site ? pickRunningVersion(site) : null;
+  } catch {
+    running = null;
+  }
+  const profile = getTislyOtaSiteProfileV1(siteKey);
+  const live = readMappedFiles(profile);
+  const latest = offeredFirmwareVersionV1(
+    siteKey,
+    liveBundleSemverV1(siteKey, live.files)
+  );
+  const versionsMatch =
+    running && latest
+      ? isOfferedFirmwareCurrentV1(siteKey, running)
+      : null;
+  return {
+    runningVersion: running,
+    latestVersion: latest,
+    versionsMatch,
+  };
+}
+
 /** テスト専用。本番の既存行は触らない */
 export function resetTislyOtaStoreForTestV1(): void {
   try {

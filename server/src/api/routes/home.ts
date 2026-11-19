@@ -72,6 +72,7 @@ import {
   VALID_DELAY_MINUTES,
 } from "../../home/home-bath-schedule-v1.js";
 import { recordSystemLogV1 } from "../../home/home-system-log-v1.js";
+import { buildSiteSignalBoardV1 } from "../../home/site-signal-board-v1.js";
 import {
   applyHomeSceneV1,
   listHomeScenesV1,
@@ -208,6 +209,12 @@ const CONTROL_TARGETS_V1: HomeControlTargetV1[] = [
   "security_light",
   "iot",
 ];
+
+/** 社内の信号機一覧。お客様 API とは分ける。 */
+homeRouter.get("/sites/summary", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json(buildSiteSignalBoardV1());
+});
 
 /** 物件一覧（SaaS 契約情報つき） */
 homeRouter.get("/sites", (_req, res) => {

@@ -283,6 +283,18 @@ function buildFirmwareSsotV1(): {
   }
 }
 
+/** 最終心拍と温度だけ。OTA の予約は変えない。 */
+export function readItabashiHeartbeatV1(): {
+  lastHeartbeatAt: string | null;
+  boardTempC: number | null;
+} {
+  const store = loadStore();
+  return {
+    lastHeartbeatAt: store.main.lastHeartbeatAt,
+    boardTempC: store.main.boardTempC,
+  };
+}
+
 /** 板橋自宅の通信ステータス単一ソース */
 export function buildItabashiStatusSsotV1(
   nowMs: number = Date.now()

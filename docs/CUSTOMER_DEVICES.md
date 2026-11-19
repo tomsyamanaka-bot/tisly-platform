@@ -37,6 +37,10 @@
 
 通信が 5 分 30 秒を超えて途絶を通知したあと復帰したら、停止時間付きで社内と施主へ知らせる。点検中と、同じ物件の 15 分以内は Push しない。
 
+### 0.3 社内の信号機一覧（追記）
+
+社内の `/app` に、板橋自宅、豊島邸、龍ヶ崎店、Keep Rising と、グループへ足した新しい現場を並べる。異常、注意、正常の順。行を押すとその現場の詳細へ切り替わる。お客様の `/customer` には出さない。点検中の途絶は注意。65℃以上と再起動の頻発は異常。実機の版は変えない。
+
 参照ソースの正:
 - `server/src/shared/customer/customer-tenant-profile-v1.ts`
 - `server/src/shared/customer/customer-tenant-bindings-v1.ts`

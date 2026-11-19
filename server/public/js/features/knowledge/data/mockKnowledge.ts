@@ -2488,3 +2488,33 @@ export const MOCK_ASTRO_RECOVERY_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const SITE_SIGNAL_KNOWLEDGE_TITLES = [
+  "【保守DX】全物件「信号機」一覧ダッシュボード（/app 異常優先ソート ＆ ワンタップ切替）",
+] as const;
+
+/** 社内の信号機一覧（末尾追記） */
+export const MOCK_SITE_SIGNAL_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-site-signal-001",
+    title: SITE_SIGNAL_KNOWLEDGE_TITLES[0],
+    summary:
+      "複数現場の増加に対応するため、全物件の通信・盤内温度・WDT頻発・OTA差分・点検中状態をサーバー側で3段階（🔴異常・🟡注意・🟢正常）に自動判定し、異常現場を最上部へ自動表示してワンタップで詳細操作へ遷移できる社内監視標準UI。",
+    genre: "IOT関連",
+    tags: [
+      "#信号機一覧",
+      "#一覧ダッシュボード",
+      "#保守DX",
+      "#異常優先ソート",
+      "#全物件標準",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-20T07:40:00.000Z",
+    body: [
+      "社内の /app だけに出す。",
+      "異常を上、正常を下に並べる。",
+      "点検中の途絶は注意にする。",
+    ].join("\n"),
+  },
+];

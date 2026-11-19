@@ -168,6 +168,19 @@ export function canonicalOpsSiteKeyV1(siteId: string): string {
   return raw;
 }
 
+/** 登録済み現場。新しい現場はここに足す。 */
+export function listOpsSiteGroupsV1(): Array<{
+  key: string;
+  name: string;
+  ids: string[];
+}> {
+  return SITE_GROUPS_V1.map((row) => ({
+    key: row.key,
+    name: row.name,
+    ids: [...row.ids],
+  }));
+}
+
 export function opsSiteDisplayNameV1(siteId: string): string {
   const key = canonicalOpsSiteKeyV1(siteId);
   const group = SITE_GROUPS_V1.find((row) => row.key === key);
@@ -193,6 +206,40 @@ export function isMaintenanceActiveV1(
   if (!until) return false;
   const at = Date.parse(until);
   return Number.isFinite(at) && at > nowMs;
+}
+
+/** 点検の残り分。期限切れでも保存は消さない。 */
+export function maintenanceRemainingMinV1(
+  siteId: string,
+  nowMs: number = Date.now()
+): number | null {
+  const state = loadState();
+  const until = state.until[canonicalOpsSiteKeyV1(siteId)];
+  if (!until) return null;
+  const at = Date.parse(until);
+  if (!Number.isFinite(at) || at <= nowMs) return null;
+  return Math.max(1, Math.ceil((at - nowMs) / 60_000));
+}
+
+/** 直近10分で10回以上なら連打中。記録は変えない。 */
+export function sensorFloodActiveV1(
+  siteId: string,
+  nowMs: number = Date.now()
+): boolean {
+  const state = loadState();
+  const prefix = `${canonicalOpsSiteKeyV1(siteId)}:`;
+  for (const [hitKey, times] of Object.entries(state.hits)) {
+    if (!hitKey.startsWith(prefix)) continue;
+    const fresh = (times || []).filter(
+      (at) => nowMs - at < OPS_DI_FLOOD_WINDOW_MS_V1
+    );
+    if (fresh.length >= OPS_DI_FLOOD_COUNT_V1) return true;
+  }
+  for (const [markKey, at] of Object.entries(state.floodMark)) {
+    if (!markKey.startsWith(prefix)) continue;
+    if (nowMs - at < OPS_DI_FLOOD_WINDOW_MS_V1) return true;
+  }
+  return false;
 }
 
 export function maintenanceBlocksAutoRebootV1(

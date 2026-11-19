@@ -1045,6 +1045,9 @@ async function refreshOperatorStatus(btn) {
     } else {
       await loadOperator();
     }
+    if (window.TislySiteSignalBoardV1) {
+      await window.TislySiteSignalBoardV1.reload();
+    }
     flashStatusToast("最新の接続状態を取得しました");
   } catch (err) {
     console.warn("[security-floor] refresh", err);
