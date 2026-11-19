@@ -2858,6 +2858,18 @@ body.sf-customer #sf-staff-notify {
   font-weight: 600;
 }
 
+.sf-staff-notify-sync {
+  width: 100%;
+  margin-top: 12px;
+  min-height: 56px;
+  background: #1e3a8a;
+  color: #ffffff;
+  border: 0;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .sf-body.is-toyoshima #sf-staff-notify {
   display: block;
 }

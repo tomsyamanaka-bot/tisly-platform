@@ -15,6 +15,7 @@ import {
   saveStaffNotifyFocusV1,
   staffFocusAllowsPushV1,
 } from "../src/notification/staff-notify-focus-v1.js";
+import { resetStaffNotifyPolicyForTestV1 } from "../src/notification/staff-notify-policy-v1.js";
 
 describe("staff notify focus", () => {
   it("shows the mute switch only on the internal security screen", () => {
@@ -26,12 +27,12 @@ describe("staff notify focus", () => {
       path.join(process.cwd(), "public/security-customer-v1.html"),
       "utf8"
     );
-    assert.match(staff, /id="sf-notify-focus-toggle"/);
-    assert.match(
-      staff,
-      /🔔 選択中の現場のみ通知を受信（他現場ミュート）/
-    );
+    assert.doesNotMatch(staff, /id="sf-notify-focus-toggle"/);
+    assert.doesNotMatch(staff, /選択中の現場のみ通知を受信/);
+    assert.match(staff, /作業中のみ社内通知を受信/);
+    assert.match(staff, /この端末の通知設定を同期/);
     assert.doesNotMatch(customer, /sf-notify-focus-toggle/);
+    assert.doesNotMatch(customer, /この端末の通知設定を同期/);
     assert.match(
       fs.readFileSync(
         path.join(process.cwd(), "public/service-worker.js"),
@@ -323,6 +324,7 @@ describe("staff notify focus", () => {
   });
 
   it("skips another site's push and still keeps the alert log", async () => {
+    resetStaffNotifyPolicyForTestV1();
     process.env.VAPID_PUBLIC_KEY =
       process.env.VAPID_PUBLIC_KEY || "test-public-key";
     process.env.VAPID_PRIVATE_KEY =
@@ -393,7 +395,7 @@ describe("staff notify focus", () => {
       const direct = await sendWebPush({
         title: "豊島邸テスト",
         body: "別現場",
-        eventType: "staff_focus_mute_probe",
+        eventType: "toyoshima_main_beam_near",
         deviceId: "HOME-JP-TOYOSHIMA",
         data: { siteId: "TOYOSHIMA001", customerCode: "TOYOSHIMA001" },
       });
@@ -436,7 +438,7 @@ describe("staff notify focus", () => {
       await sendWebPush({
         title: "板橋テスト",
         body: "選択中の現場",
-        eventType: "staff_focus_allow_probe",
+        eventType: "home_security_di1_perimeter",
         deviceId: "HOME-JP-ITABASHI-LIVE",
         data: { siteId: "HOME-JP-ITABASHI-LIVE" },
       });

@@ -6,6 +6,7 @@
 let bound = false;
 let currentSiteId = "";
 let notifyItabashi = false;
+let endpointSynced = false;
 
 function text(id, value) {
   const node = document.getElementById(id);
@@ -92,6 +93,7 @@ export async function refreshOpsSafetyCardV1(siteId) {
   const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
   const data = await res.json();
   if (data?.ok) paint(data);
+  void syncStaffEndpointOnce();
 }
 
 async function postMinutes(minutes) {
@@ -106,16 +108,54 @@ async function postMinutes(minutes) {
   if (data?.ok) paint(data);
 }
 
+async function readPushEndpoint() {
+  if (!("serviceWorker" in navigator)) return "";
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      const sub = await reg.pushManager?.getSubscription();
+      if (sub?.endpoint) return sub.endpoint;
+    }
+  } catch {
+    /* 購読を読めない端末は同期しない */
+  }
+  return "";
+}
+
+function paintSyncNote(data) {
+  const note = document.getElementById("sf-staff-notify-sync-note");
+  if (!note) return;
+  const removed = Number(data?.shadowRemoved || 0);
+  note.textContent =
+    removed > 0 ? "この端末の顧客テスト購読を整理しました。" : "";
+}
+
 async function postNotify(body) {
   if (!currentSiteId) return;
+  if (document.body.classList.contains("sf-customer")) return;
+  const endpoint = await readPushEndpoint();
   const res = await fetch("/api/home/v1/staff-notify", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ siteId: currentSiteId, ...body }),
+    body: JSON.stringify({ siteId: currentSiteId, endpoint, ...body }),
   });
   const data = await res.json();
-  if (data?.ok) paint(data);
+  if (data?.ok) {
+    paint(data);
+    paintSyncNote(data);
+  }
+}
+
+async function syncStaffEndpointOnce() {
+  if (endpointSynced) return;
+  if (document.body.classList.contains("sf-customer")) return;
+  if (!document.getElementById("sf-staff-notify")) return;
+  if (!currentSiteId) return;
+  const endpoint = await readPushEndpoint();
+  if (!endpoint) return;
+  endpointSynced = true;
+  await postNotify({ kind: "sync" });
 }
 
 function bindOpsSafetyCardV1() {
@@ -148,6 +188,13 @@ function bindOpsSafetyCardV1() {
           ? true
           : null;
       void postNotify({ kind: "normalAlways", value });
+    }
+  );
+  document.getElementById("sf-staff-notify-sync")?.addEventListener(
+    "click",
+    () => {
+      endpointSynced = true;
+      void postNotify({ kind: "sync" });
     }
   );
   document.getElementById("sf-staff-notify-critical")?.addEventListener(

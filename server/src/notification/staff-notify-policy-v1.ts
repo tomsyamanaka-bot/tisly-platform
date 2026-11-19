@@ -131,6 +131,9 @@ export function classifyStaffEventClassV1(
   if (
     name.includes("home_security_") ||
     name.includes("sensor") ||
+    name.includes("beam_") ||
+    name.includes("toyoshima_main_") ||
+    name.includes("toyoshima_detached_") ||
     name.includes("test_notify") ||
     name.includes("day_test") ||
     name.includes("remote_test") ||

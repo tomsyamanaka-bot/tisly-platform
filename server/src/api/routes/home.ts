@@ -143,6 +143,7 @@ import {
   setStaffTempNotifyV1,
   staffNotifyViewV1,
 } from "../../notification/staff-notify-policy-v1.js";
+import { adoptStaffPushEndpointV1 } from "../../notification/channels/web-push.js";
 import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
@@ -1147,10 +1148,16 @@ homeRouter.post("/staff-notify", (req, res) => {
       const raw = req.body?.value;
       const value = raw === null || raw === "default" ? null : Boolean(raw);
       notify = setStaffNormalAlwaysV1(siteId, value);
+    } else if (kind === "sync") {
+      notify = staffNotifyViewV1(siteId);
     } else {
       res.status(400).json({ ok: false, error: "kind required" });
       return;
     }
+    const endpoint = String(req.body?.endpoint ?? "").trim();
+    const shadow = endpoint
+      ? adoptStaffPushEndpointV1(endpoint)
+      : { removed: 0, adopted: false };
     res.json({
       ok: true,
       siteId,
@@ -1159,6 +1166,7 @@ homeRouter.post("/staff-notify", (req, res) => {
       cabinet: cabinetViewV1(siteId),
       health: deviceHealthViewV1(siteId),
       notify,
+      shadowRemoved: shadow.removed,
     });
   } catch (err) {
     res.status(400).json({

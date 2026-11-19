@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2597-keeprising-day-relay";
+const SW_VERSION = "tisly-pwa-v2602-staff-notify-shadow";
+/* tisly-pwa-v2597-keeprising-day-relay */
 /* tisly-pwa-v2596-keeprising-duration */
 /* tisly-pwa-v2595-keeprising-customer-status */
 /* tisly-pwa-v2594-customer-single-site */
@@ -820,21 +821,15 @@ self.addEventListener("push", (event) => {
   const badge = data.badge || data.icon || `/icons/icon-192.png${ICON_V}`;
   const severity = data.data?.severity || data.severity;
   event.waitUntil(
-    readStaffNotifyFocus().then((focus) => {
-      if (
-        !keepRisingCustomerAlert(data) &&
-        staffFocusBlocksNotification(focus, data)
-      ) {
-        return undefined;
-      }
-      return self.registration.showNotification(data.title, {
+    Promise.resolve().then(() =>
+      self.registration.showNotification(data.title, {
         body: data.body,
         icon,
         badge,
         requireInteraction: severity === "critical",
         data: { url: data.url, severity },
-      });
-    })
+      })
+    )
   );
 });
 

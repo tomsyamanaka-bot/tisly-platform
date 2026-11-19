@@ -21,7 +21,8 @@ import {
 import {
   isStaffNotifyFocusUserV1,
   loadEnabledStaffFocusMapV1,
-  staffFocusAllowsEndpointV1,
+  readStaffNotifyFocusV1,
+  saveStaffNotifyFocusV1,
 } from "../staff-notify-focus-v1.js";
 import { decideStaffNotifyV1 } from "../staff-notify-policy-v1.js";
 
@@ -144,6 +145,31 @@ function pushRowIsStaffV1(
   return isTomsOpsPushUserV1(id) || isStaffNotifyFocusUserV1(id);
 }
 
+function pushUserIsStaffV1(userId: string | undefined): boolean {
+  const id = String(userId || "");
+  if (isCustomerPushUserV1(id)) return false;
+  return isTomsOpsPushUserV1(id) || isStaffNotifyFocusUserV1(id);
+}
+
+type PushTokenRowV1 = {
+  id: string;
+  endpoint: string;
+  keys_json: string;
+  user_id?: string;
+  site_id?: string | null;
+  property_id?: string | null;
+  customer_code?: string | null;
+};
+
+function endpointClaimedByStaffV1(
+  endpoint: string,
+  rows: PushTokenRowV1[],
+  focus: Map<string, unknown>
+): boolean {
+  if (rows.some((row) => pushUserIsStaffV1(row.user_id))) return true;
+  return focus.has(endpoint);
+}
+
 function loadActiveWebPushRows(
   db: ReturnType<typeof getDatabase>,
   userId?: string,
@@ -210,18 +236,27 @@ function loadActiveWebPushRows(
     { id: string; endpoint: string; keys_json: string; staff: boolean }
   >();
   const staffFocus = loadEnabledStaffFocusMapV1();
-  const grouped = new Map<string, typeof tokens>();
+  const grouped = new Map<string, PushTokenRowV1[]>();
   for (const row of [...tokens, ...extras]) {
     if (!row?.endpoint) continue;
     const list = grouped.get(row.endpoint);
     if (list) list.push(row);
     else grouped.set(row.endpoint, [row]);
   }
-  let muted = 0;
   const keepRisingCustomer =
     audience === "customer" && isKeepRisingPushTargetV1(targetSiteId);
   for (const [endpoint, rows] of grouped) {
-    if (keepRisingCustomer) {
+    const claimed = endpointClaimedByStaffV1(endpoint, rows, staffFocus);
+    if (
+      claimed &&
+      rows.some((row) => isCustomerPushUserV1(String(row.user_id || "")))
+    ) {
+      adoptStaffPushEndpointV1(endpoint);
+    }
+    /* 社内端末に残った施主購読は、
+       顧客向け送信でも使わない。 */
+    if (audience === "customer" && claimed) continue;
+    if (keepRisingCustomer && !claimed) {
       const customerRow = rows.find((row) =>
         keepRisingCustomerPushRowV1(row)
       );
@@ -235,8 +270,38 @@ function loadActiveWebPushRows(
         continue;
       }
     }
-    if (!staffFocusAllowsEndpointV1(rows, targetSiteId, staffFocus)) {
-      muted += 1;
+    if (claimed) {
+      const staffRow =
+        rows.find(
+          (row) =>
+            pushUserIsStaffV1(row.user_id) &&
+            rowMatchesAudienceV1(row.user_id, audience) &&
+            pushRowMatchesPropertyScopeV1(row, targetSiteId)
+        ) ??
+        rows.find((row) =>
+          pushRowMatchesPropertyScopeV1(row, targetSiteId)
+        );
+      if (staffRow && rowMatchesAudienceV1(staffRow.user_id, audience)) {
+        byEndpoint.set(endpoint, {
+          id: staffRow.id,
+          endpoint: staffRow.endpoint,
+          keys_json: staffRow.keys_json,
+          staff: true,
+        });
+      } else if (
+        staffRow &&
+        !pushUserIsStaffV1(staffRow.user_id) &&
+        audience !== "toms"
+      ) {
+        /* 施主IDのまま残った社内端末は、
+           社内ポリシーで止める。 */
+        byEndpoint.set(endpoint, {
+          id: staffRow.id,
+          endpoint: staffRow.endpoint,
+          keys_json: staffRow.keys_json,
+          staff: true,
+        });
+      }
       continue;
     }
     const deliverable = rows.find(
@@ -252,12 +317,6 @@ function loadActiveWebPushRows(
         staff: pushRowIsStaffV1(deliverable.user_id, audience),
       });
     }
-  }
-  if (muted > 0) {
-    console.log(
-      `[web-push] staff focus muted ${muted} endpoint(s)` +
-        ` site=${targetSiteId || "-"}`
-    );
   }
   return [...byEndpoint.values()];
 }
@@ -522,6 +581,92 @@ function ensurePushUserExists(userId: string): void {
   }
 }
 
+function rememberStaffEndpointV1(endpoint: string): void {
+  const key = String(endpoint || "").trim();
+  if (!key || readStaffNotifyFocusV1(key)) return;
+  saveStaffNotifyFocusV1({
+    endpoint: key,
+    enabled: false,
+    siteId: "",
+  });
+}
+
+/**
+ * 同じ endpoint の施主購読だけを消す。
+ * 別端末の顧客購読は残す。
+ * 社内の行が無ければ1本に統合する。
+ */
+export function adoptStaffPushEndpointV1(endpoint: string): {
+  removed: number;
+  adopted: boolean;
+} {
+  const key = String(endpoint || "").trim();
+  if (!key) return { removed: 0, adopted: false };
+  const db = getDatabase();
+  ensurePushUserExists(TOMS_OPS_PUSH_USER_ID_V1);
+  let removed = 0;
+  let adopted = false;
+  const tokens = db
+    .prepare(
+      `SELECT id, user_id, active FROM notification_tokens
+       WHERE channel = 'web_push' AND endpoint = ?`
+    )
+    .all(key) as Array<{ id: string; user_id: string; active: number }>;
+  const staffToken = tokens.find(
+    (row) => pushUserIsStaffV1(row.user_id) && Number(row.active) !== 0
+  );
+  const customerTokens = tokens.filter((row) =>
+    isCustomerPushUserV1(row.user_id)
+  );
+  if (staffToken) {
+    for (const row of customerTokens) {
+      if (Number(row.active) === 0) continue;
+      db.prepare(
+        `UPDATE notification_tokens
+         SET active = 0, updated_at = datetime('now') WHERE id = ?`
+      ).run(row.id);
+      removed += 1;
+    }
+  } else if (customerTokens.length) {
+    const keep = customerTokens[0];
+    db.prepare(
+      `UPDATE notification_tokens
+       SET user_id = ?, site_id = NULL, property_id = NULL,
+           customer_code = NULL, active = 1,
+           updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(TOMS_OPS_PUSH_USER_ID_V1, keep.id);
+    adopted = true;
+    removed += 1;
+    for (const row of customerTokens.slice(1)) {
+      db.prepare(
+        `UPDATE notification_tokens
+         SET active = 0, updated_at = datetime('now') WHERE id = ?`
+      ).run(row.id);
+      removed += 1;
+    }
+  }
+  const pwa = db
+    .prepare(
+      `SELECT id, user_id, active FROM pwa_subscriptions WHERE endpoint = ?`
+    )
+    .all(key) as Array<{ id: string; user_id: string; active: number }>;
+  const customerPwa = pwa.filter((row) => isCustomerPushUserV1(row.user_id));
+  for (const row of customerPwa) {
+    db.prepare(
+      `UPDATE pwa_subscriptions
+       SET user_id = ?, site_id = NULL, property_id = NULL,
+           customer_code = NULL, active = 1,
+           updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(TOMS_OPS_PUSH_USER_ID_V1, row.id);
+    removed += 1;
+    adopted = true;
+  }
+  if (removed > 0 || adopted) rememberStaffEndpointV1(key);
+  return { removed, adopted };
+}
+
 /**
  * PushSubscription を DB に保存（同一 endpoint は upsert）。
  */
@@ -536,6 +681,17 @@ export function savePushSubscription(
   }
   if (!subscription?.keys?.p256dh || !subscription?.keys?.auth) {
     throw new Error("subscription.keys.p256dh and auth required");
+  }
+  /* 社内で使った端末は、顧客テストの
+     再購読でも施主ルートへ戻さない。 */
+  let detachCustomerScope = false;
+  if (
+    isCustomerPushUserV1(userId) &&
+    readStaffNotifyFocusV1(subscription.endpoint)
+  ) {
+    userId = TOMS_OPS_PUSH_USER_ID_V1;
+    scope = null;
+    detachCustomerScope = true;
   }
 
   const db = getDatabase();
@@ -617,5 +773,21 @@ export function savePushSubscription(
   console.log(
     `[web-push] subscription saved userId=${userId} site=${bound.siteId || "-"} property=${bound.propertyId || "-"} customer=${bound.customerCode || "-"} id=${id} endpoint=${subscription.endpoint.slice(0, 64)}…`
   );
+  if (detachCustomerScope) {
+    db.prepare(
+      `UPDATE notification_tokens
+       SET site_id = NULL, property_id = NULL, customer_code = NULL
+       WHERE id = ?`
+    ).run(id);
+    db.prepare(
+      `UPDATE pwa_subscriptions
+       SET site_id = NULL, property_id = NULL, customer_code = NULL
+       WHERE endpoint = ?`
+    ).run(subscription.endpoint);
+  }
+  if (pushUserIsStaffV1(userId)) {
+    rememberStaffEndpointV1(subscription.endpoint);
+    adoptStaffPushEndpointV1(subscription.endpoint);
+  }
   return id;
 }

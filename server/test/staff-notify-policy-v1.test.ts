@@ -50,6 +50,14 @@ describe("staff-notify-policy-v1", () => {
       });
       assert.equal(decision.deliver, false, siteId);
     }
+    const near = decideStaffNotifyV1({
+      siteId: TOYOSHIMA,
+      eventType: "toyoshima_main_beam_near",
+      title: "建物側・近センサー検知",
+      nowMs: T0,
+      maintenanceActive: false,
+    });
+    assert.equal(near.deliver, false);
   });
 
   it("sends Toyoshima only during maintenance or the work timer", () => {

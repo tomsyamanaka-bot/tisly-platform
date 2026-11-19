@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="128x128" href="/icons/icon-128.png?v=2508" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2508" />
   <title>TiSLY Security</title>
-  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2601" />
+  <link rel="stylesheet" href="/css/features/security/security-floor-v1.css?v=2602" />
   <link rel="stylesheet" href="/css/features/security/tenant-setting-summary-v1.css?v=2573" />
   <link rel="stylesheet" href="/css/features/security/toyoshima-security-v1.css?v=2588" />
   <link rel="stylesheet" href="/css/features/security/keeprising-customer-settings-v1.css?v=2597" />
@@ -39,15 +39,6 @@
         <option value="SEC-JP-TOYOSHIMA-001">豊島邸</option>
         <option value="SEC-JP-RYUGASAKI-001">ウォッシュメイト龍ヶ崎店</option>
       </select>
-      <label class="sf-notify-focus" id="sf-notify-focus">
-        <input
-          type="checkbox"
-          id="sf-notify-focus-toggle"
-          role="switch"
-          aria-checked="false"
-        />
-        <span>🔔 選択中の現場のみ通知を受信（他現場ミュート）</span>
-      </label>
       <span class="sf-online-pill is-offline" id="sf-online">🔴 オフライン</span>
       <button
         type="button"
@@ -149,6 +140,10 @@
       <button type="button" class="sf-pro-action-btn sf-pro-action-primary" data-staff-minutes="240">4時間</button>
       <button type="button" class="sf-pro-action-btn sf-ops-resume" data-staff-minutes="0">今すぐ停止</button>
     </div>
+    <button type="button" class="sf-pro-action-btn sf-pro-action-primary sf-staff-notify-sync" id="sf-staff-notify-sync">
+      🔄 この端末の通知設定を同期（顧客テスト購読を整理）
+    </button>
+    <p class="sf-pro-hint" id="sf-staff-notify-sync-note"></p>
     <label class="sf-staff-notify-check">
       <input type="checkbox" id="sf-staff-notify-always" />
       <span id="sf-staff-notify-always-label">通常イベントを常時受信する</span>
@@ -746,11 +741,10 @@
   <script type="module" src="/js/features/security/security-floor-manual-light-v1.js?v=2564"></script>
   <script type="module" src="/js/features/security/security-floor-intercom-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/security-floor-remote-config-v1.js?v=2598"></script>
-  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2601"></script>
+  <script type="module" src="/js/features/security/security-floor-pro-tools-v1.js?v=2602"></script>
   <script type="module" src="/js/features/security/security-floor-push-v1.js?v=2569"></script>
   <script type="module" src="/js/features/security/security-history-modal-v1.js?v=2559"></script>
   <script type="module" src="/js/features/security/toyoshima-security-dashboard-v1.js?v=2598"></script>
   <script type="module" src="/js/features/security/security-floor-operator-v1.js?v=2598"></script>
-  <script type="module" src="/js/features/security/staff-notify-focus-v1.js?v=2577"></script>
 </body>
 </html>
