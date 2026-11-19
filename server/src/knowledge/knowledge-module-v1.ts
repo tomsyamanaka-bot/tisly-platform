@@ -169,6 +169,10 @@ import {
   DEPLOY_OTA_MODULE_SEED_IDS,
   getDeployOtaModuleSeedItemsV1,
 } from "./knowledge-deploy-ota-seed-v1.js";
+import {
+  OPS_SAFETY_MODULE_SEED_IDS,
+  getOpsSafetyModuleSeedItemsV1,
+} from "./knowledge-ops-safety-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -2099,6 +2103,48 @@ function mergeDeployOtaSeed(
   return { items: next, changed };
 }
 
+/**
+ * 保守セーフティ3点を末尾追記。既存項目は消さない。
+ */
+function mergeOpsSafetySeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(OPS_SAFETY_MODULE_SEED_IDS);
+  const seeds = getOpsSafetyModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -2197,7 +2243,8 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedUiuxDesign.items
   );
   const mergedDeployOta = mergeDeployOtaSeed(mergedLidarHeatmap.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedDeployOta.items);
+  const mergedOpsSafety = mergeOpsSafetySeed(mergedDeployOta.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedOpsSafety.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -2240,6 +2287,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedUiuxDesign.changed ||
     mergedLidarHeatmap.changed ||
     mergedDeployOta.changed ||
+    mergedOpsSafety.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

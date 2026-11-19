@@ -6,9 +6,17 @@
 
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "./home-sites-v1.js";
 import {
+  TISLY_HEARTBEAT_OFFLINE_MS_V1,
   TISLY_HEARTBEAT_UI_ONLINE_MS_V1,
+  buildHeartbeatCommLossPushBodyV1,
+  buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
+import { applyCabinetTempV1 } from "./home-ops-safety-apply-v1.js";
+import {
+  isMaintenanceActiveV1,
+  takeMaintenanceHoldLogV1,
+} from "./home-ops-safety-v1.js";
 import {
   getToyoshimaOpsConfigV1,
   updateToyoshimaOpsConfigV1,
@@ -337,7 +345,58 @@ export function recordItabashiHeartbeatV1(input?: {
   };
   saveToyoshimaHeartbeatStoreV1(next);
   void processItabashiBoardTempAlertV1(temp);
+  void applyCabinetTempV1({
+    siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+    siteName: "板橋自宅",
+    tempC: temp,
+  });
   return buildItabashiStatusSsotV1();
+}
+
+let itabashiLossNotified = false;
+
+/** 5分途絶の通知。点検中は送らず、期限後に戻す。 */
+export async function runItabashiHeartbeatWatchdogV1(): Promise<void> {
+  const status = buildItabashiStatusSsotV1();
+  if (status.heartbeatWatchEnabled === false) return;
+  if (!status.lastHeartbeatAt) return;
+  const online = isHeartbeatOnlineV1(
+    status.lastHeartbeatAt,
+    Date.now(),
+    TISLY_HEARTBEAT_OFFLINE_MS_V1
+  );
+  if (online) {
+    itabashiLossNotified = false;
+    return;
+  }
+  if (isMaintenanceActiveV1(HOME_ITABASHI_LIVE_SITE_ID_V1)) {
+    if (takeMaintenanceHoldLogV1(HOME_ITABASHI_LIVE_SITE_ID_V1, "comm")) {
+      recordSystemLogV1({
+        siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+        category: "rp2350_comm",
+        message: "[点検中] 主装置の途絶通知を保留",
+        detail: { maintenance: true },
+        actor: "ops-safety",
+      });
+    }
+    return;
+  }
+  if (itabashiLossNotified) return;
+  itabashiLossNotified = true;
+  try {
+    await sendWebPush({
+      title: buildHeartbeatCommLossPushTitleV1({
+        siteDisplayName: "板橋自宅",
+        deviceLabel: "主装置",
+      }),
+      body: buildHeartbeatCommLossPushBodyV1({ deviceLabel: "主装置" }),
+      eventType: "itabashi_heartbeat_lost",
+      deviceId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+      url: "/app/security",
+    });
+  } catch (err) {
+    console.error("Push Send Error:", err);
+  }
 }
 
 /** 死活監視トグル（板橋 siteId 行のみ） */

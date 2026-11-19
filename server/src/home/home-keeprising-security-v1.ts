@@ -8,9 +8,17 @@ import { getDatabase } from "../db/database.js";
 import {
   TISLY_HEARTBEAT_INTERVAL_SEC_V1,
   TISLY_HEARTBEAT_OFFLINE_MS_V1,
+  buildHeartbeatCommLossPushBodyV1,
+  buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
+import { applyCabinetTempV1, applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
+import {
+  isMaintenanceActiveV1,
+  markSensorCustomerPushV1,
+  takeMaintenanceHoldLogV1,
+} from "./home-ops-safety-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import {
   getKeepRisingCustomerSettingsV1,
@@ -228,19 +236,31 @@ export async function processKeepRisingSecurityEventV1(input: {
       `kr-di${di}`,
       rising ? "alert" : "normal"
     );
-    pushSent = await sendKeepRisingPush({
-      title,
-      body: text,
-      eventType: rising
-        ? "keeprising_sensor_alert"
-        : "keeprising_sensor_clear",
-    });
+    const gate = rising
+      ? await applySensorPushGateV1({
+          siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
+          di,
+          siteName: KEEPRISING_DISPLAY_NAME_V1,
+        })
+      : null;
+    if (!gate || gate.allowCustomerPush) {
+      pushSent = await sendKeepRisingPush({
+        title,
+        body: text,
+        eventType: rising
+          ? "keeprising_sensor_alert"
+          : "keeprising_sensor_clear",
+      });
+      if (rising && pushSent) {
+        markSensorCustomerPushV1(HOME_JP_KEEPRISING_SITE_ID_V1, di);
+      }
+    }
     pushLog(message);
     recordSystemLogV1({
       siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
       tenantId: KEEPRISING_CUSTOMER_CODE_V1,
       category: "sensor_alert",
-      message,
+      message: `${gate?.logPrefix || ""}${message}`,
       detail: {
         di,
         active,
@@ -375,6 +395,11 @@ export async function recordKeepRisingHeartbeatV1(input: {
   if (version) runtime.firmwareVersion = version;
   const temp = readTemp(input.boardTemp);
   if (temp != null) runtime.boardTempC = temp;
+  await applyCabinetTempV1({
+    siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
+    siteName: KEEPRISING_DISPLAY_NAME_V1,
+    tempC: temp,
+  });
   return { online: true, boardTempC: runtime.boardTempC };
 }
 
@@ -433,6 +458,45 @@ export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
     })),
     logs: runtime.logs.slice(0, 40),
   };
+}
+
+let keepRisingLossNotified = false;
+
+/** 5分途絶の通知。点検中は送らず、期限後に戻す。 */
+export async function runKeepRisingHeartbeatWatchdogV1(): Promise<void> {
+  if (!runtime.lastHeartbeatAt) return;
+  const online = isHeartbeatOnlineV1(
+    runtime.lastHeartbeatAt,
+    Date.now(),
+    KEEPRISING_HEARTBEAT_OFFLINE_MS_V1
+  );
+  if (online) {
+    keepRisingLossNotified = false;
+    return;
+  }
+  if (isMaintenanceActiveV1(HOME_JP_KEEPRISING_SITE_ID_V1)) {
+    if (takeMaintenanceHoldLogV1(HOME_JP_KEEPRISING_SITE_ID_V1, "comm")) {
+      recordSystemLogV1({
+        siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
+        tenantId: KEEPRISING_CUSTOMER_CODE_V1,
+        category: "rp2350_comm",
+        message: "[点検中] 主装置の途絶通知を保留",
+        detail: { maintenance: true },
+        actor: "ops-safety",
+      });
+    }
+    return;
+  }
+  if (keepRisingLossNotified) return;
+  keepRisingLossNotified = true;
+  await sendKeepRisingPush({
+    title: buildHeartbeatCommLossPushTitleV1({
+      siteDisplayName: KEEPRISING_DISPLAY_NAME_V1,
+      deviceLabel: "主装置",
+    }),
+    body: buildHeartbeatCommLossPushBodyV1({ deviceLabel: "主装置" }),
+    eventType: "keeprising_heartbeat_lost",
+  });
 }
 
 export function keepRisingOutputLabelsV1(): Record<number, string> {

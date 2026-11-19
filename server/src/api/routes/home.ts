@@ -130,6 +130,13 @@ import {
   updateHomeShellyFailsafeV1,
 } from "../../home/home-shelly-failsafe-v1.js";
 import {
+  cabinetViewV1,
+  clearMaintenanceV1,
+  maintenanceViewV1,
+  opsSiteDisplayNameV1,
+  startMaintenanceV1,
+} from "../../home/home-ops-safety-v1.js";
+import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
   buildToyoshimaActivityReportV1,
@@ -1082,6 +1089,58 @@ homeRouter.get("/hardware/shelly-failsafe", (req, res) => {
     res.status(400).json({
       ok: false,
       error: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
+ * GET /api/home/v1/ops-safety?siteId=
+ * 社内画面の点検残り時間と温度バッジ。
+ */
+homeRouter.get("/ops-safety", (req, res) => {
+  const siteId = String(req.query.siteId ?? "").trim();
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  const maintenance = maintenanceViewV1(siteId);
+  const cabinet = cabinetViewV1(siteId);
+  res.json({
+    ok: true,
+    siteId,
+    siteName: opsSiteDisplayNameV1(siteId),
+    maintenance,
+    cabinet,
+  });
+});
+
+/**
+ * POST /api/home/v1/ops-safety/maintenance
+ * minutes は 30 / 120 / 240。0 は今すぐ解除。
+ */
+homeRouter.post("/ops-safety/maintenance", (req, res) => {
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const minutes = Number(req.body?.minutes);
+  if (!siteId) {
+    res.status(400).json({ ok: false, error: "siteId required" });
+    return;
+  }
+  try {
+    const maintenance =
+      minutes === 0
+        ? clearMaintenanceV1(siteId)
+        : startMaintenanceV1(siteId, minutes);
+    res.json({
+      ok: true,
+      siteId,
+      siteName: opsSiteDisplayNameV1(siteId),
+      maintenance,
+      cabinet: cabinetViewV1(siteId),
+    });
+  } catch (err) {
+    res.status(400).json({
+      ok: false,
+      error: err instanceof Error ? err.message : "invalid minutes",
     });
   }
 });

@@ -23,6 +23,8 @@ import {
   type HomeSecurityRulesV1,
 } from "./home-security-rules-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
+import { applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
+import { markSensorCustomerPushV1 } from "./home-ops-safety-v1.js";
 import {
   armItabashiLiveDiSensorLightsV1,
   shouldItabashiDriveSensorLightsV1,
@@ -297,6 +299,7 @@ async function dispatchPatternPushV1(input: {
   lightsActive: boolean;
   rules: HomeSecurityRulesV1;
   di: 1 | 2;
+  allowCustomerPush?: boolean;
 }): Promise<boolean> {
   const { siteId, pattern, armed, lightsActive, rules, di } = input;
   const url = "/customer/security";
@@ -308,6 +311,9 @@ async function dispatchPatternPushV1(input: {
     return false;
   }
 
+  if (input.allowCustomerPush === false) {
+    return false;
+  }
   if (isDiPushInCooldown(siteId, di)) {
     console.log(
       `[home-security] DI${di} Push suppressed (cooldown ${HOME_SECURITY_PUSH_COOLDOWN_MS}ms) pattern=${pattern} site=${siteId}`
@@ -343,6 +349,7 @@ async function dispatchPatternPushV1(input: {
       result
     );
     markDiPushSent(siteId, 1);
+    markSensorCustomerPushV1(siteId, 1);
     console.log(
       `[home-security] push DI1 alert success=${result.success} error=${result.error ?? ""}`
     );
@@ -377,6 +384,7 @@ async function dispatchPatternPushV1(input: {
       result
     );
     markDiPushSent(siteId, 2);
+    markSensorCustomerPushV1(siteId, 2);
     console.log(
       `[home-security] push DI2 instant success=${result.success} error=${result.error ?? ""}`
     );
@@ -412,6 +420,7 @@ async function dispatchPatternPushV1(input: {
     result
   );
   markDiPushSent(siteId, 2);
+  markSensorCustomerPushV1(siteId, 2);
   console.log(
     `[home-security] push DI2 critical success=${result.success} error=${result.error ?? ""}`
   );
@@ -439,11 +448,16 @@ async function handleDiRisingEdgeV1(
 
   const resolvedPattern = di === 1 ? "pattern_a" : pattern;
   const sensorMessage = patternLogMessage(resolvedPattern, di);
+  const gate = await applySensorPushGateV1({
+    siteId,
+    di,
+    siteName: "板橋自宅",
+  });
 
   recordSystemLogV1({
     siteId,
     category: "sensor_alert",
-    message: sensorMessage,
+    message: `${gate.logPrefix}${sensorMessage}`,
     detail: {
       di,
       input: di,
@@ -490,6 +504,7 @@ async function handleDiRisingEdgeV1(
     lightsActive,
     rules,
     di,
+    allowCustomerPush: gate.allowCustomerPush,
   });
   return { pattern: resolvedPattern, pushSent };
 }

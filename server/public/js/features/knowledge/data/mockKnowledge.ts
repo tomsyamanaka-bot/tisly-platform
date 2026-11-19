@@ -2329,3 +2329,34 @@ export const MOCK_DEPLOY_OTA_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const OPS_SAFETY_KNOWLEDGE_TITLES = [
+  "【保守標準】全物件共通セーフティ3点セット（自動復帰点検モード・異常連打ストッパー・盤内高温監視）",
+] as const;
+
+/** 保守セーフティ3点（末尾追記） */
+export const MOCK_OPS_SAFETY_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-ops-safety-three-001",
+    title: OPS_SAFETY_KNOWLEDGE_TITLES[0],
+    summary:
+      "人的ミス（監視戻し忘れ）を防ぐタイマー自動復帰型点検モード、センサー誤作動時の通知連打を止める45秒クールダウン＆10分10回故障検知、夏季の熱暴走を防ぐ55℃注意/65℃社内警報のサーバー側標準仕様。",
+    genre: "IOT関連",
+    tags: [
+      "#保守DX",
+      "#点検モード",
+      "#誤報対策",
+      "#盤内温度",
+      "#全物件標準",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-19T04:00:00.000Z",
+    body: [
+      "点検は 30分、2時間、4時間。期限で自動復帰する。",
+      "同じ DI は 45 秒、施主へ再送しない。",
+      "10分10回で社内だけへ異常疑いを出す。",
+      "55℃は社内の注意、65℃は社内警報。60分空ける。",
+    ].join("\n"),
+  },
+];

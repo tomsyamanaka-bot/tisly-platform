@@ -23,6 +23,12 @@ import {
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
+import { applyCabinetTempV1, applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
+import {
+  isMaintenanceActiveV1,
+  markSensorCustomerPushV1,
+  takeMaintenanceHoldLogV1,
+} from "./home-ops-safety-v1.js";
 import { getTislyOtaVersionV1 } from "../firmware/tisly-rp2350-ota-v1.js";
 import { TISLY_SITE_TARGET_VERSIONS_V1 } from "../firmware/tisly-site-target-version-v1.js";
 import {
@@ -679,6 +685,11 @@ async function processToyoshimaBoardTempV1(
 ): Promise<void> {
   const comm = runtime.deviceComm[building];
   comm.boardTempC = boardTempC;
+  void applyCabinetTempV1({
+    siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+    siteName: "豊島邸",
+    tempC: boardTempC,
+  });
   const label = building === "main" ? "主装置" : "子機";
   const level = boardTempLevelV1(boardTempC);
   const next = nextBoardTempAlertLatchesV1(boardTempC, {
@@ -768,6 +779,22 @@ export async function runToyoshimaHeartbeatWatchdogV1(): Promise<void> {
     if (comm.online) {
       comm.online = false;
       getBuilding(building).online = false;
+    }
+    /* 点検中は途絶 Push と Shelly を止める。期限後は通常監視へ戻る。 */
+    if (isMaintenanceActiveV1(HOME_JP_TOYOSHIMA_SITE_ID_V1)) {
+      if (takeMaintenanceHoldLogV1(
+        HOME_JP_TOYOSHIMA_SITE_ID_V1,
+        `comm-${building}`
+      )) {
+        recordSystemLogV1({
+          siteId: HOME_JP_TOYOSHIMA_SITE_ID_V1,
+          category: "rp2350_comm",
+          message: `[点検中] ${label}の途絶通知と電源再投入を保留`,
+          detail: { building, elapsedMs: elapsed },
+          actor: "ops-safety",
+        });
+      }
+      continue;
     }
     /* 5分30秒: オフライン化 + Push（1回） */
     if (!comm.offlineNotified) {
@@ -1460,6 +1487,11 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
   const sensorLabel = toyoshimaDiDisplayNameV1(input.di);
   const detectedAt = nowIso();
   const detectedAtJst = formatToyoshimaJstStampV1(new Date(detectedAt));
+  const gate = await applySensorPushGateV1({
+    siteId: input.homeSiteId,
+    di: input.di,
+    siteName: "豊島邸",
+  });
   const pushAllowed =
     input.notifyAllowed && isHomeNotifyAnyPushV1(input.notifyMode);
   const skipReason = pushAllowed
@@ -1480,7 +1512,7 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     recordSystemLogV1({
       siteId: input.homeSiteId,
       category: "sensor_alert",
-      message: `${detectedAtJst}｜${sensorLabel}｜${input.title}`,
+      message: `${gate.logPrefix}${detectedAtJst}｜${sensorLabel}｜${input.title}`,
       detail: {
         ...(input.detail ?? {}),
         building: input.building,
@@ -1528,6 +1560,9 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     return false;
   }
 
+  if (pushAllowed && !gate.allowCustomerPush) {
+    return false;
+  }
   /* 許可時は必ず sendWebPush を await する */
   let pushSent = false;
   let pushError: string | null = null;
@@ -1545,6 +1580,9 @@ async function dispatchToyoshimaSensorNotifyV1(input: {
     pushError = result.error ?? null;
     attempted = result.attempted ?? 0;
     sent = result.sent ?? 0;
+    if (pushSent) {
+      markSensorCustomerPushV1(input.homeSiteId, input.di);
+    }
   } catch (err) {
     pushError = err instanceof Error ? err.message : String(err);
     console.error(`Push Send Error: ${pushError}`, err);

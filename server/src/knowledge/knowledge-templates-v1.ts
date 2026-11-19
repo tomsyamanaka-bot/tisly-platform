@@ -49,6 +49,7 @@ import { seedLeakageCurrentStandardKnowledgeCardsV1 } from "./knowledge-leakage-
 import { seedUiuxDesignStandardKnowledgeCardsV1 } from "./knowledge-uiux-design-standard-seed-v1.js";
 import { seedMatrixLidarHeatmapKnowledgeCardsV1 } from "./knowledge-matrix-lidar-heatmap-seed-v1.js";
 import { seedDeployOtaKnowledgeCardsV1 } from "./knowledge-deploy-ota-seed-v1.js";
+import { seedOpsSafetyKnowledgeCardsV1 } from "./knowledge-ops-safety-seed-v1.js";
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -214,6 +215,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   uiuxDesignStandardCreated: number;
   matrixLidarHeatmapCreated: number;
   deployOtaCreated: number;
+  opsSafetyCreated: number;
 } {
   const plc = seedPlcKnowledgeTemplatesV1();
   const rp = seedRpKnowledgeTemplatesV1();
@@ -256,6 +258,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const uiuxDesignStandard = seedUiuxDesignStandardKnowledgeCardsV1();
   const matrixLidarHeatmap = seedMatrixLidarHeatmapKnowledgeCardsV1();
   const deployOta = seedDeployOtaKnowledgeCardsV1();
+  const opsSafety = seedOpsSafetyKnowledgeCardsV1();
   return {
     plcCreated: plc.length,
     rpCreated: rp.length,
@@ -298,5 +301,6 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     uiuxDesignStandardCreated: uiuxDesignStandard.length,
     matrixLidarHeatmapCreated: matrixLidarHeatmap.length,
     deployOtaCreated: deployOta.length,
+    opsSafetyCreated: opsSafety.length,
   };
 }

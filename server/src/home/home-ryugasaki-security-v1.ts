@@ -16,6 +16,12 @@ import {
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
+import { applyCabinetTempV1, applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
+import {
+  isMaintenanceActiveV1,
+  markSensorCustomerPushV1,
+  takeMaintenanceHoldLogV1,
+} from "./home-ops-safety-v1.js";
 import { recordSystemLogV1 } from "./home-system-log-v1.js";
 import { durationSecForDoChannelV1 } from "./home-ryugasaki-settings-v1.js";
 import { isOfferedFirmwareCurrentV1 } from "../firmware/tisly-rp2350-ota-v1.js";
@@ -301,13 +307,25 @@ export async function processRyugasakiSecurityEventV1(input: {
     const body = rising
       ? `${label.body}。回転灯とベルは連動しません。`
       : message;
-    pushSent = await sendRyugasakiPush({
-      title,
-      body,
-      eventType: rising
-        ? "ryugasaki_sensor_alert"
-        : "ryugasaki_sensor_clear",
-    });
+    const gate = rising
+      ? await applySensorPushGateV1({
+          siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
+          di,
+          siteName: RYUGASAKI_DISPLAY_NAME_V1,
+        })
+      : null;
+    if (!gate || gate.allowCustomerPush) {
+      pushSent = await sendRyugasakiPush({
+        title,
+        body,
+        eventType: rising
+          ? "ryugasaki_sensor_alert"
+          : "ryugasaki_sensor_clear",
+      });
+      if (rising && pushSent) {
+        markSensorCustomerPushV1(HOME_JP_RYUGASAKI_SITE_ID_V1, di);
+      }
+    }
     pushLog({
       at: nowIso(),
       kind: rising ? "detect" : "clear",
@@ -319,7 +337,7 @@ export async function processRyugasakiSecurityEventV1(input: {
       siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
       tenantId: RYUGASAKI_CUSTOMER_CODE_V1,
       category: "sensor_alert",
-      message,
+      message: `${gate?.logPrefix || ""}${message}`,
       detail: { di, active },
       actor: "rp2350",
     });
@@ -440,6 +458,11 @@ export async function recordRyugasakiHeartbeatV1(input: {
   const temp = readTemp(input.boardTemp);
   if (temp != null) {
     runtime.boardTempC = temp;
+    await applyCabinetTempV1({
+      siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
+      siteName: RYUGASAKI_DISPLAY_NAME_V1,
+      tempC: temp,
+    });
     const hot = temp >= RYUGASAKI_TEMP_CRITICAL_C_V1;
     runtime.overheat = hot;
     if (hot && !runtime.tempAlertSent) {
@@ -476,6 +499,19 @@ export async function runRyugasakiHeartbeatWatchdogV1(): Promise<void> {
   );
   if (online) {
     runtime.lossNotified = false;
+    return;
+  }
+  if (isMaintenanceActiveV1(HOME_JP_RYUGASAKI_SITE_ID_V1)) {
+    if (takeMaintenanceHoldLogV1(HOME_JP_RYUGASAKI_SITE_ID_V1, "comm")) {
+      recordSystemLogV1({
+        siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
+        tenantId: RYUGASAKI_CUSTOMER_CODE_V1,
+        category: "rp2350_comm",
+        message: "[点検中] 主装置の途絶通知を保留",
+        detail: { maintenance: true },
+        actor: "ops-safety",
+      });
+    }
     return;
   }
   if (runtime.lossNotified) return;

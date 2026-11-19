@@ -8,6 +8,7 @@
 
 import { getDatabase } from "../db/database.js";
 import { shellyToggle } from "../device/shelly-real-client.js";
+import { maintenanceBlocksAutoRebootV1 } from "./home-ops-safety-v1.js";
 import {
   TISLY_SHELLY_AUTO_REBOOT_LOCK_MS_V1,
 } from "./home-heartbeat-standard-v1.js";
@@ -344,6 +345,9 @@ export async function maybeTriggerShellyAutoRebootV1(input: {
   const siteId = String(input.siteId || "").trim();
   const cfg = getHomeShellyFailsafeV1(siteId);
 
+  if (maintenanceBlocksAutoRebootV1(siteId)) {
+    return { triggered: false, skippedReason: "点検中", config: cfg };
+  }
   if (!cfg.autoRebootEnabled) {
     return { triggered: false, skippedReason: "自動再起動OFF", config: cfg };
   }
