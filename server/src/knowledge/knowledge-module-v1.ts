@@ -181,6 +181,10 @@ import {
   STAFF_NOTIFY_MODULE_SEED_IDS,
   getStaffNotifyModuleSeedItemsV1,
 } from "./knowledge-staff-notify-seed-v1.js";
+import {
+  RP2350_BASELINE_MODULE_SEED_IDS,
+  getRp2350BaselineModuleSeedItemsV1,
+} from "./knowledge-rp2350-baseline-seed-v1.js";
 import { bindUnifiedGenresToKnowledgeItemV1 } from "./knowledge-genre-map-v1.js";
 
 export interface KnowledgeModuleItemV1 {
@@ -2234,6 +2238,49 @@ function mergeStaffNotifySeed(
   return { items: next, changed };
 }
 
+/**
+ * 全物件共通の RP2350 基準を末尾追記。
+ * 既存項目は消さない。
+ */
+function mergeRp2350BaselineSeed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(RP2350_BASELINE_MODULE_SEED_IDS);
+  const seeds = getRp2350BaselineModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
 function mergeUnifiedGenreBindings(
   items: KnowledgeModuleItemV1[]
 ): { items: KnowledgeModuleItemV1[]; changed: boolean } {
@@ -2335,7 +2382,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedOpsSafety = mergeOpsSafetySeed(mergedDeployOta.items);
   const mergedDoGuard = mergeDoGuardSeed(mergedOpsSafety.items);
   const mergedStaffNotify = mergeStaffNotifySeed(mergedDoGuard.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedStaffNotify.items);
+  const mergedBaseline = mergeRp2350BaselineSeed(mergedStaffNotify.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedBaseline.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -2381,6 +2429,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedOpsSafety.changed ||
     mergedDoGuard.changed ||
     mergedStaffNotify.changed ||
+    mergedBaseline.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

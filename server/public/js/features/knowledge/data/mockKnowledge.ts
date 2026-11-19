@@ -2423,3 +2423,36 @@ export const MOCK_STAFF_NOTIFY_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const RP2350_BASELINE_KNOWLEDGE_TITLES = [
+  "【TiSLY標準仕様】RP2350 全物件共通・統一ベースライン（JST固定・Stream OTA・物理安全・自己診断・出荷鉄則）",
+] as const;
+
+/** 全物件共通の RP2350 基準（末尾追記） */
+export const MOCK_RP2350_BASELINE_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-rp2350-baseline-001",
+    title: RP2350_BASELINE_KNOWLEDGE_TITLES[0],
+    summary:
+      "豊島邸（1.2.67）および板橋自宅（1.6.12）で実戦検証済みの全物件共通標準。JST固定化、WDT対策＆ロールバック付きStream OTA、起動時全DO遮断＆最大通電リミッター、Uptime/OTA再起動識別、点検中モード連動通知、および出荷前USB抜去＋PoE単体緑点滅確認の鉄則をまとめた基準仕様。",
+    genre: "IOT関連",
+    tags: [
+      "#TiSLY標準",
+      "#RP2350",
+      "#OTA",
+      "#フェイルセーフ",
+      "#キッティング",
+      "#全物件標準",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-19T12:20:00.000Z",
+    body: [
+      "昼夜は UTC に 32400 秒を 1 回足す。",
+      "OTA は stream。config.py は配らない。",
+      "起動時に全DOを切り、上限秒で切る。",
+      "遠近のライトはスライダー秒で消す。",
+      "新規出荷は USB を抜いて緑点滅を確認する。",
+    ].join("\n"),
+  },
+];
