@@ -2360,3 +2360,35 @@ export const MOCK_OPS_SAFETY_ITEMS: KnowledgeItem[] = [
     ].join("\n"),
   },
 ];
+
+export const DO_GUARD_KNOWLEDGE_TITLES = [
+  "【実機フェイルセーフ標準】起動時全DO遮断・最大通電リミッター ＆ Uptime/リセット理由テレメトリ仕様",
+] as const;
+
+/** 実機フェイルセーフ（末尾追記） */
+export const MOCK_DO_GUARD_ITEMS: KnowledgeItem[] = [
+  {
+    id: "kn-seed-do-guard-uptime-001",
+    title: DO_GUARD_KNOWLEDGE_TITLES[0],
+    summary:
+      "停電復帰や通信断時のリレー固着・電気錠焼損を防ぐ実機側ハード上限タイマー（電気錠5秒・警報3分・ライト10分）と、ハートビートへのUptime/reset_cause付与による24時間3回WDTリセットの隠れ不調自動検知仕様。",
+    genre: "IOT関連",
+    tags: [
+      "#フェイルセーフ",
+      "#DOリミッター",
+      "#Uptime",
+      "#WDT監視",
+      "#全物件標準",
+      "#TiSLY_Core",
+    ],
+    pdf_url: null,
+    createdAt: "2026-11-19T04:30:00.000Z",
+    body: [
+      "起動直後に全DOを切る。",
+      "電気錠5秒、警報180秒、ライト600秒。",
+      "ファンは上限の対象外。",
+      "稼働時間と起動理由は社内画面だけ。",
+      "WDTが24時間に3回で社内へ警告する。",
+    ].join("\n"),
+  },
+];

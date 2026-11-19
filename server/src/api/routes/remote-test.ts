@@ -455,6 +455,9 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
   recordItabashiHeartbeatV1({
     boardTemp: extractHeartbeatBoardTemp(req),
     deviceId: String(bodyRec.deviceId ?? "").trim() || undefined,
+    uptimeSec: bodyRec.uptime_sec ?? bodyRec.uptimeSec,
+    resetReason: bodyRec.reset_reason ?? bodyRec.resetReason,
+    doLimitCuts: bodyRec.do_limit_cuts ?? bodyRec.doLimitCuts,
   });
   const notificationTriggered = chChanges.length > 0 || inputChanges.length > 0;
   if (chChanges.length > 0) {

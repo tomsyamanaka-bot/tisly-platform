@@ -20,7 +20,7 @@ import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
 # 1.6 系のまま。製品全体の 1.2 系には合わせない。
-FIRMWARE_LOGIC_VERSION = "1.6.10"
+FIRMWARE_LOGIC_VERSION = "1.6.11"
 
 # ntptime.settime() は RTC を UTC のままにする。
 # 昼夜判定は毎回 time.time() + 32400 を JST とする。

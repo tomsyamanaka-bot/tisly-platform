@@ -155,10 +155,61 @@ def read_levels(pins):
     return levels
 
 
+def _load_do_guard():
+    """通電ガード。無くてもセンサー連動は続ける。"""
+    try:
+        import tisly_do_guard as mod
+        return mod
+    except ImportError:
+        try:
+            from lib import tisly_do_guard as mod
+            return mod
+        except ImportError:
+            return None
+
+
+_do_mod = _load_do_guard()
+_do_guard = _do_mod.DoGuard("keeprising") if _do_mod else None
+try:
+    _boot_ms = time.ticks_ms()
+except Exception:
+    _boot_ms = 0
+_reset_reason = "UNKNOWN"
+if _do_mod:
+    try:
+        _reset_reason = _do_mod.read_reset_reason()
+    except Exception:
+        _reset_reason = "UNKNOWN"
+
+
+def _boot_do_off():
+    """ネットワークより前に全DOを切る。"""
+    if not _do_mod:
+        return
+    try:
+        _do_mod.boot_all_do_off(getattr(cfg, "CH_GPIO", None))
+    except Exception:
+        pass
+
+
 def write_outputs(pins, levels):
-    """HIGH でコイル ON。点滅もここへ渡す。"""
+    """HIGH でコイル ON。上限を超えたら切る。"""
+    try:
+        now = time.ticks_ms()
+    except Exception:
+        now = 0
     for ch, pin in pins.items():
-        pin.value(1 if levels.get(ch) else 0)
+        desired = bool(levels.get(ch))
+        if _do_guard:
+            try:
+                before = len(_do_guard.pending)
+                if not _do_guard.allow(ch, desired, now):
+                    if desired and len(_do_guard.pending) > before:
+                        print("[keeprising] DO", ch, "limit")
+                    desired = False
+            except Exception:
+                pass
+        pin.value(1 if desired else 0)
 
 
 def load_cached_rules():
@@ -413,12 +464,26 @@ def _service_once(ctrl, inputs, outputs, next_cmd, next_hb):
     except Exception:
         due_hb = False
     if due_hb:
-        payload = logic.build_heartbeat_payload()
+        extra = {}
+        if _do_mod:
+            try:
+                cuts = _do_guard.pending_cuts() if _do_guard else None
+                extra = _do_mod.health_payload(
+                    _boot_ms, _reset_reason, cuts
+                )
+            except Exception:
+                extra = {}
+        payload = logic.build_heartbeat_payload(extra)
         body = http_json(
             "POST", "/api/home/v1/keeprising/heartbeat", payload
         )
         if isinstance(body, dict):
             _paint("green")
+            if _do_guard:
+                try:
+                    _do_guard.clear_pending()
+                except Exception:
+                    pass
             apply_cloud(ctrl, body, now)
             offer_ota(body)
             try:
@@ -452,6 +517,7 @@ def _run():
     """入力監視を通信より先に始める。"""
     global _wdt_ref, _scan_ref, _net_ok
     _arm_usb()
+    _boot_do_off()
     _paint("red")
     outputs = init_output_pins()
     inputs = init_input_pins()

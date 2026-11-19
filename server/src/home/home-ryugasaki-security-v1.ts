@@ -16,6 +16,7 @@ import {
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
 import { sendWebPush } from "../notification/channels/web-push.js";
+import { applyDeviceHealthV1 } from "./home-device-health-apply-v1.js";
 import { applyCabinetTempV1, applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
 import {
   isMaintenanceActiveV1,
@@ -450,12 +451,21 @@ export async function recordRyugasakiHeartbeatV1(input: {
   deviceId?: string | null;
   boardTemp?: unknown;
   firmwareVersion?: string | null;
+  uptimeSec?: unknown;
+  resetReason?: unknown;
+  doLimitCuts?: unknown;
 }): Promise<{ online: true; boardTempC: number | null }> {
   runtime.lastHeartbeatAt = nowIso();
   runtime.lossNotified = false;
   const version = String(input.firmwareVersion ?? "").trim();
   if (version) runtime.firmwareVersion = version;
   const temp = readTemp(input.boardTemp);
+  await applyDeviceHealthV1({
+    siteId: HOME_JP_RYUGASAKI_SITE_ID_V1,
+    uptimeSec: input.uptimeSec,
+    resetReason: input.resetReason,
+    doLimitCuts: input.doLimitCuts,
+  });
   if (temp != null) {
     runtime.boardTempC = temp;
     await applyCabinetTempV1({

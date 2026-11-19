@@ -184,6 +184,9 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
             req.body?.otaVersion ??
             ""
         ).trim(),
+        uptimeSec: req.body?.uptime_sec ?? req.body?.uptimeSec,
+        resetReason: req.body?.reset_reason ?? req.body?.resetReason,
+        doLimitCuts: req.body?.do_limit_cuts ?? req.body?.doLimitCuts,
       });
       const kitting = extractTislyKittingFromHeartbeatV1(req.body);
       const ota = recordTislyOtaDeviceFirmwareV1({

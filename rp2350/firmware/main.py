@@ -212,6 +212,7 @@ _wdt = None
 def _kick_wdt():
     """ループが生存しているときだけ番犬を給餌する。"""
     kick_watchdog(_wdt)
+    _enforce_do_limits()
 
 
 def log(msg):
@@ -508,7 +509,7 @@ def http_post(path, payload):
         headers = _http_headers("application/json")
         try:
             res = urequests.post(
-                url, headers=headers, data=body, timeout=4
+                url, headers=headers, data=body, timeout=_relay_timeout()
             )
         except TypeError:
             res = urequests.post(url, headers=headers, data=body)
@@ -652,6 +653,12 @@ def set_ch_output(channel, on):
                 channel, expected, gpio
             )
         )
+    if _do_guard and not _cutting:
+        try:
+            if not _do_guard.allow(channel, bool(on), time.ticks_ms()):
+                on = False
+        except Exception:
+            pass
     level = _relay_gpio_level(channel, on)
     CH_PINS[channel].value(level)
     ch_states[str(channel)] = "on" if on else "off"
@@ -726,7 +733,7 @@ def _itabashi_logic_version():
                 return saved
         except Exception:
             pass
-    return str(getattr(config, "FIRMWARE_VERSION", "1.6.10") or "")
+    return str(getattr(config, "FIRMWARE_VERSION", "1.6.11") or "")
 
 
 def _sync_itabashi_clock():
@@ -832,6 +839,11 @@ def _send_heartbeat_once():
         payload["fan_on"] = fan_on
         payload["cooling_fan"] = fan_on
 
+    try:
+        payload.update(_health_fields())
+    except Exception:
+        pass
+
     log("heartbeat payload={}".format(json.dumps(payload)))
 
     body, status = http_post(path, payload)
@@ -856,6 +868,7 @@ def _send_heartbeat_once():
     log("heartbeat status={}".format(status))
 
     log("heartbeat sent")
+    _clear_health_cuts()
     if _kit:
         _kit.note_heartbeat(True)
 
@@ -1250,6 +1263,7 @@ async def async_main():
 
     global _security, _wdt
 
+    _boot_do_off()
     _arm_usb()
     _paint("red")
     wdt_ms = int(getattr(config, "WDT_TIMEOUT_MS", 8000))
@@ -1513,6 +1527,112 @@ async def async_main():
             _paint(_link_kind or "red")
 
         await _fed_sleep(poll_interval_sec)
+
+
+def _load_do_guard():
+    """共通の通電ガード。無くても起動は続ける。"""
+    try:
+        import tisly_do_guard as mod
+        return mod
+    except ImportError:
+        try:
+            from lib import tisly_do_guard as mod
+            return mod
+        except ImportError:
+            return None
+
+
+_do_mod = _load_do_guard()
+_do_guard = _do_mod.DoGuard("itabashi") if _do_mod else None
+try:
+    _boot_ms = time.ticks_ms()
+except Exception:
+    _boot_ms = 0
+_reset_reason = "UNKNOWN"
+if _do_mod:
+    try:
+        _reset_reason = _do_mod.read_reset_reason()
+    except Exception:
+        _reset_reason = "UNKNOWN"
+_cutting = False
+
+
+def _boot_do_off():
+    """ネットワークより前に全DOを切る。"""
+    if _do_mod:
+        try:
+            _do_mod.boot_all_do_off(
+                getattr(config, "CH_GPIO", None),
+                off_level=lambda ch: _relay_gpio_level(ch, False),
+            )
+        except Exception:
+            pass
+    for ch in list(CH_PINS.keys()):
+        try:
+            CH_PINS[ch].value(_relay_gpio_level(ch, False))
+            ch_states[str(ch)] = "off"
+            if _do_guard:
+                _do_guard.note(ch, False, time.ticks_ms())
+        except Exception:
+            pass
+
+
+def _note_do(channel, on):
+    if not _do_guard:
+        return
+    try:
+        _do_guard.note(channel, bool(on), time.ticks_ms())
+    except Exception:
+        pass
+
+
+def _lock_channel_on():
+    return bool(_do_guard and _do_guard.channel_on(1))
+
+
+def _relay_timeout():
+    """電気錠がONのあいだは通信待ちを1秒にする。"""
+    if _lock_channel_on():
+        return 1
+    return 4
+
+
+def _enforce_do_limits():
+    """上限を超えたDOを切る。遮断中は再入しない。"""
+    global _cutting
+    if _cutting or not _do_guard:
+        return
+    _cutting = True
+    try:
+        now = time.ticks_ms()
+        for ch in _do_guard.overdue(now):
+            set_ch_output(ch, False)
+            row = _do_guard.mark_cut(ch, now)
+            limit = row.get("limit_sec") if row else "?"
+            log("DO{} を {}秒で遮断".format(ch, limit))
+    except Exception as exc:
+        log_error("do limit: {}".format(exc))
+    finally:
+        _cutting = False
+
+
+def _health_fields():
+    if not _do_mod:
+        return {}
+    try:
+        cuts = _do_guard.pending_cuts() if _do_guard else None
+        return _do_mod.health_payload(_boot_ms, _reset_reason, cuts)
+    except Exception:
+        return {}
+
+
+def _clear_health_cuts():
+    if not _do_guard:
+        return
+    try:
+        _do_guard.clear_pending()
+    except Exception:
+        pass
 
 
 def run():

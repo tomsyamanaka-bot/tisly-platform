@@ -2829,6 +2829,12 @@ body.sf-customer #sf-ops-safety {
   font-weight: 700;
 }
 
+.sf-ops-health {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.5;
+}
 .sf-ops-badge {
   display: inline-block;
   margin-left: 8px;

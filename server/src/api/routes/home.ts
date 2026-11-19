@@ -136,6 +136,7 @@ import {
   opsSiteDisplayNameV1,
   startMaintenanceV1,
 } from "../../home/home-ops-safety-v1.js";
+import { deviceHealthViewV1 } from "../../home/home-device-health-v1.js";
 import {
   applyToyoshimaBulkLightsV1,
   applyToyoshimaManualControlV1,
@@ -1111,6 +1112,7 @@ homeRouter.get("/ops-safety", (req, res) => {
     siteName: opsSiteDisplayNameV1(siteId),
     maintenance,
     cabinet,
+    health: deviceHealthViewV1(siteId),
   });
 });
 
@@ -1136,6 +1138,7 @@ homeRouter.post("/ops-safety/maintenance", (req, res) => {
       siteName: opsSiteDisplayNameV1(siteId),
       maintenance,
       cabinet: cabinetViewV1(siteId),
+      health: deviceHealthViewV1(siteId),
     });
   } catch (err) {
     res.status(400).json({
@@ -1687,6 +1690,9 @@ function registerToyoshimaHomeRoutes(prefix: string): void {
           req.body?.inputStates ??
           req.body?.input_states ??
           req.body?.inputs,
+        uptimeSec: req.body?.uptime_sec ?? req.body?.uptimeSec,
+        resetReason: req.body?.reset_reason ?? req.body?.resetReason,
+        doLimitCuts: req.body?.do_limit_cuts ?? req.body?.doLimitCuts,
       });
       const firmwareVersion = String(
         req.body?.firmware_version ??
@@ -2061,6 +2067,9 @@ homeRouter.post("/itabashi/heartbeat", (req, res) => {
     deviceId: String(
       req.body?.deviceId ?? "rp2350-itabashi-main-01"
     ).trim(),
+    uptimeSec: req.body?.uptime_sec ?? req.body?.uptimeSec,
+    resetReason: req.body?.reset_reason ?? req.body?.resetReason,
+    doLimitCuts: req.body?.do_limit_cuts ?? req.body?.doLimitCuts,
   });
   res.json({
     ok: true,

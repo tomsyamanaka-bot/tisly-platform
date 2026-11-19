@@ -23,6 +23,7 @@ import {
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
+import { applyDeviceHealthV1 } from "./home-device-health-apply-v1.js";
 import { applyCabinetTempV1, applySensorPushGateV1 } from "./home-ops-safety-apply-v1.js";
 import {
   isMaintenanceActiveV1,
@@ -646,6 +647,9 @@ export async function recordToyoshimaHeartbeatV1(input: {
   siteId?: string;
   boardTemp?: unknown;
   inputStates?: unknown;
+  uptimeSec?: unknown;
+  resetReason?: unknown;
+  doLimitCuts?: unknown;
 }): Promise<void> {
   const at = nowIso();
   const prev = runtime.deviceComm[input.building];
@@ -674,6 +678,12 @@ export async function recordToyoshimaHeartbeatV1(input: {
   if (temp != null) {
     await processToyoshimaBoardTempV1(input.building, temp);
   }
+  await applyDeviceHealthV1({
+    siteId: input.siteId || "HOME-JP-TOYOSHIMA",
+    uptimeSec: input.uptimeSec,
+    resetReason: input.resetReason,
+    doLimitCuts: input.doLimitCuts,
+  });
   /* ハートビートは死活・温度・版・IP のみ。DI では発報しない。 */
   persistToyoshimaHeartbeatV1();
 }

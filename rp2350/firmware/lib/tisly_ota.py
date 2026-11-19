@@ -122,6 +122,18 @@ def _remove(path):
 
 
 def _reset():
+    try:
+        from tisly_do_guard import mark_ota_reset
+    except ImportError:
+        try:
+            from lib.tisly_do_guard import mark_ota_reset
+        except ImportError:
+            mark_ota_reset = None
+    if mark_ota_reset:
+        try:
+            mark_ota_reset()
+        except Exception:
+            pass
     if machine is None:
         log("machine.reset skipped (host test)")
         return

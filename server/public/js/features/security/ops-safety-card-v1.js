@@ -18,6 +18,20 @@ function paint(data) {
     ? data.maintenance.banner
     : "監視中";
   text("sf-ops-safety-banner", banner || "監視中");
+  const health = data?.health;
+  const uptime = health?.uptimeLabel || "—";
+  const reset = health?.resetLabel || "未取得";
+  text("sf-ops-uptime", `連続稼働時間: ${uptime}`);
+  const resetHost = document.getElementById("sf-ops-reset");
+  if (resetHost) {
+    if (health?.badge) {
+      resetHost.innerHTML =
+        `前回起動理由: ${reset} ` +
+        `<span class="sf-ops-badge is-caution">${health.badge}</span>`;
+    } else {
+      resetHost.textContent = `前回起動理由: ${reset}`;
+    }
+  }
   const temp = data?.cabinet;
   const host = document.getElementById("sf-ops-safety-temp");
   if (!host) return;

@@ -12,6 +12,7 @@ import {
   buildHeartbeatCommLossPushTitleV1,
   isHeartbeatOnlineV1,
 } from "./home-heartbeat-standard-v1.js";
+import { applyDeviceHealthV1 } from "./home-device-health-apply-v1.js";
 import { applyCabinetTempV1 } from "./home-ops-safety-apply-v1.js";
 import {
   isMaintenanceActiveV1,
@@ -259,7 +260,7 @@ function buildFirmwareSsotV1(): {
   try {
     const ota = getTislyOtaVersionV1({ siteKey: "itabashi" });
     const running = ota.runningVersion || null;
-    const server = ota.version || "1.6.10";
+    const server = ota.version || "1.6.11";
     const latest = !ota.has_ota_update && !ota.update_required;
     return {
       firmwareVersion: running,
@@ -329,6 +330,9 @@ export function buildItabashiStatusSsotV1(
 export function recordItabashiHeartbeatV1(input?: {
   boardTemp?: unknown;
   deviceId?: string;
+  uptimeSec?: unknown;
+  resetReason?: unknown;
+  doLimitCuts?: unknown;
 }): ItabashiStatusSsotV1 {
   const at = nowIso();
   const store = loadStore();
@@ -349,6 +353,12 @@ export function recordItabashiHeartbeatV1(input?: {
     siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
     siteName: "板橋自宅",
     tempC: temp,
+  });
+  void applyDeviceHealthV1({
+    siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+    uptimeSec: input?.uptimeSec,
+    resetReason: input?.resetReason,
+    doLimitCuts: input?.doLimitCuts,
   });
   return buildItabashiStatusSsotV1();
 }

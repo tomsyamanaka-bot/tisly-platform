@@ -422,6 +422,86 @@ def _uptime_sec():
     return int(time.ticks_diff(time.ticks_ms(), _boot_ms) / 1000)
 
 
+def _load_do_guard():
+    """通電ガード。モジュールが無くても起動する。"""
+    try:
+        import tisly_do_guard as mod
+        return mod
+    except ImportError:
+        try:
+            from lib import tisly_do_guard as mod
+            return mod
+        except ImportError:
+            return None
+
+
+_do_mod = _load_do_guard()
+_do_guard = _do_mod.DoGuard("toyoshima") if _do_mod else None
+_reset_reason = "UNKNOWN"
+_cutting = False
+if _do_mod:
+    try:
+        _reset_reason = _do_mod.read_reset_reason()
+    except Exception:
+        _reset_reason = "UNKNOWN"
+
+
+def _boot_do_off():
+    """ネットワークより前に全DOを切る。"""
+    if _do_mod:
+        try:
+            _do_mod.boot_all_do_off(
+                CH_GPIO_MAP,
+                off_level=lambda ch: _relay_gpio_level(ch, False),
+            )
+        except Exception:
+            pass
+    for ch in sorted(CH_PINS.keys()):
+        try:
+            CH_PINS[ch].value(_relay_gpio_level(ch, False))
+            ch_states[str(ch)] = "off"
+            _note_do(ch, False)
+        except Exception:
+            pass
+
+
+def _note_do(channel, on):
+    if not _do_guard:
+        return
+    try:
+        _do_guard.note(channel, bool(on), time.ticks_ms())
+    except Exception:
+        pass
+
+
+def _enforce_do_limits():
+    """上限を超えたDOを切る。遮断中は再入しない。"""
+    global _cutting
+    if _cutting or not _do_guard:
+        return
+    _cutting = True
+    try:
+        now = time.ticks_ms()
+        for ch in _do_guard.overdue(now):
+            set_ch_output(ch, False)
+            row = _do_guard.mark_cut(ch, now)
+            limit = row.get("limit_sec") if row else "?"
+            log("DO{} を {}秒で遮断".format(ch, limit))
+    except Exception as exc:
+        log_error("do limit: {}".format(exc))
+    finally:
+        _cutting = False
+
+
+def _clear_health_cuts():
+    if not _do_guard:
+        return
+    try:
+        _do_guard.clear_pending()
+    except Exception:
+        pass
+
+
 def init_rgb_led():
     """出荷判定 RGB と自己診断ランナーを起動。"""
     global _rgb, _kit
@@ -908,6 +988,12 @@ def set_ch_output(channel, on):
     if channel not in CH_PINS:
         CH_PINS[channel] = Pin(gpio, Pin.OUT)
         log("CH{} GPIO{} を遅延生成".format(channel, gpio))
+    if _do_guard and not _cutting:
+        try:
+            if not _do_guard.allow(channel, bool(on), time.ticks_ms()):
+                on = False
+        except Exception:
+            pass
     level = _relay_gpio_level(channel, on)
     CH_PINS[channel].value(level)
     ch_states[str(channel)] = "on" if on else "off"
@@ -1079,8 +1165,20 @@ def send_heartbeat():
             "chStates": dict(ch_states),
             "tenantId": getattr(config, "TENANT_ID", TENANT_ID),
             "uptime_sec": _uptime_sec(),
+            "reset_reason": _reset_reason,
             "ip": get_ip(),
         }
+        if _do_mod and _do_guard:
+            try:
+                extra.update(
+                    _do_mod.health_payload(
+                        _boot_ms,
+                        _reset_reason,
+                        _do_guard.pending_cuts(),
+                    )
+                )
+            except Exception:
+                pass
         # センサー検知は /event だけ。HB に DI 状態を載せない。
         if _kit:
             extra.update(_kit.payload_fields())
@@ -1112,6 +1210,7 @@ def send_heartbeat():
             )
             return False
         _last_hb_ok = True
+        _clear_health_cuts()
         if _kit:
             _kit.note_heartbeat(True)
         else:
@@ -1585,9 +1684,7 @@ async def async_main():
     _wdt = init_watchdog(wdt_ms)
     kick_watchdog(_wdt)
 
-    for ch in sorted(CH_PINS.keys()):
-        CH_PINS[ch].value(_relay_gpio_level(ch, False))
-        ch_states[str(ch)] = "off"
+    _boot_do_off()
 
     for di in sorted(DI_PINS.keys()):
         input_states[str(di)] = read_di_state(di)
@@ -1710,6 +1807,7 @@ async def async_main():
 
     while True:
         kick_watchdog(_wdt)
+        _enforce_do_limits()
 
         # DI を HTTP より先に読む。GPIO キックは同期。
         try:
