@@ -1,6 +1,6 @@
 import { getCustomerToken, requireCustomerLogin } from "./customer-auth.js";
 import { initPracticalNav } from "./tisly-practical-nav.js";
-import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
+import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js?v=pdf-share-v3";
 import { navigateTo, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { navigatePracticalReturn } from "./tisly-return-nav-v1.js";
 

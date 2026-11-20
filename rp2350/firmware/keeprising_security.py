@@ -7,7 +7,7 @@ Keep Rising のセンサーとリレー。
 import time
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.69"
+FIRMWARE_LOGIC_VERSION = "1.2.70"
 
 DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300

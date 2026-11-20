@@ -3,7 +3,7 @@
  */
 import { getCustomerToken } from "./customer-auth.js";
 import { navigateTo } from "./tisly-navigation-stack-v1.js";
-import { sharePdfAsFile, triggerDownload, prefetchPdfForShare } from "./pdf-share-v1.js";
+import { sharePdfAsFile, triggerDownload, prefetchPdfForShare } from "./pdf-share-v1.js?v=pdf-share-v3";
 
 function pdfAuthHeaders() {
   return { Authorization: `Bearer ${getCustomerToken()}` };

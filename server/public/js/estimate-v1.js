@@ -10,7 +10,7 @@ import { getDefaultNavFallbackV1, navigateBackOne } from "./tisly-navigation-sta
 import { resolveProjectDisplayName } from "./project-display-name.js";
 import { friendlyHttpError, renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
 import { confirmChecklistBeforeReport, confirmCompletionPhotoSlotsBeforeReport } from "./field-checklist-ui.js?v=fc-ui-v3";
-import { clearPrefetchPdfCache, prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js?v=pdf-share-v2";
+import { clearPrefetchPdfCache, prefetchPdfForShare, sharePdfAsFile, triggerDownload } from "./pdf-share-v1.js?v=pdf-share-v3";
 import {
   createLoadWatchdog,
   fetchJson,

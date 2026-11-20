@@ -8,7 +8,7 @@ import {
   prefetchPdfForShare,
   triggerDownload,
   clearBlobUrlsFromPage,
-} from "./pdf-share-v1.js";
+} from "./pdf-share-v1.js?v=pdf-share-v3";
 import { bindPopstateBackGuard, initNavigationStack, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 
 const MOBILE_BREAKPOINT = 768;
@@ -635,15 +635,19 @@ async function handleShare() {
     return;
   }
   const fileName = getShareFileName();
+  let pdfBlob = null;
   try {
+    // 共有中はプレビューの blob: を出さない。
+    // シートが閉じてから表示を戻す。
     clearPdfFrame();
     clearBlobUrlsFromPage();
-    const pdfBlob = await resolvePdfBlob({ forceRefresh: receiptMode });
+    pdfBlob = await resolvePdfBlob({ forceRefresh: receiptMode });
     await sharePdfBlobAsFile(pdfBlob, fileName, toast);
     await logPdfShare();
   } catch (e) {
-    if (e?.name === "AbortError") return;
-    toast(e.message || "共有に失敗しました");
+    if (e?.name !== "AbortError") toast(e.message || "共有に失敗しました");
+  } finally {
+    if (pdfBlob && viewMode === "pdf") setPdfFrameBlob(pdfBlob);
   }
 }
 
@@ -702,6 +706,8 @@ async function init() {
   });
   $("btn-save")?.addEventListener("click", () => handleSaveFile());
   $("btn-save")?.addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
+  $("btn-pdf-file")?.addEventListener("click", () => handleShare());
+  $("btn-pdf-file")?.addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-pdf").addEventListener("click", () => handlePdfOpen());
   $("btn-pdf").addEventListener("touchstart", prefetchPdfOnTouch, { passive: true });
   $("btn-print").addEventListener("click", () => handlePrint());

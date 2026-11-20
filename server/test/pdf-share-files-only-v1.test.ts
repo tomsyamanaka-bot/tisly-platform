@@ -21,6 +21,8 @@ describe("pdf-share-files-only-v1", () => {
     assert.ok(js.includes("navigatorShareFilesOnly"));
     assert.ok(js.includes("clearBlobUrlsFromPage"));
     assert.ok(js.includes("{ files: [file] }"));
+    assert.ok(js.includes("pdfBlob.slice(0, pdfBlob.size"));
+    assert.ok(js.includes("10000"));
     assert.ok(!js.includes("navigator.share({ title"));
     assert.ok(!js.includes("navigator.share({ url"));
     assert.ok(!js.includes("navigator.share({ text"));

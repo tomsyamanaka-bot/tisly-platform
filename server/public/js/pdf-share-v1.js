@@ -20,7 +20,9 @@ function triggerDownload(blob, fileName) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  // ダウンロード用の blob: は共有に渡さない。
+  // 10秒後に破棄して URL を残さない。
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function isValidPdfBlob(blob) {
@@ -196,26 +198,71 @@ function canShareFiles(file) {
   return true;
 }
 
-function pdfFileFromBlob(pdfBlob, fileName) {
-  const safeName = (fileName || "document.pdf").replace(/[/\\:*?"<>|]/g, "_");
-  return new File([pdfBlob], safeName, { type: "application/pdf" });
+function pdfFileName(fileName) {
+  const raw = String(fileName || "document.pdf");
+  const stripped = raw
+    .replace(/blob:\S+/gi, "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/[/\\:*?"<>|]/g, "_")
+    .trim();
+  const base = stripped || "document";
+  return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
 }
 
-/** 共有前に DOM 上の blob: URL を除去（LINE が iframe src をテキスト送信するのを防ぐ） */
-export function clearBlobUrlsFromPage() {
-  document.querySelectorAll('[src^="blob:"]').forEach((el) => {
-    if (el.tagName === "IFRAME" || el.tagName === "EMBED") {
-      el.setAttribute("src", "about:blank");
-    } else {
-      el.removeAttribute("src");
+function pdfFileFromBlob(pdfBlob, fileName) {
+  const safeName = pdfFileName(fileName);
+  // 元の Blob に付いた blob: を共有先へ渡さない。
+  // slice で別の実体にしてから File にする。
+  const detached = pdfBlob.slice(0, pdfBlob.size, "application/pdf");
+  return new File([detached], safeName, { type: "application/pdf" });
+}
+
+function revokeBlobUrl(url) {
+  if (!url || typeof url !== "string" || !url.startsWith("blob:")) return;
+  try {
+    URL.revokeObjectURL(url);
+  } catch {
+    /* 既に破棄済みなら無視する */
+  }
+}
+
+function elementBlobUrl(el, attr) {
+  const fromAttr = el.getAttribute?.(attr) || "";
+  if (fromAttr.startsWith("blob:")) return fromAttr;
+  const prop = el[attr];
+  if (typeof prop === "string" && prop.startsWith("blob:")) return prop;
+  return "";
+}
+
+function clearBlobUrlsInTree(root) {
+  if (!root?.querySelectorAll) return;
+  root.querySelectorAll("iframe, embed, object").forEach((el) => {
+    try {
+      if (el.contentDocument) clearBlobUrlsInTree(el.contentDocument);
+    } catch {
+      /* 別オリジンの中身は触らない */
     }
+    const blobUrl = elementBlobUrl(el, "src") || elementBlobUrl(el, "data");
+    if (el.tagName === "OBJECT") {
+      el.setAttribute("data", "about:blank");
+    } else if ("src" in el) {
+      el.src = "about:blank";
+    }
+    revokeBlobUrl(blobUrl);
   });
-  document.querySelectorAll('a[href^="blob:"]').forEach((a) => {
+  root.querySelectorAll('a[href^="blob:"]').forEach((a) => {
+    const href = a.href;
     a.removeAttribute("href");
+    revokeBlobUrl(href);
   });
-  document.querySelectorAll('link[href^="blob:"]').forEach((link) => {
-    link.remove();
-  });
+}
+
+/** 共有前に PDF の blob: を破棄する。
+ *  iframe の URL が LINE の本文に付くのを防ぐ。
+ *  写真の img は消さない。
+ */
+export function clearBlobUrlsFromPage() {
+  clearBlobUrlsInTree(document);
 }
 
 /**
@@ -224,8 +271,12 @@ export function clearBlobUrlsFromPage() {
  */
 export async function navigatorShareFilesOnly(file) {
   clearBlobUrlsFromPage();
+  // files だけ渡す。url と text と title は付けない。
   const sharePayload = { files: [file] };
-  if (typeof navigator.canShare === "function" && !navigator.canShare(sharePayload)) {
+  if ("url" in sharePayload || "text" in sharePayload || "title" in sharePayload) {
+    throw new Error("PDF共有にURLは含めません");
+  }
+  if (typeof navigator.canShare === "function" && !navigator.canShare({ files: [file] })) {
     throw new Error("この端末ではPDFファイル共有に対応していません");
   }
   await navigator.share(sharePayload);

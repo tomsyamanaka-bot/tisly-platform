@@ -6,7 +6,7 @@ import {
 import { initPracticalNav } from "./tisly-practical-nav.js";
 import { navigateTo, navigateBackOne } from "./tisly-navigation-stack-v1.js";
 import { renderFriendlyErrorHtml } from "./tisly-friendly-errors.js";
-import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js";
+import { sharePdfAsFile, prefetchPdfForShare } from "./pdf-share-v1.js?v=pdf-share-v3";
 import { DEFAULT_FETCH_TIMEOUT_MS, fetchJson, createLoadWatchdog } from "./tisly-fetch-v1.js";
 import { cacheGet, cacheSet } from "./tisly-data-cache-v1.js";
 

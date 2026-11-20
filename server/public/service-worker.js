@@ -5,7 +5,8 @@
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
 // v2606 は段階ビームのキャッシュ。画面統一は v2607。
-const SW_VERSION = "tisly-pwa-v2607-keeprising-toyoshima-ui";
+// PDF共有から blob: の本文を外すのは v2608。
+const SW_VERSION = "tisly-pwa-v2608-pdf-file-share";
 /* tisly-pwa-v2605-site-lifecycle */
 /* tisly-pwa-v2604-site-signals */
 /* tisly-pwa-v2603-astro-recovery */
@@ -490,7 +491,10 @@ function isCustomerFreshAsset(pathname) {
     pathname.startsWith("/css/features/security/") ||
     pathname.startsWith("/js/customer-") ||
     pathname === "/css/customer-v1.css" ||
-    pathname === "/manifest-customer-v1.webmanifest"
+    pathname === "/manifest-customer-v1.webmanifest" ||
+    pathname === "/js/pdf-share-v1.js" ||
+    pathname === "/js/document-viewer-v1.js" ||
+    pathname === "/document-viewer-v1.html"
   );
 }
 
@@ -592,7 +596,13 @@ function shouldBypassHttpCache(pathname) {
     pathname === "/css/customer-v1.css" ||
     pathname.startsWith("/js/features/price-cost-master/") ||
     pathname.startsWith("/css/features/price-cost-master/") ||
-    pathname === "/js/features/floorplan-builder/floorplan-security-bridge-v1.js"
+    pathname === "/js/features/floorplan-builder/floorplan-security-bridge-v1.js" ||
+    pathname === "/js/pdf-share-v1.js" ||
+    pathname === "/js/document-viewer-v1.js" ||
+    pathname === "/js/estimate-v1.js" ||
+    pathname === "/js/projects-v1.js" ||
+    pathname === "/js/project-mgmt-detail-v1.js" ||
+    pathname === "/js/survey-pdf-actions-v1.js"
   );
 }
 
