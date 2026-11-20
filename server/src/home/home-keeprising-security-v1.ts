@@ -30,6 +30,7 @@ import {
 } from "./home-comm-recovery-v1.js";
 import {
   getKeepRisingCustomerSettingsV1,
+  type KeepRisingBeamLinkModeV1,
   type KeepRisingCustomerSettingsV1,
 } from "./home-keeprising-settings-v1.js";
 import {
@@ -55,32 +56,47 @@ export const KEEPRISING_HEARTBEAT_OFFLINE_MS_V1 =
 
 export type KeepRisingDiV1 = 1 | 2 | 3 | 4;
 
-/** 投光器4は DO7。DI4 では DO3 と束ねて出す */
+/**
+ * 段階連動の出力。DI2 が直前に無い DI3 は
+ * 投光器だけ。DI4 と通知のみは空。
+ * 実機の計画が優先で、これは画面と日中テスト用。
+ */
+export function keepRisingPlannedOutputsV1(
+  di: KeepRisingDiV1,
+  mode: KeepRisingBeamLinkModeV1,
+  di2Fresh: boolean
+): number[] {
+  if (mode === "notify" || di === 4) return [];
+  if (mode === "full") return [1, 2, 3, 4];
+  if (di === 1) return [1];
+  if (di === 2) return [1, 2, 3];
+  if (di === 3) return di2Fresh ? [1, 2, 3, 4] : [2, 3];
+  return [];
+}
+
+/** 標準点灯で、DI2 の履歴が無いときの出力 */
 export const KEEPRISING_SENSOR_OUTPUTS_V1: Record<
   KeepRisingDiV1,
   number[]
 > = {
-  1: [6],
-  2: [],
-  3: [1, 2, 4],
-  4: [1, 2, 3, 7, 4, 5],
+  1: [1],
+  2: [1, 2, 3],
+  3: [2, 3],
+  4: [],
 };
 
 const DI_LABELS_V1: Record<KeepRisingDiV1, string> = {
-  1: "センサー1（赤外線ビーム）",
-  2: "門マグネットセンサー",
-  3: "センサー2（赤外線ビーム）",
-  4: "センサー3（赤外線ビーム）",
+  1: "ビームセンサー1（外周・遠距離）",
+  2: "ビームセンサー2（敷地内・中間）",
+  3: "ビームセンサー3（建物至近・事務所前）",
+  4: "未使用入力",
 };
 
 const DO_LABELS_V1: Record<number, string> = {
-  1: "投光器1",
-  2: "投光器2",
-  3: "投光器3",
-  4: "赤色スピーカーパトライト",
-  5: "事務所ベースライト",
-  6: "青丸位置の赤色パトライト",
-  7: "事務所室内灯",
+  1: "パトライト",
+  2: "投光器1",
+  3: "投光器2",
+  4: "事務所ライト",
 };
 
 export interface KeepRisingCommandV1 {
@@ -207,13 +223,17 @@ export async function processKeepRisingSecurityEventV1(input: {
   const rising = active && !was;
   const falling = !active && was;
   const scheduleOpen = body.scheduleOpen !== false;
-  const guardMode = getKeepRisingCustomerSettingsV1().guardMode;
+  const settings = getKeepRisingCustomerSettingsV1();
+  const guardMode = settings.guardMode;
   const reported = Array.isArray(body.outputs)
     ? body.outputs.map((ch) => Number(ch)).filter((ch) => Number.isFinite(ch))
     : scheduleOpen
-      ? [...KEEPRISING_SENSOR_OUTPUTS_V1[di]]
+      ? keepRisingPlannedOutputsV1(di, settings.beamLinkMode, false)
       : [];
-  const channels = guardMode === "away" ? reported : [];
+  const channels =
+    guardMode === "away" && settings.beamLinkMode !== "notify"
+      ? reported
+      : [];
   let pushSent = false;
   if (guardMode === "disarmed") {
     return {
@@ -232,12 +252,16 @@ export async function processKeepRisingSecurityEventV1(input: {
       ? `${label}が反応しました`
       : `${label}が復帰しました`;
     const daytime =
-      rising && channels.length === 0 && di !== 2 && guardMode === "away";
+      rising &&
+      channels.length === 0 &&
+      guardMode === "away" &&
+      scheduleOpen === false &&
+      settings.beamLinkMode !== "notify";
     const title = rising
       ? `【TiSLY警報】${KEEPRISING_DISPLAY_NAME_V1}`
       : `【TiSLY】${KEEPRISING_DISPLAY_NAME_V1}`;
     const text =
-      guardMode === "home"
+      guardMode === "home" || settings.beamLinkMode === "notify"
         ? `${message}。ライトとパトライトは止めています。`
         : daytime
           ? `${message}。稼働時間外のためライトとパトライトは止めています。`
@@ -346,7 +370,11 @@ export function applyKeepRisingDayTestV1(input: {
   const di = asDi(input.di);
   if (!di) return { ok: false, error: "センサー番号が不正です" };
   const settings = getKeepRisingCustomerSettingsV1();
-  const channels = [...KEEPRISING_SENSOR_OUTPUTS_V1[di]];
+  const channels = keepRisingPlannedOutputsV1(
+    di,
+    settings.beamLinkMode,
+    false
+  );
   const row: KeepRisingCommandV1 = {
     command: "day_test",
     di,

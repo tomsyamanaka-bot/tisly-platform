@@ -217,3 +217,73 @@
   min-width: 2.5rem;
   color: #1e3a8a;
 }
+
+.kr-subhead {
+  margin: 14px 0 6px;
+  font-size: 16px;
+  color: #1e3a8a;
+}
+
+.kr-modes {
+  display: grid;
+  gap: 8px;
+}
+
+.kr-mode-btn {
+  min-height: 72px;
+  border: 2px solid #1e3a8a;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1e3a8a;
+  text-align: left;
+  padding: 10px 14px;
+}
+
+.kr-mode-label {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.kr-mode-desc {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.kr-mode-btn.is-on {
+  color: #ffffff;
+}
+
+.kr-mode-btn.is-on .kr-mode-desc {
+  color: #ffffff;
+}
+
+.kr-mode-btn.is-on[data-kr-beam="staged_steady"] {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.kr-mode-btn.is-on[data-kr-beam="staged_blink"] {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.kr-mode-btn.is-on[data-kr-beam="full"] {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.kr-mode-btn.is-on[data-kr-beam="notify"] {
+  background: #64748b;
+  border-color: #64748b;
+}
+
+.kr-window {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}

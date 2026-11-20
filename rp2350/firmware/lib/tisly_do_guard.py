@@ -46,14 +46,17 @@ _LIMITS = {
         7: ALARM_LIMIT_SEC,
         8: ALARM_LIMIT_SEC,
     },
+    # Keep Rising だけ役割を合わせる。
+    # DO1 はパトライト。DO4 は事務所ライト。
+    # 豊島邸・板橋・龍ヶ崎の表は変えない。
     "keeprising": {
-        1: LIGHT_LIMIT_SEC,
+        1: ALARM_LIMIT_SEC,
         2: LIGHT_LIMIT_SEC,
         3: LIGHT_LIMIT_SEC,
-        4: ALARM_LIMIT_SEC,
-        5: LIGHT_LIMIT_SEC,
+        4: LIGHT_LIMIT_SEC,
+        5: ALARM_LIMIT_SEC,
         6: ALARM_LIMIT_SEC,
-        7: LIGHT_LIMIT_SEC,
+        7: ALARM_LIMIT_SEC,
         8: ALARM_LIMIT_SEC,
     },
 }

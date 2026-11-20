@@ -98,6 +98,8 @@ describe("keeprising security", () => {
     assert.equal(before.durationSec, 30);
     assert.equal(before.floodModes.do1, "steady");
     assert.equal(before.daytimeRelayTest, false);
+    assert.equal(before.beamLinkMode, "staged_steady");
+    assert.equal(before.stageWindowSec, 60);
   });
 
   it("saves schedule, seconds, and flood modes only on PUT", async () => {
@@ -141,21 +143,21 @@ describe("keeprising security", () => {
     const test = await request(app)
       .post("/api/home/v1/keeprising/day-test")
       .set("Authorization", `Bearer ${token("KEEPRISING001")}`)
-      .send({ di: 4, confirmed: true });
+      .send({ di: 1, confirmed: true });
     assert.equal(test.status, 200);
-    assert.deepEqual(test.body.channels, [1, 2, 3, 7, 4, 5]);
+    assert.deepEqual(test.body.channels, [1]);
 
     const gate = await request(app)
       .post("/api/home/v1/keeprising/day-test")
       .set("Authorization", `Bearer ${token("KEEPRISING001")}`)
-      .send({ di: 2, confirmed: true });
-    assert.deepEqual(gate.body.channels, []);
+      .send({ di: 3, confirmed: true });
+    assert.deepEqual(gate.body.channels, [2, 3]);
 
     const command = await request(app).get("/api/home/v1/keeprising/command");
     assert.equal(command.body.command, "day_test");
-    assert.equal(command.body.di, 4);
+    assert.equal(command.body.di, 1);
     const next = await request(app).get("/api/home/v1/keeprising/command");
-    assert.equal(next.body.di, 2);
+    assert.equal(next.body.di, 3);
   });
 
   it("accepts a sensor event without queueing another relay", async () => {
@@ -194,7 +196,13 @@ describe("keeprising security", () => {
     assert.match(js, /設定を決定する/);
     assert.equal(js.includes("日中テスト発報"), false);
     assert.match(js, /昼間でもセンサー連動リレー（テスト）/);
-    assert.match(js, /事務所室内灯/);
+    assert.match(js, /段階ビーム連動モード/);
+    assert.match(js, /段階連動（標準点灯）/);
+    assert.match(js, /段階連動（威嚇点滅）/);
+    assert.match(js, /すぐ全警戒（即時フル作動）/);
+    assert.match(js, /DI1でパトライト、DI2で投光器点灯/);
+    assert.match(js, /data-kr-beam/);
+    assert.match(js, /data-kr-window/);
     assert.match(js, /DURATION_PRESETS = \[5, 15, 45, 90, 120\]/);
     assert.match(js, /data-kr-sec/);
     assert.equal(js.includes('type="range"'), false);
@@ -383,6 +391,50 @@ describe("keeprising security", () => {
     assert.equal(ready.body.firmwareLatest, true);
   });
 
+  it("saves the staged beam mode without rewriting the night window", async () => {
+    const owner = token("RISING001");
+    const saved = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ beamLinkMode: "staged_blink", stageWindowSec: 90 });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.settings.beamLinkMode, "staged_blink");
+    assert.equal(saved.body.settings.stageWindowSec, 90);
+    assert.equal(saved.body.settings.scheduleStart, "20:00");
+    assert.equal(saved.body.settings.scheduleEnd, "06:00");
+    assert.equal(saved.body.settings.durationSec, 30);
+    assert.equal(saved.body.settings.floodModes.do1, "steady");
+    const kept = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ guardMode: "home" });
+    assert.equal(kept.body.settings.guardMode, "home");
+    assert.equal(kept.body.settings.beamLinkMode, "staged_blink");
+    assert.equal(kept.body.settings.stageWindowSec, 90);
+    const full = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ beamLinkMode: "full", stageWindowSec: 1 });
+    assert.equal(full.body.settings.beamLinkMode, "full");
+    assert.equal(full.body.settings.stageWindowSec, 5);
+    const burst = await request(app)
+      .post("/api/home/v1/keeprising/day-test")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ di: 1, confirmed: true });
+    assert.deepEqual(burst.body.channels, [1, 2, 3, 4]);
+    const quiet = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ beamLinkMode: "notify" });
+    assert.equal(quiet.body.settings.beamLinkMode, "notify");
+    assert.equal(quiet.body.settings.scheduleStart, "20:00");
+    const silent = await request(app)
+      .post("/api/home/v1/keeprising/day-test")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ di: 2, confirmed: true });
+    assert.deepEqual(silent.body.channels, []);
+  });
+
   it("saves the daytime relay toggle without rewriting the night window", async () => {
     const owner = token("RISING001");
     const saved = await request(app)
@@ -455,7 +507,10 @@ describe("keeprising security", () => {
         outputs: [],
       });
     assert.equal(event.status, 200);
-    assert.equal(event.body.sensorLabel.length > 0, true);
+    assert.equal(
+      event.body.sensorLabel,
+      "ビームセンサー2（敷地内・中間）"
+    );
     const logs = listSecurityAlarmLogsV1("SEC-JP-KEEPRISING-001");
     assert.equal(
       logs.some(

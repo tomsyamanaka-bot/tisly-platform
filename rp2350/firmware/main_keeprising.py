@@ -125,7 +125,7 @@ def open_pin(gpio, mode):
 
 
 def init_output_pins():
-    """DO1〜DO7 を消灯で初期化する。"""
+    """DO1〜DO8 を消灯で初期化する。"""
     pins = {}
     for ch, gpio in cfg.CH_GPIO.items():
         if ch not in logic.OUTPUT_CHANNELS:
@@ -227,6 +227,8 @@ def load_cached_rules():
         "scheduleStart": cfg.SCHEDULE_START,
         "scheduleEnd": cfg.SCHEDULE_END,
         "durationSec": cfg.DURATION_SEC,
+        "beamLinkMode": getattr(cfg, "BEAM_LINK_MODE", "staged_steady"),
+        "stageWindowSec": int(getattr(cfg, "STAGE_WINDOW_SEC", 60)),
         "floodModes": {
             "do1": "steady",
             "do2": "steady",
@@ -385,7 +387,11 @@ def poll_and_drive(ctrl, inputs, outputs):
 
 
 def init_network(wdt):
-    """DHCP を短く試し、失敗したら予備 IP へ戻す。"""
+    """DHCP を短く試し、失敗したら予備 IP へ戻す。
+
+    DHCP の中では給餌できない。
+    別スレッドに逃がし、こちらで 200ms ごとに蹴る。
+    """
     static = (
         cfg.STATIC_IP,
         cfg.STATIC_MASK,
@@ -393,20 +399,60 @@ def init_network(wdt):
         cfg.STATIC_DNS,
     )
     timeout = int(getattr(cfg, "DHCP_TIMEOUT_SEC", 5))
-    try:
+
+    def once():
         from ethernet_init import ethernet_init
 
-        info = ethernet_init(
+        return ethernet_init(
             static=static,
-            kick=lambda: logic.kick_watchdog(wdt) or _kick(),
+            kick=lambda: logic.kick_watchdog(wdt),
             timeout_sec=timeout,
             wait_for_ip=True,
         )
-        print("[keeprising] network", info)
-        return info
+
+    try:
+        import _thread
+    except Exception:
+        _thread = None
+    if _thread is None:
+        try:
+            info = once()
+            print("[keeprising] network", info)
+            return info
+        except Exception as exc:
+            print("[keeprising] ethernet", exc)
+            return None
+
+    box = {}
+
+    def worker():
+        try:
+            box["info"] = once()
+        except Exception as exc:
+            box["err"] = exc
+        box["done"] = True
+
+    try:
+        _thread.start_new_thread(worker, ())
     except Exception as exc:
         print("[keeprising] ethernet", exc)
         return None
+    while "done" not in box:
+        try:
+            logic.kick_watchdog(wdt)
+        except Exception:
+            pass
+        _kick()
+        try:
+            time.sleep_ms(200)
+        except Exception:
+            pass
+    if "err" in box:
+        print("[keeprising] ethernet", box["err"])
+        return None
+    info = box.get("info")
+    print("[keeprising] network", info)
+    return info
 
 
 def ota_http_get(path):

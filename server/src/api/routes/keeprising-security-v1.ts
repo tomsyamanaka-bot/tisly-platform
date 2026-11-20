@@ -80,6 +80,8 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         floodModes: req.body?.floodModes,
         guardMode: req.body?.guardMode,
         daytimeRelayTest: req.body?.daytimeRelayTest,
+        beamLinkMode: req.body?.beamLinkMode,
+        stageWindowSec: req.body?.stageWindowSec,
       });
       res.json({ ok: true, settings, savedBy: "confirm" });
     }

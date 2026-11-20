@@ -11,8 +11,8 @@ export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   itabashi: "1.6.12",
   /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
   ryugasaki: "1.2.42",
-  /** Keep Rising。統一標準の配信版。他現場の下限は動かさない */
-  keeprising: "1.2.67",
+  /** Keep Rising。段階ビーム連動の配信版。他現場の下限は動かさない */
+  keeprising: "1.2.68",
 } as const;
 
 export type TislySiteTargetKeyV1 = keyof typeof TISLY_SITE_TARGET_VERSIONS_V1;

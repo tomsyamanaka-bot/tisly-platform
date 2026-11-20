@@ -44,8 +44,9 @@ def test_channel_limits_match_each_site():
     assert guard.limit_sec("toyoshima", 3) == 180
     assert guard.limit_sec("ryugasaki", 1) == 180
     assert guard.limit_sec("ryugasaki", 2) == 180
-    assert guard.limit_sec("keeprising", 1) == 600
-    assert guard.limit_sec("keeprising", 4) == 180
+    assert guard.limit_sec("keeprising", 1) == 180
+    assert guard.limit_sec("keeprising", 2) == 600
+    assert guard.limit_sec("keeprising", 4) == 600
     assert guard.limit_sec("keeprising", 6) == 180
 
 

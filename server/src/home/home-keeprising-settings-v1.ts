@@ -14,6 +14,16 @@ export type KeepRisingFloodModeV1 = "steady" | "blink";
 /** away=警戒ON / home=通知のみ / disarmed=警戒OFF */
 export type KeepRisingGuardModeV1 = "away" | "home" | "disarmed";
 
+/**
+ * staged_steady 段階点灯 / staged_blink 威嚇点滅
+ * full すぐ全警戒 / notify 通知のみ
+ */
+export type KeepRisingBeamLinkModeV1 =
+  | "staged_steady"
+  | "staged_blink"
+  | "full"
+  | "notify";
+
 export interface KeepRisingFloodModesV1 {
   do1: KeepRisingFloodModeV1;
   do2: KeepRisingFloodModeV1;
@@ -30,11 +40,17 @@ export interface KeepRisingCustomerSettingsV1 {
   guardMode: KeepRisingGuardModeV1;
   /** 稼働時間外でもセンサー連動リレーを出す */
   daytimeRelayTest: boolean;
+  /** 段階ビーム連動。未保存の行は標準点灯 */
+  beamLinkMode: KeepRisingBeamLinkModeV1;
+  /** DI2 から DI3 までの秒。初期値は 60 */
+  stageWindowSec: number;
   updatedAt: string;
 }
 
 const DO_MIN_SEC = 5;
 const DO_MAX_SEC = 180;
+const STAGE_WINDOW_MIN_SEC = 5;
+const STAGE_WINDOW_MAX_SEC = 300;
 const DURATION_PRESETS_V1 = [5, 15, 45, 90, 120] as const;
 
 /** 5 / 15 / 45 / 90 / 120 の近い方。同じ距離なら長い方 */
@@ -131,6 +147,37 @@ export function parseKeepRisingGuardModeV1(
   return fallback;
 }
 
+export function parseKeepRisingBeamLinkModeV1(
+  raw: unknown
+): KeepRisingBeamLinkModeV1 {
+  const text = String(raw ?? "").trim().toLowerCase();
+  if (
+    text === "staged_blink" ||
+    text === "blink" ||
+    text === "threat" ||
+    text === "two_stage_blink"
+  ) {
+    return "staged_blink";
+  }
+  if (text === "full" || text === "direct" || text === "immediate") {
+    return "full";
+  }
+  if (text === "notify" || text === "silent" || text === "notify_only") {
+    return "notify";
+  }
+  return "staged_steady";
+}
+
+/** DI2→DI3 の秒。未設定は 60。5〜300 に収める */
+export function clampKeepRisingStageWindowSecV1(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 60;
+  const sec = Math.round(n);
+  if (sec < STAGE_WINDOW_MIN_SEC) return STAGE_WINDOW_MIN_SEC;
+  if (sec > STAGE_WINDOW_MAX_SEC) return STAGE_WINDOW_MAX_SEC;
+  return sec;
+}
+
 function parseDaytimeRelayTestV1(raw: unknown): boolean {
   if (raw === true || raw === 1) return true;
   const text = String(raw ?? "").trim().toLowerCase();
@@ -150,6 +197,8 @@ function defaultSettings(siteId: string): KeepRisingCustomerSettingsV1 {
     floodModes: defaultModes(),
     guardMode: "away",
     daytimeRelayTest: false,
+    beamLinkMode: "staged_steady",
+    stageWindowSec: 60,
     updatedAt: nowIso(),
   };
 }
@@ -192,6 +241,12 @@ function parseSettings(
     },
     guardMode: parseKeepRisingGuardModeV1(row.guardMode, "away"),
     daytimeRelayTest: parseDaytimeRelayTestV1(row.daytimeRelayTest),
+    beamLinkMode: parseKeepRisingBeamLinkModeV1(
+      row.beamLinkMode ?? row.beamMode ?? base.beamLinkMode
+    ),
+    stageWindowSec: clampKeepRisingStageWindowSecV1(
+      row.stageWindowSec ?? row.di2ToDi3Sec ?? base.stageWindowSec
+    ),
     updatedAt:
       typeof row.updatedAt === "string" ? row.updatedAt : base.updatedAt,
   };
@@ -224,6 +279,8 @@ export function saveKeepRisingCustomerSettingsV1(input: {
   floodModes?: unknown;
   guardMode?: unknown;
   daytimeRelayTest?: unknown;
+  beamLinkMode?: unknown;
+  stageWindowSec?: unknown;
 }): KeepRisingCustomerSettingsV1 {
   const id = String(input.siteId || SEC_JP_KEEPRISING_SITE_ID_V1).trim();
   const prev = getKeepRisingCustomerSettingsV1(id);
@@ -261,6 +318,14 @@ export function saveKeepRisingCustomerSettingsV1(input: {
       input.daytimeRelayTest === undefined
         ? prev.daytimeRelayTest
         : parseDaytimeRelayTestV1(input.daytimeRelayTest),
+    beamLinkMode:
+      input.beamLinkMode === undefined
+        ? prev.beamLinkMode
+        : parseKeepRisingBeamLinkModeV1(input.beamLinkMode),
+    stageWindowSec:
+      input.stageWindowSec === undefined
+        ? prev.stageWindowSec
+        : clampKeepRisingStageWindowSecV1(input.stageWindowSec),
     updatedAt: nowIso(),
   };
   ensureTable();

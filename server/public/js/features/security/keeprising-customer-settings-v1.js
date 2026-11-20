@@ -1,7 +1,8 @@
 /**
  * Keep Rising の稼働設定。
- * 点灯秒と昼間の連動トグルは、
+ * 点灯秒、連動モード、昼間のトグルは
  * 決定ボタンまで保存しない。
+ * cache ?t=2606
  */
 
 import { showViewportToast } from "./toast-viewport-v1.js";
@@ -9,12 +10,29 @@ import { showViewportToast } from "./toast-viewport-v1.js";
 const SITE_ID = "SEC-JP-KEEPRISING-001";
 const API = "/api/home/v1/keeprising";
 const DURATION_PRESETS = [5, 15, 45, 90, 120];
+const WINDOW_PRESETS = [30, 60, 90, 120];
 
-const FLOODS = [
-  { key: "do1", label: "投光器1" },
-  { key: "do2", label: "投光器2" },
-  { key: "do3", label: "投光器3" },
-  { key: "do7", label: "事務所室内灯" },
+const BEAM_MODES = [
+  {
+    id: "staged_steady",
+    label: "段階連動（標準点灯）",
+    desc: "DI1でパトライト、DI2で投光器点灯、連続DI3で事務所ライトも全点灯（DI3単独は投光器のみ点灯）",
+  },
+  {
+    id: "staged_blink",
+    label: "段階連動（威嚇点滅）",
+    desc: "DI1でパトライト、DI2で投光器が激しく点滅、連続DI3で事務所ライトも全点灯（DI3単独は投光器のみ点灯）",
+  },
+  {
+    id: "full",
+    label: "すぐ全警戒（即時フル作動）",
+    desc: "どのビーム反応でもパトライト・投光器・事務所ライトを即座に全作動",
+  },
+  {
+    id: "notify",
+    label: "通知のみ",
+    desc: "昼夜ともパトライト・投光器・事務所ライトは動かさずスマホ通知のみ",
+  },
 ];
 
 export function isKeepRisingSecuritySite(siteId) {
@@ -77,6 +95,41 @@ function durationButtons(sec) {
   }).join("");
 }
 
+function beamModeId(raw) {
+  const id = String(raw || "");
+  return BEAM_MODES.some((row) => row.id === id) ? id : "staged_steady";
+}
+
+function beamModeLabel(raw) {
+  const id = beamModeId(raw);
+  return BEAM_MODES.find((row) => row.id === id)?.label || "段階連動（標準点灯）";
+}
+
+function windowSec(raw) {
+  const n = Number(raw);
+  if (WINDOW_PRESETS.includes(n)) return n;
+  return 60;
+}
+
+function windowButtons(sec) {
+  const selected = windowSec(sec);
+  return WINDOW_PRESETS.map((preset) => {
+    const on = preset === selected ? " is-on" : "";
+    return `<button type="button" class="kr-duration-btn${on}" data-kr-window="${preset}" aria-pressed="${preset === selected ? "true" : "false"}">${preset}秒</button>`;
+  }).join("");
+}
+
+function beamModeButtons(current) {
+  const selected = beamModeId(current);
+  return BEAM_MODES.map((row) => {
+    const on = row.id === selected;
+    return `<button type="button" class="kr-mode-btn${on ? " is-on" : ""}" data-kr-beam="${row.id}" aria-pressed="${on ? "true" : "false"}">
+      <span class="kr-mode-label">${row.label}</span>
+      <span class="kr-mode-desc">${row.desc}</span>
+    </button>`;
+  }).join("");
+}
+
 async function readSettings() {
   const res = await fetch(
     `${API}/settings?siteId=${SITE_ID}&t=${Date.now()}&_fresh=${Date.now()}`,
@@ -102,28 +155,7 @@ async function saveSettings(patch) {
   return data.settings;
 }
 
-function modeButtons(key, mode) {
-  const steady = mode === "blink" ? "" : " is-on";
-  const blink = mode === "blink" ? " is-on" : "";
-  return `
-    <div class="kr-seg" data-kr-flood="${key}">
-      <button type="button" class="kr-seg-btn${steady}" data-kr-mode="steady">点灯</button>
-      <button type="button" class="kr-seg-btn${blink}" data-kr-mode="blink">点滅</button>
-    </div>
-  `;
-}
-
 function render(root, settings) {
-  const modes = settings.floodModes || {};
-  const floods = FLOODS.map(
-    (row) => `
-      <section class="kr-card">
-        <h2>${row.label}</h2>
-        <p>点灯か点滅を選びます。決定するまで保存されません。</p>
-        ${modeButtons(row.key, modes[row.key] || "steady")}
-      </section>
-    `
-  ).join("");
   root.innerHTML = `
     <summary>Keep Rising の連動設定</summary>
     <div class="kr-settings-body">
@@ -146,7 +178,7 @@ function render(root, settings) {
           </span>
           <strong data-kr-daytime-label>${settings.daytimeRelayTest ? "ON" : "OFF"}</strong>
         </label>
-        <p>ON のあいだは、稼働時間の外でもセンサーが投光器・室内灯・パトライトを動かします。決定するまで保存されません。</p>
+        <p>ON のあいだは、稼働時間の外でも選んだ連動のリレーを出します。通知のみのときは昼夜とも動かしません。決定するまで保存されません。</p>
       </section>
       <section class="kr-card">
         <h2>発報時の点灯秒数</h2>
@@ -155,7 +187,18 @@ function render(root, settings) {
           ${durationButtons(settings.durationSec)}
         </div>
       </section>
-      ${floods}
+      <section class="kr-card" aria-label="段階ビーム連動モード">
+        <h2>段階ビーム連動モード</h2>
+        <p>選び方は「設定を決定する」まで保存されません。実機は回線が切れても、決定済みのモードで動きます。</p>
+        <div class="kr-modes" role="radiogroup" aria-label="段階ビーム連動モード">
+          ${beamModeButtons(settings.beamLinkMode)}
+        </div>
+        <h3 class="kr-subhead">連続侵入の判定秒数</h3>
+        <p>DI2検知からこの秒数以内のDI3だけ、事務所ライトを足します。</p>
+        <div class="kr-window" data-kr-window-group>
+          ${windowButtons(settings.stageWindowSec)}
+        </div>
+      </section>
       <button type="button" class="kr-commit" data-kr-commit>設定を決定する</button>
       <p class="kr-note" data-kr-note>変更は「設定を決定する」まで保存されません。</p>
     </div>
@@ -163,19 +206,16 @@ function render(root, settings) {
 }
 
 function draftFrom(root) {
-  const floodModes = {};
-  root.querySelectorAll("[data-kr-flood]").forEach((group) => {
-    const key = group.getAttribute("data-kr-flood");
-    const on = group.querySelector(".kr-seg-btn.is-on");
-    floodModes[key] = on?.getAttribute("data-kr-mode") === "blink" ? "blink" : "steady";
-  });
+  const beam = root.querySelector(".kr-mode-btn.is-on");
+  const windowBtn = root.querySelector("[data-kr-window].is-on");
   return {
     scheduleStart: root.querySelector('[data-kr="start"]')?.value || "20:00",
     scheduleEnd: root.querySelector('[data-kr="end"]')?.value || "06:00",
     durationSec: snapKeepRisingDurationSec(
-      root.querySelector(".kr-duration-btn.is-on")?.getAttribute("data-kr-sec")
+      root.querySelector("[data-kr-sec].is-on")?.getAttribute("data-kr-sec")
     ),
-    floodModes,
+    beamLinkMode: beamModeId(beam?.getAttribute("data-kr-beam")),
+    stageWindowSec: windowSec(windowBtn?.getAttribute("data-kr-window")),
     daytimeRelayTest: Boolean(root.querySelector('[data-kr="daytime"]')?.checked),
   };
 }
@@ -207,11 +247,24 @@ function bind(root) {
       if (line) line.textContent = "未保存です。設定を決定するまで反映されません。";
       return;
     }
-    const mode = event.target.closest?.("[data-kr-mode]");
-    if (mode) {
-      const group = mode.closest("[data-kr-flood]");
-      group.querySelectorAll(".kr-seg-btn").forEach((btn) => {
-        btn.classList.toggle("is-on", btn === mode);
+    const beam = event.target.closest?.("[data-kr-beam]");
+    if (beam) {
+      root.querySelectorAll(".kr-mode-btn").forEach((btn) => {
+        const on = btn === beam;
+        btn.classList.toggle("is-on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      const line = note();
+      if (line) line.textContent = "未保存です。設定を決定するまで反映されません。";
+      return;
+    }
+    const windowBtn = event.target.closest?.("[data-kr-window]");
+    if (windowBtn) {
+      const group = windowBtn.closest("[data-kr-window-group]");
+      group?.querySelectorAll("[data-kr-window]").forEach((btn) => {
+        const on = btn === windowBtn;
+        btn.classList.toggle("is-on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
       const line = note();
       if (line) line.textContent = "未保存です。設定を決定するまで反映されません。";
@@ -223,7 +276,7 @@ function bind(root) {
       try {
         const saved = await saveSettings(draftFrom(root));
         const selected = snapKeepRisingDurationSec(saved?.durationSec);
-        root.querySelectorAll(".kr-duration-btn").forEach((btn) => {
+        root.querySelectorAll("[data-kr-sec]").forEach((btn) => {
           const on = Number(btn.getAttribute("data-kr-sec")) === selected;
           btn.classList.toggle("is-on", on);
           btn.setAttribute("aria-pressed", on ? "true" : "false");
@@ -233,14 +286,26 @@ function bind(root) {
         if (dayBox) dayBox.checked = dayOn;
         const dayLabel = root.querySelector("[data-kr-daytime-label]");
         if (dayLabel) dayLabel.textContent = dayOn ? "ON" : "OFF";
+        const savedMode = beamModeId(saved?.beamLinkMode);
+        root.querySelectorAll(".kr-mode-btn").forEach((btn) => {
+          const on = btn.getAttribute("data-kr-beam") === savedMode;
+          btn.classList.toggle("is-on", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        const savedWindow = windowSec(saved?.stageWindowSec);
+        root.querySelectorAll("[data-kr-window]").forEach((btn) => {
+          const on = Number(btn.getAttribute("data-kr-window")) === savedWindow;
+          btn.classList.toggle("is-on", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+        });
         const line = note();
         if (line) {
-          line.textContent = `設定を決定し、保存しました（点灯 ${selected}秒、昼間連動 ${dayOn ? "ON" : "OFF"}）。`;
+          line.textContent = `設定を決定し、保存しました（${beamModeLabel(savedMode)}、点灯 ${selected}秒、連続 ${savedWindow}秒、昼間連動 ${dayOn ? "ON" : "OFF"}）。`;
         }
         showViewportToast(
           "kr-save-toast",
           "ts-toast",
-          `設定を保存しました（点灯 ${selected}秒）`,
+          `設定を保存しました（${beamModeLabel(savedMode)}）`,
           2800
         );
       } catch (err) {
@@ -278,7 +343,9 @@ export function mountKeepRisingSettings(siteId) {
     scheduleStart: "20:00",
     scheduleEnd: "06:00",
     durationSec: 30,
-    floodModes: { do1: "steady", do2: "steady", do3: "steady", do7: "steady" },
+    beamLinkMode: "staged_steady",
+    stageWindowSec: 60,
+    daytimeRelayTest: false,
   };
   readSettings()
     .then((settings) => {

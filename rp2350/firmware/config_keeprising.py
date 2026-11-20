@@ -64,8 +64,20 @@ SCHEDULE_START = "20:00"
 SCHEDULE_END = "06:00"
 DURATION_SEC = 30
 
+# 役割。上の GPIO 番号は変えない。
+# DI1 ビーム1（外周・遠距離）
+# DI2 ビーム2（敷地内・中間）
+# DI3 ビーム3（建物至近・事務所前）
+# DO1 パトライト（赤色回転灯・スピーカー）
+# DO2 投光器1
+# DO3 投光器2
+# DO4 事務所ライト（室内ベースライト）
+# 初期は段階連動の点灯。DI2 から 60 秒。
+BEAM_LINK_MODE = "staged_steady"
+STAGE_WINDOW_SEC = 60
+
 # 版番号は直下 npm run build が揃える
-FIRMWARE_VERSION = "1.2.67"
+FIRMWARE_VERSION = "1.2.68"
 OTA_SITE = "keeprising"
-OTA_VERSION = "1.2.67"
+OTA_VERSION = "1.2.68"
 OTA_CHANNEL = "production"

@@ -7,7 +7,7 @@ Keep Rising のセンサーとリレー。
 import time
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.67"
+FIRMWARE_LOGIC_VERSION = "1.2.68"
 
 DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300
@@ -18,23 +18,40 @@ TENANT_ID = "KEEPRISING001"
 SITE_ID = "SEC-JP-KEEPRISING-001"
 DEVICE_ID = "rp2350-keeprising-main-01"
 
+# 確定割当。GPIO は config の番号のまま。
+# DI1 ビーム1（外周・遠距離）
+# DI2 ビーム2（敷地内・中間）
+# DI3 ビーム3（建物至近・事務所前）
+# DO1 パトライト（赤色回転灯とスピーカー）
+# DO2 投光器1 / DO3 投光器2
+# DO4 事務所ライト（室内ベースライト）
 DI_NAMES = {
-    1: "センサー1（赤外線ビーム）",
-    2: "門マグネットセンサー",
-    3: "センサー2（赤外線ビーム）",
-    4: "センサー3（赤外線ビーム）",
+    1: "ビームセンサー1（外周・遠距離）",
+    2: "ビームセンサー2（敷地内・中間）",
+    3: "ビームセンサー3（建物至近・事務所前）",
+    4: "未使用入力",
 }
 
-# 投光器4は DO7。DI4 では DO3 と束ねる
-SENSOR_OUTPUTS = {
-    1: (6,),
-    2: (),
-    3: (1, 2, 4),
-    4: (1, 2, 3, 7, 4, 5),
-}
+DO_PATLITE = 1
+DO_FLOOD_1 = 2
+DO_FLOOD_2 = 3
+DO_OFFICE = 4
+# 点滅させるのは投光器だけ。パトライトと
+# 事務所ライトは点灯のままにする。
+FLOOD_CHANNELS = (DO_FLOOD_1, DO_FLOOD_2)
+# 未使用の DO5〜DO8 も毎回 OFF を書く。
+OUTPUT_CHANNELS = (1, 2, 3, 4, 5, 6, 7, 8)
 
-FLOOD_CHANNELS = (1, 2, 3, 7)
-OUTPUT_CHANNELS = (1, 2, 3, 4, 5, 6, 7)
+LINK_STAGED_STEADY = "staged_steady"
+LINK_STAGED_BLINK = "staged_blink"
+LINK_FULL = "full"
+LINK_NOTIFY = "notify"
+# 威嚇は 250ms 点灯、250ms 消灯。
+# 待ちは置かず、周回の位相だけで切替える。
+BLINK_MS = 250
+STAGE_WINDOW_DEFAULT_SEC = 60
+STAGE_WINDOW_MIN_SEC = 5
+STAGE_WINDOW_MAX_SEC = 300
 
 try:
     import time
@@ -111,6 +128,31 @@ def normalize_mode(raw):
     return "steady"
 
 
+def clamp_stage_window_sec(raw, fallback=STAGE_WINDOW_DEFAULT_SEC):
+    """DI2 から DI3 までの秒。5〜300 に収める。"""
+    try:
+        sec = int(raw)
+    except Exception:
+        return int(fallback)
+    if sec < STAGE_WINDOW_MIN_SEC:
+        return STAGE_WINDOW_MIN_SEC
+    if sec > STAGE_WINDOW_MAX_SEC:
+        return STAGE_WINDOW_MAX_SEC
+    return sec
+
+
+def normalize_beam_mode(raw):
+    """段階点灯、威嚇点滅、全警戒、通知のみ。"""
+    text = str(raw or "").strip().lower()
+    if text in ("staged_blink", "blink", "threat", "two_stage_blink"):
+        return LINK_STAGED_BLINK
+    if text in ("full", "direct", "immediate"):
+        return LINK_FULL
+    if text in ("notify", "silent", "notify_only"):
+        return LINK_NOTIFY
+    return LINK_STAGED_STEADY
+
+
 def normalize_guard_mode(raw):
     """away はフル連動。home は通知のみ。disarmed は停止。"""
     text = str(raw or "away").strip().lower()
@@ -181,12 +223,16 @@ class KeepRisingController:
         self.inputs = {1: False, 2: False, 3: False, 4: False}
         self.hold_until = {ch: None for ch in OUTPUT_CHANNELS}
         self.force_until = {ch: None for ch in OUTPUT_CHANNELS}
-        self.modes = {1: "steady", 2: "steady", 3: "steady", 7: "steady"}
+        self.styles = {DO_FLOOD_1: "steady", DO_FLOOD_2: "steady"}
         self.schedule_start = 20 * 60
         self.schedule_end = 6 * 60
         self.duration_sec = 30
         self.guard_mode = "away"
         self.daytime_relay = False
+        self.beam_mode = LINK_STAGED_STEADY
+        self.stage_window_sec = STAGE_WINDOW_DEFAULT_SEC
+        # DI2 が立ったミリ秒。無いときは None。
+        self.di2_rise_ms = None
         # NTP 後だけ時計を使う。9時間は足さない。
         self._ntp_ready = False
         self._server_jst = None
@@ -216,25 +262,32 @@ class KeepRisingController:
         jst = rules.get("jstMinutes", rules.get("jst_minutes"))
         if jst is not None:
             self.note_server_jst(jst)
-        modes = rules.get("floodModes")
-        if not isinstance(modes, dict):
-            return
-        mapping = {
-            "1": 1,
-            "do1": 1,
-            "2": 2,
-            "do2": 2,
-            "3": 3,
-            "do3": 3,
-            "7": 7,
-            "do7": 7,
-        }
-        for key, ch in mapping.items():
-            if key in modes:
-                self.modes[ch] = normalize_mode(modes.get(key))
+        mode_raw = None
+        if "beamLinkMode" in rules:
+            mode_raw = rules.get("beamLinkMode")
+        elif "beamMode" in rules:
+            mode_raw = rules.get("beamMode")
+        if mode_raw is not None:
+            next_mode = normalize_beam_mode(mode_raw)
+            if next_mode == LINK_NOTIFY:
+                for ch in OUTPUT_CHANNELS:
+                    self.hold_until[ch] = None
+                    self.force_until[ch] = None
+            self.beam_mode = next_mode
+        window = None
+        if "stageWindowSec" in rules:
+            window = rules.get("stageWindowSec")
+        elif "di2ToDi3Sec" in rules:
+            window = rules.get("di2ToDi3Sec")
+        if window is not None:
+            self.stage_window_sec = clamp_stage_window_sec(
+                window, self.stage_window_sec
+            )
 
     def outputs_allowed(self, open_now):
-        """警戒 ON のとき、稼働時間内か昼間連動テスト中だけリレーを出す。"""
+        """警戒 ON かつ通知のみ以外。昼はテスト中だけ。"""
+        if getattr(self, "beam_mode", LINK_STAGED_STEADY) == LINK_NOTIFY:
+            return False
         if getattr(self, "guard_mode", "away") != "away":
             return False
         if open_now:
@@ -312,12 +365,58 @@ class KeepRisingController:
             self.debouncer.seed(ch, active, now_ms)
             self.inputs[ch] = active
 
-    def outputs_for(self, channel):
-        """センサーに対応する出力端子の組。"""
-        return tuple(SENSOR_OUTPUTS.get(int(channel), ()))
+    def _di2_fresh(self, now_ms):
+        """DI2 から指定秒以内なら段階侵入。"""
+        stamp = self.di2_rise_ms
+        if stamp is None:
+            return False
+        limit = int(self.stage_window_sec) * 1000
+        elapsed = ticks_diff(int(now_ms), int(stamp))
+        return elapsed >= 0 and elapsed <= limit
+
+    def plan_for(self, channel, now_ms):
+        """
+        立上り 1 回分の出力計画。
+        要素は (端子, steady か blink)。
+        DI2 の時刻はリレーの可否と別に残す。
+        """
+        try:
+            ch = int(channel)
+        except Exception:
+            return []
+        if ch == 2:
+            self.di2_rise_ms = int(now_ms)
+        mode = getattr(self, "beam_mode", LINK_STAGED_STEADY)
+        if mode == LINK_NOTIFY or ch not in (1, 2, 3):
+            return []
+        if mode == LINK_FULL:
+            return [
+                (DO_PATLITE, "steady"),
+                (DO_FLOOD_1, "steady"),
+                (DO_FLOOD_2, "steady"),
+                (DO_OFFICE, "steady"),
+            ]
+        flood = "blink" if mode == LINK_STAGED_BLINK else "steady"
+        if ch == 1:
+            return [(DO_PATLITE, "steady")]
+        if ch == 2:
+            return [
+                (DO_PATLITE, "steady"),
+                (DO_FLOOD_1, flood),
+                (DO_FLOOD_2, flood),
+            ]
+        if self._di2_fresh(now_ms):
+            return [
+                (DO_PATLITE, "steady"),
+                (DO_FLOOD_1, flood),
+                (DO_FLOOD_2, flood),
+                (DO_OFFICE, "steady"),
+            ]
+        # DI3 単独は投光器だけを点灯する。
+        return [(DO_FLOOD_1, "steady"), (DO_FLOOD_2, "steady")]
 
     def arm(self, channels, now_ms, force=False, duration_sec=None):
-        """指定端子を点灯秒だけ保持する。"""
+        """計画した端子を点灯秒だけ保持する。"""
         sec = clamp_duration_sec(
             self.duration_sec if duration_sec is None else duration_sec,
             self.duration_sec,
@@ -325,13 +424,24 @@ class KeepRisingController:
         until = int(now_ms) + sec * 1000
         armed = []
         for ch in channels:
+            style = "steady"
+            if isinstance(ch, (list, tuple)):
+                if len(ch) < 1:
+                    continue
+                raw = ch[0]
+                if len(ch) >= 2:
+                    style = normalize_mode(ch[1])
+            else:
+                raw = ch
             try:
-                num = int(ch)
+                num = int(raw)
             except Exception:
                 continue
             if num not in self.hold_until:
                 continue
             self.hold_until[num] = until
+            if num in FLOOD_CHANNELS:
+                self.styles[num] = style
             if force:
                 self.force_until[num] = until
             armed.append(num)
@@ -354,8 +464,12 @@ class KeepRisingController:
             if mode == "disarmed":
                 continue
             outputs = []
-            if changed and self.outputs_allowed(open_now):
-                outputs = self.arm(self.outputs_for(ch), now_ms, False)
+            # 立上りだけ計画する。復帰で DI2 時刻は
+            # 更新しない。通信を待たずにここで決める。
+            if changed:
+                plan = self.plan_for(ch, now_ms)
+                if self.outputs_allowed(open_now):
+                    outputs = self.arm(plan, now_ms, False)
             events.append(self.build_event(ch, bool(changed), open_now, outputs))
         return events
 
@@ -380,15 +494,15 @@ class KeepRisingController:
         }
 
     def apply_day_test(self, di, now_ms, duration_sec=None):
-        """時間外でも、選んだセンサーの出力を出す。"""
+        """時間外でも、その時点の連動計画を一度出す。"""
         try:
             ch = int(di)
         except Exception:
             return []
-        if ch not in SENSOR_OUTPUTS:
+        if ch not in (1, 2, 3, 4):
             return []
         return self.arm(
-            self.outputs_for(ch), now_ms, True, duration_sec
+            self.plan_for(ch, now_ms), now_ms, True, duration_sec
         )
 
     def apply_command(self, body, now_ms):
@@ -401,9 +515,14 @@ class KeepRisingController:
         cmd = str(body.get("command") or "").strip().lower()
         if cmd != "day_test":
             return bool(settings)
+        # 出力は実機の計画を使う。回線の端子一覧は
+        # 見ないので、古い配信でも端子を取り違えない。
+        if body.get("di") is not None:
+            self.apply_day_test(body.get("di"), now_ms, body.get("durationSec"))
+            return True
         channels = body.get("channels")
         if not isinstance(channels, (list, tuple)):
-            channels = self.outputs_for(body.get("di"))
+            channels = []
         self.arm(channels, now_ms, True, body.get("durationSec"))
         return True
 
@@ -415,7 +534,7 @@ class KeepRisingController:
 
     def physical(self, now_ms, utc_sec):
         """
-        コイルへ書く真偽。点滅は 500ms。
+        コイルへ書く真偽。点滅は 250ms。
         時間外の通常保持はここで消す。
         """
         open_now = self.schedule_open(utc_sec)
@@ -433,7 +552,10 @@ class KeepRisingController:
             if not on:
                 levels[ch] = False
                 continue
-            if ch in FLOOD_CHANNELS and self.modes.get(ch) == "blink":
+            if (
+                ch in FLOOD_CHANNELS
+                and self.styles.get(ch) == "blink"
+            ):
                 phase = (int(now_ms) // BLINK_MS) % 2
                 levels[ch] = phase == 0
             else:
