@@ -11,6 +11,7 @@ import {
   KEEPRISING_DEVICE_ID_V1,
   SEC_JP_KEEPRISING_SITE_ID_V1,
   applyKeepRisingDayTestV1,
+  applyKeepRisingManualV1,
   buildKeepRisingStatusV1,
   notifyKeepRisingDayTestV1,
   consumeKeepRisingDeviceCommandV1,
@@ -19,6 +20,7 @@ import {
   serializeKeepRisingCommandV1,
 } from "../../home/home-keeprising-security-v1.js";
 import {
+  deliverKeepRisingDeviceSettingsV1,
   getKeepRisingCustomerSettingsV1,
   saveKeepRisingCustomerSettingsV1,
 } from "../../home/home-keeprising-settings-v1.js";
@@ -82,6 +84,13 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         daytimeRelayTest: req.body?.daytimeRelayTest,
         beamLinkMode: req.body?.beamLinkMode,
         stageWindowSec: req.body?.stageWindowSec,
+        lightingScheduleMode: req.body?.lightingScheduleMode,
+        sunsetOffsetMin: req.body?.sunsetOffsetMin,
+        sunriseOffsetMin: req.body?.sunriseOffsetMin,
+        patliteThreatEnabled: req.body?.patliteThreatEnabled,
+        notifyDi1: req.body?.notifyDi1,
+        notifyDi2: req.body?.notifyDi2,
+        notifyDi3: req.body?.notifyDi3,
       });
       res.json({ ok: true, settings, savedBy: "confirm" });
     }
@@ -129,9 +138,36 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
     );
     res.json({
       ...command,
-      settings: getKeepRisingCustomerSettingsV1(),
+      settings: deliverKeepRisingDeviceSettingsV1(),
     });
   });
+
+  router.post(
+    "/keeprising/manual",
+    requireAuth("viewer"),
+    (req: AuthedRequest, res) => {
+      if (!actorMayEdit(req)) {
+        res.status(403).json({
+          ok: false,
+          error: "この物件の操作はできません",
+        });
+        return;
+      }
+      const result = applyKeepRisingManualV1(req.body?.action);
+      if (!result.ok) {
+        res.status(400).json(result);
+        return;
+      }
+      res.json({
+        ok: true,
+        queued: true,
+        command: result.command,
+        channels: result.channels,
+        release: result.release,
+        durationSec: result.durationSec,
+      });
+    }
+  );
 
   router.get("/keeprising/config", (req, res) => {
     if (!deviceTokenOk(req)) {
@@ -142,7 +178,7 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
     res.json({
       ok: true,
       deviceId: KEEPRISING_DEVICE_ID_V1,
-      settings: getKeepRisingCustomerSettingsV1(),
+      settings: deliverKeepRisingDeviceSettingsV1(),
     });
   });
 
@@ -190,6 +226,7 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         uptimeSec: req.body?.uptime_sec ?? req.body?.uptimeSec,
         resetReason: req.body?.reset_reason ?? req.body?.resetReason,
         doLimitCuts: req.body?.do_limit_cuts ?? req.body?.doLimitCuts,
+        outputs: req.body?.outputs,
       });
       const kitting = extractTislyKittingFromHeartbeatV1(req.body);
       const ota = recordTislyOtaDeviceFirmwareV1({
@@ -211,7 +248,7 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
       res.json({
         ok: true,
         status: "ONLINE",
-        settings: getKeepRisingCustomerSettingsV1(),
+        settings: deliverKeepRisingDeviceSettingsV1(),
         command: command.command,
         di: command.di,
         channels: command.channels,

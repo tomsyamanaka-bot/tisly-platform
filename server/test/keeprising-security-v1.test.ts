@@ -193,14 +193,14 @@ describe("keeprising security", () => {
       ),
       "utf8"
     );
-    assert.match(js, /設定を決定する/);
+    assert.match(js, /設定変更を確定する/);
     assert.equal(js.includes("日中テスト発報"), false);
     assert.match(js, /昼間でもセンサー連動リレー（テスト）/);
     assert.match(js, /段階ビーム連動モード/);
     assert.match(js, /段階連動（標準点灯）/);
     assert.match(js, /段階連動（威嚇点滅）/);
     assert.match(js, /すぐ全警戒（即時フル作動）/);
-    assert.match(js, /DI1でパトライト、DI2で投光器点灯/);
+    assert.match(js, /DI1でパトライト\(DO1\)、DI2で投光器1・2/);
     assert.match(js, /data-kr-beam/);
     assert.match(js, /data-kr-window/);
     assert.match(js, /DURATION_PRESETS = \[5, 15, 45, 90, 120\]/);
@@ -327,9 +327,16 @@ describe("keeprising security", () => {
       ),
       "utf8"
     );
-    assert.match(customerJs, /警戒 ON（外出警戒）/);
+    assert.match(customerJs, /🛡️/);
+    assert.match(customerJs, /警戒 ON/);
     assert.match(customerJs, /通知のみ/);
-    assert.match(customerJs, /警戒 OFF（解除）/);
+    assert.match(customerJs, /⏸️/);
+    assert.match(customerJs, /警戒 OFF/);
+    assert.match(customerJs, /パトライト威嚇連動/);
+    assert.match(customerJs, /天文タイマー/);
+    assert.match(customerJs, /ビームセンサー1（外周）検知/);
+    assert.match(customerJs, /投光器1点灯/);
+    assert.match(customerJs, /cache: "no-store"/);
     assert.match(assureJs, /🟢 オンライン/);
     assert.match(assureJs, /24\.5/);
   });
@@ -528,5 +535,60 @@ describe("keeprising security", () => {
     );
     assert.match(server, /【TiSLY警報】/);
     assert.match(sw, /keepRisingCustomerAlert/);
+  });
+
+  it("keeps manual times when the astronomical mode is saved", async () => {
+    const owner = token("RISING001");
+    const saved = await request(app)
+      .put("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({
+        lightingScheduleMode: "astronomical",
+        sunsetOffsetMin: -30,
+        sunriseOffsetMin: 15,
+        patliteThreatEnabled: false,
+        notifyDi1: false,
+      });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.body.settings.scheduleStart, "20:00");
+    assert.equal(saved.body.settings.lightingScheduleMode, "astronomical");
+    assert.equal(saved.body.settings.patliteThreatEnabled, false);
+    assert.equal(saved.body.settings.notifyDi1, false);
+    assert.equal(saved.body.settings.notifyDi2, true);
+    const listed = await request(app)
+      .get("/api/home/v1/keeprising/settings")
+      .set("Authorization", `Bearer ${owner}`);
+    assert.equal(listed.body.settings.scheduleStart, "20:00");
+    const command = await request(app).get("/api/home/v1/keeprising/command");
+    assert.equal(command.body.settings.lightingScheduleMode, "astronomical");
+    assert.notEqual(command.body.settings.scheduleStart, "20:00");
+    const day = await request(app)
+      .post("/api/home/v1/keeprising/day-test")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ di: 2, confirmed: true });
+    assert.deepEqual(day.body.channels, [2, 3]);
+    const drained = await request(app).get("/api/home/v1/keeprising/command");
+    assert.equal(drained.body.command, "day_test");
+    const quiet = await request(app)
+      .post("/api/home/v1/keeprising/event")
+      .send({ di: 1, active: true, scheduleOpen: true, outputs: [1] });
+    assert.equal(quiet.body.notifyEnabled, false);
+    assert.equal(quiet.body.pushSent, false);
+    const manual = await request(app)
+      .post("/api/home/v1/keeprising/manual")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ action: "patlite_test" });
+    assert.equal(manual.status, 200);
+    assert.equal(manual.body.queued, true);
+    assert.deepEqual(manual.body.channels, [1]);
+    const queued = await request(app).get("/api/home/v1/keeprising/command");
+    assert.equal(queued.body.command, "manual");
+    assert.deepEqual(queued.body.channels, [1]);
+    assert.equal(queued.body.release, false);
+    const denied = await request(app)
+      .post("/api/home/v1/keeprising/manual")
+      .set("Authorization", `Bearer ${token("TOYOSHIMA001")}`)
+      .send({ action: "bulk_on" });
+    assert.equal(denied.status, 403);
   });
 });

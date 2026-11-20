@@ -4,7 +4,8 @@
 /* AI解析1500px送信ルール強制適用 */
 /* オフライン完全対応 + 音声入力 v1 */
 /* ネオン・ダークUI v1 */
-const SW_VERSION = "tisly-pwa-v2606-keeprising-staged";
+// v2606 は段階ビームのキャッシュ。画面統一は v2607。
+const SW_VERSION = "tisly-pwa-v2607-keeprising-toyoshima-ui";
 /* tisly-pwa-v2605-site-lifecycle */
 /* tisly-pwa-v2604-site-signals */
 /* tisly-pwa-v2603-astro-recovery */

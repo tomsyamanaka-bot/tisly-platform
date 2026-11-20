@@ -5,6 +5,13 @@
  */
 
 import { getDatabase } from "../db/database.js";
+import {
+  ASTRO_DEFAULT_LAT_V1,
+  ASTRO_DEFAULT_LON_V1,
+  ASTRO_DEFAULT_TZ_SEC_V1,
+  buildAstroWindowV1,
+  clampAstroOffsetMinV1,
+} from "./astro-schedule-v1.js";
 
 /** 循環参照を避けるためサイト ID は直書き */
 const SEC_JP_KEEPRISING_SITE_ID_V1 = "SEC-JP-KEEPRISING-001";
@@ -23,6 +30,9 @@ export type KeepRisingBeamLinkModeV1 =
   | "staged_blink"
   | "full"
   | "notify";
+
+/** manual は保存した時刻。astronomical は日没追従 */
+export type KeepRisingLightingScheduleModeV1 = "manual" | "astronomical";
 
 export interface KeepRisingFloodModesV1 {
   do1: KeepRisingFloodModeV1;
@@ -44,6 +54,16 @@ export interface KeepRisingCustomerSettingsV1 {
   beamLinkMode: KeepRisingBeamLinkModeV1;
   /** DI2 から DI3 までの秒。初期値は 60 */
   stageWindowSec: number;
+  /** 未保存の行は手動の 20:00〜06:00 */
+  lightingScheduleMode: KeepRisingLightingScheduleModeV1;
+  sunsetOffsetMin: number;
+  sunriseOffsetMin: number;
+  /** 未設定は ON。OFF でも手動テストは動く */
+  patliteThreatEnabled: boolean;
+  /** 各ビームのスマホ通知。未設定は受け取る */
+  notifyDi1: boolean;
+  notifyDi2: boolean;
+  notifyDi3: boolean;
   updatedAt: string;
 }
 
@@ -184,6 +204,29 @@ function parseDaytimeRelayTestV1(raw: unknown): boolean {
   return text === "1" || text === "true" || text === "on" || text === "yes";
 }
 
+/** キーが無いときは従来どおり。明示の OFF だけ切る */
+function parseOptionalBoolV1(raw: unknown, fallback: boolean): boolean {
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  if (raw === true || raw === 1) return true;
+  if (raw === false || raw === 0) return false;
+  const text = String(raw).trim().toLowerCase();
+  if (text === "1" || text === "true" || text === "on" || text === "yes") {
+    return true;
+  }
+  if (text === "0" || text === "false" || text === "off" || text === "no") {
+    return false;
+  }
+  return fallback;
+}
+
+function parseLightingModeV1(
+  raw: unknown
+): KeepRisingLightingScheduleModeV1 {
+  return String(raw ?? "").trim().toLowerCase() === "astronomical"
+    ? "astronomical"
+    : "manual";
+}
+
 function defaultModes(): KeepRisingFloodModesV1 {
   return { do1: "steady", do2: "steady", do3: "steady", do7: "steady" };
 }
@@ -199,6 +242,13 @@ function defaultSettings(siteId: string): KeepRisingCustomerSettingsV1 {
     daytimeRelayTest: false,
     beamLinkMode: "staged_steady",
     stageWindowSec: 60,
+    lightingScheduleMode: "manual",
+    sunsetOffsetMin: -15,
+    sunriseOffsetMin: 15,
+    patliteThreatEnabled: true,
+    notifyDi1: true,
+    notifyDi2: true,
+    notifyDi3: true,
     updatedAt: nowIso(),
   };
 }
@@ -247,6 +297,22 @@ function parseSettings(
     stageWindowSec: clampKeepRisingStageWindowSecV1(
       row.stageWindowSec ?? row.di2ToDi3Sec ?? base.stageWindowSec
     ),
+    lightingScheduleMode: parseLightingModeV1(row.lightingScheduleMode),
+    sunsetOffsetMin: clampAstroOffsetMinV1(
+      row.sunsetOffsetMin,
+      base.sunsetOffsetMin
+    ),
+    sunriseOffsetMin: clampAstroOffsetMinV1(
+      row.sunriseOffsetMin,
+      base.sunriseOffsetMin
+    ),
+    patliteThreatEnabled: parseOptionalBoolV1(
+      row.patliteThreatEnabled,
+      true
+    ),
+    notifyDi1: parseOptionalBoolV1(row.notifyDi1, true),
+    notifyDi2: parseOptionalBoolV1(row.notifyDi2, true),
+    notifyDi3: parseOptionalBoolV1(row.notifyDi3, true),
     updatedAt:
       typeof row.updatedAt === "string" ? row.updatedAt : base.updatedAt,
   };
@@ -281,6 +347,13 @@ export function saveKeepRisingCustomerSettingsV1(input: {
   daytimeRelayTest?: unknown;
   beamLinkMode?: unknown;
   stageWindowSec?: unknown;
+  lightingScheduleMode?: unknown;
+  sunsetOffsetMin?: unknown;
+  sunriseOffsetMin?: unknown;
+  patliteThreatEnabled?: unknown;
+  notifyDi1?: unknown;
+  notifyDi2?: unknown;
+  notifyDi3?: unknown;
 }): KeepRisingCustomerSettingsV1 {
   const id = String(input.siteId || SEC_JP_KEEPRISING_SITE_ID_V1).trim();
   const prev = getKeepRisingCustomerSettingsV1(id);
@@ -326,6 +399,43 @@ export function saveKeepRisingCustomerSettingsV1(input: {
       input.stageWindowSec === undefined
         ? prev.stageWindowSec
         : clampKeepRisingStageWindowSecV1(input.stageWindowSec),
+    lightingScheduleMode:
+      input.lightingScheduleMode === undefined
+        ? prev.lightingScheduleMode
+        : parseLightingModeV1(input.lightingScheduleMode),
+    sunsetOffsetMin:
+      input.sunsetOffsetMin === undefined
+        ? prev.sunsetOffsetMin
+        : clampAstroOffsetMinV1(
+            input.sunsetOffsetMin,
+            prev.sunsetOffsetMin
+          ),
+    sunriseOffsetMin:
+      input.sunriseOffsetMin === undefined
+        ? prev.sunriseOffsetMin
+        : clampAstroOffsetMinV1(
+            input.sunriseOffsetMin,
+            prev.sunriseOffsetMin
+          ),
+    patliteThreatEnabled:
+      input.patliteThreatEnabled === undefined
+        ? prev.patliteThreatEnabled
+        : parseOptionalBoolV1(
+            input.patliteThreatEnabled,
+            prev.patliteThreatEnabled
+          ),
+    notifyDi1:
+      input.notifyDi1 === undefined
+        ? prev.notifyDi1
+        : parseOptionalBoolV1(input.notifyDi1, prev.notifyDi1),
+    notifyDi2:
+      input.notifyDi2 === undefined
+        ? prev.notifyDi2
+        : parseOptionalBoolV1(input.notifyDi2, prev.notifyDi2),
+    notifyDi3:
+      input.notifyDi3 === undefined
+        ? prev.notifyDi3
+        : parseOptionalBoolV1(input.notifyDi3, prev.notifyDi3),
     updatedAt: nowIso(),
   };
   ensureTable();
@@ -340,6 +450,43 @@ export function saveKeepRisingCustomerSettingsV1(input: {
     )
     .run(id, JSON.stringify(next), next.updatedAt);
   return next;
+}
+
+/**
+ * 天文タイマーの本日分。
+ * 手動の保存時刻はここでは変えない。
+ */
+export function keepRisingAstroWindowV1(
+  settings: KeepRisingCustomerSettingsV1,
+  at: Date = new Date()
+) {
+  if (settings.lightingScheduleMode !== "astronomical") return null;
+  return buildAstroWindowV1({
+    at,
+    latitude: ASTRO_DEFAULT_LAT_V1,
+    longitude: ASTRO_DEFAULT_LON_V1,
+    timezoneOffsetSec: ASTRO_DEFAULT_TZ_SEC_V1,
+    sunsetOffsetMin: settings.sunsetOffsetMin,
+    sunriseOffsetMin: settings.sunriseOffsetMin,
+  });
+}
+
+/**
+ * 実機へ渡す設定。
+ * 天文のときだけ、今日の開始と終了を載せる。
+ * 保存済みの手動時刻は上書きしない。
+ */
+export function deliverKeepRisingDeviceSettingsV1(
+  at: Date = new Date()
+): KeepRisingCustomerSettingsV1 {
+  const settings = getKeepRisingCustomerSettingsV1();
+  const astro = keepRisingAstroWindowV1(settings, at);
+  if (!astro) return settings;
+  return {
+    ...settings,
+    scheduleStart: astro.startHm,
+    scheduleEnd: astro.endHm,
+  };
 }
 
 /** テスト用。この物件の表だけ消す */

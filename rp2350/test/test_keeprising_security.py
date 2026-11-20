@@ -260,6 +260,38 @@ def test_server_jst_before_ntp():
     assert ctrl.schedule_open(_day()) is True
 
 
+def test_patlite_off_leaves_the_floods():
+    ctrl = kr.KeepRisingController()
+    ctrl.apply_rules(
+        {"patliteThreatEnabled": False, "beamLinkMode": "staged_steady"}
+    )
+    ctrl.seed_inputs({2: False}, 0)
+    events = _rise(ctrl, {2: True}, 0, _night())
+    assert events[0]["outputs"] == [2, 3]
+    assert ctrl.physical(80, _night())[1] is False
+    assert ctrl.physical(80, _night())[2] is True
+
+
+def test_manual_light_ignores_daytime():
+    ctrl = kr.KeepRisingController()
+    ctrl.apply_command(
+        {
+            "command": "manual",
+            "channels": [2],
+            "durationSec": 15,
+            "release": False,
+        },
+        1000,
+    )
+    assert ctrl.physical(1000, _day())[2] is True
+    assert ctrl.physical(1000, _day())[1] is False
+    ctrl.apply_command(
+        {"command": "manual", "channels": [2], "release": True},
+        2000,
+    )
+    assert ctrl.physical(2000, _day())[2] is False
+
+
 def test_main_keeps_relays_ahead_of_network():
     text = (ROOT / "firmware" / "main_keeprising.py").read_text(encoding="utf-8")
     body = text.split("def _service_once", 1)[1]
@@ -301,5 +333,7 @@ if __name__ == "__main__":
     test_heartbeat_accepts_cabinet_temp()
     test_ntp_ready_uses_clock_once()
     test_server_jst_before_ntp()
+    test_patlite_off_leaves_the_floods()
+    test_manual_light_ignores_daytime()
     test_main_keeps_relays_ahead_of_network()
     print("ok")

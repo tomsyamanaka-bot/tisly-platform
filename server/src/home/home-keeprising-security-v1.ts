@@ -29,7 +29,10 @@ import {
   resetCommRecoveryForTestV1,
 } from "./home-comm-recovery-v1.js";
 import {
+  deliverKeepRisingDeviceSettingsV1,
   getKeepRisingCustomerSettingsV1,
+  isKeepRisingScheduleOpenV1,
+  keepRisingAstroWindowV1,
   type KeepRisingBeamLinkModeV1,
   type KeepRisingCustomerSettingsV1,
 } from "./home-keeprising-settings-v1.js";
@@ -64,14 +67,28 @@ export type KeepRisingDiV1 = 1 | 2 | 3 | 4;
 export function keepRisingPlannedOutputsV1(
   di: KeepRisingDiV1,
   mode: KeepRisingBeamLinkModeV1,
-  di2Fresh: boolean
+  di2Fresh: boolean,
+  patliteThreat = true
 ): number[] {
   if (mode === "notify" || di === 4) return [];
-  if (mode === "full") return [1, 2, 3, 4];
-  if (di === 1) return [1];
-  if (di === 2) return [1, 2, 3];
-  if (di === 3) return di2Fresh ? [1, 2, 3, 4] : [2, 3];
-  return [];
+  let channels: number[] = [];
+  if (mode === "full") channels = [1, 2, 3, 4];
+  else if (di === 1) channels = [1];
+  else if (di === 2) channels = [1, 2, 3];
+  else if (di === 3) channels = di2Fresh ? [1, 2, 3, 4] : [2, 3];
+  if (patliteThreat) return channels;
+  return channels.filter((ch) => ch !== 1);
+}
+
+/** DI1〜DI3 の通知。未設定は受け取る */
+export function keepRisingSensorNotifyEnabledV1(
+  settings: KeepRisingCustomerSettingsV1,
+  di: KeepRisingDiV1
+): boolean {
+  if (di === 1) return settings.notifyDi1 !== false;
+  if (di === 2) return settings.notifyDi2 !== false;
+  if (di === 3) return settings.notifyDi3 !== false;
+  return true;
 }
 
 /** 標準点灯で、DI2 の履歴が無いときの出力 */
@@ -105,6 +122,8 @@ export interface KeepRisingCommandV1 {
   channels: number[];
   durationSec: number | null;
   queuedAt: string;
+  /** true のとき指定端子をすぐ切る */
+  release?: boolean;
 }
 
 interface RuntimeV1 {
@@ -114,6 +133,11 @@ interface RuntimeV1 {
   boardTempC: number | null;
   firmwareVersion: string;
   logs: Array<{ at: string; message: string }>;
+  /** 心拍が知らせたコイル。無いときは null */
+  reportedOutputs: Record<number, boolean> | null;
+  reportedAt: number;
+  /** 手動操作の楽観表示。時刻を過ぎたら消灯 */
+  outputUntil: Record<number, number>;
 }
 
 const runtime: RuntimeV1 = {
@@ -123,6 +147,9 @@ const runtime: RuntimeV1 = {
   boardTempC: null,
   firmwareVersion: "",
   logs: [],
+  reportedOutputs: null,
+  reportedAt: 0,
+  outputUntil: {},
 };
 
 function nowIso(): string {
@@ -141,6 +168,9 @@ export function resetKeepRisingSecurityStateForTestV1(): void {
   runtime.boardTempC = null;
   runtime.firmwareVersion = "";
   runtime.logs = [];
+  runtime.reportedOutputs = null;
+  runtime.reportedAt = 0;
+  runtime.outputUntil = {};
   resetCommRecoveryForTestV1();
 }
 
@@ -211,6 +241,7 @@ export async function processKeepRisingSecurityEventV1(input: {
   sensorLabel: string;
   linkedOutput: boolean;
   channels: number[];
+  notifyEnabled: boolean;
 }> {
   const di = asDi(input.di);
   if (!di) throw new Error("di must be 1, 2, 3 or 4");
@@ -228,12 +259,24 @@ export async function processKeepRisingSecurityEventV1(input: {
   const reported = Array.isArray(body.outputs)
     ? body.outputs.map((ch) => Number(ch)).filter((ch) => Number.isFinite(ch))
     : scheduleOpen
-      ? keepRisingPlannedOutputsV1(di, settings.beamLinkMode, false)
+      ? keepRisingPlannedOutputsV1(
+          di,
+          settings.beamLinkMode,
+          false,
+          settings.patliteThreatEnabled
+        )
       : [];
   const channels =
-    guardMode === "away" && settings.beamLinkMode !== "notify"
-      ? reported
-      : [];
+    guardMode === "away" &&
+    settings.beamLinkMode !== "notify" &&
+    settings.patliteThreatEnabled === false
+      ? reported.filter((ch) => ch !== 1)
+      : guardMode === "away" && settings.beamLinkMode !== "notify"
+        ? reported
+        : [];
+  const notifyEnabled =
+    guardMode !== "disarmed" &&
+    keepRisingSensorNotifyEnabledV1(settings, di);
   let pushSent = false;
   if (guardMode === "disarmed") {
     return {
@@ -245,6 +288,7 @@ export async function processKeepRisingSecurityEventV1(input: {
       sensorLabel: label,
       linkedOutput: false,
       channels: [],
+      notifyEnabled: false,
     };
   }
   if (rising || falling) {
@@ -278,7 +322,7 @@ export async function processKeepRisingSecurityEventV1(input: {
           siteName: KEEPRISING_DISPLAY_NAME_V1,
         })
       : null;
-    if (!gate || gate.allowCustomerPush) {
+    if (notifyEnabled && (!gate || gate.allowCustomerPush)) {
       pushSent = await sendKeepRisingPush({
         title,
         body: text,
@@ -304,7 +348,7 @@ export async function processKeepRisingSecurityEventV1(input: {
           });
         }
       }
-    } else if (gate.reason === "maintenance") {
+    } else if (notifyEnabled && gate && gate.reason === "maintenance") {
       pushSent = await sendKeepRisingPush({
         title,
         body: text,
@@ -337,6 +381,7 @@ export async function processKeepRisingSecurityEventV1(input: {
     sensorLabel: label,
     linkedOutput: channels.length > 0,
     channels,
+    notifyEnabled,
   };
 }
 
@@ -373,7 +418,8 @@ export function applyKeepRisingDayTestV1(input: {
   const channels = keepRisingPlannedOutputsV1(
     di,
     settings.beamLinkMode,
-    false
+    false,
+    settings.patliteThreatEnabled
   );
   const row: KeepRisingCommandV1 = {
     command: "day_test",
@@ -428,6 +474,7 @@ export function serializeKeepRisingCommandV1(
   channels: number[];
   durationSec: number | null;
   queuedAt: string | null;
+  release: boolean;
 } {
   return {
     ok: true,
@@ -436,6 +483,65 @@ export function serializeKeepRisingCommandV1(
     channels: row?.channels ?? [],
     durationSec: row?.durationSec ?? null,
     queuedAt: row?.queuedAt ?? null,
+    release: Boolean(row?.release),
+  };
+}
+
+const MANUAL_ACTIONS_V1: Record<
+  string,
+  { channels: number[]; release: boolean }
+> = {
+  flood1_on: { channels: [2], release: false },
+  flood2_on: { channels: [3], release: false },
+  office_on: { channels: [4], release: false },
+  bulk_on: { channels: [2, 3, 4], release: false },
+  bulk_off: { channels: [2, 3, 4], release: true },
+  patlite_test: { channels: [1], release: false },
+};
+
+/**
+ * 手動ボタンは確定を待たず命令を積む。
+ * 照明の一括 OFF はパトライトを切らない。
+ */
+export function applyKeepRisingManualV1(action: unknown):
+  | {
+      ok: true;
+      command: string;
+      channels: number[];
+      release: boolean;
+      durationSec: number;
+    }
+  | { ok: false; error: string } {
+  const key = String(action ?? "").trim();
+  const spec = MANUAL_ACTIONS_V1[key];
+  if (!spec) return { ok: false, error: "操作が不正です" };
+  const settings = getKeepRisingCustomerSettingsV1();
+  const row: KeepRisingCommandV1 = {
+    command: "manual",
+    di: null,
+    channels: spec.channels,
+    durationSec: spec.release ? 0 : settings.durationSec,
+    queuedAt: nowIso(),
+    release: spec.release,
+  };
+  enqueue(row);
+  const now = Date.now();
+  const until = spec.release ? 0 : now + settings.durationSec * 1000;
+  for (const ch of spec.channels) {
+    runtime.outputUntil[ch] = until;
+  }
+  const names = spec.channels.map((ch) => DO_LABELS_V1[ch] || `DO${ch}`);
+  pushLog(
+    spec.release
+      ? `手動消灯：${names.join("、")}`
+      : `手動点灯：${names.join("、")}`
+  );
+  return {
+    ok: true,
+    command: row.command,
+    channels: row.channels,
+    release: spec.release,
+    durationSec: row.durationSec ?? 0,
   };
 }
 
@@ -453,6 +559,7 @@ export async function recordKeepRisingHeartbeatV1(input: {
   uptimeSec?: unknown;
   resetReason?: unknown;
   doLimitCuts?: unknown;
+  outputs?: unknown;
 }): Promise<{ online: true; boardTempC: number | null }> {
   runtime.lastHeartbeatAt = nowIso();
   await deliverCommRecoveryV1({
@@ -465,6 +572,11 @@ export async function recordKeepRisingHeartbeatV1(input: {
   if (version) runtime.firmwareVersion = version;
   const temp = readTemp(input.boardTemp);
   if (temp != null) runtime.boardTempC = temp;
+  const reported = readReportedOutputsV1(input.outputs);
+  if (reported) {
+    runtime.reportedOutputs = reported;
+    runtime.reportedAt = Date.now();
+  }
   await applyDeviceHealthV1({
     siteId: HOME_JP_KEEPRISING_SITE_ID_V1,
     uptimeSec: input.uptimeSec,
@@ -489,8 +601,36 @@ function newerFirmwareV1(a: string, b: string): string {
   return compareSemverCoreV1(left, right) >= 0 ? a : b;
 }
 
+function readReportedOutputsV1(
+  raw: unknown
+): Record<number, boolean> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const out: Record<number, boolean> = {};
+  let seen = false;
+  for (const ch of [1, 2, 3, 4]) {
+    const value = row[ch] ?? row[String(ch)];
+    if (value === undefined) continue;
+    out[ch] = value === true || value === 1 || value === "1" || value === "on";
+    seen = true;
+  }
+  return seen ? out : null;
+}
+
+function outputIsOnV1(ch: number, nowMs: number): boolean {
+  const fresh =
+    runtime.reportedOutputs != null &&
+    nowMs - runtime.reportedAt < 6 * 60 * 1000;
+  if (fresh && runtime.reportedOutputs && ch in runtime.reportedOutputs) {
+    return Boolean(runtime.reportedOutputs[ch]);
+  }
+  return (runtime.outputUntil[ch] || 0) > nowMs;
+}
+
 export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
   const settings = getKeepRisingCustomerSettingsV1();
+  const delivered = deliverKeepRisingDeviceSettingsV1(new Date(nowMs));
+  const astro = keepRisingAstroWindowV1(settings, new Date(nowMs));
   const online = isHeartbeatOnlineV1(
     runtime.lastHeartbeatAt,
     nowMs,
@@ -523,6 +663,14 @@ export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
       : true,
     commandPending: runtime.queue.length,
     settings,
+    scheduleLabel: `${delivered.scheduleStart}〜${delivered.scheduleEnd}`,
+    nightNow: isKeepRisingScheduleOpenV1(
+      new Date(nowMs),
+      delivered.scheduleStart,
+      delivered.scheduleEnd
+    ),
+    astroLabel: astro?.label || "",
+    monthAlerts: countKeepRisingMonthAlertsV1(new Date(nowMs)),
     inputs: ([1, 2, 3, 4] as KeepRisingDiV1[]).map((ch) => ({
       ch,
       label: DI_LABELS_V1[ch],
@@ -531,6 +679,7 @@ export function buildKeepRisingStatusV1(nowMs: number = Date.now()) {
     outputs: Object.entries(DO_LABELS_V1).map(([ch, label]) => ({
       ch: Number(ch),
       label,
+      on: outputIsOnV1(Number(ch), nowMs),
     })),
     logs: runtime.logs.slice(0, 40),
   };
@@ -585,4 +734,34 @@ export async function runKeepRisingHeartbeatWatchdogV1(): Promise<void> {
 
 export function keepRisingOutputLabelsV1(): Record<number, string> {
   return { ...DO_LABELS_V1 };
+}
+
+/** 今月の反応件数。表が無くても画面は 0 件 */
+function countKeepRisingMonthAlertsV1(at: Date): number {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+    }).formatToParts(at);
+    const year = parts.find((part) => part.type === "year")?.value || "1970";
+    const month = parts.find((part) => part.type === "month")?.value || "01";
+    const start = new Date(
+      `${year}-${month}-01T00:00:00+09:00`
+    ).toISOString();
+    const row = getDatabase()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM home_system_logs_v1
+         WHERE site_id = ?
+           AND category = 'sensor_alert'
+           AND message LIKE '%反応しました%'
+           AND created_at >= ?`
+      )
+      .get(HOME_JP_KEEPRISING_SITE_ID_V1, start) as
+      | { n?: number }
+      | undefined;
+    return Number(row?.n || 0);
+  } catch {
+    return 0;
+  }
 }

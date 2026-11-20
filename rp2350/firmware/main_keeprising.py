@@ -549,6 +549,16 @@ def _service_once(ctrl, inputs, outputs, next_cmd, next_hb):
                 )
             except Exception:
                 extra = {}
+        try:
+            levels = getattr(ctrl, "last_levels", {}) or {}
+            extra["outputs"] = {
+                "1": bool(levels.get(1)),
+                "2": bool(levels.get(2)),
+                "3": bool(levels.get(3)),
+                "4": bool(levels.get(4)),
+            }
+        except Exception:
+            pass
         payload = logic.build_heartbeat_payload(extra)
         body = http_json(
             "POST", "/api/home/v1/keeprising/heartbeat", payload

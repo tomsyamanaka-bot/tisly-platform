@@ -41,7 +41,7 @@ import {
   keepRisingGuardLabel,
   mountKeepRisingSettings,
   renderKeepRisingGuardModes,
-} from "./keeprising-customer-settings-v1.js";
+} from "./keeprising-customer-settings-v1.js?v=2607";
 import {
   applyItabashiHardwareStatus,
   fetchItabashiStatus,

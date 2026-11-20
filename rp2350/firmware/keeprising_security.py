@@ -7,7 +7,7 @@ Keep Rising のセンサーとリレー。
 import time
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_LOGIC_VERSION = "1.2.68"
+FIRMWARE_LOGIC_VERSION = "1.2.69"
 
 DI_DEBOUNCE_MS = 50
 HEARTBEAT_INTERVAL_SEC = 300
@@ -231,6 +231,11 @@ class KeepRisingController:
         self.daytime_relay = False
         self.beam_mode = LINK_STAGED_STEADY
         self.stage_window_sec = STAGE_WINDOW_DEFAULT_SEC
+        # 未設定はパトライトを連動する。
+        # OFF でも手動の威嚇テストは出す。
+        self.patlite_threat = True
+        # 直近のコイル。心拍の表示に使う。
+        self.last_levels = {}
         # DI2 が立ったミリ秒。無いときは None。
         self.di2_rise_ms = None
         # NTP 後だけ時計を使う。9時間は足さない。
@@ -259,6 +264,10 @@ class KeepRisingController:
             self.guard_mode = next_mode
         if "daytimeRelayTest" in rules:
             self.daytime_relay = truthy_flag(rules.get("daytimeRelayTest"))
+        if "patliteThreatEnabled" in rules:
+            self.patlite_threat = truthy_flag(
+                rules.get("patliteThreatEnabled")
+            )
         jst = rules.get("jstMinutes", rules.get("jst_minutes"))
         if jst is not None:
             self.note_server_jst(jst)
@@ -269,7 +278,12 @@ class KeepRisingController:
             mode_raw = rules.get("beamMode")
         if mode_raw is not None:
             next_mode = normalize_beam_mode(mode_raw)
-            if next_mode == LINK_NOTIFY:
+            # 通知のみへ切り替わったときだけ消す。
+            # 心拍のたびに消すと手動点灯が残らない。
+            if (
+                next_mode == LINK_NOTIFY
+                and self.beam_mode != LINK_NOTIFY
+            ):
                 for ch in OUTPUT_CHANNELS:
                     self.hold_until[ch] = None
                     self.force_until[ch] = None
@@ -415,6 +429,53 @@ class KeepRisingController:
         # DI3 単独は投光器だけを点灯する。
         return [(DO_FLOOD_1, "steady"), (DO_FLOOD_2, "steady")]
 
+    def _respect_patlite(self, plan):
+        """威嚇連動が OFF ならパトライトを外す。
+        投光器と事務所ライトの計画は残す。
+        手動の強制点灯はここを通さない。"""
+        if getattr(self, "patlite_threat", True):
+            return plan
+        kept = []
+        for row in plan or []:
+            num = row[0] if isinstance(row, (list, tuple)) else row
+            try:
+                if int(num) == DO_PATLITE:
+                    continue
+            except Exception:
+                pass
+            kept.append(row)
+        return kept
+
+    def release(self, channels):
+        """指定した端子の保持と強制を切る。"""
+        for ch in channels or []:
+            try:
+                num = int(ch)
+            except Exception:
+                continue
+            if num not in self.hold_until:
+                continue
+            self.hold_until[num] = None
+            self.force_until[num] = None
+
+    def apply_manual(self, body, now_ms):
+        """手動は昼夜を待たず、指定端子へすぐ出す。
+        消灯は保持と強制の両方を切る。
+        点灯は指定秒だけ強制する。"""
+        channels = body.get("channels") if isinstance(body, dict) else []
+        if not isinstance(channels, (list, tuple)):
+            channels = []
+        if truthy_flag(body.get("release")):
+            self.release(channels)
+            return
+        plan = []
+        for ch in channels:
+            try:
+                plan.append((int(ch), "steady"))
+            except Exception:
+                continue
+        self.arm(plan, now_ms, True, body.get("durationSec"))
+
     def arm(self, channels, now_ms, force=False, duration_sec=None):
         """計画した端子を点灯秒だけ保持する。"""
         sec = clamp_duration_sec(
@@ -467,7 +528,7 @@ class KeepRisingController:
             # 立上りだけ計画する。復帰で DI2 時刻は
             # 更新しない。通信を待たずにここで決める。
             if changed:
-                plan = self.plan_for(ch, now_ms)
+                plan = self._respect_patlite(self.plan_for(ch, now_ms))
                 if self.outputs_allowed(open_now):
                     outputs = self.arm(plan, now_ms, False)
             events.append(self.build_event(ch, bool(changed), open_now, outputs))
@@ -502,7 +563,10 @@ class KeepRisingController:
         if ch not in (1, 2, 3, 4):
             return []
         return self.arm(
-            self.plan_for(ch, now_ms), now_ms, True, duration_sec
+            self._respect_patlite(self.plan_for(ch, now_ms)),
+            now_ms,
+            True,
+            duration_sec,
         )
 
     def apply_command(self, body, now_ms):
@@ -513,6 +577,9 @@ class KeepRisingController:
         if isinstance(settings, dict):
             self.apply_rules(settings)
         cmd = str(body.get("command") or "").strip().lower()
+        if cmd == "manual":
+            self.apply_manual(body, now_ms)
+            return True
         if cmd != "day_test":
             return bool(settings)
         # 出力は実機の計画を使う。回線の端子一覧は
@@ -560,6 +627,7 @@ class KeepRisingController:
                 levels[ch] = phase == 0
             else:
                 levels[ch] = True
+        self.last_levels = levels
         return levels
 
 

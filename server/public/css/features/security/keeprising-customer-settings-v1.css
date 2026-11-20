@@ -262,6 +262,72 @@
   color: #ffffff;
 }
 
+/* 豊島邸カードをこの現場だけに載せる。v2607 */
+
+.kr-portal {
+  display: grid;
+  gap: 14px;
+  margin: 12px 16px 20px;
+}
+
+.kr-portal .ts-card {
+  margin: 0;
+}
+
+.kr-portal .kr-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.kr-portal .kr-preset {
+  min-height: 56px;
+  border-radius: 12px;
+  border: 2px solid #1e3a8a;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.kr-portal .kr-preset.is-on {
+  background: #1e3a8a;
+  color: #ffffff;
+}
+
+.kr-portal .ts-dn-now {
+  display: none;
+}
+
+.kr-portal .ts-dn-tile.is-now .ts-dn-now {
+  display: inline-block;
+  background: #ea580c;
+  color: #ffffff;
+}
+
+.kr-portal .ts-btn-wide {
+  min-height: 56px;
+}
+
+.kr-portal .ts-manual-light-kicks {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .kr-portal .ts-manual-light-kicks {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+body.sf-customer.is-keeprising .sf-soc-hero,
+body.sf-customer.is-keeprising .sf-quick-card,
+body.is-keeprising #sf-modes,
+body.is-keeprising #sf-light-on,
+body.is-keeprising #sf-light-off {
+  display: none;
+}
+
 .kr-mode-btn.is-on[data-kr-beam="staged_steady"] {
   background: #16a34a;
   border-color: #16a34a;

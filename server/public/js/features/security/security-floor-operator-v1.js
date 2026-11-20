@@ -63,7 +63,10 @@ import {
   paintTenantSettingSummary,
 } from "./tenant-setting-summary-v1.js";
 import { syncMatrixLidarCard } from "./matrix-lidar-card-v1.js";
-import { mountKeepRisingSettings } from "./keeprising-customer-settings-v1.js";
+import {
+  isKeepRisingSecuritySite,
+  mountKeepRisingSettings,
+} from "./keeprising-customer-settings-v1.js?v=2607";
 
 const state = {
   siteId: FALLBACK_DEFAULT_SITE_ID,
@@ -311,6 +314,10 @@ function applyOptionalModuleVisibility(isToyoshima) {
 function applySiteLayout(force = false) {
   const isToyoshima = isToyoshimaSecuritySite(state.siteId);
   document.body.classList.toggle("is-toyoshima", isToyoshima);
+  document.body.classList.toggle(
+    "is-keeprising",
+    isKeepRisingSecuritySite(state.siteId)
+  );
   window.__TISLY_SF_SITE_ID = state.siteId;
   setSecurityHistorySiteIdV1(state.siteId);
   applyOptionalModuleVisibility(isToyoshima);
