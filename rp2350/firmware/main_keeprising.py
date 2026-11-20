@@ -263,19 +263,19 @@ def http_json(method, path, payload=None):
     try:
         import socket
 
-        socket.setdefaulttimeout(1)
+        socket.setdefaulttimeout(4)
     except Exception:
         pass
     try:
         if method == "GET":
             try:
-                res = urequests.get(url, headers=headers, timeout=1)
+                res = urequests.get(url, headers=headers, timeout=4)
             except TypeError:
                 res = urequests.get(url, headers=headers)
         else:
             try:
                 res = urequests.post(
-                    url, json=payload, headers=headers, timeout=1
+                    url, json=payload, headers=headers, timeout=4
                 )
             except TypeError:
                 res = urequests.post(url, json=payload, headers=headers)
@@ -318,10 +318,40 @@ def flush_one_event():
     _event_queue.pop(0)
 
 
+def _absorb_clock(ctrl, body):
+    """サーバーの日本時間。NTP 前の判定に使う。"""
+    if not isinstance(body, dict):
+        return
+    raw = body.get("jstMinutes", body.get("jst_minutes"))
+    settings = body.get("settings")
+    if raw is None and isinstance(settings, dict):
+        raw = settings.get("jstMinutes", settings.get("jst_minutes"))
+    if raw is None:
+        return
+    try:
+        ctrl.note_server_jst(raw)
+    except Exception:
+        pass
+
+
+def _boot_wait(ms=2000):
+    """起動後2秒。待ちは細かく給餌する。"""
+    left = int(ms)
+    while left > 0:
+        step = 200 if left > 200 else left
+        _kick()
+        try:
+            time.sleep_ms(step)
+        except Exception:
+            pass
+        left -= step
+
+
 def apply_cloud(ctrl, body, now_ms):
     """決定済み設定と日中テストを反映する。"""
     if not isinstance(body, dict):
         return
+    _absorb_clock(ctrl, body)
     settings = body.get("settings")
     if isinstance(settings, dict):
         save_cached_rules(settings)
@@ -389,7 +419,7 @@ def ota_http_get(path):
     _kick()
     try:
         try:
-            res = urequests.get(url, headers=headers, timeout=1)
+            res = urequests.get(url, headers=headers, timeout=4)
         except TypeError:
             res = urequests.get(url, headers=headers)
         return res.text, res.status_code
@@ -479,6 +509,11 @@ def _service_once(ctrl, inputs, outputs, next_cmd, next_hb):
         )
         if isinstance(body, dict):
             _paint("green")
+            try:
+                logic.sync_ntp()
+            except Exception:
+                pass
+            _absorb_clock(ctrl, body)
             if _do_guard:
                 try:
                     _do_guard.clear_pending()
@@ -538,6 +573,7 @@ def _run():
     if inputs:
         ctrl.seed_inputs(read_levels(inputs), now)
     poll_and_drive(ctrl, inputs, outputs)
+    _boot_wait(2000)
     info = None
     try:
         info = init_network(wdt)

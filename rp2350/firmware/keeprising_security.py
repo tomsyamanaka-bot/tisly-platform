@@ -4,6 +4,8 @@ Keep Rising のセンサーとリレー。
 判定とコイルは止めない。通知は後送り。
 """
 
+import time
+
 # 版番号は直下 npm run build が揃える
 FIRMWARE_LOGIC_VERSION = "1.2.67"
 
@@ -185,6 +187,10 @@ class KeepRisingController:
         self.duration_sec = 30
         self.guard_mode = "away"
         self.daytime_relay = False
+        # NTP 後だけ時計を使う。9時間は足さない。
+        self._ntp_ready = False
+        self._server_jst = None
+        self._server_jst_ms = None
 
     def apply_rules(self, rules):
         """決定済みの設定だけを現地ルールへ写す。"""
@@ -207,6 +213,9 @@ class KeepRisingController:
             self.guard_mode = next_mode
         if "daytimeRelayTest" in rules:
             self.daytime_relay = truthy_flag(rules.get("daytimeRelayTest"))
+        jst = rules.get("jstMinutes", rules.get("jst_minutes"))
+        if jst is not None:
+            self.note_server_jst(jst)
         modes = rules.get("floodModes")
         if not isinstance(modes, dict):
             return
@@ -232,11 +241,66 @@ class KeepRisingController:
             return True
         return bool(getattr(self, "daytime_relay", False))
 
+    def sync_ntp(self):
+        """NTP は UTC のまま。32400 は時計へ書かない。"""
+        try:
+            import ntptime
+        except Exception:
+            return False
+        try:
+            try:
+                ntptime.timeout = 2
+            except Exception:
+                pass
+            ntptime.settime()
+            int(time.time())
+        except Exception:
+            return False
+        self._ntp_ready = True
+        return True
+
+    def note_server_jst(self, minutes):
+        """NTP 前の日本時間。基板の時計は変えない。"""
+        try:
+            value = int(minutes)
+        except Exception:
+            return
+        if value < 0 or value > 1439:
+            return
+        self._server_jst = value
+        try:
+            self._server_jst_ms = time.ticks_ms()
+        except Exception:
+            self._server_jst_ms = 0
+
+    def jst_minutes(self, utc_sec):
+        """昼夜判定は日本時間。加算は評価のときだけ。"""
+        if self._ntp_ready:
+            try:
+                utc_sec = int(time.time())
+            except Exception:
+                utc_sec = 0
+            return utc_epoch_to_jst_minutes(utc_sec)
+        if self._server_jst is not None:
+            elapsed = 0
+            try:
+                elapsed = time.ticks_diff(
+                    time.ticks_ms(), self._server_jst_ms
+                )
+            except Exception:
+                elapsed = 0
+            if elapsed < 0:
+                elapsed = 0
+            return (self._server_jst + int(elapsed / 60000)) % 1440
+        if utc_sec is None:
+            return None
+        return utc_epoch_to_jst_minutes(utc_sec)
+
     def schedule_open(self, utc_sec):
         """時刻不明のときは連動を止めない。"""
-        if utc_sec is None:
+        now_min = self.jst_minutes(utc_sec)
+        if now_min is None:
             return True
-        now_min = utc_epoch_to_jst_minutes(utc_sec)
         return minutes_in_window(
             now_min, self.schedule_start, self.schedule_end
         )
@@ -407,6 +471,7 @@ def build_heartbeat_payload(extra=None):
         "deviceId": DEVICE_ID,
         "firmware_version": FIRMWARE_LOGIC_VERSION,
         "otaVersion": FIRMWARE_LOGIC_VERSION,
+        "ota_engine": "stream",
     }
     temp = read_board_temperature_c()
     if temp is not None:

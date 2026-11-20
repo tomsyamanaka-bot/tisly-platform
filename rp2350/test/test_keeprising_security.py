@@ -152,9 +152,38 @@ def test_notify_and_off_skip_outputs():
 
 
 def test_heartbeat_accepts_cabinet_temp():
-    payload = kr.build_heartbeat_payload({"board_temp": 24.5})
+    payload = kr.build_heartbeat_payload(
+        {"board_temp": 24.5, "uptime_sec": 12, "reset_reason": "OTA"}
+    )
     assert payload["board_temp"] == 24.5
+    assert payload["uptime_sec"] == 12
+    assert payload["reset_reason"] == "OTA"
+    assert payload["ota_engine"] == "stream"
     assert "inputs" not in payload
+
+
+def test_ntp_ready_uses_clock_once():
+    ctrl = kr.KeepRisingController()
+    ctrl._ntp_ready = True
+    seen = {}
+
+    def fake_time():
+        seen["called"] = True
+        return _day()
+
+    original = kr.time.time
+    kr.time.time = fake_time
+    try:
+        assert ctrl.schedule_open(_night()) is False
+        assert seen["called"] is True
+    finally:
+        kr.time.time = original
+
+
+def test_server_jst_before_ntp():
+    ctrl = kr.KeepRisingController()
+    ctrl.note_server_jst(21 * 60)
+    assert ctrl.schedule_open(_day()) is True
 
 
 def test_main_keeps_relays_ahead_of_network():
@@ -170,6 +199,9 @@ def test_main_keeps_relays_ahead_of_network():
     assert 'STATIC_IP = "192.168.1.210"' in cfg
     assert kr.TENANT_ID == "KEEPRISING001"
     assert kr.DI_DEBOUNCE_MS == 50
+    assert "_boot_wait(2000)" in text
+    assert "timeout=4" in text
+    assert "sync_ntp" in text
 
 
 if __name__ == "__main__":
@@ -183,5 +215,7 @@ if __name__ == "__main__":
     test_lights_drop_when_the_window_ends()
     test_notify_and_off_skip_outputs()
     test_heartbeat_accepts_cabinet_temp()
+    test_ntp_ready_uses_clock_once()
+    test_server_jst_before_ntp()
     test_main_keeps_relays_ahead_of_network()
     print("ok")

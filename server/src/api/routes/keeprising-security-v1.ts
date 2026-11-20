@@ -26,6 +26,7 @@ import {
   extractTislyKittingFromHeartbeatV1,
   recordTislyOtaDeviceFirmwareV1,
 } from "../../firmware/tisly-rp2350-ota-v1.js";
+import { getJstMinutesOfDayV1 } from "../../home/home-security-time-range-v1.js";
 
 function noStore(res: { setHeader: (k: string, v: string) => void }): void {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -213,6 +214,7 @@ export function registerKeepRisingSecurityRoutesV1(router: Router): void {
         di: command.di,
         channels: command.channels,
         durationSec: command.durationSec,
+        jstMinutes: getJstMinutesOfDayV1(),
         has_ota_update: ota.has_ota_update,
         update_required: ota.update_required,
         firmware_latest: ota.version,

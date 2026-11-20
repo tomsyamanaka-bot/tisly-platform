@@ -109,7 +109,7 @@ const DEFAULTS: SiteLifecycleV1[] = [
     displayName: "Keep Rising",
     customerCode: "KEEPRISING001",
     securitySiteId: "SEC-JP-KEEPRISING-001",
-    lifecycleStatus: "demo",
+    lifecycleStatus: "active",
     units: [
       {
         id: "main",

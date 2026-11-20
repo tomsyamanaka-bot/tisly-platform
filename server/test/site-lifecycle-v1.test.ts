@@ -52,15 +52,15 @@ describe("site lifecycle", () => {
   it("keeps demo and archived sites out of live alerts", () => {
     resetSiteLifecycleForTestV1();
     assert.equal(siteLifecycleOfV1("HOME-JP-RYUGASAKI")?.lifecycleStatus, "archived");
-    assert.equal(siteLifecycleOfV1("HOME-JP-KEEPRISING")?.lifecycleStatus, "demo");
+    assert.equal(siteLifecycleOfV1("HOME-JP-KEEPRISING")?.lifecycleStatus, "active");
     assert.equal(siteAllowsLiveWatchV1("HOME-JP-RYUGASAKI"), false);
-    assert.equal(siteAllowsLiveWatchV1("HOME-JP-KEEPRISING"), false);
+    assert.equal(siteAllowsLiveWatchV1("HOME-JP-KEEPRISING"), true);
     assert.equal(siteAllowsLiveWatchV1("WASHMATE001"), false);
     const active = listSiteLifecyclesV1()
       .filter((site) => site.lifecycleStatus === "active")
       .map((site) => site.customerCode)
       .sort();
-    assert.deepEqual(active, ["TOMS001", "TOYOSHIMA001"]);
+    assert.deepEqual(active, ["KEEPRISING001", "TOMS001", "TOYOSHIMA001"]);
   });
 
   it("persists units and refuses to delete an active site", () => {
