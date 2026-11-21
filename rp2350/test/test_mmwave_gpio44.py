@@ -29,7 +29,7 @@ def test_bounce_does_not_notify():
 
 
 def test_dwell_seconds_clamp():
-    assert wave.clamp_dwell_sec(None) == 5
+    assert wave.clamp_dwell_sec(None) == 3
     assert wave.clamp_dwell_sec(0) == 1
     assert wave.clamp_dwell_sec(999) == 300
 

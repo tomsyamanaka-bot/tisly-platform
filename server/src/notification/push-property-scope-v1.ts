@@ -92,15 +92,37 @@ export function normalizePushScopeV1(
   };
 }
 
+const CUSTOMER_OWNER_CODES_V1 = new Set([
+  "KEEPRISING001",
+  "RISING001",
+  "TOYOSHIMA001",
+  "TOSHIMA001",
+  "WASHMATE001",
+  "TOMS001",
+  "HOME001",
+]);
+
+/** 社内端末。施主コード付きの行は物件一致のまま。 */
+function isStaffAllSitePushUserV1(row: PushScopeRowV1): boolean {
+  const id = cleanId(row.user_id);
+  if (isTomsOpsPushUserV1(id)) return true;
+  if (id !== "home-security") return false;
+  const code = cleanId(row.customer_code).toUpperCase();
+  if (CUSTOMER_OWNER_CODES_V1.has(code)) return false;
+  return true;
+}
+
 /**
  * 送信先物件と購読行が一致するか。
- * 物件未設定の旧購読と、社内（toms-ops）購読は全物件に届ける。
+ * 物件未設定の旧購読と、社内購読は全物件に届ける。
  */
 export function pushRowMatchesPropertyScopeV1(
   row: PushScopeRowV1,
   targetSiteId: string | null | undefined
 ): boolean {
-  if (isTomsOpsPushUserV1(cleanId(row.user_id))) return true;
+  /* 社内の購読は全物件へ届ける。
+     施主の購読は、物件が一致するときだけ。 */
+  if (isStaffAllSitePushUserV1(row)) return true;
   const target = cleanId(targetSiteId);
   if (!target) return true;
   const rowSite = cleanId(row.site_id);

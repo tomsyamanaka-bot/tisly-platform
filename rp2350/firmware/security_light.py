@@ -20,7 +20,7 @@ import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
 # 1.6 系のまま。製品全体の 1.2 系には合わせない。
-FIRMWARE_LOGIC_VERSION = "1.6.14"
+FIRMWARE_LOGIC_VERSION = "1.6.15"
 
 # ntptime.settime() は RTC を UTC のままにする。
 # 昼夜判定は毎回 time.time() + 32400 を JST とする。
@@ -246,8 +246,8 @@ class SecurityLightController:
         self._force_relay_test = False
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
-        # GPIO44 滞留判定。未設定のときは 5 秒。
-        self._mmwave_dwell_sec = 5
+        # GPIO44 滞留判定。未設定のときは 3 秒。
+        self._mmwave_dwell_sec = 3
         self._di2_duration_ms = _DEFAULT_DURATION_MS
         self._di2_standalone_ms = _DEFAULT_DURATION_MS
         self._di1_mode = "steady"
@@ -645,7 +645,7 @@ class SecurityLightController:
         self._mmwave_dwell_sec = sec
 
     def mmwave_dwell_sec(self):
-        return int(self._mmwave_dwell_sec or 5)
+        return int(self._mmwave_dwell_sec or 3)
 
     def set_mmwave_hold_sec(self, sec):
         """心拍の滞留秒だけを反映する。他の設定は触らない。"""

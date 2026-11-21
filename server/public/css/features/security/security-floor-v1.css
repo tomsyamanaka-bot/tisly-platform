@@ -3616,9 +3616,16 @@ body.sf-customer #sf-mmwave-gpio44:not([hidden]) {
 }
 
 .sf-mmwave-seen {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   color: #0f172a;
   font-size: 16px;
+  font-weight: 700;
+}
+
+.sf-mmwave-diag {
+  margin: 0 0 4px;
+  color: #1e3a8a;
+  font-size: 13px;
   font-weight: 700;
 }
 

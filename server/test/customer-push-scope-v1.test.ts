@@ -90,6 +90,31 @@ describe("customer push property scope", () => {
     );
     assert.equal(
       pushRowMatchesPropertyScopeV1(
+        { user_id: "home-security", site_id: "SEC-JP-TOYOSHIMA-001" },
+        "HOME-JP-ITABASHI-LIVE"
+      ),
+      true
+    );
+    assert.equal(
+      pushRowMatchesPropertyScopeV1(
+        {
+          user_id: "home-security",
+          site_id: "SEC-JP-KEEPRISING-001",
+          customer_code: "RISING001",
+        },
+        "HOME-JP-ITABASHI-LIVE"
+      ),
+      false
+    );
+    assert.equal(
+      pushRowMatchesPropertyScopeV1(
+        { user_id: "admin-default", site_id: "SEC-JP-RYUGASAKI-001" },
+        "TOMS001"
+      ),
+      true
+    );
+    assert.equal(
+      pushRowMatchesPropertyScopeV1(
         {
           user_id: "customer-security",
           site_id: null,

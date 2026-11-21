@@ -12,9 +12,11 @@ except ImportError:
 GPIO_NUM = 44
 DEBOUNCE_MS = 100
 RETRY_MS = 2000
-DEFAULT_DWELL_SEC = 5
+DEFAULT_DWELL_SEC = 3
+SAMPLE_MS = 2000
 
 _PIN = None
+_PIN_ERROR = ""
 _PENDING = None
 _STATE = {
     "raw": None,
@@ -26,6 +28,7 @@ _STATE = {
     "clear_sent": True,
     "next_try": 0,
     "level_at": 0,
+    "sample_at": 0,
 }
 
 
@@ -56,7 +59,7 @@ def clamp_dwell_sec(sec):
 
 def reset_state_for_test():
     """ホスト試験用。実機のピンは消さない。"""
-    global _PENDING
+    global _PENDING, _PIN_ERROR
     _STATE["raw"] = None
     _STATE["raw_since"] = 0
     _STATE["stable"] = None
@@ -66,19 +69,25 @@ def reset_state_for_test():
     _STATE["clear_sent"] = True
     _STATE["next_try"] = 0
     _STATE["level_at"] = 0
+    _STATE["sample_at"] = 0
+    _PIN_ERROR = ""
     _PENDING = None
 
 
 def ensure_pin():
     """プルダウン入力。失敗してもループは続ける。"""
-    global _PIN
+    global _PIN, _PIN_ERROR
     if _PIN is not None:
         return _PIN
+    if _PIN_ERROR:
+        return None
     try:
         from machine import Pin
         _PIN = Pin(GPIO_NUM, Pin.IN, Pin.PULL_DOWN)
-    except Exception:
+        _PIN_ERROR = ""
+    except Exception as exc:
         _PIN = None
+        _PIN_ERROR = "{}".format(exc)[:120]
     return _PIN
 
 
@@ -131,14 +140,48 @@ def step_level(level, now_ms, dwell_ms, debounce_ms=DEBOUNCE_MS):
     return "clear"
 
 
+def _firmware_version():
+    """動いている 1.6 系。失敗時は 1.6.15。"""
+    try:
+        import security_light
+        ver = str(
+            getattr(security_light, "FIRMWARE_LOGIC_VERSION", "") or ""
+        ).strip()
+        if ver:
+            return ver
+    except Exception:
+        pass
+    return "1.6.15"
+
+
 def _read_level():
+    global _PIN_ERROR
     pin = ensure_pin()
     if pin is None:
         return None
     try:
         return 1 if pin.value() else 0
-    except Exception:
+    except Exception as exc:
+        _PIN_ERROR = "{}".format(exc)[:120]
         return None
+
+
+def diagnostic():
+    """生値・初期化エラー・稼働版。例外は空で返す。"""
+    global _PIN_ERROR
+    try:
+        level = _read_level()
+    except Exception as exc:
+        level = None
+        _PIN_ERROR = "{}".format(exc)[:120]
+    if level is not None:
+        _STATE["raw"] = level
+    return {
+        "gpio44": level,
+        "gpio44Level": level,
+        "gpio44Error": _PIN_ERROR or "",
+        "firmwareVersion": _firmware_version(),
+    }
 
 
 def _held_ms(now_ms):
@@ -156,13 +199,19 @@ def _post_event(post, kick, event, dwell_sec, config, now_ms):
         device = str(getattr(config, "DEVICE_ID", device) or device)
     except Exception:
         pass
+    raw = _STATE["raw"]
+    if raw is None and _STATE["stable"] is not None:
+        raw = _STATE["stable"]
     payload = {
         "sensor_id": "mmwave_gpio44",
-        "label": "ミリ波レーダー（GPIO44）",
         "event": event,
         "dwellSec": int(dwell_sec),
         "mmwaveHoldSeconds": int(dwell_sec),
-        "level": 1 if _STATE["stable"] == 1 else 0,
+        "level": raw,
+        "gpio44": raw,
+        "gpio44Level": raw,
+        "gpio44Error": _PIN_ERROR or "",
+        "firmwareVersion": _firmware_version(),
         "heldMs": int(_held_ms(now_ms)),
         "deviceId": device,
         "siteId": site,
@@ -174,6 +223,17 @@ def _post_event(post, kick, event, dwell_sec, config, now_ms):
         return False
     kick()
     return int(status or 0) == 200
+
+
+def _post_sample(post, kick, dwell_sec, config, now_ms):
+    """LOW や初期化失敗でも、約2秒に1回だけ生値を送る。"""
+    if _diff(now_ms, _STATE["sample_at"]) < SAMPLE_MS:
+        return
+    _STATE["sample_at"] = now_ms
+    try:
+        _post_event(post, kick, "sample", dwell_sec, config, now_ms)
+    except Exception:
+        kick()
 
 
 def poll(post, kick, arm_lights, dwell_sec, config, now_ms=None, level=None):
@@ -199,15 +259,12 @@ def poll(post, kick, arm_lights, dwell_sec, config, now_ms=None, level=None):
     if level is None:
         level = _read_level()
     if level is None:
+        _post_sample(post, kick, dwell, config, now)
         return None
+    _STATE["raw"] = 1 if level else 0
     event = step_level(level, now, dwell * 1000)
     if not event:
-        if (
-            _STATE["stable"] == 1
-            and _diff(now, _STATE["level_at"]) >= 1000
-        ):
-            _STATE["level_at"] = now
-            _post_event(post, kick, "level", dwell, config, now)
+        _post_sample(post, kick, dwell, config, now)
         return None
     if _post_event(post, kick, event, dwell, config, now):
         if event == "dwell":

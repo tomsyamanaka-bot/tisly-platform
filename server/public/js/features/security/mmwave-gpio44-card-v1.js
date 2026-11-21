@@ -3,6 +3,7 @@
  * 保存中の秒数は、ポーリングで戻さない。
  */
 
+import { getTislySessionHeadersV1 } from "../../customer-auth.js";
 import { showViewportToast } from "./toast-viewport-v1.js";
 
 const SITE_ID = "HOME-JP-ITABASHI-LIVE";
@@ -43,14 +44,20 @@ function elapsedSec(body) {
 }
 
 function phaseText(body) {
-  const hold = holdOf(body) || 5;
-  if (body?.phase === "dwell" || body?.gpioLevel === 1 && body?.phase === "dwell") {
-    return "🚨 滞留警報発報中！";
-  }
-  if (body?.phase === "approach" || body?.gpioLevel === 1) {
+  const hold = holdOf(body) || 3;
+  if (body?.phase === "dwell") return "🚨 滞留警報発報中！";
+  if (body?.phase === "approach" || body?.gpio44Level === 1) {
     return `🟡 接近検知中（経過: ${elapsedSec(body)}秒 / 判定: ${hold}秒）`;
   }
   return "🟢 クリア（待機中）";
+}
+
+function apiHeaders() {
+  return getTislySessionHeadersV1({ "Content-Type": "application/json" });
+}
+
+function mocked(body) {
+  return Boolean(body?.reviewSandbox || body?.hardwareMock);
 }
 
 async function loadStatus() {
@@ -62,6 +69,18 @@ async function loadStatus() {
   const body = await res.json();
   text("sf-mmwave-phase", phaseText(body));
   text("sf-mmwave-seen", body.lastEventLabel || "最終反応: 未検知");
+  text(
+    "sf-mmwave-fw",
+    body.firmwareLabel || "実機バージョン: 未取得"
+  );
+  text(
+    "sf-mmwave-gpio",
+    body.gpioRawLabel || "GPIO44 生入力値: 未取得"
+  );
+  text(
+    "sf-mmwave-err",
+    body.gpio44Error ? `GPIO44 初期化: ${body.gpio44Error}` : ""
+  );
   const sec = holdOf(body);
   if (pendingSec == null && sec != null) paintDwell(sec);
   if (pendingSec != null && sec === pendingSec) pendingSec = null;
@@ -72,7 +91,7 @@ async function saveDwell(sec) {
   paintDwell(sec);
   const res = await fetch("/api/home/v1/itabashi/mmwave/dwell", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiHeaders(),
     cache: "no-store",
     body: JSON.stringify({
       siteId: SITE_ID,
@@ -85,6 +104,15 @@ async function saveDwell(sec) {
     return;
   }
   const body = await res.json();
+  if (mocked(body)) {
+    showViewportToast(
+      "sf-mmwave-toast",
+      "ts-toast",
+      "ログイン後に滞留秒を保存してください",
+      2800
+    );
+    return;
+  }
   const saved = holdOf(body) || sec;
   if (saved === sec) pendingSec = null;
   else pendingSec = sec;
@@ -100,7 +128,7 @@ async function saveDwell(sec) {
 async function sendTest() {
   const res = await fetch("/api/home/v1/itabashi/mmwave/test", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiHeaders(),
     cache: "no-store",
     body: JSON.stringify({ siteId: SITE_ID }),
   });
@@ -108,7 +136,24 @@ async function sendTest() {
     showViewportToast("sf-mmwave-toast", "ts-toast", "模擬発報を送れません", 2800);
     return;
   }
-  showViewportToast("sf-mmwave-toast", "ts-toast", "模擬発報を送信しました", 2800);
+  const body = await res.json();
+  if (mocked(body)) {
+    showViewportToast(
+      "sf-mmwave-toast",
+      "ts-toast",
+      "ログイン後に模擬発報を押してください",
+      2800
+    );
+    return;
+  }
+  const sent = Number(body?.sent) || 0;
+  showViewportToast(
+    "sf-mmwave-toast",
+    "ts-toast",
+    sent > 0 ? "模擬発報を送信しました" : "模擬発報を記録しました",
+    2800
+  );
+  window.dispatchEvent(new Event("tisly-mmwave-alarm"));
   await loadStatus();
 }
 

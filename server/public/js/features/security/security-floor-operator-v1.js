@@ -930,6 +930,12 @@ async function switchOperatorSite(nextSiteId) {
 }
 
 function startAlarmPolling() {
+  if (!window.__tislyMmwaveAlarmBound) {
+    window.__tislyMmwaveAlarmBound = true;
+    window.addEventListener("tisly-mmwave-alarm", () => {
+      loadOperator({ soft: true }).catch(() => {});
+    });
+  }
   if (state.pollTimer) clearInterval(state.pollTimer);
   state.pollTimer = setInterval(() => {
     if (isToyoshimaSecuritySite(state.siteId)) return;

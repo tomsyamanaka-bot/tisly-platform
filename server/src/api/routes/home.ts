@@ -194,6 +194,7 @@ import {
   getItabashiMmwaveStatusV1,
   holdSecondsFromBodyV1,
   ingestItabashiMmwaveEventV1,
+  noteItabashiMmwaveDiagV1,
   itabashiMmwaveFirmwareExtraV1,
   saveItabashiMmwaveDwellSecV1,
   sendItabashiMmwaveTestPushV1,
@@ -2284,6 +2285,15 @@ homeRouter.post("/itabashi/heartbeat", (req, res) => {
     uptimeSec: req.body?.uptime_sec ?? req.body?.uptimeSec,
     resetReason: req.body?.reset_reason ?? req.body?.resetReason,
     doLimitCuts: req.body?.do_limit_cuts ?? req.body?.doLimitCuts,
+  });
+  noteItabashiMmwaveDiagV1({
+    firmwareVersion:
+      req.body?.firmwareVersion ??
+      req.body?.firmware_version ??
+      req.body?.firmware,
+    gpio44: req.body?.gpio44,
+    gpio44Level: req.body?.gpio44Level,
+    gpio44Error: req.body?.gpio44Error,
   });
   const mmwave = getItabashiMmwaveStatusV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
   res.json({

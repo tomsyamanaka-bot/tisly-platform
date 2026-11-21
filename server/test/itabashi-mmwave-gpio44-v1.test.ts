@@ -11,8 +11,8 @@ import {
 } from "../src/home/home-itabashi-mmwave-v1.js";
 
 describe("itabashi mmwave gpio44", () => {
-  it("defaults dwell to 5 seconds and clamps the range", () => {
-    assert.equal(clampMmwaveDwellSecV1(undefined), 5);
+  it("defaults dwell to 3 seconds and clamps the range", () => {
+    assert.equal(clampMmwaveDwellSecV1(undefined), 3);
     assert.equal(clampMmwaveDwellSecV1(5), 5);
     assert.equal(clampMmwaveDwellSecV1(0), 1);
     assert.equal(clampMmwaveDwellSecV1(900), 300);
@@ -56,5 +56,24 @@ describe("itabashi mmwave gpio44", () => {
     assert.equal(again.mmwaveHoldSeconds, 10);
     assert.equal(again.dwellSec, 10);
     assert.equal(again.phase, "approach");
+  });
+
+  it("stores a raw GPIO sample without changing the saved hold", async () => {
+    const before = getItabashiMmwaveStatusV1("HOME-JP-ITABASHI-LIVE");
+    await ingestItabashiMmwaveEventV1({
+      siteId: "HOME-JP-ITABASHI-LIVE",
+      sensor_id: "mmwave_gpio44",
+      event: "sample",
+      level: 0,
+      gpio44Error: "",
+      firmwareVersion: "1.6.15",
+    });
+    const after = getItabashiMmwaveStatusV1("HOME-JP-ITABASHI-LIVE");
+    assert.equal(after.mmwaveHoldSeconds, before.mmwaveHoldSeconds);
+    assert.equal(after.phase, before.phase);
+    assert.equal(after.gpio44Level, 0);
+    assert.equal(after.gpioRawLabel, "GPIO44 生入力値: LOW (0)");
+    assert.equal(after.firmwareVersion, "1.6.15");
+    assert.equal(after.firmwareLabel, "実機バージョン: v1.6.15");
   });
 });

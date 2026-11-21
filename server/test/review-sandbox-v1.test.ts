@@ -103,6 +103,28 @@ describe("review sandbox v1", () => {
     assert.notEqual(res.body.reviewSandbox, true);
   });
 
+  it("lets the Itabashi radar post through without a session", async () => {
+    const posted = await request(app)
+      .post("/api/home/v1/itabashi/mmwave")
+      .send({
+        sensor_id: "mmwave_gpio44",
+        event: "sample",
+        level: 0,
+        siteId: LIVE,
+        firmwareVersion: "1.6.15",
+      });
+    assert.notEqual(posted.body.reviewSandbox, true);
+    assert.notEqual(posted.body.hardwareMock, true);
+    const test = await request(app)
+      .post("/api/home/v1/itabashi/mmwave/test")
+      .send({ siteId: LIVE });
+    assert.equal(test.status, 200);
+    assert.notEqual(test.body.reviewSandbox, true);
+    assert.equal(test.body.phase, "dwell");
+    assert.equal(typeof test.body.openAlarmCount, "number");
+    assert.ok(test.body.openAlarmCount >= 1);
+  });
+
   it("lists demo security sites instead of live houses", async () => {
     const sites = await request(app).get("/api/security-floor/v1/operator-sites");
     assert.equal(sites.status, 200);

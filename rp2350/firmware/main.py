@@ -505,6 +505,10 @@ def http_post(path, payload):
     try:
 
         body = json.dumps(payload)
+        # 文字数ではなくバイト長で送る。
+        # 日本語で JSON が途中で切れない。
+        if isinstance(body, str):
+            body = body.encode("utf-8")
 
         headers = _http_headers("application/json")
         try:
@@ -733,7 +737,7 @@ def _itabashi_logic_version():
                 return saved
         except Exception:
             pass
-        return str(getattr(config, "FIRMWARE_VERSION", "1.6.14") or "")
+        return str(getattr(config, "FIRMWARE_VERSION", "1.6.15") or "")
 
 
 def _sync_itabashi_clock():
@@ -811,6 +815,13 @@ def _send_heartbeat_once():
         "inputStates": dict(input_states),
 
     }
+    try:
+        import mmwave_gpio44
+        payload.update(mmwave_gpio44.diagnostic())
+    except Exception as exc:
+        payload["gpio44"] = None
+        payload["gpio44Level"] = None
+        payload["gpio44Error"] = "{}".format(exc)[:120]
     if _kit:
         payload.update(_kit.payload_fields())
 

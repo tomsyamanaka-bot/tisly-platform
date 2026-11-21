@@ -11,7 +11,10 @@ import {
 } from "../../remote-test/security-demo-notify.js";
 import { processHomeSecurityInputChangesV1 } from "../../home/home-security-notify-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
-import { getItabashiMmwaveStatusV1 } from "../../home/home-itabashi-mmwave-v1.js";
+import {
+  getItabashiMmwaveStatusV1,
+  noteItabashiMmwaveDiagV1,
+} from "../../home/home-itabashi-mmwave-v1.js";
 import { recordItabashiHeartbeatV1 } from "../../home/home-itabashi-comm-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
@@ -459,6 +462,16 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     uptimeSec: bodyRec.uptime_sec ?? bodyRec.uptimeSec,
     resetReason: bodyRec.reset_reason ?? bodyRec.resetReason,
     doLimitCuts: bodyRec.do_limit_cuts ?? bodyRec.doLimitCuts,
+  });
+  noteItabashiMmwaveDiagV1({
+    firmwareVersion:
+      bodyRec.firmwareVersion ??
+      bodyRec.firmware_version ??
+      bodyRec.firmware ??
+      firmwareVersion,
+    gpio44: bodyRec.gpio44,
+    gpio44Level: bodyRec.gpio44Level,
+    gpio44Error: bodyRec.gpio44Error,
   });
   const notificationTriggered = chChanges.length > 0 || inputChanges.length > 0;
   if (chChanges.length > 0) {

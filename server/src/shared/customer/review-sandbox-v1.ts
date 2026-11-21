@@ -96,7 +96,16 @@ function isMutatingV1(req: Request): boolean {
 }
 
 function isDeviceIngressPathV1(path: string): boolean {
-  return /\/(heartbeat|event)$/.test(path);
+  if (/\/(heartbeat|event)$/.test(path)) return true;
+  /* 板橋のセンサー受信と模擬発報。
+     リレーや電気錠は、ここへ入れない。 */
+  return (
+    path === "/api/home/v1/itabashi/mmwave" ||
+    path === "/api/home/v1/itabashi/mmwave/test" ||
+    path === "/api/home/v1/itabashi/mmwave/dwell" ||
+    path === "/api/home/v1/itabashi/lidar" ||
+    path === "/api/home/v1/itabashi/heartbeat"
+  );
 }
 
 function isInherentlyLiveCommandPathV1(path: string): boolean {
