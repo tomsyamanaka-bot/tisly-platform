@@ -3577,6 +3577,44 @@ body.sf-soc #sf-manual-light[hidden] {
   display: none !important;
 }
 
+#sf-mmwave-gpio44[hidden] {
+  display: none !important;
+}
+
+body.sf-customer #sf-mmwave-gpio44:not([hidden]) {
+  display: block !important;
+}
+
+.sf-mmwave-phase {
+  margin: 12px 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sf-mmwave-secs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sf-mmwave-sec {
+  min-height: 56px;
+  min-width: 72px;
+  padding: 0 16px;
+  border: 2px solid #1e3a8a;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sf-mmwave-sec.is-on {
+  background: #1e3a8a;
+  color: #ffffff;
+}
+
 /* お客様のタブ切替は直接の子を隠す。板橋の測距カードは残す。 */
 body.sf-customer #sf-matrix-lidar:not([hidden]) {
   display: block !important;

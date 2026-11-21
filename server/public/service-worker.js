@@ -6,7 +6,8 @@
 /* ネオン・ダークUI v1 */
 // v2606 は段階ビームのキャッシュ。画面統一は v2607。
 // PDF共有から blob: の本文を外すのは v2608。
-const SW_VERSION = "tisly-pwa-v2608-pdf-file-share";
+// 板橋 GPIO44 ミリ波カードは v2609。
+const SW_VERSION = "tisly-pwa-v2609-mmwave-gpio44";
 /* tisly-pwa-v2605-site-lifecycle */
 /* tisly-pwa-v2604-site-signals */
 /* tisly-pwa-v2603-astro-recovery */

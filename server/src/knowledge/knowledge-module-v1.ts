@@ -166,6 +166,10 @@ import {
   getMatrixLidarHeatmapModuleSeedItemsV1,
 } from "./knowledge-matrix-lidar-heatmap-seed-v1.js";
 import {
+  MMWAVE_GPIO44_MODULE_SEED_IDS,
+  getMmwaveGpio44ModuleSeedItemsV1,
+} from "./knowledge-mmwave-gpio44-seed-v1.js";
+import {
   DEPLOY_OTA_MODULE_SEED_IDS,
   getDeployOtaModuleSeedItemsV1,
 } from "./knowledge-deploy-ota-seed-v1.js";
@@ -2086,6 +2090,48 @@ function mergeMatrixLidarHeatmapSeed(
 }
 
 /**
+ * GPIO44 ミリ波レーダーの配線を末尾追記。
+ */
+function mergeMmwaveGpio44Seed(
+  items: KnowledgeModuleItemV1[]
+): { items: KnowledgeModuleItemV1[]; changed: boolean } {
+  const seedIds = new Set<string>(MMWAVE_GPIO44_MODULE_SEED_IDS);
+  const seeds = getMmwaveGpio44ModuleSeedItemsV1();
+  const next = [...items];
+  let changed = false;
+
+  for (const seed of seeds) {
+    if (!seedIds.has(seed.id)) continue;
+    const index = next.findIndex((item) => item.id === seed.id);
+    if (index < 0) {
+      next.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    const existing = next[index];
+    const same =
+      existing.title === seed.title &&
+      existing.summary === seed.summary &&
+      existing.body === seed.body &&
+      existing.genre === seed.genre &&
+      tagsContainAll(existing.tags, seed.tags);
+    if (!same) {
+      next[index] = {
+        ...existing,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        genre: seed.genre,
+        tags: mergeKeepExtraTags(existing.tags, seed.tags),
+      };
+      changed = true;
+    }
+  }
+
+  return { items: next, changed };
+}
+
+/**
  * デプロイ連動の全現場 OTA を末尾追記。
  */
 function mergeDeployOtaSeed(
@@ -2523,7 +2569,8 @@ function readAll(): KnowledgeModuleItemV1[] {
   const mergedAstro = mergeAstroRecoverySeed(mergedBaseline.items);
   const mergedSignal = mergeSiteSignalSeed(mergedAstro.items);
   const mergedLifecycle = mergeSiteLifecycleSeed(mergedSignal.items);
-  const mergedGenre = mergeUnifiedGenreBindings(mergedLifecycle.items);
+  const mergedMmwave = mergeMmwaveGpio44Seed(mergedLifecycle.items);
+  const mergedGenre = mergeUnifiedGenreBindings(mergedMmwave.items);
   if (
     mergedFab.changed ||
     mergedPh.changed ||
@@ -2573,6 +2620,7 @@ function readAll(): KnowledgeModuleItemV1[] {
     mergedAstro.changed ||
     mergedSignal.changed ||
     mergedLifecycle.changed ||
+    mergedMmwave.changed ||
     mergedGenre.changed
   ) {
     writeAll(mergedGenre.items);

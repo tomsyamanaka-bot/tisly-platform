@@ -48,6 +48,7 @@ import { seedHwKittingSurgeKnowledgeCardsV1 } from "./knowledge-hw-kitting-surge
 import { seedLeakageCurrentStandardKnowledgeCardsV1 } from "./knowledge-leakage-current-standard-seed-v1.js";
 import { seedUiuxDesignStandardKnowledgeCardsV1 } from "./knowledge-uiux-design-standard-seed-v1.js";
 import { seedMatrixLidarHeatmapKnowledgeCardsV1 } from "./knowledge-matrix-lidar-heatmap-seed-v1.js";
+import { seedMmwaveGpio44KnowledgeCardsV1 } from "./knowledge-mmwave-gpio44-seed-v1.js";
 import { seedDeployOtaKnowledgeCardsV1 } from "./knowledge-deploy-ota-seed-v1.js";
 import { seedOpsSafetyKnowledgeCardsV1 } from "./knowledge-ops-safety-seed-v1.js";
 import { seedDoGuardKnowledgeCardsV1 } from "./knowledge-do-guard-seed-v1.js";
@@ -220,6 +221,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   leakageCurrentStandardCreated: number;
   uiuxDesignStandardCreated: number;
   matrixLidarHeatmapCreated: number;
+  mmwaveGpio44Created: number;
   deployOtaCreated: number;
   opsSafetyCreated: number;
   doGuardCreated: number;
@@ -269,6 +271,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
   const leakageCurrentStandard = seedLeakageCurrentStandardKnowledgeCardsV1();
   const uiuxDesignStandard = seedUiuxDesignStandardKnowledgeCardsV1();
   const matrixLidarHeatmap = seedMatrixLidarHeatmapKnowledgeCardsV1();
+  const mmwaveGpio44 = seedMmwaveGpio44KnowledgeCardsV1();
   const deployOta = seedDeployOtaKnowledgeCardsV1();
   const opsSafety = seedOpsSafetyKnowledgeCardsV1();
   const doGuard = seedDoGuardKnowledgeCardsV1();
@@ -318,6 +321,7 @@ export function ensureKnowledgeLibraryTemplatesV1(): {
     leakageCurrentStandardCreated: leakageCurrentStandard.length,
     uiuxDesignStandardCreated: uiuxDesignStandard.length,
     matrixLidarHeatmapCreated: matrixLidarHeatmap.length,
+    mmwaveGpio44Created: mmwaveGpio44.length,
     deployOtaCreated: deployOta.length,
     opsSafetyCreated: opsSafety.length,
     doGuardCreated: doGuard.length,

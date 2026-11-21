@@ -174,6 +174,20 @@
       <p class="sf-hint" id="sf-matrix-lidar-meta">測距を待っています</p>
     </section>
 
+    <section class="sf-card sf-mmwave" id="sf-mmwave-gpio44" hidden>
+      <p class="sf-card-label">📡 ミリ波レーダー（GPIO44 / 2.25m設定）</p>
+      <p class="sf-remote-target">板橋自宅 · HLK-LD2410C · High level</p>
+      <p class="sf-mmwave-phase" id="sf-mmwave-phase">🟢 クリア（待機中）</p>
+      <p class="sf-hint">滞留判定秒数。接近のあと同じ秒数 HIGH が続くと警報です。</p>
+      <div class="sf-mmwave-secs" role="group" aria-label="滞留判定秒数">
+        <button type="button" class="sf-mmwave-sec" data-mmwave-sec="3">3秒</button>
+        <button type="button" class="sf-mmwave-sec is-on" data-mmwave-sec="5" aria-pressed="true">5秒</button>
+        <button type="button" class="sf-mmwave-sec" data-mmwave-sec="10">10秒</button>
+        <button type="button" class="sf-mmwave-sec" data-mmwave-sec="15">15秒</button>
+        <button type="button" class="sf-mmwave-sec" data-mmwave-sec="30">30秒</button>
+      </div>
+    </section>
+
     <details class="sf-card sf-customer-daily-settings" id="sf-customer-daily-settings" open>
       <summary class="sf-daily-summary">
         <span class="sf-card-label">⚙️ 日常詳細設定</span>

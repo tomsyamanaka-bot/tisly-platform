@@ -7,8 +7,8 @@
 export const TISLY_SITE_TARGET_VERSIONS_V1 = {
   /** 豊島邸。他現場の追加では上げない */
   toyoshima: "1.2.60",
-  /** 板橋自宅。1.6 系の別ライン。物理 WDT でセルフ回復 */
-  itabashi: "1.6.12",
+  /** 板橋自宅。1.6 系の別ライン。GPIO44 ミリ波を含む */
+  itabashi: "1.6.13",
   /** ウォッシュメイト龍ヶ崎店。DI 変化を即 POST する版 */
   ryugasaki: "1.2.42",
   /** Keep Rising。段階ビーム連動の配信版。他現場の下限は動かさない */

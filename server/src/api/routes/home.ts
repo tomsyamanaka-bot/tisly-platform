@@ -190,6 +190,12 @@ import {
   getMatrixLidarSnapshotV1,
   ingestMatrixLidarFrameV1,
 } from "../../home/home-matrix-lidar-v1.js";
+import {
+  getItabashiMmwaveStatusV1,
+  ingestItabashiMmwaveEventV1,
+  itabashiMmwaveFirmwareExtraV1,
+  saveItabashiMmwaveDwellSecV1,
+} from "../../home/home-itabashi-mmwave-v1.js";
 import { registerRyugasakiSecurityRoutesV1 } from "./ryugasaki-security-v1.js";
 import { registerKeepRisingSecurityRoutesV1 } from "./keeprising-security-v1.js";
 import {
@@ -1617,9 +1623,11 @@ homeRouter.get("/security-rules/firmware", (req, res) => {
     res.status(403).json({ ok: false, error: "forbidden" });
     return;
   }
+  const rules = buildHomeSecurityFirmwareRulesV1(siteId);
+  const mmwave = itabashiMmwaveFirmwareExtraV1(siteId);
   res.json({
     ok: true,
-    rules: buildHomeSecurityFirmwareRulesV1(siteId),
+    rules: mmwave ? { ...rules, ...mmwave } : rules,
   });
 });
 
@@ -2208,6 +2216,38 @@ homeRouter.post("/itabashi/lidar", (req, res) => {
     changed: result.changed,
     snapshot: result.snapshot,
   });
+});
+
+homeRouter.post("/itabashi/mmwave", async (req, res) => {
+  const token = String(req.headers["x-remote-test-token"] ?? "").trim();
+  const expected = String(process.env.REMOTE_TEST_TOKEN ?? "").trim();
+  if (expected && token !== expected) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return;
+  }
+  noStoreItabashi(res);
+  const body = (req.body ?? {}) as {
+    siteId?: string;
+    deviceId?: string;
+    sensor_id?: string;
+    sensorId?: string;
+    event?: string;
+    label?: string;
+  };
+  const result = await ingestItabashiMmwaveEventV1(body);
+  res.json(result);
+});
+
+homeRouter.get("/itabashi/mmwave", (req, res) => {
+  noStoreItabashi(res);
+  const siteId = String(req.query.siteId ?? "").trim();
+  res.json(getItabashiMmwaveStatusV1(siteId || undefined));
+});
+
+homeRouter.post("/itabashi/mmwave/dwell", (req, res) => {
+  noStoreItabashi(res);
+  const body = (req.body ?? {}) as { dwellSec?: unknown; siteId?: string };
+  res.json(saveItabashiMmwaveDwellSecV1(body.dwellSec, body.siteId));
 });
 
 homeRouter.get("/itabashi/lidar", (req, res) => {

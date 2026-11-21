@@ -20,7 +20,7 @@ import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
 # 1.6 系のまま。製品全体の 1.2 系には合わせない。
-FIRMWARE_LOGIC_VERSION = "1.6.12"
+FIRMWARE_LOGIC_VERSION = "1.6.13"
 
 # ntptime.settime() は RTC を UTC のままにする。
 # 昼夜判定は毎回 time.time() + 32400 を JST とする。
@@ -246,6 +246,8 @@ class SecurityLightController:
         self._force_relay_test = False
         self._security_paused = False
         self._di1_duration_ms = _DEFAULT_DURATION_MS
+        # GPIO44 滞留判定。未設定のときは 5 秒。
+        self._mmwave_dwell_sec = 5
         self._di2_duration_ms = _DEFAULT_DURATION_MS
         self._di2_standalone_ms = _DEFAULT_DURATION_MS
         self._di1_mode = "steady"
@@ -379,6 +381,7 @@ class SecurityLightController:
         """VPS から最新防犯ルール JSON を反映。"""
         if not rules or not isinstance(rules, dict):
             return False
+        self._sync_mmwave_dwell(rules)
         self._sync_vps_clock(rules)
         self._sync_live_light_settings(rules)
         ver = int(rules.get("version", 0))
@@ -622,6 +625,39 @@ class SecurityLightController:
         )
         return False
 
+    def _sync_mmwave_dwell(self, rules):
+        """滞留秒だけ先に取る。版番号を待たない。"""
+        if "mmwaveDwellSec" not in rules:
+            return
+        try:
+            sec = int(rules.get("mmwaveDwellSec"))
+        except Exception:
+            return
+        if sec < 1:
+            sec = 1
+        if sec > 300:
+            sec = 300
+        self._mmwave_dwell_sec = sec
+
+    def mmwave_dwell_sec(self):
+        return int(self._mmwave_dwell_sec or 5)
+
+    def arm_mmwave_dwell_lights(self):
+        """滞留のとき DO2 と DO3 だけ点ける。
+        夜間か昼間テストのときだけ。CH1 は触らない。
+        維持は既存の点灯秒。上限は 600 秒。
+        """
+        if not self._can_run_lights():
+            self.log("mmwave dwell outside window")
+            return False
+        ms = int(self._di1_duration_ms or 45000)
+        if ms > 600000:
+            ms = 600000
+        if ms < 1000:
+            ms = 1000
+        self._start_sequence("M", ms)
+        return True
+
     def _arm_do2_do3(self, mode_do2, mode_do3, duration_ms):
         """DI 検知の瞬間に DO2/DO3 を ON する。CH1 は触らない。"""
         armed = False
@@ -791,6 +827,8 @@ class SecurityLightController:
                 await self._pattern_b(seq_id, duration_ms)
             elif pattern == "C":
                 await self._pattern_c(seq_id, duration_ms)
+            elif pattern == "M":
+                await self._pattern_mmwave(seq_id, duration_ms)
         except asyncio.CancelledError:
             # 後継の序列が既に始まっているときは消灯しない。
             # 約5秒後に届く次命令がコイルを落とす競合を防ぐ。
@@ -803,6 +841,16 @@ class SecurityLightController:
 
     def _seq_alive(self, seq_id):
         return self._seq_id == seq_id
+
+    async def _pattern_mmwave(self, seq_id, duration_ms=None):
+        """GPIO44 滞留。DO2 と DO3 を同時に点ける。"""
+        ms = int(duration_ms or self._di1_duration_ms or 45000)
+        if ms > 600000:
+            ms = 600000
+        self.log("mmwave dwell lights {}s".format(ms // 1000))
+        await self._run_dual_lights(seq_id, ms, "steady", "steady")
+        if self._seq_alive(seq_id):
+            self._all_security_off()
 
     async def _pattern_a(self, seq_id, duration_ms=None):
         """駐車場センサー (DI1): DO2 + DO3 を同時点灯。"""

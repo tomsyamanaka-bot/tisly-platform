@@ -173,6 +173,7 @@ const SITE_PROFILES: SiteProfileV1[] = [
       "lib/tisly_wdt.py": "lib/tisly_wdt.py",
       "lib/tisly_do_guard.py": "lib/tisly_do_guard.py",
       "matrix_lidar.py": "matrix_lidar.py",
+      "mmwave_gpio44.py": "mmwave_gpio44.py",
       "security_light.py": "security_light.py",
       "boot.py": "boot.py",
       "lib/tisly_ota.py": "lib/tisly_ota.py",

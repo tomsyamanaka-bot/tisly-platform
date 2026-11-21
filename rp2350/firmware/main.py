@@ -733,7 +733,7 @@ def _itabashi_logic_version():
                 return saved
         except Exception:
             pass
-    return str(getattr(config, "FIRMWARE_VERSION", "1.6.12") or "")
+        return str(getattr(config, "FIRMWARE_VERSION", "1.6.13") or "")
 
 
 def _sync_itabashi_clock():
@@ -1522,6 +1522,26 @@ async def async_main():
             matrix_lidar.poll_and_post(http_post, config)
         except Exception as e:
             log_error("matrix lidar: {}".format(e))
+
+        try:
+            import mmwave_gpio44
+            dwell_sec = 5
+            if _security is not None:
+                dwell_sec = _security.mmwave_dwell_sec()
+
+            def _arm_mmwave():
+                if _security is not None:
+                    _security.arm_mmwave_dwell_lights()
+
+            mmwave_gpio44.poll(
+                http_post,
+                _kick_wdt,
+                _arm_mmwave,
+                dwell_sec,
+                config,
+            )
+        except Exception as e:
+            log_error("mmwave gpio44: {}".format(e))
 
         if not _kit:
             _paint(_link_kind or "red")

@@ -49,6 +49,7 @@ import {
   useItabashiStatus,
 } from "./use-itabashi-status-v1.js";
 import { syncMatrixLidarCard } from "./matrix-lidar-card-v1.js";
+import { syncMmwaveGpio44Card } from "./mmwave-gpio44-card-v1.js";
 import {
   paintCustomerAssureCardV1,
   startCustomerAssureStatusV1,
@@ -358,6 +359,7 @@ function applySiteLayout(force = false) {
 
   ensureCustomerAssure();
   syncMatrixLidarCard(isItabashiSecuritySite(state.siteId));
+  syncMmwaveGpio44Card(isItabashiSecuritySite(state.siteId));
   if (!force && state.layoutSiteId === state.siteId) {
     return;
   }
