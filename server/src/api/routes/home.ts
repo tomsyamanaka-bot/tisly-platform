@@ -192,9 +192,11 @@ import {
 } from "../../home/home-matrix-lidar-v1.js";
 import {
   getItabashiMmwaveStatusV1,
+  holdSecondsFromBodyV1,
   ingestItabashiMmwaveEventV1,
   itabashiMmwaveFirmwareExtraV1,
   saveItabashiMmwaveDwellSecV1,
+  sendItabashiMmwaveTestPushV1,
 } from "../../home/home-itabashi-mmwave-v1.js";
 import { registerRyugasakiSecurityRoutesV1 } from "./ryugasaki-security-v1.js";
 import { registerKeepRisingSecurityRoutesV1 } from "./keeprising-security-v1.js";
@@ -2246,8 +2248,21 @@ homeRouter.get("/itabashi/mmwave", (req, res) => {
 
 homeRouter.post("/itabashi/mmwave/dwell", (req, res) => {
   noStoreItabashi(res);
-  const body = (req.body ?? {}) as { dwellSec?: unknown; siteId?: string };
-  res.json(saveItabashiMmwaveDwellSecV1(body.dwellSec, body.siteId));
+  const body = (req.body ?? {}) as {
+    dwellSec?: unknown;
+    mmwaveHoldSeconds?: unknown;
+    holdSec?: unknown;
+    siteId?: string;
+  };
+  const sec = holdSecondsFromBodyV1(body);
+  res.json(saveItabashiMmwaveDwellSecV1(sec, body.siteId));
+});
+
+homeRouter.post("/itabashi/mmwave/test", async (req, res) => {
+  noStoreItabashi(res);
+  const siteId = String(req.body?.siteId ?? "").trim();
+  const result = await sendItabashiMmwaveTestPushV1(siteId || undefined);
+  res.json(result);
 });
 
 homeRouter.get("/itabashi/lidar", (req, res) => {
@@ -2270,11 +2285,14 @@ homeRouter.post("/itabashi/heartbeat", (req, res) => {
     resetReason: req.body?.reset_reason ?? req.body?.resetReason,
     doLimitCuts: req.body?.do_limit_cuts ?? req.body?.doLimitCuts,
   });
+  const mmwave = getItabashiMmwaveStatusV1(HOME_ITABASHI_LIVE_SITE_ID_V1);
   res.json({
     ok: true,
     message: "最新の接続状態を取得しました",
     status,
     siteId: HOME_ITABASHI_LIVE_SITE_ID_V1,
+    mmwaveHoldSeconds: mmwave.mmwaveHoldSeconds,
+    mmwaveDwellSec: mmwave.dwellSec,
   });
 });
 

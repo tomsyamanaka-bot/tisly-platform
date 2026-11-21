@@ -11,6 +11,7 @@ import {
 } from "../../remote-test/security-demo-notify.js";
 import { processHomeSecurityInputChangesV1 } from "../../home/home-security-notify-v1.js";
 import { HOME_ITABASHI_LIVE_SITE_ID_V1 } from "../../home/home-sites-v1.js";
+import { getItabashiMmwaveStatusV1 } from "../../home/home-itabashi-mmwave-v1.js";
 import { recordItabashiHeartbeatV1 } from "../../home/home-itabashi-comm-v1.js";
 import {
   extractTislyKittingFromHeartbeatV1,
@@ -489,6 +490,9 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     rgbStatus: kitting.rgbStatus,
     selfTest: kitting.selfTest,
   });
+  const mmwaveHold = getItabashiMmwaveStatusV1(
+    HOME_ITABASHI_LIVE_SITE_ID_V1
+  );
   res.json({
     ok: true,
     ...getDeviceStatus(),
@@ -503,6 +507,8 @@ async function handleDeviceHeartbeat(req: Request, res: Response): Promise<void>
     updateUrl: ota.updateUrl,
     scriptBaseUrl: ota.scriptBaseUrl,
     ota,
+    mmwaveHoldSeconds: mmwaveHold.mmwaveHoldSeconds,
+    mmwaveDwellSec: mmwaveHold.dwellSec,
   });
 }
 

@@ -25,6 +25,7 @@ _STATE = {
     "dwell_sent": False,
     "clear_sent": True,
     "next_try": 0,
+    "level_at": 0,
 }
 
 
@@ -64,6 +65,7 @@ def reset_state_for_test():
     _STATE["dwell_sent"] = False
     _STATE["clear_sent"] = True
     _STATE["next_try"] = 0
+    _STATE["level_at"] = 0
     _PENDING = None
 
 
@@ -139,7 +141,13 @@ def _read_level():
         return None
 
 
-def _post_event(post, kick, event, dwell_sec, config):
+def _held_ms(now_ms):
+    if _STATE["stable"] != 1:
+        return 0
+    return max(0, _diff(now_ms, _STATE["high_since"]))
+
+
+def _post_event(post, kick, event, dwell_sec, config, now_ms):
     kick()
     site = "HOME-JP-ITABASHI-LIVE"
     device = "rp2350-itabashi-main-01"
@@ -153,6 +161,9 @@ def _post_event(post, kick, event, dwell_sec, config):
         "label": "ミリ波レーダー（GPIO44）",
         "event": event,
         "dwellSec": int(dwell_sec),
+        "mmwaveHoldSeconds": int(dwell_sec),
+        "level": 1 if _STATE["stable"] == 1 else 0,
+        "heldMs": int(_held_ms(now_ms)),
         "deviceId": device,
         "siteId": site,
     }
@@ -174,7 +185,7 @@ def poll(post, kick, arm_lights, dwell_sec, config, now_ms=None, level=None):
     if _PENDING is not None:
         if _diff(now, _STATE["next_try"]) < 0:
             return None
-        if _post_event(post, kick, _PENDING, dwell, config):
+        if _post_event(post, kick, _PENDING, dwell, config, now):
             event = _PENDING
             _PENDING = None
             if event == "dwell":
@@ -191,8 +202,14 @@ def poll(post, kick, arm_lights, dwell_sec, config, now_ms=None, level=None):
         return None
     event = step_level(level, now, dwell * 1000)
     if not event:
+        if (
+            _STATE["stable"] == 1
+            and _diff(now, _STATE["level_at"]) >= 1000
+        ):
+            _STATE["level_at"] = now
+            _post_event(post, kick, "level", dwell, config, now)
         return None
-    if _post_event(post, kick, event, dwell, config):
+    if _post_event(post, kick, event, dwell, config, now):
         if event == "dwell":
             try:
                 arm_lights()

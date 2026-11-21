@@ -178,6 +178,7 @@
       <p class="sf-card-label">📡 ミリ波レーダー（GPIO44 / 2.25m設定）</p>
       <p class="sf-remote-target">板橋自宅 · HLK-LD2410C · High level</p>
       <p class="sf-mmwave-phase" id="sf-mmwave-phase">🟢 クリア（待機中）</p>
+      <p class="sf-mmwave-seen" id="sf-mmwave-seen">最終反応: 未検知</p>
       <p class="sf-hint">滞留判定秒数。接近のあと同じ秒数 HIGH が続くと警報です。</p>
       <div class="sf-mmwave-secs" role="group" aria-label="滞留判定秒数">
         <button type="button" class="sf-mmwave-sec" data-mmwave-sec="3">3秒</button>
@@ -186,6 +187,7 @@
         <button type="button" class="sf-mmwave-sec" data-mmwave-sec="15">15秒</button>
         <button type="button" class="sf-mmwave-sec" data-mmwave-sec="30">30秒</button>
       </div>
+      <button type="button" class="sf-mmwave-test" data-mmwave-test>🔔 通知テスト送信（模擬発報）</button>
     </section>
 
     <details class="sf-card sf-customer-daily-settings" id="sf-customer-daily-settings" open>

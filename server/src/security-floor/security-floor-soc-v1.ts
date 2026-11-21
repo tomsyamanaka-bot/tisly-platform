@@ -532,3 +532,85 @@ export function recordHomeDiSecurityAlarmV1(input: {
   }
   return log;
 }
+
+const MMWAVE_SENSOR_ID = "my-mmwave-gpio44";
+
+function ensureMmwaveSensorV1(site: SecuritySiteV1): SecuritySensorV1 {
+  const existing = site.sensors.find((s) => s.id === MMWAVE_SENSOR_ID);
+  if (existing) return existing;
+  const sensor: SecuritySensorV1 = {
+    id: MMWAVE_SENSOR_ID,
+    floorId: "outdoor",
+    roomId: site.rooms[0]?.id || "outdoor",
+    kind: "mmwave",
+    label: "ミリ波レーダー（GPIO44）",
+    customerLabel: "ミリ波レーダー",
+    x: 62,
+    y: 18,
+    state: "normal",
+    deviceId: "RP2350-GPIO44",
+  };
+  site.sensors.push(sensor);
+  return sensor;
+}
+
+/** GPIO44 の接近・滞留をベルの未読へ足す。DI は触らない。 */
+export function recordMmwaveSecurityAlarmV1(input: {
+  homeSiteId: string;
+  message: string;
+}): SecurityAlarmLogV1 | null {
+  try {
+    const siteId = mapHomeSiteIdToSecurityFloorSiteIdV1(input.homeSiteId);
+    const site = findSecuritySiteV1(siteId);
+    const sensor = ensureMmwaveSensorV1(site);
+    sensor.state = "alert";
+    const openExisting = alarmLogs.find(
+      (l) =>
+        l.siteId === site.id &&
+        l.sensorId === sensor.id &&
+        l.status !== "done"
+    );
+    if (openExisting) {
+      openExisting.at = nowIso();
+      openExisting.kindLabel = input.message;
+      openExisting.deviceLabel = sensor.label;
+      return openExisting;
+    }
+    const log: SecurityAlarmLogV1 = {
+      id: `ALM-MM-${Date.now()}-${logSeq++}`,
+      siteId: site.id,
+      at: nowIso(),
+      floorId: sensor.floorId,
+      location: roomLabel(site, sensor.roomId),
+      kind: "mmwave",
+      kindLabel: input.message,
+      deviceLabel: sensor.label,
+      sensorId: sensor.id,
+      cameraId: sensor.linkedCameraId || null,
+      status: "open",
+      handler: "",
+    };
+    alarmLogs.unshift(log);
+    if (alarmLogs.length > 80) alarmLogs.length = 80;
+    return log;
+  } catch {
+    return null;
+  }
+}
+
+/** 人が離れたら GPIO44 の未読だけ閉じる。 */
+export function clearMmwaveSecurityAlarmV1(homeSiteId: string): void {
+  try {
+    const siteId = mapHomeSiteIdToSecurityFloorSiteIdV1(homeSiteId);
+    const site = findSecuritySiteV1(siteId);
+    const sensor = site.sensors.find((s) => s.id === MMWAVE_SENSOR_ID);
+    if (sensor) sensor.state = "normal";
+    for (const log of alarmLogs) {
+      if (log.siteId === site.id && log.sensorId === MMWAVE_SENSOR_ID) {
+        if (log.status !== "done") log.status = "done";
+      }
+    }
+  } catch {
+    /* 現場が無いときは何もしない */
+  }
+}

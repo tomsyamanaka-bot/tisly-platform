@@ -20,7 +20,7 @@ import time
 
 # OTA がこの文字列から版を読む（config.py は実機上書きしない）
 # 1.6 系のまま。製品全体の 1.2 系には合わせない。
-FIRMWARE_LOGIC_VERSION = "1.6.13"
+FIRMWARE_LOGIC_VERSION = "1.6.14"
 
 # ntptime.settime() は RTC を UTC のままにする。
 # 昼夜判定は毎回 time.time() + 32400 を JST とする。
@@ -627,10 +627,15 @@ class SecurityLightController:
 
     def _sync_mmwave_dwell(self, rules):
         """滞留秒だけ先に取る。版番号を待たない。"""
-        if "mmwaveDwellSec" not in rules:
+        raw = None
+        if "mmwaveHoldSeconds" in rules:
+            raw = rules.get("mmwaveHoldSeconds")
+        elif "mmwaveDwellSec" in rules:
+            raw = rules.get("mmwaveDwellSec")
+        else:
             return
         try:
-            sec = int(rules.get("mmwaveDwellSec"))
+            sec = int(raw)
         except Exception:
             return
         if sec < 1:
@@ -641,6 +646,10 @@ class SecurityLightController:
 
     def mmwave_dwell_sec(self):
         return int(self._mmwave_dwell_sec or 5)
+
+    def set_mmwave_hold_sec(self, sec):
+        """心拍の滞留秒だけを反映する。他の設定は触らない。"""
+        self._sync_mmwave_dwell({"mmwaveHoldSeconds": sec})
 
     def arm_mmwave_dwell_lights(self):
         """滞留のとき DO2 と DO3 だけ点ける。

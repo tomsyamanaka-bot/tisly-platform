@@ -3615,6 +3615,28 @@ body.sf-customer #sf-mmwave-gpio44:not([hidden]) {
   color: #ffffff;
 }
 
+.sf-mmwave-seen {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sf-mmwave-test {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #c2410c;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
 /* お客様のタブ切替は直接の子を隠す。板橋の測距カードは残す。 */
 body.sf-customer #sf-matrix-lidar:not([hidden]) {
   display: block !important;

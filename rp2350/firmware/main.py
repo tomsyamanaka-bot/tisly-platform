@@ -733,7 +733,7 @@ def _itabashi_logic_version():
                 return saved
         except Exception:
             pass
-        return str(getattr(config, "FIRMWARE_VERSION", "1.6.13") or "")
+        return str(getattr(config, "FIRMWARE_VERSION", "1.6.14") or "")
 
 
 def _sync_itabashi_clock():
@@ -868,6 +868,7 @@ def _send_heartbeat_once():
     log("heartbeat status={}".format(status))
 
     log("heartbeat sent")
+    _apply_mmwave_hold_from_body(body)
     _clear_health_cuts()
     if _kit:
         _kit.note_heartbeat(True)
@@ -930,6 +931,25 @@ def _send_heartbeat_once():
 
 
 
+
+
+def _apply_mmwave_hold_from_body(body):
+    """心拍の滞留秒だけを取る。点灯設定は触らない。"""
+    if _security is None or not body:
+        return
+    try:
+        data = json.loads(body)
+    except Exception:
+        return
+    hold = data.get("mmwaveHoldSeconds")
+    if hold is None:
+        hold = data.get("mmwaveDwellSec")
+    if hold is None:
+        return
+    try:
+        _security.set_mmwave_hold_sec(hold)
+    except Exception:
+        pass
 
 
 def poll_security_rules():

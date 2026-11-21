@@ -77,7 +77,7 @@ BEAM_LINK_MODE = "staged_steady"
 STAGE_WINDOW_SEC = 60
 
 # 版番号は直下 npm run build が揃える
-FIRMWARE_VERSION = "1.2.71"
+FIRMWARE_VERSION = "1.2.72"
 OTA_SITE = "keeprising"
-OTA_VERSION = "1.2.71"
+OTA_VERSION = "1.2.72"
 OTA_CHANNEL = "production"
